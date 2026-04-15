@@ -1,0 +1,56 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- ASP.NET Core / .NET extensions -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.6" />
+  </ItemGroup>
+
+  <!-- Blazor WebAssembly -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.5" />
+    <PackageVersion Include="Radzen.Blazor" Version="10.2.3" />
+  </ItemGroup>
+
+  <!-- Azure Storage -->
+  <ItemGroup>
+    <PackageVersion Include="Azure.Data.Tables" Version="12.9.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.22.0" />
+  </ItemGroup>
+
+  <!-- Observability -->
+  <ItemGroup>
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="4.0.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.3.0" />
+  </ItemGroup>
+
+  <!-- API documentation -->
+  <ItemGroup>
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.22" />
+  </ItemGroup>
+
+  <!-- Testing -->
+  <ItemGroup>
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Testcontainers.Azurite" Version="4.11.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+</Project>

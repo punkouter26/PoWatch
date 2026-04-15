@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="title desc">
+  <title>Fallback webcam preview</title>
+  <desc>A smiling face shown when webcam access is unavailable.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f1325" />
+      <stop offset="100%" stop-color="#040608" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)" />
+  <circle cx="400" cy="225" r="118" fill="rgba(15,11,31,0.85)" stroke="#38ffa8" stroke-width="10" />
+  <circle cx="360" cy="190" r="12" fill="#38ffa8" />
+  <circle cx="440" cy="190" r="12" fill="#38ffa8" />
+  <path d="M338 255 Q400 315 462 255" fill="none" stroke="#38ffa8" stroke-width="12" stroke-linecap="round" />
+  <text x="400" y="370" text-anchor="middle" font-family="Consolas, monospace" font-size="24" fill="#ecf1ff">Camera unavailable</text>
+  <text x="400" y="398" text-anchor="middle" font-family="Consolas, monospace" font-size="16" fill="#9ea2bc">Fallback preview active</text>
+</svg>

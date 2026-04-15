@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PoWatch.Api/PoWatch.Api.csproj" />
+    <Project Path="src/PoWatch.Application/PoWatch.Application.csproj" />
+    <Project Path="src/PoWatch.Client/PoWatch.Client.csproj" />
+    <Project Path="src/PoWatch.Domain/PoWatch.Domain.csproj" />
+    <Project Path="src/PoWatch.Infrastructure/PoWatch.Infrastructure.csproj" />
+    <Project Path="src/PoWatch.Shared/PoWatch.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PoWatch.IntegrationTests/PoWatch.IntegrationTests.csproj" />
+    <Project Path="tests/PoWatch.UnitTests/PoWatch.UnitTests.csproj" />
+  </Folder>
+</Solution>

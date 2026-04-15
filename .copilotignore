@@ -1,0 +1,18 @@
+# Exclude build and dependency artefacts from Copilot context
+bin/
+obj/
+node_modules/
+
+# Lock files and large generated caches
+*.lscache
+package-lock.json
+yarn.lock
+
+# Test results and coverage reports
+TestResults/
+test-results/
+coverage/
+
+# Logs
+logs/
+*.log

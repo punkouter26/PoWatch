@@ -1,0 +1,153 @@
+@page "/identity"
+@using PoWatch.Shared.Models
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+
+<PageTitle>PoWatch | Identity Nexus</PageTitle>
+
+<div class="sector-grid identity-grid">
+    <RadzenCard class="panel panel-library">
+        <header class="panel-header">
+            <h1>Identity Nexus</h1>
+            <p>Merge temporary IDs into canonical identities and rewrite history.</p>
+        </header>
+
+        <h2>Subject Library</h2>
+        <RadzenDataGrid Data="subjects" TItem="SubjectProfileDto" AllowPaging="true" PageSize="8" AllowColumnResize="true">
+            <Columns>
+                <RadzenDataGridColumn TItem="SubjectProfileDto" Property="SubjectId" Title="Subject ID" Width="140px" />
+                <RadzenDataGridColumn TItem="SubjectProfileDto" Property="DisplayName" Title="Display Name" Width="160px" />
+                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Known" Width="80px">
+                    <Template Context="item">@(item.IsKnownIdentity ? "Yes" : "No")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Last Seen" Width="180px">
+                    <Template Context="item">@item.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Inline Rename">
+                    <Template Context="item">
+                        <div class="rename-inline">
+                            <RadzenTextBox Placeholder="Rename subject" Value="@GetRenameDraft(item.SubjectId)" Change="@(args => renameDrafts[item.SubjectId] = args?.ToString() ?? string.Empty)" Style="width:100%;" />
+                            <RadzenButton Text="Save Rename" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Click="@(async () => await RenameAsync(item.SubjectId))" Disabled="busy" />
+                        </div>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+
+    <RadzenCard class="panel panel-merge">
+        <h2>Revisionist Merge Protocol</h2>
+        <div class="merge-form">
+            <label>Primary Subject</label>
+            <RadzenDropDown Data="subjects" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="primarySubjectId" Style="width:100%;" />
+
+            <label>Secondary Subject</label>
+            <RadzenDropDown Data="subjects.Where(x => x.SubjectId != primarySubjectId)" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="secondarySubjectId" Style="width:100%;" />
+
+            <label>Canonical Name (optional)</label>
+            <RadzenTextBox @bind-Value="canonicalName" Style="width:100%;" />
+
+            <RadzenButton Text="Commit Merge" ButtonStyle="ButtonStyle.Danger" Click="MergeAsync" Disabled="@(busy || subjects.Count < 2)" />
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(status))
+        {
+            <p class="status-line">@status</p>
+        }
+    </RadzenCard>
+</div>
+
+@code {
+    private List<SubjectProfileDto> subjects = [];
+    private readonly Dictionary<string, string> renameDrafts = new(StringComparer.OrdinalIgnoreCase);
+    private string? primarySubjectId;
+    private string? secondarySubjectId;
+    private string? canonicalName;
+    private bool busy;
+    private string status = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubjectsAsync();
+    }
+
+    private async Task LoadSubjectsAsync()
+    {
+        subjects = (await ApiClient.GetSubjectsAsync())
+            .OrderByDescending(x => x.LastSeenUtc)
+            .ToList();
+
+        foreach (var subject in subjects)
+        {
+            renameDrafts[subject.SubjectId] = subject.DisplayName;
+        }
+
+        if (subjects.Count > 0 && (string.IsNullOrWhiteSpace(primarySubjectId) || subjects.All(x => x.SubjectId != primarySubjectId)))
+        {
+            primarySubjectId = subjects[0].SubjectId;
+            canonicalName = subjects[0].DisplayName;
+        }
+
+        if (subjects.Count > 1 && (string.IsNullOrWhiteSpace(secondarySubjectId) || secondarySubjectId == primarySubjectId || subjects.All(x => x.SubjectId != secondarySubjectId)))
+        {
+            secondarySubjectId = subjects.First(x => x.SubjectId != primarySubjectId).SubjectId;
+        }
+    }
+
+    private string GetRenameDraft(string subjectId) =>
+        renameDrafts.TryGetValue(subjectId, out var value) ? value : string.Empty;
+
+    private async Task RenameAsync(string subjectId)
+    {
+        var newName = GetRenameDraft(subjectId).Trim();
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            status = "Enter a new name first.";
+            return;
+        }
+
+        busy = true;
+
+        var result = await ApiClient.RenameSubjectAsync(subjectId, new RenameSubjectRequestDto
+        {
+            NewName = newName
+        });
+
+        busy = false;
+        status = result is null
+            ? "Rename failed."
+            : $"Revision committed. {result.CanonicalName} now owns {result.EventsRewritten} historical events.";
+
+        await LoadSubjectsAsync();
+    }
+
+    private async Task MergeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(primarySubjectId) || string.IsNullOrWhiteSpace(secondarySubjectId))
+        {
+            status = "Both primary and secondary subjects are required.";
+            return;
+        }
+
+        if (string.Equals(primarySubjectId, secondarySubjectId, StringComparison.OrdinalIgnoreCase))
+        {
+            status = "Choose two different subjects to merge.";
+            return;
+        }
+
+        busy = true;
+
+        var merged = await ApiClient.MergeIdentityAsync(new MergeIdentityRequestDto
+        {
+            PrimarySubjectId = primarySubjectId,
+            SecondarySubjectId = secondarySubjectId,
+            NewDisplayName = canonicalName
+        });
+
+        busy = false;
+        status = merged is null
+            ? "Merge failed."
+            : $"Merge committed. {merged.CanonicalName} now owns {merged.EventsRewritten} events; removed {merged.SubjectsRemoved} duplicate subject entries.";
+
+        await LoadSubjectsAsync();
+    }
+}

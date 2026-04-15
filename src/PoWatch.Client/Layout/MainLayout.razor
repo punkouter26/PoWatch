@@ -1,0 +1,17 @@
+﻿@inherits LayoutComponentBase
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 hud-top">
+            <span>Ambient Historian // Local-Only Inference</span>
+            <span class="clock">@DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")</span>
+        </div>
+
+        <article class="content px-4 app-shell">
+            @Body
+        </article>
+    </main>
+</div>

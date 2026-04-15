@@ -1,0 +1,114 @@
+@page "/archives"
+@using PoWatch.Shared.Models
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+
+<PageTitle>PoWatch | Archives</PageTitle>
+
+<div class="sector-grid archives-grid">
+    <RadzenCard class="panel panel-overview">
+        <header class="panel-header">
+            <h1>Archives</h1>
+            <p>Daily chapters, narratives, and evidence highlights.</p>
+        </header>
+
+        <div class="archive-toolbar">
+            <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd" />
+            <RadzenButton Text="Load Chapter" ButtonStyle="ButtonStyle.Primary" Click="LoadChapterAsync" />
+        </div>
+
+        <h3>Clinical Narrative</h3>
+        <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a chapter to begin.")</p>
+
+        @if (chapter is not null && chapter.Timeline.Count == 0)
+        {
+            <div class="archive-empty">No data for this day.</div>
+        }
+    </RadzenCard>
+
+    <RadzenCard class="panel panel-timeline">
+        <h2>Chronological Timeline</h2>
+        <RadzenDataGrid Data="chapter?.Timeline" TItem="ObservationEventDto" AllowPaging="true" PageSize="8" AllowSorting="true">
+            <Columns>
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="ObservedAtUtc" Title="Time">
+                    <Template Context="item">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="SubjectDisplayName" Title="Subject" />
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="Activity" Title="Activity" />
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="IsClinicalOutlier" Title="Outlier" />
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+
+    <RadzenCard class="panel panel-highlights">
+        <h2>Highlight Reel</h2>
+        <div class="evidence-grid">
+            @if (chapter?.Highlights?.Any() == true)
+            {
+                @foreach (var item in chapter.Highlights)
+                {
+                    var evidenceUrl = GetEvidenceUrl(item);
+
+                    <div class="evidence-item">
+                        @if (!string.IsNullOrWhiteSpace(evidenceUrl))
+                        {
+                            <img class="evidence-thumb" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName" />
+                        }
+                        else
+                        {
+                            <div class="evidence-thumb evidence-thumb-placeholder">720p</div>
+                        }
+                        <div>
+                            <strong>@item.SubjectDisplayName</strong>
+                            <div>@item.Activity</div>
+                            <small>@(item.SignificantReason ?? "Significant event")</small>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <p>No highlights captured for this chapter.</p>
+            }
+        </div>
+    </RadzenCard>
+</div>
+
+@code {
+    private DateTime? selectedDate = DateTime.UtcNow;
+    private DailyChapterDto? chapter;
+    private readonly Dictionary<string, string> evidenceUrls = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadChapterAsync();
+    }
+
+    private async Task LoadChapterAsync()
+    {
+        var date = DateOnly.FromDateTime((selectedDate ?? DateTime.UtcNow).Date);
+        chapter = await ApiClient.GetChapterAsync(date);
+
+        evidenceUrls.Clear();
+        if (chapter?.Highlights is not null)
+        {
+            foreach (var item in chapter.Highlights.Where(x => !string.IsNullOrWhiteSpace(x.ImageReference)))
+            {
+                var url = await ApiClient.GetBlobReadUrlAsync(item.ImageReference!);
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    evidenceUrls[item.ImageReference!] = url;
+                }
+            }
+        }
+    }
+
+    private string? GetEvidenceUrl(ObservationEventDto item)
+    {
+        if (string.IsNullOrWhiteSpace(item.ImageReference))
+        {
+            return null;
+        }
+
+        return evidenceUrls.TryGetValue(item.ImageReference, out var url) ? url : null;
+    }
+}

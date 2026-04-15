@@ -1,0 +1,355 @@
+@page "/"
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@using PoWatch.Shared.Models
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject IJSRuntime JS
+
+<PageTitle>PoWatch | Observer Hub</PageTitle>
+
+<div class="sector-grid observer-grid">
+    <RadzenCard class="panel panel-main">
+        <header class="panel-header">
+            <h1>Observer Hub</h1>
+            <p>The Nexus monitors with local intelligence only.</p>
+        </header>
+
+        <div class="nexus-frame @(thinking ? "thinking" : string.Empty)">
+            <video @ref="liveCameraFeed" class="live-camera-feed" autoplay muted playsinline poster="media/webcam-fallback.svg" aria-label="Live webcam preview"></video>
+            <div class="scanlines @(hasCameraFeed ? string.Empty : "hidden")"></div>
+            <div class="video-label @(hasCameraFeed ? string.Empty : "hidden")">LIVE NEXUS 16:9</div>
+            <div class="video-sub">@(monitoring ? "Observation loop active" : "Local-only inference channel idle")</div>
+        </div>
+
+        <div class="controls-row">
+            <RadzenButton ButtonStyle="ButtonStyle.Primary" Text="Start Monitoring" Click="StartMonitoringAsync" Disabled="@(monitoring || thinking)" />
+            <RadzenButton ButtonStyle="ButtonStyle.Danger" Text="Stop Monitoring" Click="StopMonitoringAsync" Disabled="@(!monitoring && !thinking)" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Text="Inject Significant Event" Click="InjectEventAsync" />
+            <RadzenButton ButtonStyle="ButtonStyle.Secondary" Text="Inject Clinical Outlier" Click="InjectOutlierAsync" />
+            <div class="mute-toggle">
+                <span>Mute</span>
+                <RadzenSwitch @bind-Value="muted" TValue="bool" />
+            </div>
+            <div class="model-selector">
+                <label>Model</label>
+                <select value="@selectedModelKey" @onchange="OnModelChangedAsync" disabled="@monitoring">
+                    <option value="smolvlm-256m">SmolVLM 256M</option>
+                    <option value="lfm2-vl-450m">LFM2.5-VL 450M</option>
+                </select>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="status-line">@statusMessage</div>
+        }
+    </RadzenCard>
+
+    <RadzenCard class="panel panel-hud">
+        <header class="panel-header compact">
+            <h2>System HUD</h2>
+        </header>
+
+        <div class="hud-grid">
+            <div><label>Poll Interval</label><span>@(observerState?.PollIntervalSeconds ?? 0)s</span></div>
+            <div><label>Observation Loop</label><span>@(observerState?.ObservationLoopEnabled == true ? "ONLINE" : "OFFLINE")</span></div>
+            <div><label>TTS</label><span>@(muted ? "MUTED" : "ACTIVE")</span></div>
+            <div><label>Significant Capture</label><span>@(observerState?.SaveSignificantImages == true ? "720p ON" : "OFF")</span></div>
+            <div><label>Status</label><span>@(observerState?.Status ?? (monitoring ? "Running" : "Idle"))</span></div>
+        </div>
+
+        <h3>Announcements</h3>
+        <ul class="announcement-list">
+            @foreach (var line in announcements)
+            {
+                <li>@line</li>
+            }
+        </ul>
+    </RadzenCard>
+
+    <RadzenCard class="panel panel-stream">
+        <header class="panel-header compact">
+            <h2>Clinical Stream</h2>
+        </header>
+
+        <RadzenDataGrid Data="streamItems" TItem="ObservationEventDto" AllowPaging="false" AllowSorting="false" class="stream-grid">
+            <Columns>
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="ObservedAtUtc" Title="Time" Width="90px">
+                    <Template Context="item">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="SubjectDisplayName" Title="Subject" Width="140px" />
+                <RadzenDataGridColumn TItem="ObservationEventDto" Property="Activity" Title="Activity" />
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</div>
+
+@code {
+    private List<ObservationEventDto> streamItems = [];
+    private List<string> announcements = [];
+    private ObserverRuntimeStateDto? observerState;
+    private bool muted = true;
+    private bool thinking;
+    private bool monitoring;
+    private bool hasCameraFeed;
+    private string statusMessage = string.Empty;
+    private ElementReference liveCameraFeed;
+    private CancellationTokenSource? monitorCts;
+    private string selectedModelKey = "smolvlm-256m";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshStateAsync();
+        await RefreshTimelineAsync();
+        muted = !(observerState?.TtsAnnouncementsEnabled ?? false);
+    }
+
+    private async Task StartMonitoringAsync()
+    {
+        await RefreshStateAsync();
+
+        monitorCts?.Cancel();
+        monitorCts = new CancellationTokenSource();
+
+        monitoring = true;
+        statusMessage = "Monitoring active.";
+        await InvokeAsync(StateHasChanged);
+
+        var previewStatus = await JS.InvokeAsync<string>("powatchInference.startPreview", liveCameraFeed);
+        if (!string.Equals(previewStatus, "OK", StringComparison.OrdinalIgnoreCase))
+        {
+            monitoring = false;
+            statusMessage = previewStatus;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        hasCameraFeed = true;
+
+        _ = Task.Run(() => RunMonitorLoopAsync(monitorCts.Token));
+    }
+
+    private async Task StopMonitoringAsync()
+    {
+        monitoring = false;
+        thinking = false;
+        hasCameraFeed = false;
+        statusMessage = "Monitoring stopped.";
+
+        monitorCts?.Cancel();
+
+        await JS.InvokeVoidAsync("powatchInference.stopMonitor");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnModelChangedAsync(ChangeEventArgs e)
+    {
+        selectedModelKey = e.Value?.ToString() ?? "smolvlm-256m";
+        await JS.InvokeVoidAsync("powatchInference.setModel", selectedModelKey);
+        statusMessage = "Model switched. Will load on next inference.";
+    }
+
+    private async Task RunMonitorLoopAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await RunSingleCycleAsync(cancellationToken);
+
+            var delaySeconds = Math.Max(1, observerState?.PollIntervalSeconds ?? 10);
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+        }
+    }
+
+    private async Task RunSingleCycleAsync(CancellationToken cancellationToken)
+    {
+        thinking = true;
+
+        // Show model-loading status before blocking on inference
+        var modelState = await JS.InvokeAsync<string>("powatchInference.getModelLoadState", cancellationToken);
+        if (modelState is "loading" or "idle")
+        {
+            statusMessage = "Loading AI model…";
+            await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+
+        var inference = await JS.InvokeAsync<InferenceBridgeResult>(
+            "powatchInference.captureAndInfer",
+            cancellationToken,
+            "Observe the person or room. Reply strictly as: LABEL: <5 word activity summary> | NOTE: <one clinical sentence describing what you see>",
+            liveCameraFeed);
+
+        if (!inference.IsAvailable)
+        {
+            thinking = false;
+
+            // Silent skips — don’t show as errors, preserve current status
+            if (inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase) ||
+                inference.Status.StartsWith("Low-quality", StringComparison.OrdinalIgnoreCase))
+            {
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            statusMessage = inference.Status;
+
+            if (string.Equals(inference.Status, "Webcam unavailable in this browser. Fallback preview active.", StringComparison.OrdinalIgnoreCase))
+            {
+                monitoring = false;
+                monitorCts?.Cancel();
+            }
+
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var result = await ApiClient.IngestObservationAsync(new IngestObservationRequestDto
+        {
+            SubjectHint = inference.SubjectHint,
+            Activity = inference.Activity,
+            ClinicalPayload = inference.ClinicalPayload,
+            IsSignificant = inference.IsSignificant,
+            SignificantReason = inference.SignificantReason
+        }, cancellationToken);
+
+        thinking = false;
+        statusMessage = result?.Detail ?? "No response";
+
+        if (result is not null && !result.Dropped && !result.SkippedAsRedundant && inference.IsSignificant)
+        {
+            await TryUploadEvidenceAsync(result.SubjectId, $"{result.SubjectDisplayName}: {inference.Activity}");
+        }
+
+        if (result is not null && !muted && !result.SkippedAsRedundant)
+        {
+            await AnnounceAsync(result.SubjectDisplayName, string.IsNullOrWhiteSpace(inference.SubjectHint));
+        }
+
+        await RefreshTimelineAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task InjectEventAsync()
+    {
+        thinking = true;
+
+        var result = await ApiClient.IngestObservationAsync(new IngestObservationRequestDto
+        {
+            SubjectHint = "Kim",
+            Activity = "Desk Work",
+            ClinicalPayload = "<S>Known subject entered and resumed desk work.<E>",
+            IsSignificant = true,
+            SignificantReason = "Known person entered"
+        });
+
+        thinking = false;
+        statusMessage = result?.Detail ?? "No response";
+
+        if (result is not null && !result.Dropped && !result.SkippedAsRedundant)
+        {
+            await TryUploadEvidenceAsync(result.SubjectId, $"{result.SubjectDisplayName}: Desk Work");
+        }
+
+        if (result is not null && !muted && !result.SkippedAsRedundant)
+        {
+            await AnnounceAsync(result.SubjectDisplayName, false);
+        }
+
+        await RefreshTimelineAsync();
+    }
+
+    private async Task InjectOutlierAsync()
+    {
+        thinking = true;
+
+        var result = await ApiClient.IngestObservationAsync(new IngestObservationRequestDto
+        {
+            SubjectHint = null,
+            Activity = "Unknown movement",
+            ClinicalPayload = "malformed payload",
+            IsSignificant = true,
+            SignificantReason = "Clinical outlier"
+        });
+
+        thinking = false;
+        statusMessage = result?.Detail ?? "No response";
+
+        if (result is not null && !result.Dropped)
+        {
+            await TryUploadEvidenceAsync(result.SubjectId, $"{result.SubjectDisplayName}: Clinical outlier");
+        }
+
+        if (result is not null && !muted)
+        {
+            await AnnounceAsync(result.SubjectDisplayName, true);
+        }
+
+        await RefreshTimelineAsync();
+    }
+
+    private async Task AnnounceAsync(string subjectDisplayName, bool isUnknown)
+    {
+        if (isUnknown)
+        {
+            await JS.InvokeVoidAsync("powatchAudio.playChirp");
+        }
+
+        var message = isUnknown
+            ? $"New subject detected: {subjectDisplayName}"
+            : $"Subject identified: {subjectDisplayName}";
+
+        announcements.Insert(0, $"VOICE: {message}");
+
+        await JS.InvokeVoidAsync("powatchAudio.announce", message);
+    }
+
+    private async Task TryUploadEvidenceAsync(string subjectId, string label)
+    {
+        try
+        {
+            var access = await ApiClient.GetBlobUploadAccessAsync(subjectId, DateOnly.FromDateTime(DateTime.UtcNow));
+            if (access is not null && !string.IsNullOrWhiteSpace(access.SasUrl))
+            {
+                await JS.InvokeVoidAsync("powatchBlobUpload.uploadSvgPlaceholder", access.SasUrl, label);
+            }
+        }
+        catch
+        {
+            announcements.Insert(0, "EVIDENCE: Azurite upload unavailable. Start the Docker storage emulator.");
+        }
+    }
+
+    private async Task RefreshStateAsync()
+    {
+        observerState = await ApiClient.GetObserverStateAsync();
+    }
+
+    private async Task RefreshTimelineAsync()
+    {
+        var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+        streamItems = chapter?.Timeline is not null
+            ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(25).ToList()
+            : [];
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        monitorCts?.Cancel();
+
+        await JS.InvokeVoidAsync("powatchInference.stopMonitor");
+    }
+
+    private sealed class InferenceBridgeResult
+    {
+        public bool IsAvailable { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string? SubjectHint { get; init; }
+        public string Activity { get; init; } = "Unknown";
+        public string ClinicalPayload { get; init; } = string.Empty;
+        public bool IsSignificant { get; init; }
+        public string? SignificantReason { get; init; }
+    }
+}

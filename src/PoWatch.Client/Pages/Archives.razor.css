@@ -1,0 +1,52 @@
+.archive-toolbar {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.narrative {
+    line-height: 1.6;
+    color: #d6def5;
+}
+
+.archive-empty {
+    margin-top: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    background: rgba(56, 255, 168, 0.08);
+    color: #9ef7d4;
+}
+
+.evidence-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.evidence-item {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0.9rem;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid rgba(56, 255, 168, 0.15);
+    border-radius: 10px;
+}
+
+.evidence-thumb {
+    width: 140px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 255, 168, 0.25);
+}
+
+.evidence-thumb-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(56, 255, 168, 0.12), rgba(111, 61, 227, 0.18));
+    color: #9ef7d4;
+    font-weight: 700;
+}

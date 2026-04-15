@@ -1,0 +1,54 @@
+using System.Net.Http.Json;
+using PoWatch.Shared.Models;
+
+namespace PoWatch.Client.Services;
+
+public sealed class PoWatchApiClient(HttpClient httpClient)
+{
+    public async Task<ObserverRuntimeStateDto?> GetObserverStateAsync(CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<ObserverRuntimeStateDto>("api/observer/state", cancellationToken);
+
+    public async Task<IngestObservationResultDto?> IngestObservationAsync(IngestObservationRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("api/observer/ingest", request, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<IngestObservationResultDto>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<DailyChapterDto?> GetChapterAsync(DateOnly date, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<DailyChapterDto>($"api/archives/{date:yyyy-MM-dd}", cancellationToken);
+
+    public async Task<BlobAccessDescriptorDto?> GetBlobUploadAccessAsync(string subjectId, DateOnly date, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<BlobAccessDescriptorDto>($"api/blobs/sas?subjectId={Uri.EscapeDataString(subjectId)}&date={date:yyyyMMdd}", cancellationToken);
+
+    public async Task<string?> GetBlobReadUrlAsync(string blobPath, CancellationToken cancellationToken = default)
+    {
+        var access = await httpClient.GetFromJsonAsync<BlobAccessDescriptorDto>($"api/blobs/sas?blobPath={Uri.EscapeDataString(blobPath)}", cancellationToken);
+        return access?.SasUrl;
+    }
+
+    public async Task<IReadOnlyList<SubjectProfileDto>> GetSubjectsAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await httpClient.GetFromJsonAsync<List<SubjectProfileDto>>("api/identity/subjects", cancellationToken);
+        return items ?? [];
+    }
+
+    public async Task<IdentityRevisionResultDto?> RenameSubjectAsync(string subjectId, RenameSubjectRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Patch, $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}")
+        {
+            Content = JsonContent.Create(request)
+        };
+
+        using var response = await httpClient.SendAsync(message, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<IdentityRevisionResultDto>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<IdentityRevisionResultDto?> MergeIdentityAsync(MergeIdentityRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("api/identity/merge", request, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<IdentityRevisionResultDto>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<DiagnosticsSnapshotDto?> GetDiagnosticsAsync(CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<DiagnosticsSnapshotDto>("api/diagnostics/status", cancellationToken);
+}

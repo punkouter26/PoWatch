@@ -1,0 +1,120 @@
+@PoWatch.Api_HostAddress = http://localhost:5000
+
+### ─── Health ────────────────────────────────────────────────────────────────
+
+GET {{PoWatch.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+### ─── Observer ───────────────────────────────────────────────────────────────
+
+# Get live observer runtime state and feature flags
+GET {{PoWatch.Api_HostAddress}}/api/observer/state
+Accept: application/json
+
+###
+
+# Ingest a known-subject observation (significant)
+POST {{PoWatch.Api_HostAddress}}/api/observer/ingest
+Content-Type: application/json
+
+{
+  "observedAtUtc": "2026-04-15T10:00:00Z",
+  "subjectHint": "Kim",
+  "activity": "Desk Work",
+  "clinicalPayload": "<S>Known subject Kim resumed desk work after brief absence.<E>",
+  "isSignificant": true,
+  "significantReason": "Return from absence"
+}
+
+###
+
+# Ingest an anonymous observation (insignificant)
+POST {{PoWatch.Api_HostAddress}}/api/observer/ingest
+Content-Type: application/json
+
+{
+  "observedAtUtc": "2026-04-15T10:05:00Z",
+  "subjectHint": null,
+  "activity": "Walking",
+  "clinicalPayload": "<S>Unidentified subject moving through frame.<E>",
+  "isSignificant": false,
+  "significantReason": null
+}
+
+###
+
+### ─── Archives ───────────────────────────────────────────────────────────────
+
+# Get today's daily chapter (narrative + timeline + highlights)
+GET {{PoWatch.Api_HostAddress}}/api/archives/2026-04-15
+Accept: application/json
+
+###
+
+# Get a historical chapter
+GET {{PoWatch.Api_HostAddress}}/api/archives/2026-04-01
+Accept: application/json
+
+###
+
+### ─── Blobs ──────────────────────────────────────────────────────────────────
+
+# Request a time-limited upload SAS URL for a subject on a date
+GET {{PoWatch.Api_HostAddress}}/api/blobs/sas?subjectId=kim&date=20260415
+Accept: application/json
+
+###
+
+# Request a time-limited read SAS URL by blob path
+GET {{PoWatch.Api_HostAddress}}/api/blobs/sas?blobPath=significant-images/20260415/kim/screenshot.jpg
+Accept: application/json
+
+###
+
+### ─── Identity ───────────────────────────────────────────────────────────────
+
+# List all known and temporary subject identities
+GET {{PoWatch.Api_HostAddress}}/api/identity/subjects
+Accept: application/json
+
+###
+
+# Rename a temporary subject
+PATCH {{PoWatch.Api_HostAddress}}/api/identity/subjects/Subject-3
+Content-Type: application/json
+
+{
+  "newName": "Kim"
+}
+
+###
+
+# Merge two subject identities into one canonical history
+POST {{PoWatch.Api_HostAddress}}/api/identity/merge
+Content-Type: application/json
+
+{
+  "primarySubjectId": "kim",
+  "secondarySubjectId": "Subject-7",
+  "newDisplayName": "Kim"
+}
+
+###
+
+### ─── Diagnostics ────────────────────────────────────────────────────────────
+
+# Get masked system health snapshot (CPU, memory, storage status, masked credentials)
+GET {{PoWatch.Api_HostAddress}}/api/diagnostics/status
+Accept: application/json
+
+###
+
+### ─── OpenAPI / Scalar ───────────────────────────────────────────────────────
+
+# OpenAPI spec JSON
+GET {{PoWatch.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###

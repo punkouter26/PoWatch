@@ -1,0 +1,314 @@
+:root {
+    --bg-main: #05030a;
+    --bg-panel: #0f0b1f;
+    --bg-panel-soft: #15112c;
+    --line: #6f3de3;
+    --neon-green: #38ffa8;
+    --text-primary: #ecf1ff;
+    --text-muted: #9ea2bc;
+}
+
+html,
+body {
+    font-family: "Consolas", "Lucida Console", monospace;
+    margin: 0;
+    background:
+        radial-gradient(circle at 20% 20%, #22103b 0%, transparent 42%),
+        radial-gradient(circle at 80% 0%, #103325 0%, transparent 35%),
+        linear-gradient(165deg, #05030a 0%, #080617 60%, #020205 100%);
+    color: var(--text-primary);
+}
+
+h1,
+h2,
+h3,
+p,
+small,
+span,
+label {
+    color: var(--text-primary);
+}
+
+.app-shell {
+    padding-top: 1rem;
+}
+
+.sector-grid {
+    display: grid;
+    width: 100%;
+    gap: 1rem;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.sector-grid > .panel {
+    grid-column: span 12;
+    min-width: 0;
+}
+
+.observer-grid .panel-main {
+    grid-column: span 12;
+}
+
+.observer-grid .panel-stream {
+    grid-column: span 12;
+}
+
+.observer-grid .panel-stream .rz-data-grid,
+.observer-grid .panel-stream .rz-data-grid-table {
+    width: 100% !important;
+}
+
+.observer-grid .panel-hud {
+    grid-column: span 12;
+}
+
+.panel {
+    background: linear-gradient(180deg, rgba(22, 17, 44, 0.97), rgba(14, 11, 28, 0.96));
+    border: 1px solid rgba(111, 61, 227, 0.45);
+    box-shadow: 0 0 0 1px rgba(56, 255, 168, 0.12), 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.panel-header.compact {
+    margin-bottom: 0.7rem;
+}
+
+.nexus-frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border: 1px solid rgba(56, 255, 168, 0.45);
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0f1325, #040608);
+    overflow: hidden;
+    margin: 0.8rem 0 1rem;
+}
+
+.live-camera-feed {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: linear-gradient(135deg, #0f1325, #040608);
+    filter: saturate(0.92) contrast(1.08);
+}
+
+.nexus-frame .video-label {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 2;
+    color: var(--neon-green);
+    letter-spacing: 0.08rem;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
+}
+
+.nexus-frame .video-label.hidden,
+.nexus-frame .scanlines.hidden {
+    display: none;
+}
+
+.nexus-frame .video-sub {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    z-index: 2;
+    color: var(--text-primary);
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+}
+
+.scanlines {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(56, 255, 168, 0.12),
+        rgba(56, 255, 168, 0.12) 2px,
+        transparent 2px,
+        transparent 6px
+    );
+}
+
+.nexus-frame.thinking .scanlines {
+    opacity: 1;
+    animation: pulseScan 0.8s linear infinite;
+}
+
+@keyframes pulseScan {
+    from {
+        transform: translateY(-8px);
+    }
+
+    to {
+        transform: translateY(8px);
+    }
+}
+
+.controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.mute-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.status-line {
+    margin-top: 0.75rem;
+    color: var(--neon-green);
+}
+
+.hud-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+
+.hud-grid div {
+    border: 1px solid rgba(111, 61, 227, 0.4);
+    border-radius: 6px;
+    background: rgba(16, 12, 30, 0.85);
+    padding: 0.65rem;
+}
+
+.hud-grid label {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.announcement-list {
+    margin-top: 0.7rem;
+    padding-left: 1.2rem;
+}
+
+.identity-grid .panel-library {
+    grid-column: span 8;
+}
+
+.identity-grid .panel-merge {
+    grid-column: span 4;
+}
+
+.archives-grid .panel-overview {
+    grid-column: span 12;
+}
+
+.archives-grid .panel-timeline {
+    grid-column: span 12;
+}
+
+.archives-grid .panel-highlights {
+    grid-column: span 12;
+}
+
+.archive-toolbar,
+.rename-inline {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.merge-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin-bottom: 0.8rem;
+}
+
+.narrative {
+    color: var(--text-muted);
+}
+
+.evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 0.7rem;
+}
+
+.evidence-item {
+    display: grid;
+    grid-template-columns: 70px auto;
+    gap: 0.65rem;
+    padding: 0.6rem;
+    border: 1px solid rgba(111, 61, 227, 0.4);
+    border-radius: 6px;
+    background: rgba(15, 11, 31, 0.86);
+}
+
+.evidence-thumb {
+    display: grid;
+    place-items: center;
+    border: 1px dashed rgba(56, 255, 168, 0.45);
+    border-radius: 4px;
+    color: var(--neon-green);
+}
+
+.hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.3);
+    background: rgba(8, 6, 18, 0.9);
+    color: var(--text-muted);
+}
+
+.clock {
+    color: var(--neon-green);
+}
+
+#blazor-error-ui {
+    background: #2f0014;
+    color: #fff;
+    bottom: 0;
+    display: none;
+    left: 0;
+    padding: 0.8rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+.loading-progress circle:last-child {
+    stroke: #6f3de3;
+}
+
+@media (max-width: 1100px) {
+    .observer-grid .panel-main,
+    .observer-grid .panel-stream,
+    .observer-grid .panel-hud,
+    .sector-grid > .panel {
+        grid-column: span 12;
+    }
+
+    .archive-toolbar,
+    .rename-inline,
+    .merge-form {
+        grid-template-columns: 1fr;
+    }
+
+    .identity-grid .panel-library,
+    .identity-grid .panel-merge,
+    .archives-grid .panel-overview,
+    .archives-grid .panel-timeline,
+    .archives-grid .panel-highlights {
+        grid-column: span 12;
+    }
+}

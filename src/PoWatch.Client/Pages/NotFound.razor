@@ -1,0 +1,21 @@
+﻿@page "/not-found"
+@layout MainLayout
+@inject NavigationManager Navigation
+
+<h3>Not Found</h3>
+<PageTitle>PoWatch | Sector Not Found</PageTitle>
+
+<div class="sector-grid">
+	<RadzenCard class="panel">
+		<h1>Sector Not Found</h1>
+		<p>The requested route is outside the current command center map.</p>
+		<RadzenButton Text="Return to Observer Hub" ButtonStyle="ButtonStyle.Primary" Click="OnReturnClick" />
+	</RadzenCard>
+</div>
+
+@code {
+	private void OnReturnClick()
+	{
+		Navigation.NavigateTo("/");
+	}
+}
