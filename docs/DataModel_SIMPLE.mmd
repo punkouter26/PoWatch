@@ -1,0 +1,24 @@
+erDiagram
+    ObservationEvent {
+        guid EventId PK
+        string SubjectId FK
+        string Activity
+        bool IsSignificant
+        bool IsOutlier
+        datetime ObservedAtUtc
+    }
+
+    SubjectProfile {
+        string SubjectId PK
+        string DisplayName
+        string LastActivity
+        datetime LastSeenUtc
+    }
+
+    DailyChapter {
+        date Date PK
+        string Narrative
+    }
+
+    SubjectProfile ||--o{ ObservationEvent : "has"
+    DailyChapter ||--o{ ObservationEvent : "timeline"

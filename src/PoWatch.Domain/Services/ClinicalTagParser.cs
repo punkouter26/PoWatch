@@ -5,6 +5,10 @@ public static class ClinicalTagParser
     private const string StartTag = "<S>";
     private const string EndTag = "<E>";
 
+    // Maximum character length allowed for the extracted clinical description.
+    // Prevents oversized AI payloads from passing validation and hitting Azure Table Storage entity limits (~1 MB).
+    private const int MaxDescriptionLength = 500;
+
     public static bool TryExtract(string? payload, out string extracted)
     {
         extracted = string.Empty;
@@ -24,6 +28,11 @@ public static class ClinicalTagParser
 
         var inner = trimmed[StartTag.Length..^EndTag.Length].Trim();
         if (inner.Length == 0)
+        {
+            return false;
+        }
+
+        if (inner.Length > MaxDescriptionLength)
         {
             return false;
         }

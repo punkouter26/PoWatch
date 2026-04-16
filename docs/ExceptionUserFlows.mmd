@@ -1,0 +1,108 @@
+flowchart TD
+    subgraph IngestionErrors["Ingest Exception Paths — POST /api/observer/ingest"]
+        IREQ["POST /api/observer/ingest"]
+        IFLAG{"ObservationLoopEnabled\n= true?"}
+        IDROP_FLAG["200 OK — Dropped\nreason: 'observation loop disabled'\naccepted=false"]
+        IGATE{"ProcessingGate\nTryEnter() succeeds?"}
+        IDROP_GATE["200 OK — Dropped\nreason: 'backpressure — inference busy'\naccepted=false"]
+        ICLIN{"ClinicalTagParser\nTryExtract() valid?"}
+        IOUTLIER["Outlier Flagged\nIsOutlier=true — event still persisted\nclinical review required"]
+        IREDUND{"Redundancy Check\nSame as SubjectProfile.LastActivity\nand no outlier flag?"}
+        IDROP_RED["200 OK — Dropped\nreason: 'redundant activity'\naccepted=false"]
+        IACCEPT["200 OK — Accepted\naccepted=true, eventId assigned"]
+    end
+
+    subgraph AuthErrors["Authentication Exception Paths"]
+        ABYPASS{"DeveloperBypassAuth\nFeature Flag?"}
+        A_PROD_ANON["All requests anonymous\nNo auth enforcement in production\nUSERID=anonymous in logs"]
+        A_DEV_HEADER{"X-Dev-User-Id header\npresent in request?"}
+        A_ANON_DEV["Dev request anonymous\nFakeAuth builds anonymous principal\nwarning logged"]
+        A_AUTH["Dev request authenticated\nClaimTypes.NameIdentifier set\nUserId enriched in Serilog context"]
+    end
+
+    subgraph IdentityErrors["Identity Exception Paths"]
+        RENAME_EP["PATCH /api/identity/subjects/{subjectId}"]
+        MERGE_EP["POST /api/identity/merge"]
+        INAME_EMPTY{"NewName null\nor empty?"}
+        INAME_ERR["400 Bad Request\n'Name is required'"]
+        ISUBJ_EXISTS{"SubjectId exists\nin PoWatchSubjects?"}
+        ISUBJ_404["404 Not Found\nSubject does not exist"]
+        ISAME_CHECK{"primary ==\nsecondary?"}
+        ISAME_ERR["400 Bad Request\n'Cannot merge subject with itself'"]
+        IMERGE_OK["200 OK\nIdentityRevisionResultDto\nrewritten count + removed count"]
+        IRENAME_OK["200 OK\nIdentityRevisionResultDto\ncanonicalId + rewritten count"]
+    end
+
+    subgraph DiagnosticsMasking["Diagnostics Masking — GET /api/diagnostics/status"]
+        DIAG_SNAP["LocalDiagnosticsProvider.CaptureSnapshot()"]
+        MASK_CONN["MaskingUtility applied to\nConnectionString — first 3 + last 3 chars visible"]
+        MASK_AIKEY["MaskingUtility applied to\nAppInsights ConnectionString"]
+        DIAG_RESP["DiagnosticsSnapshotDto\nMasked credentials — safe for UI display"]
+        DEBUG_FLAG{"ExposeDebugDetailsInUi\n= true?"}
+        EXCEPTION_DETAIL["Full exception details\nexposed in error responses (Dev only)"]
+        NO_DETAIL["Generic error message\nno stack traces in production"]
+    end
+
+    IREQ --> IFLAG
+    IFLAG -->|"false"| IDROP_FLAG
+    IFLAG -->|"true"| IGATE
+    IGATE -->|"false — busy"| IDROP_GATE
+    IGATE -->|"true — available"| ICLIN
+    ICLIN -->|"invalid payload"| IOUTLIER
+    ICLIN -->|"valid payload"| IREDUND
+    IOUTLIER --> IREDUND
+    IREDUND -->|"redundant + no outlier"| IDROP_RED
+    IREDUND -->|"new or outlier"| IACCEPT
+
+    ABYPASS -->|"false — Production"| A_PROD_ANON
+    ABYPASS -->|"true — Dev"| A_DEV_HEADER
+    A_DEV_HEADER -->|"absent"| A_ANON_DEV
+    A_DEV_HEADER -->|"present"| A_AUTH
+
+    RENAME_EP --> INAME_EMPTY
+    INAME_EMPTY -->|"true"| INAME_ERR
+    INAME_EMPTY -->|"false"| ISUBJ_EXISTS
+    ISUBJ_EXISTS -->|"false"| ISUBJ_404
+    ISUBJ_EXISTS -->|"true"| IRENAME_OK
+
+    MERGE_EP --> ISAME_CHECK
+    ISAME_CHECK -->|"true"| ISAME_ERR
+    ISAME_CHECK -->|"false"| IMERGE_OK
+
+    DIAG_SNAP --> MASK_CONN
+    MASK_CONN --> MASK_AIKEY
+    MASK_AIKEY --> DIAG_RESP
+    DIAG_RESP --> DEBUG_FLAG
+    DEBUG_FLAG -->|"true"| EXCEPTION_DETAIL
+    DEBUG_FLAG -->|"false"| NO_DETAIL
+
+    style IngestionErrors fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style AuthErrors fill:#2c1654,stroke:#9b72cf,color:#fff
+    style IdentityErrors fill:#1b4332,stroke:#52b788,color:#fff
+    style DiagnosticsMasking fill:#2c3e50,stroke:#7f8c8d,color:#fff
+
+    style IDROP_FLAG fill:#6b2737,stroke:#e63946,color:#fff
+    style IDROP_GATE fill:#6b2737,stroke:#e63946,color:#fff
+    style IDROP_RED fill:#6b2737,stroke:#e63946,color:#fff
+    style IOUTLIER fill:#7d4e00,stroke:#f0a500,color:#fff
+    style IACCEPT fill:#1a3a2a,stroke:#52b788,color:#fff
+    style A_PROD_ANON fill:#7d4e00,stroke:#f0a500,color:#fff
+    style A_ANON_DEV fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style A_AUTH fill:#1a3a2a,stroke:#52b788,color:#fff
+    style INAME_ERR fill:#6b2737,stroke:#e63946,color:#fff
+    style ISUBJ_404 fill:#6b2737,stroke:#e63946,color:#fff
+    style ISAME_ERR fill:#6b2737,stroke:#e63946,color:#fff
+    style IMERGE_OK fill:#1a3a2a,stroke:#52b788,color:#fff
+    style IRENAME_OK fill:#1a3a2a,stroke:#52b788,color:#fff
+    style EXCEPTION_DETAIL fill:#7d4e00,stroke:#f0a500,color:#fff
+    style NO_DETAIL fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ABYPASS fill:#0f3460,stroke:#9b72cf,color:#fff
+    style IFLAG fill:#0f3460,stroke:#4a90d9,color:#fff
+    style IGATE fill:#0f3460,stroke:#4a90d9,color:#fff
+    style ICLIN fill:#0f3460,stroke:#4a90d9,color:#fff
+    style IREDUND fill:#0f3460,stroke:#4a90d9,color:#fff
+    style A_DEV_HEADER fill:#0f3460,stroke:#9b72cf,color:#fff
+    style INAME_EMPTY fill:#0f3460,stroke:#52b788,color:#fff
+    style ISUBJ_EXISTS fill:#0f3460,stroke:#52b788,color:#fff
+    style ISAME_CHECK fill:#0f3460,stroke:#52b788,color:#fff
+    style DEBUG_FLAG fill:#0f3460,stroke:#7f8c8d,color:#fff

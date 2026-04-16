@@ -1,0 +1,31 @@
+flowchart TD
+    subgraph Hierarchy["Interface Hierarchy (Simple)"]
+        SHELL["App Shell\nApp.razor + MainLayout"]
+        OBSHUB["ObserverHub\n/observer-hub"]
+        ARCHIVES["Archives\n/archives"]
+        IDNEXUS["IdentityNexus\n/identity"]
+        DIAG["Diagnostics\n/diagnostics"]
+        APICLIENT["PoWatchApiClient\nHTTP wrapper"]
+        SHARED["PoWatch.Shared DTOs"]
+    end
+
+    SHELL --> OBSHUB
+    SHELL --> ARCHIVES
+    SHELL --> IDNEXUS
+    SHELL --> DIAG
+
+    OBSHUB --> APICLIENT
+    ARCHIVES --> APICLIENT
+    IDNEXUS --> APICLIENT
+    DIAG --> APICLIENT
+
+    APICLIENT --> SHARED
+
+    style Hierarchy fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style SHELL fill:#3d2163,stroke:#9b72cf,color:#fff
+    style OBSHUB fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style ARCHIVES fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style IDNEXUS fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style DIAG fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style APICLIENT fill:#2a3d16,stroke:#f0a500,color:#fff
+    style SHARED fill:#1a3a2a,stroke:#52b788,color:#fff

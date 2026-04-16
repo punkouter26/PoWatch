@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
-using PoWatch.Application.Models;
+using PoWatch.Shared.Models;
 using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
 using PoWatch.Domain.Services;
@@ -16,7 +16,7 @@ public sealed class ObservationService(
     IOptions<ObserverOptions> observerOptions,
     ILogger<ObservationService> logger)
 {
-    public async Task<IngestObservationResult> IngestAsync(IngestObservationRequest request, CancellationToken cancellationToken)
+    public async Task<IngestObservationResultDto> IngestAsync(IngestObservationRequestDto request, CancellationToken cancellationToken)
     {
         logger.LogDebug(
             "Observation poll start. ObservedAtUtc={ObservedAtUtc} SubjectHint={SubjectHint} Activity={Activity}",
@@ -27,7 +27,7 @@ public sealed class ObservationService(
         if (!featureFlags.Value.ObservationLoopEnabled)
         {
             logger.LogInformation("Observation ingest ignored because observation loop is disabled by feature flag.");
-            return new IngestObservationResult
+            return new IngestObservationResultDto
             {
                 Accepted = false,
                 Dropped = true,
@@ -43,7 +43,7 @@ public sealed class ObservationService(
                 request.SubjectHint,
                 request.Activity);
 
-            return new IngestObservationResult
+            return new IngestObservationResultDto
             {
                 Accepted = false,
                 Dropped = true,
@@ -65,19 +65,18 @@ public sealed class ObservationService(
                     request.ClinicalPayload);
             }
 
-            var latest = await observationRepository.GetLatestForSubjectAsync(subject.SubjectId, cancellationToken);
-            if (latest is not null &&
-                string.Equals(latest.Activity, request.Activity, StringComparison.OrdinalIgnoreCase) &&
-                !latest.IsClinicalOutlier &&
+            // Redundancy check: use the subject's cached LastActivity to avoid a cross-partition table scan on every poll.
+            if (subject.LastActivity is not null &&
+                string.Equals(subject.LastActivity, request.Activity, StringComparison.OrdinalIgnoreCase) &&
+                !subject.LastActivityIsOutlier &&
                 !isOutlier)
             {
                 logger.LogInformation(
-                    "Redundant observation skipped. SubjectId={SubjectId} Activity={Activity} LastObservedAtUtc={LastObservedAtUtc}",
+                    "Redundant observation skipped (activity matches cached subject state). SubjectId={SubjectId} Activity={Activity}",
                     subject.SubjectId,
-                    request.Activity,
-                    latest.ObservedAtUtc);
+                    request.Activity);
 
-                return new IngestObservationResult
+                return new IngestObservationResultDto
                 {
                     Accepted = true,
                     Dropped = false,
@@ -90,7 +89,8 @@ public sealed class ObservationService(
 
             var observation = new ObservationEvent
             {
-                ObservedAtUtc = request.ObservedAtUtc,
+                // Server-authoritative timestamp; client-supplied ObservedAtUtc is not trusted to prevent backdating.
+                ObservedAtUtc = DateTimeOffset.UtcNow,
                 SubjectId = subject.SubjectId,
                 SubjectDisplayName = subject.DisplayName,
                 Activity = request.Activity,
@@ -104,16 +104,18 @@ public sealed class ObservationService(
             };
 
             await observationRepository.AddAsync(observation, cancellationToken);
+            await subjectRepository.UpdateLastActivityAsync(subject.SubjectId, observation.Activity, observation.IsClinicalOutlier, cancellationToken);
 
             logger.LogInformation(
-                "Observation persisted. EventId={EventId}, SubjectId={SubjectId}, Significant={Significant}, Outlier={Outlier}, ObservedAtUtc={ObservedAtUtc}",
+                "Observation persisted. EventId={EventId}, SubjectId={SubjectId}, Significant={Significant}, Outlier={Outlier}, ImageReference={ImageReference}, ObservedAtUtc={ObservedAtUtc}",
                 observation.Id,
                 observation.SubjectId,
                 observation.IsSignificant,
                 observation.IsClinicalOutlier,
+                observation.ImageReference,
                 observation.ObservedAtUtc);
 
-            return new IngestObservationResult
+            return new IngestObservationResultDto
             {
                 Accepted = true,
                 Dropped = false,
@@ -121,6 +123,7 @@ public sealed class ObservationService(
                 EventId = observation.Id.ToString("N"),
                 SubjectId = observation.SubjectId,
                 SubjectDisplayName = observation.SubjectDisplayName,
+                ImageReference = observation.ImageReference,
                 Detail = observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."
             };
         }
@@ -130,11 +133,12 @@ public sealed class ObservationService(
         }
     }
 
-    public ObserverRuntimeState GetRuntimeState() => new()
+    public ObserverRuntimeStateDto GetRuntimeState() => new()
     {
         ObservationLoopEnabled = featureFlags.Value.ObservationLoopEnabled,
         TtsAnnouncementsEnabled = featureFlags.Value.TtsAnnouncementsEnabled,
         SaveSignificantImages = featureFlags.Value.SaveSignificantImages,
+        DeveloperModeEnabled = featureFlags.Value.DeveloperBypassAuth,
         PollIntervalSeconds = observerOptions.Value.PollingIntervalSeconds,
         CapturedAtUtc = DateTimeOffset.UtcNow,
         Status = featureFlags.Value.ObservationLoopEnabled ? "Idle" : "Disabled",

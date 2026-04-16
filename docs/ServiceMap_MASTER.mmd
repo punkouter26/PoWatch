@@ -1,0 +1,122 @@
+flowchart TD
+    subgraph SolutionProjects["Solution Projects — PoWatch.slnx"]
+        CLIENT["PoWatch.Client\nBlazor WASM SPA\n.NET 10 / Radzen.Blazor 10.2.3"]
+        API["PoWatch.Api\n.NET 10 Minimal API\nSerilog + OpenTelemetry + Scalar"]
+        APP["PoWatch.Application\nBusiness Logic\nService interfaces + implementations"]
+        DOMAIN["PoWatch.Domain\nCore domain — zero external dependencies\nModels + ClinicalTagParser + SubjectIdSlugger"]
+        INFRA["PoWatch.Infrastructure\nData Access\nAzure Table/Blob + InMemory fallbacks"]
+        SHARED["PoWatch.Shared\nDTO contracts — Client-API surface\nIngestObservationRequestDto, DailyChapterDto etc."]
+    end
+
+    subgraph Contracts["Application Contracts — Dependency Inversion"]
+        I_OBS_REPO["IObservationRepository\nAddAsync, GetByDateAsync,\nGetLatestForSubjectAsync, MergeSubjectAsync"]
+        I_SUBJ_REPO["ISubjectRepository\nGetAllAsync, GetOrCreateAsync, GetByIdAsync\nRenameAsync, MergeAsync, UpdateLastActivityAsync"]
+        I_BLOB["IBlobSasProvider\nCreateUploadAccessAsync\nCreateReadAccessUrlAsync"]
+        I_GATE["IObservationProcessingGate\nTryEnter, Exit"]
+        I_DIAG["IDiagnosticsProvider\nCaptureSnapshot"]
+    end
+
+    subgraph Implementations["Infrastructure Implementations"]
+        AZ_OBS["AzureObservationRepository\nAzure Table Storage — PoWatchObservations\nOpenTelemetry ActivitySource tracing"]
+        MEM_OBS["InMemoryObservationRepository\nConcurrentDictionary fallback\nNo ConnectionString configured"]
+        AZ_SUBJ["AzureSubjectRepository\nAzure Table Storage — PoWatchSubjects"]
+        MEM_SUBJ["InMemorySubjectRepository\nConcurrentDictionary + auto Subject-N counter"]
+        AZ_BLOB["AzureBlobSasProvider\nAzure.Storage.Blobs SDK\nLazy CORS config for dev"]
+        MEM_GATE["InMemoryObservationProcessingGate\nSemaphoreSlim(1,1) backpressure"]
+        LOCAL_DIAG["LocalDiagnosticsProvider\nCPU/memory snapshot + MaskingUtility"]
+        AZ_CLIENTS["AzureStorageClients (Singleton)\nTableServiceClient + BlobServiceClient lifecycle"]
+    end
+
+    subgraph ExternalServices["External Services"]
+        AZ_TABLE["Azure Table Storage\nPoWatchObservations + PoWatchSubjects"]
+        AZ_BLOB_STORE["Azure Blob Storage\nsignificant-images container"]
+        APP_INSIGHTS["Application Insights\nOpenTelemetry OTLP exporter"]
+        AZURITE["Azurite Emulator (Dev)\nDocker — ports 10000/10001/10002\nUseDevelopmentStorage=true"]
+        TESTCONTAINERS["Testcontainers.Azurite\nIntegration tests — isolated storage"]
+    end
+
+    subgraph TestProjects["Test Projects"]
+        UNIT_TESTS["PoWatch.UnitTests\nxUnit — domain + service logic\nFake repositories — no I/O"]
+        INT_TESTS["PoWatch.IntegrationTests\nAzuriteWebApplicationFactory\nMvc.Testing — full API pipeline"]
+        E2E_TESTS["PoWatch.E2E\nPlaywright TypeScript\nFull browser automation"]
+    end
+
+    CLIENT -->|"HttpClient → REST calls"| API
+    CLIENT --> SHARED
+    API --> APP
+    API --> INFRA
+    API --> SHARED
+
+    APP --> DOMAIN
+    APP --> SHARED
+    APP --> I_OBS_REPO
+    APP --> I_SUBJ_REPO
+    APP --> I_BLOB
+    APP --> I_GATE
+    APP --> I_DIAG
+
+    INFRA --> I_OBS_REPO
+    INFRA --> I_SUBJ_REPO
+    INFRA --> I_BLOB
+    INFRA --> I_GATE
+    INFRA --> I_DIAG
+    INFRA --> DOMAIN
+
+    I_OBS_REPO -->|"Azure impl"| AZ_OBS
+    I_OBS_REPO -->|"InMemory impl"| MEM_OBS
+    I_SUBJ_REPO -->|"Azure impl"| AZ_SUBJ
+    I_SUBJ_REPO -->|"InMemory impl"| MEM_SUBJ
+    I_BLOB --> AZ_BLOB
+    I_GATE --> MEM_GATE
+    I_DIAG --> LOCAL_DIAG
+
+    AZ_OBS --> AZ_CLIENTS
+    AZ_SUBJ --> AZ_CLIENTS
+    AZ_BLOB --> AZ_CLIENTS
+
+    AZ_CLIENTS -->|"Azure SDK"| AZ_TABLE
+    AZ_CLIENTS -->|"Azure SDK"| AZ_BLOB_STORE
+    AZURITE -.->|"dev substitute"| AZ_TABLE
+    AZURITE -.->|"dev substitute"| AZ_BLOB_STORE
+    API -->|"OpenTelemetry OTLP"| APP_INSIGHTS
+
+    UNIT_TESTS -->|"tests"| APP
+    UNIT_TESTS -->|"tests"| DOMAIN
+    INT_TESTS -->|"tests"| API
+    INT_TESTS --> TESTCONTAINERS
+    TESTCONTAINERS -.->|"test substitute"| AZURITE
+    E2E_TESTS -->|"tests"| CLIENT
+
+    style SolutionProjects fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Contracts fill:#16213e,stroke:#f0a500,color:#fff
+    style Implementations fill:#0f3460,stroke:#52b788,color:#fff
+    style ExternalServices fill:#1b4332,stroke:#52b788,color:#fff
+    style TestProjects fill:#2c1654,stroke:#9b72cf,color:#fff
+
+    style CLIENT fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style API fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style APP fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style DOMAIN fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style INFRA fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SHARED fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style I_OBS_REPO fill:#2a3d16,stroke:#f0a500,color:#fff
+    style I_SUBJ_REPO fill:#2a3d16,stroke:#f0a500,color:#fff
+    style I_BLOB fill:#2a3d16,stroke:#f0a500,color:#fff
+    style I_GATE fill:#2a3d16,stroke:#f0a500,color:#fff
+    style I_DIAG fill:#2a3d16,stroke:#f0a500,color:#fff
+    style AZ_OBS fill:#1a3a2a,stroke:#52b788,color:#fff
+    style MEM_OBS fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style AZ_SUBJ fill:#1a3a2a,stroke:#52b788,color:#fff
+    style MEM_SUBJ fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style AZ_BLOB fill:#1a3a2a,stroke:#52b788,color:#fff
+    style MEM_GATE fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style LOCAL_DIAG fill:#1a3a2a,stroke:#52b788,color:#fff
+    style AZ_CLIENTS fill:#1a3a2a,stroke:#52b788,color:#fff
+    style AZ_TABLE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style AZ_BLOB_STORE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style APP_INSIGHTS fill:#1a3a2a,stroke:#52b788,color:#fff
+    style AZURITE fill:#3d4b5c,stroke:#52b788,color:#fff
+    style TESTCONTAINERS fill:#3d2163,stroke:#9b72cf,color:#fff
+    style UNIT_TESTS fill:#3d2163,stroke:#9b72cf,color:#fff
+    style INT_TESTS fill:#3d2163,stroke:#9b72cf,color:#fff
+    style E2E_TESTS fill:#3d2163,stroke:#9b72cf,color:#fff

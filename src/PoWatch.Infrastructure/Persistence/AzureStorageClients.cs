@@ -13,6 +13,9 @@ namespace PoWatch.Infrastructure.Persistence;
 public sealed class AzureStorageClients
 {
     private readonly string? _connectionString;
+    // Lazy ensures CORS setup runs at most once per singleton lifetime (thread-safe by default).
+    // Deferred from the constructor to avoid synchronous blocking HTTP on the DI construction thread.
+    private readonly Lazy<bool> _devCorsConfigured;
 
     public TableServiceClient TableService { get; }
     public BlobServiceClient BlobService { get; }
@@ -23,12 +26,17 @@ public sealed class AzureStorageClients
         TableService = new TableServiceClient(_connectionString);
         BlobService = new BlobServiceClient(_connectionString);
 
-        ConfigureDevelopmentCorsIfNeeded(_connectionString, BlobService);
+        _devCorsConfigured = new Lazy<bool>(() =>
+        {
+            ConfigureDevelopmentCorsIfNeeded(_connectionString, BlobService);
+            return true;
+        });
     }
 
     public void EnsureDevelopmentBlobCorsConfigured()
     {
-        ConfigureDevelopmentCorsIfNeeded(_connectionString, BlobService);
+        // Thread-safe; ConfigureDevelopmentCorsIfNeeded runs exactly once per lifetime.
+        _ = _devCorsConfigured.Value;
     }
 
     private static void ConfigureDevelopmentCorsIfNeeded(string? connectionString, BlobServiceClient blobService)

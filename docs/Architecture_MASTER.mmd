@@ -1,0 +1,39 @@
+C4Context
+    title "PoWatch — Hybrid C4 Level 1/2 Architecture"
+
+    Enterprise_Boundary(system, "PoWatch System") {
+        Person(clinician, "Clinician", "Views observations, archives, identity, and diagnostics via browser dashboard")
+        Person(sensor, "Observation Source", "External camera or system posting clinical activity events via REST")
+
+        System_Boundary(edge, "Edge Delivery") {
+            System(client, "PoWatch.Client", "Blazor WASM SPA. Pages: ObserverHub, Archives, IdentityNexus, Diagnostics. Radzen UI components.")
+        }
+
+        System_Boundary(compute, "Compute Tier") {
+            System(api, "PoWatch.Api", ".NET 10 Minimal API. Route groups: /observer, /archives, /identity, /blobs, /diagnostics, /health. Serilog + OpenTelemetry.")
+            System(app, "PoWatch.Application", "Business Logic layer. Services: ObservationService, ArchivesService, IdentityService. Contracts: IObservationRepository, ISubjectRepository, IBlobSasProvider.")
+            System(domain, "PoWatch.Domain", "Core domain — no external dependencies. Models: ObservationEvent, SubjectProfile, DailyChapter. Services: ClinicalTagParser, SubjectIdSlugger.")
+            System(infra, "PoWatch.Infrastructure", "Data Access. Implementations: AzureObservationRepository, AzureSubjectRepository, AzureBlobSasProvider, LocalDiagnosticsProvider, InMemoryObservationProcessingGate.")
+            System(shared, "PoWatch.Shared", "Shared DTO contracts between Client and API: IngestObservationRequestDto, DailyChapterDto, SubjectProfileDto, DiagnosticsSnapshotDto.")
+        }
+
+        System_Boundary(data, "Data Persistence") {
+            SystemDb(tables, "Azure Table Storage", "PoWatchObservations (partition: yyyyMMdd, row: SubjectId_InvTicks_EventId). PoWatchSubjects (partition: Subjects).")
+            SystemDb(blobs, "Azure Blob Storage", "Container: significant-images. Path: {date}/{subjectId}/{guid}.svg. 30-min SAS expiry.")
+        }
+    }
+
+    System_Ext(appinsights, "Application Insights", "Telemetry, distributed traces, structured logs via OpenTelemetry OTLP exporter")
+    System_Ext(azurite, "Azurite (Dev Only)", "Local Azure Storage emulator. Ports: 10000 (blob), 10001 (queue), 10002 (table). Docker container.")
+
+    Rel(clinician, client, "Uses", "HTTPS/Browser")
+    Rel(sensor, api, "POST /api/observer/ingest", "HTTP REST")
+    Rel(client, api, "All REST API calls", "HTTP/HTTPS + Blazor HttpClient")
+    Rel(api, app, "Delegates business logic to")
+    Rel(app, domain, "Uses core models and domain services")
+    Rel(app, infra, "Via repository and provider contracts")
+    Rel(infra, tables, "Read/Write entities", "Azure.Data.Tables SDK 12.9.0")
+    Rel(infra, blobs, "Generate SAS URLs", "Azure.Storage.Blobs SDK 12.22.0")
+    Rel(api, appinsights, "Exports telemetry", "OpenTelemetry OTLP 1.12.0")
+    Rel(azurite, tables, "Dev substitute for", "UseDevelopmentStorage=true")
+    Rel(azurite, blobs, "Dev substitute for", "UseDevelopmentStorage=true")

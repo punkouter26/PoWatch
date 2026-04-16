@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics;
@@ -6,13 +5,12 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using PoWatch.Api.Endpoints;
 using PoWatch.Api.HealthChecks;
 using PoWatch.Api.Observability;
 using PoWatch.Api.Security;
 using PoWatch.Application;
-using PoWatch.Application.Models;
 using PoWatch.Application.Options;
-using PoWatch.Application.Services;
 using PoWatch.Infrastructure;
 using Scalar.AspNetCore;
 using Serilog;
@@ -142,145 +140,15 @@ var builder = WebApplication.CreateBuilder(args);
     app.UseStaticFiles();
 
     // --- API routes ---
-
-    var observer = app.MapGroup("/api/observer").WithTags("Observer");
-    observer.MapPost("/ingest", async (
-        IngestObservationRequest request,
-        ObservationService service,
-        ILogger<Program> logger,
-        CancellationToken cancellationToken) =>
-    {
-        logger.LogInformation(
-            "Observer ingest API request received. Activity={Activity} SubjectHint={SubjectHint} TraceId={TraceId}",
-            request.Activity,
-            request.SubjectHint,
-            Activity.Current?.TraceId.ToString());
-
-        var result = await service.IngestAsync(request, cancellationToken);
-
-        logger.LogInformation(
-            "Observer ingest API request completed. Accepted={Accepted} Dropped={Dropped} SubjectId={SubjectId} TraceId={TraceId}",
-            result.Accepted,
-            result.Dropped,
-            result.SubjectId,
-            Activity.Current?.TraceId.ToString());
-
-        return result.Dropped ? Results.Accepted(value: result) : Results.Ok(result);
-    })
-    .WithName("ObserverIngest")
-    .WithSummary("Persist a locally inferred observation event.");
-
-    observer.MapGet("/state", (ObservationService service) =>
-        Results.Ok(service.GetRuntimeState()))
-        .WithName("ObserverState")
-        .WithSummary("Get the live observer runtime status and feature flags.");
-
-    var archives = app.MapGroup("/api/archives").WithTags("Archives");
-    archives.MapGet("/{date}", async (
-        string date,
-        ArchivesService service,
-        CancellationToken cancellationToken) =>
-    {
-        if (!DateOnly.TryParse(date, out var parsedDate))
-        {
-            return Results.BadRequest(new { message = "Date must be in ISO format (yyyy-MM-dd)." });
-        }
-
-        var chapter = await service.GetChapterAsync(parsedDate, cancellationToken);
-        return Results.Ok(chapter);
-    })
-    .WithName("ArchivesGetChapter")
-    .WithSummary("Get the daily chapter narrative, timeline, and highlights for a date.");
-
-    var blobs = app.MapGroup("/api/blobs").WithTags("Blobs");
-    blobs.MapGet("/sas", async (
-        string? subjectId,
-        string? date,
-        string? blobPath,
-        BlobSasService service,
-        CancellationToken cancellationToken) =>
-    {
-        if (!string.IsNullOrWhiteSpace(blobPath))
-        {
-            var readUrl = await service.CreateReadAccessUrlAsync(blobPath, cancellationToken);
-            return Results.Ok(new { sasUrl = readUrl, blobPath, expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30) });
-        }
-
-        if (string.IsNullOrWhiteSpace(subjectId) || !DateOnly.TryParseExact(date, "yyyyMMdd", out var parsedDate))
-        {
-            return Results.BadRequest(new { message = "subjectId and date=yyyyMMdd are required." });
-        }
-
-        var access = await service.CreateUploadAccessAsync(subjectId, parsedDate, cancellationToken);
-        return Results.Ok(access);
-    })
-    .WithName("BlobSasAccess")
-    .WithSummary("Create time-limited read or upload access for evidence blobs.");
-
-    var identity = app.MapGroup("/api/identity").WithTags("Identity");
-    identity.MapGet("/subjects", async (
-        IdentityService service,
-        CancellationToken cancellationToken) =>
-        Results.Ok(await service.GetSubjectsAsync(cancellationToken)))
-        .WithName("IdentitySubjects")
-        .WithSummary("List all known and temporary subject identities.");
-
-    identity.MapPatch("/subjects/{subjectId}", async (
-        string subjectId,
-        RenameSubjectRequest request,
-        IdentityService service,
-        ILogger<Program> logger,
-        CancellationToken cancellationToken) =>
-    {
-        if (string.IsNullOrWhiteSpace(request.NewName))
-        {
-            return Results.BadRequest(new { message = "newName is required." });
-        }
-
-        logger.LogInformation("Identity rename API request received. SubjectId={SubjectId} TraceId={TraceId}", subjectId, Activity.Current?.TraceId.ToString());
-        var renamed = await service.RenameAsync(subjectId, request, cancellationToken);
-        return Results.Ok(renamed);
-    })
-    .WithName("IdentityRename")
-    .WithSummary("Rename a temporary subject and rewrite its historical identity references.");
-
-    identity.MapPost("/merge", async (
-        MergeIdentityRequest request,
-        IdentityService service,
-        ILogger<Program> logger,
-        CancellationToken cancellationToken) =>
-    {
-        if (string.IsNullOrWhiteSpace(request.PrimarySubjectId)
-            || string.IsNullOrWhiteSpace(request.SecondarySubjectId))
-        {
-            return Results.BadRequest(new { message = "PrimarySubjectId and SecondarySubjectId are required." });
-        }
-
-        logger.LogInformation(
-            "Identity merge API request received. PrimarySubjectId={PrimarySubjectId}, SecondarySubjectId={SecondarySubjectId}, TraceId={TraceId}",
-            request.PrimarySubjectId,
-            request.SecondarySubjectId,
-            Activity.Current?.TraceId.ToString());
-
-        var merged = await service.MergeAsync(request, cancellationToken);
-        return Results.Ok(merged);
-    })
-    .WithName("IdentityMerge")
-    .WithSummary("Merge two subject identities into one canonical history.");
-
-    var diagnostics = app.MapGroup("/api/diagnostics").WithTags("Diagnostics");
-    diagnostics.MapGet("/status", (DiagnosticsService service, ILogger<Program> logger) =>
-    {
-        logger.LogDebug("Diagnostics API request received. TraceId={TraceId}", Activity.Current?.TraceId.ToString());
-        return Results.Ok(service.GetSnapshot());
-    })
-    .WithName("DiagnosticsStatus")
-    .WithSummary("Get the masked system health snapshot for the current environment.");
+    app.MapObserverEndpoints();
+    app.MapArchivesEndpoints();
+    app.MapBlobEndpoints();
+    app.MapIdentityEndpoints();
+    app.MapDiagnosticsEndpoints();
 
     // T005: Fall back to the Blazor WASM entry point for all unmatched requests
     app.MapFallbackToFile("index.html");
 
-app.Run();
+    await app.RunAsync();
 
 public partial class Program { }
-

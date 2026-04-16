@@ -1,0 +1,16 @@
+stateDiagram-v2
+    [*] --> GateCheck : POST /api/observer/ingest
+    GateCheck --> Dropped : Gate locked or loop disabled
+    GateCheck --> Processing : Gate available
+    Processing --> Dropped : Redundant activity
+    Processing --> Accepted : New or outlier event
+    Accepted --> [*]
+    Dropped --> [*]
+
+    state "Subject Identity" as SI {
+        [*] --> Generated
+        Generated --> Named : rename
+        Named --> Merged : merge
+        Generated --> Merged : merge
+        Merged --> [*]
+    }

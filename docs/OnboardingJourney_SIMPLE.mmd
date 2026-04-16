@@ -1,0 +1,19 @@
+flowchart TD
+    subgraph Journey["Onboarding Journey (Simple)"]
+        START(["User accesses PoWatch URL"])
+        AUTH["Authentication\nFakeAuth (dev) or anonymous (prod)"]
+        HUB["ObserverHub\nView runtime state"]
+        SENSOR["First observation received\nSubject auto-created"]
+        ARCHIVES["Archives page\nTimeline visible"]
+        AHA(["Aha! Named subject\nwith clinical timeline"])
+    end
+
+    START --> AUTH --> HUB --> SENSOR --> ARCHIVES --> AHA
+
+    style Journey fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style START fill:#2d6a4f,stroke:#52b788,color:#fff
+    style AHA fill:#2d6a4f,stroke:#52b788,color:#fff
+    style AUTH fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style HUB fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SENSOR fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ARCHIVES fill:#1a3a2a,stroke:#52b788,color:#fff

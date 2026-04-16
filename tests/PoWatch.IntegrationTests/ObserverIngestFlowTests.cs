@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using PoWatch.Application.Models;
+using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
 
 namespace PoWatch.IntegrationTests;
@@ -21,7 +21,7 @@ public sealed class ObserverIngestFlowTests : IClassFixture<AzuriteWebApplicatio
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var state = await response.Content.ReadFromJsonAsync<ObserverRuntimeState>();
+        var state = await response.Content.ReadFromJsonAsync<ObserverRuntimeStateDto>();
         Assert.NotNull(state);
         Assert.True(state.ObservationLoopEnabled);
         Assert.Equal(10, state.PollIntervalSeconds);
@@ -30,14 +30,14 @@ public sealed class ObserverIngestFlowTests : IClassFixture<AzuriteWebApplicatio
     [Fact]
     public async Task IngestingDuplicateActivity_DoesNotCreateDuplicateTimelineEntry()
     {
-        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             SubjectHint = "Kim",
             Activity = "Desk Work",
             ClinicalPayload = "<S>Kim resumed desk work.<E>"
         });
 
-        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             SubjectHint = "Kim",
             Activity = "Desk Work",

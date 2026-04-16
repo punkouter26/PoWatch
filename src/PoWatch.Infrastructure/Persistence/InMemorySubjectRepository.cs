@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using System.Text;
 using PoWatch.Application.Contracts;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Infrastructure.Persistence;
 
@@ -26,6 +26,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 
         if (!string.IsNullOrWhiteSpace(normalized))
         {
+            // Return the existing profile if it already matches by ID or display name.
             var existingById = _subjects.TryGetValue(normalized, out var existingSubject)
                 ? existingSubject
                 : _subjects.Values.FirstOrDefault(x =>
@@ -134,26 +135,21 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
         return Task.FromResult(merged);
     }
 
-    private static string ResolveCanonicalSubjectId(string currentSubjectId, string displayName)
+    private static string ResolveCanonicalSubjectId(string currentSubjectId, string displayName) =>
+        SubjectIdSlugger.ResolveCanonicalSubjectId(currentSubjectId, displayName);
+
+    // Kept as a thin delegation wrapper so call-sites inside this class need no change.
+    private static string BuildCanonicalSubjectId(string displayName) =>
+        SubjectIdSlugger.BuildCanonicalSubjectId(displayName);
+
+    public Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken)
     {
-        if (!currentSubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(currentSubjectId, displayName, StringComparison.OrdinalIgnoreCase))
+        if (_subjects.TryGetValue(subjectId, out var subject))
         {
-            return currentSubjectId;
+            subject.LastActivity = activity;
+            subject.LastActivityIsOutlier = isOutlier;
         }
 
-        return BuildCanonicalSubjectId(displayName);
-    }
-
-    private static string BuildCanonicalSubjectId(string displayName)
-    {
-        var builder = new StringBuilder();
-
-        foreach (var character in displayName.Trim().ToLowerInvariant())
-        {
-            builder.Append(char.IsLetterOrDigit(character) ? character : '-');
-        }
-
-        return builder.ToString().Trim('-');
+        return Task.CompletedTask;
     }
 }

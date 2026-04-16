@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using PoWatch.Application.Models;
+using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
 
 namespace PoWatch.IntegrationTests;
@@ -17,21 +17,21 @@ public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicati
     [Fact]
     public async Task RenameAndMerge_RewriteHistoricalArchives_AndRemoveSecondarySubject()
     {
-        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             Activity = "Desk Work",
             ClinicalPayload = "<S>Unknown subject at desk.<E>",
             IsSignificant = false
         });
 
-        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             Activity = "Walking",
             ClinicalPayload = "<S>Unknown subject walking.<E>",
             IsSignificant = false
         });
 
-        var subjects = await _client.GetFromJsonAsync<List<SubjectProfile>>("/api/identity/subjects");
+        var subjects = await _client.GetFromJsonAsync<List<SubjectProfileDto>>("/api/identity/subjects");
         Assert.NotNull(subjects);
 
         var generated = subjects
@@ -43,13 +43,13 @@ public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicati
 
         using var renameRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/identity/subjects/{generated[0].SubjectId}")
         {
-            Content = JsonContent.Create(new RenameSubjectRequest { NewName = "Maya" })
+            Content = JsonContent.Create(new RenameSubjectRequestDto { NewName = "Maya" })
         };
 
         var renameResponse = await _client.SendAsync(renameRequest);
         Assert.Equal(HttpStatusCode.OK, renameResponse.StatusCode);
 
-        var mergeResponse = await _client.PostAsJsonAsync("/api/identity/merge", new MergeIdentityRequest
+        var mergeResponse = await _client.PostAsJsonAsync("/api/identity/merge", new MergeIdentityRequestDto
         {
             PrimarySubjectId = "maya",
             SecondarySubjectId = generated[1].SubjectId,
@@ -62,7 +62,7 @@ public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicati
         Assert.NotNull(chapter);
         Assert.All(chapter.Timeline, item => Assert.Equal("Maya", item.SubjectDisplayName));
 
-        var updatedSubjects = await _client.GetFromJsonAsync<List<SubjectProfile>>("/api/identity/subjects");
+        var updatedSubjects = await _client.GetFromJsonAsync<List<SubjectProfileDto>>("/api/identity/subjects");
         Assert.NotNull(updatedSubjects);
         Assert.Contains(updatedSubjects, x => x.SubjectId == "maya");
         Assert.DoesNotContain(updatedSubjects, x => x.SubjectId == generated[1].SubjectId);

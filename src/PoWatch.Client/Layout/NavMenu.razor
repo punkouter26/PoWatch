@@ -1,6 +1,9 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿<div class="top-row ps-3 navbar navbar-dark brand-row">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">PoWatch // Clinical Historian</a>
+        <a class="navbar-brand" href="" aria-label="PoWatch home">
+            <span class="brand-mark">PW</span>
+            <span class="brand-copy">PoWatch</span>
+        </a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -10,23 +13,23 @@
 <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
     <nav class="nav flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Observer Hub
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Observer Hub">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Observer Hub</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="archives">
-                <span class="bi bi-archive-fill-nav-menu" aria-hidden="true"></span> Archives
+            <NavLink class="nav-link" href="archives" title="Archives">
+                <span class="bi bi-archive-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Archives</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="identity">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Identity Nexus
+            <NavLink class="nav-link" href="identity" title="Subjects">
+                <span class="bi bi-person-badge-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Subjects</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="diagnostics">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Diagnostics
+            <NavLink class="nav-link" href="diagnostics" title="Diagnostics">
+                <span class="bi bi-cpu-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Diagnostics</span>
             </NavLink>
         </div>
     </nav>

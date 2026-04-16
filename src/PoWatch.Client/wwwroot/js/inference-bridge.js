@@ -11,7 +11,9 @@
   // Model labels for getAvailableModels() — mirrors the worker's _MODELS list.
   const _MODEL_LABELS = {
     'smolvlm-256m': 'SmolVLM 256M',
+    'smolvlm-500m': 'SmolVLM 500M',
     'lfm2-vl-450m': 'LFM2.5-VL 450M',
+    'qwen2.5-vl-2b': 'Qwen2.5-VL 2B',
   };
 
   // ---------------------------------------------------------------------------
@@ -120,6 +122,13 @@
     return canvas.toDataURL('image/jpeg', 0.85);
   }
 
+  function classifyMotion(diff) {
+    if (diff >= 0.18) return 'High';
+    if (diff >= 0.06) return 'Medium';
+    if (diff >= 0.015) return 'Low';
+    return 'Still';
+  }
+
   // ---------------------------------------------------------------------------
   // Public API exposed to Blazor via window.powatchInference
   // ---------------------------------------------------------------------------
@@ -169,6 +178,10 @@
           clinicalPayload: '',
           isSignificant: false,
           significantReason: null,
+          confidenceScore: 0,
+          confidenceLabel: 'Unavailable',
+          motionScore: 0,
+          motionLevel: 'Unavailable',
         };
       }
 
@@ -176,6 +189,8 @@
 
       // Frame-diff: skip inference if the scene hasn't changed enough (saves CPU)
       const diff = computeFrameDiff(videoElement);
+      const motionScore = Math.round(diff * 100);
+      const motionLevel = classifyMotion(diff);
       if (diff < 0.015) {
         return {
           isAvailable: false,
@@ -185,13 +200,21 @@
           clinicalPayload: '',
           isSignificant: false,
           significantReason: null,
+          confidenceScore: 0,
+          confidenceLabel: 'Awaiting AI',
+          motionScore,
+          motionLevel,
         };
       }
 
       // Capture frame on main thread (DOM), then hand off to the worker
       const base64Frame = await captureFrame(videoElement);
       const res = await postToWorker('RUN_INFERENCE', { base64Frame, prompt });
-      return res.result;
+      return {
+        ...res.result,
+        motionScore,
+        motionLevel,
+      };
     },
 
     // Synchronous — returns cached value broadcast by the worker; never blocks.
@@ -202,7 +225,12 @@
     // Async — queries the worker for the full diagnostics snapshot.
     async getInferenceDiagnostics() {
       const res = await postToWorker('GET_DIAGNOSTICS', {});
-      return res.data;
+      return {
+        ...res.data,
+        streamActive: !!activeStream,
+        previewWidth: activePreviewElement?.videoWidth ?? 0,
+        previewHeight: activePreviewElement?.videoHeight ?? 0,
+      };
     },
 
     setModel(modelKey) {

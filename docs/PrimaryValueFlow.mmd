@@ -1,0 +1,90 @@
+flowchart LR
+    subgraph Sensor["Observation Source"]
+        CAM["Camera / Sensor\nDetects patient activity\nand clinical context"]
+    end
+
+    subgraph Ingest["POST /api/observer/ingest — Ingest Pipeline"]
+        REQ["IngestObservationRequestDto\nactivity, clinicalPayload, subjectHint\nisSignificant, outlierReason"]
+        GATE_CHECK["ProcessingGate.TryEnter()\nSemaphore backpressure — 1 concurrent inference"]
+        SUBJ["ISubjectRepository.GetOrCreateAsync(hint)\nResolves or auto-creates Subject-N"]
+        CLIN["ClinicalTagParser.TryExtract(payload)\nValidates <S>text<E> format, max 500 chars"]
+        REDUND["Redundancy Check\nCompare activity vs SubjectProfile.LastActivity"]
+        TS["Server Timestamp Applied\nClient ObservedAtUtc overwritten by server clock"]
+        PERSIST["IObservationRepository.AddAsync(event)\nPartition: yyyyMMdd, Row: SubjectId_InvTicks_EventId"]
+        BLOB["IBlobSasProvider.CreateUploadAccessAsync()\nif IsSignificant=true AND SaveSignificantImages=true"]
+        CACHE["ISubjectRepository.UpdateLastActivityAsync()\nO(1) cache write on SubjectProfile"]
+        RESP["IngestObservationResultDto\naccepted=true, eventId, outlierStatus"]
+    end
+
+    subgraph Storage["Azure Table Storage"]
+        OBS_TABLE["PoWatchObservations\nRow stored under yyyyMMdd partition"]
+        SUBJ_TABLE["PoWatchSubjects\nLastActivity + LastSeenUtc updated"]
+        BLOB_STORE["Azure Blob Storage\nsignificant-images/{date}/{subjectId}/{guid}.svg"]
+    end
+
+    subgraph Polling["Client Polling Loop"]
+        POLL["ObserverHub polling\nGET /api/observer/state every PollingIntervalSeconds"]
+        STATE_UPDATE["ObserverRuntimeStateDto\nUI reflects current system state"]
+    end
+
+    subgraph Archives["Archives Retrieval"]
+        ARCH_REQ["GET /api/archives/{today}\nDateOnly.TryParse(date)"]
+        DATE_QUERY["IObservationRepository.GetByDateAsync(today)\nQuery by partition key"]
+        SORT["Timeline ordered by ObservedAtUtc ASC"]
+        HIGHLIGHTS["IsSignificant=true filtered\nTop 30 reverse-chrono highlights"]
+        NARRATIVE["Narrative: 'Room recorded N events.\nPrimary: {name}. Dominant: {activity}. Outliers: N.'"]
+        CHAPTER["DailyChapterDto rendered\nTimeline + Highlights + Narrative"]
+    end
+
+    CAM -->|"HTTP POST"| REQ
+    REQ --> GATE_CHECK
+    GATE_CHECK -->|"Available"| SUBJ
+    SUBJ --> CLIN
+    CLIN --> REDUND
+    REDUND -->|"New/Different"| TS
+    TS --> PERSIST
+    PERSIST --> OBS_TABLE
+    PERSIST --> BLOB
+    BLOB --> BLOB_STORE
+    PERSIST --> CACHE
+    CACHE --> SUBJ_TABLE
+    CACHE --> RESP
+    RESP -->|"Accepted"| POLL
+
+    OBS_TABLE --> DATE_QUERY
+
+    POLL --> STATE_UPDATE
+    STATE_UPDATE -->|"User navigates to Archives"| ARCH_REQ
+    ARCH_REQ --> DATE_QUERY
+    DATE_QUERY --> SORT
+    SORT --> HIGHLIGHTS
+    HIGHLIGHTS --> NARRATIVE
+    NARRATIVE --> CHAPTER
+
+    style Sensor fill:#2c3e50,stroke:#7f8c8d,color:#fff
+    style Ingest fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Storage fill:#1b4332,stroke:#52b788,color:#fff
+    style Polling fill:#16213e,stroke:#f0a500,color:#fff
+    style Archives fill:#0f3460,stroke:#4a90d9,color:#fff
+
+    style CAM fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style REQ fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style GATE_CHECK fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SUBJ fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style CLIN fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style REDUND fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style TS fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style PERSIST fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style BLOB fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style CACHE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style RESP fill:#1a3a2a,stroke:#52b788,color:#fff
+    style OBS_TABLE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style SUBJ_TABLE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style BLOB_STORE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style POLL fill:#2a3d16,stroke:#f0a500,color:#fff
+    style STATE_UPDATE fill:#2a3d16,stroke:#f0a500,color:#fff
+    style DATE_QUERY fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SORT fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style HIGHLIGHTS fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style NARRATIVE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style CHAPTER fill:#1a3a2a,stroke:#52b788,color:#fff

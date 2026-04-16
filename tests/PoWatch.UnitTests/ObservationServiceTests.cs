@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
-using PoWatch.Application.Models;
+using PoWatch.Shared.Models;
 using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
@@ -15,7 +15,7 @@ public sealed class ObservationServiceTests
     {
         var service = BuildService(new BusyGate(), out _, out _);
 
-        var result = await service.IngestAsync(new IngestObservationRequest
+        var result = await service.IngestAsync(new IngestObservationRequestDto
         {
             ClinicalPayload = "<S>OK<E>",
             Activity = "Desk Work"
@@ -30,7 +30,7 @@ public sealed class ObservationServiceTests
     {
         var service = BuildService(new OpenGate(), out var observations, out _);
 
-        var result = await service.IngestAsync(new IngestObservationRequest
+        var result = await service.IngestAsync(new IngestObservationRequestDto
         {
             ClinicalPayload = "broken",
             Activity = "Unknown"
@@ -47,7 +47,7 @@ public sealed class ObservationServiceTests
     {
         var service = BuildService(new OpenGate(), out var observations, out _);
 
-        var result = await service.IngestAsync(new IngestObservationRequest
+        var result = await service.IngestAsync(new IngestObservationRequestDto
         {
             SubjectHint = "Kim",
             Activity = "Desk Work",
@@ -58,7 +58,8 @@ public sealed class ObservationServiceTests
 
         Assert.True(result.Accepted);
         Assert.Single(observations.Items);
-        Assert.False(string.IsNullOrWhiteSpace(observations.Items[0].ImageReference));
+        Assert.False(string.IsNullOrWhiteSpace(result.ImageReference));
+        Assert.Equal(observations.Items[0].ImageReference, result.ImageReference);
         Assert.EndsWith(".svg", observations.Items[0].ImageReference, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -67,14 +68,14 @@ public sealed class ObservationServiceTests
     {
         var service = BuildService(new OpenGate(), out var observations, out _);
 
-        await service.IngestAsync(new IngestObservationRequest
+        await service.IngestAsync(new IngestObservationRequestDto
         {
             SubjectHint = "Kim",
             Activity = "Desk Work",
             ClinicalPayload = "<S>Kim is working at the desk.<E>"
         }, CancellationToken.None);
 
-        var second = await service.IngestAsync(new IngestObservationRequest
+        var second = await service.IngestAsync(new IngestObservationRequestDto
         {
             SubjectHint = "Kim",
             Activity = "Desk Work",
@@ -171,14 +172,18 @@ public sealed class ObservationServiceTests
         {
             if (!string.IsNullOrWhiteSpace(hint))
             {
-                _subject = new SubjectProfile
+                // Reuse the existing profile if the subject ID already matches (preserves LastActivity across calls).
+                if (!string.Equals(_subject.SubjectId, hint, StringComparison.OrdinalIgnoreCase))
                 {
-                    SubjectId = hint,
-                    DisplayName = hint,
-                    FirstSeenUtc = DateTimeOffset.UtcNow,
-                    LastSeenUtc = DateTimeOffset.UtcNow,
-                    IsKnownIdentity = true
-                };
+                    _subject = new SubjectProfile
+                    {
+                        SubjectId = hint,
+                        DisplayName = hint,
+                        FirstSeenUtc = DateTimeOffset.UtcNow,
+                        LastSeenUtc = DateTimeOffset.UtcNow,
+                        IsKnownIdentity = true
+                    };
+                }
             }
 
             return Task.FromResult(_subject);
@@ -202,6 +207,17 @@ public sealed class ObservationServiceTests
             };
 
             return Task.FromResult(_subject);
+        }
+
+        public Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken)
+        {
+            if (string.Equals(_subject.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase))
+            {
+                _subject.LastActivity = activity;
+                _subject.LastActivityIsOutlier = isOutlier;
+            }
+
+            return Task.CompletedTask;
         }
     }
 }

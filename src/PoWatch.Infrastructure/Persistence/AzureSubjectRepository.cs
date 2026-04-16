@@ -1,10 +1,10 @@
-using System.Text;
 using Azure;
 using Azure.Data.Tables;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Infrastructure.Persistence;
 
@@ -102,7 +102,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             ?? throw new InvalidOperationException($"Subject '{subjectId}' was not found.");
 
         var trimmed = newDisplayName.Trim();
-        var canonicalId = ResolveCanonicalSubjectId(subjectId, trimmed);
+        var canonicalId = SubjectIdSlugger.ResolveCanonicalSubjectId(subjectId, trimmed);
 
         var renamed = new SubjectProfile
         {
@@ -138,7 +138,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
         var secondary = await GetByIdAsync(secondarySubjectId, cancellationToken);
         var displayName = string.IsNullOrWhiteSpace(explicitName) ? primary.DisplayName : explicitName.Trim();
-        var canonicalId = ResolveCanonicalSubjectId(primary.SubjectId, displayName);
+        var canonicalId = SubjectIdSlugger.ResolveCanonicalSubjectId(primary.SubjectId, displayName);
 
         var merged = new SubjectProfile
         {
@@ -190,27 +190,21 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         }
     }
 
-    private static string ResolveCanonicalSubjectId(string currentSubjectId, string displayName)
+    public async Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken)
     {
-        if (!currentSubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(currentSubjectId, displayName, StringComparison.OrdinalIgnoreCase))
+        try
         {
-            return currentSubjectId;
+            var entity = new TableEntity("Subjects", subjectId)
+            {
+                ["LastActivity"] = activity,
+                ["LastActivityIsOutlier"] = isOutlier
+            };
+            await _tableClient.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, cancellationToken);
         }
-
-        return BuildCanonicalSubjectId(displayName);
-    }
-
-    private static string BuildCanonicalSubjectId(string displayName)
-    {
-        var builder = new StringBuilder();
-
-        foreach (var character in displayName.Trim().ToLowerInvariant())
+        catch (RequestFailedException ex) when (ex.Status == 404)
         {
-            builder.Append(char.IsLetterOrDigit(character) ? character : '-');
+            // Subject row not yet created — ignore activity update.
         }
-
-        return builder.ToString().Trim('-');
     }
 
     private static SubjectProfile Map(TableEntity entity) => new()
@@ -219,6 +213,8 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         DisplayName = entity.GetString("DisplayName") ?? entity.RowKey,
         IsKnownIdentity = entity.GetBoolean("IsKnownIdentity") ?? false,
         FirstSeenUtc = entity.GetDateTimeOffset("FirstSeenUtc") ?? DateTimeOffset.UtcNow,
-        LastSeenUtc = entity.GetDateTimeOffset("LastSeenUtc") ?? DateTimeOffset.UtcNow
+        LastSeenUtc = entity.GetDateTimeOffset("LastSeenUtc") ?? DateTimeOffset.UtcNow,
+        LastActivity = entity.GetString("LastActivity"),
+        LastActivityIsOutlier = entity.GetBoolean("LastActivityIsOutlier") ?? false
     };
 }

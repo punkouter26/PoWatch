@@ -1,0 +1,30 @@
+flowchart TD
+    subgraph Map["Service Map (Simple)"]
+        CLIENT["PoWatch.Client\nBlazor WASM"]
+        API["PoWatch.Api\n.NET 10"]
+        APP["PoWatch.Application\nBusiness Logic"]
+        DOMAIN["PoWatch.Domain\nCore"]
+        INFRA["PoWatch.Infrastructure\nData Access"]
+        SHARED["PoWatch.Shared\nDTOs"]
+        STORAGE["Azure Storage\nTables + Blobs"]
+        TELEMETRY["App Insights\nTelemetry"]
+    end
+
+    CLIENT --> API
+    CLIENT --> SHARED
+    API --> APP
+    API --> INFRA
+    API --> SHARED
+    APP --> DOMAIN
+    INFRA --> STORAGE
+    API --> TELEMETRY
+
+    style Map fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style CLIENT fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style API fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style APP fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style DOMAIN fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style INFRA fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SHARED fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style STORAGE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style TELEMETRY fill:#1a3a2a,stroke:#52b788,color:#fff

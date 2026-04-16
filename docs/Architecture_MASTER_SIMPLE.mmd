@@ -1,0 +1,11 @@
+C4Context
+    title "PoWatch — System Context (Simple)"
+
+    Person(user, "Clinician / Sensor", "Monitors patients and submits observations")
+    System(powatch, "PoWatch System", ".NET 10 Minimal API + Blazor WASM. Ingest, archive, identity, diagnostics.")
+    SystemDb(storage, "Azure Storage", "Table Storage for observations/subjects. Blob Storage for images.")
+    System_Ext(telemetry, "Application Insights", "Telemetry, structured logs, distributed tracing")
+
+    Rel(user, powatch, "Uses", "HTTPS")
+    Rel(powatch, storage, "Persists data", "Azure SDK")
+    Rel(powatch, telemetry, "Sends telemetry", "OpenTelemetry")

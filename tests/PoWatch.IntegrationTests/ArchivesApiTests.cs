@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using PoWatch.Application.Models;
 using PoWatch.Domain.Models;
 
 namespace PoWatch.IntegrationTests;

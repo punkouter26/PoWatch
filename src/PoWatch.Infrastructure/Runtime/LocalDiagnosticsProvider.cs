@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
@@ -10,7 +9,7 @@ namespace PoWatch.Infrastructure.Runtime;
 
 public sealed class LocalDiagnosticsProvider(
     IOptions<AzureStorageOptions> storageOptions,
-    ILogger<LocalDiagnosticsProvider>? logger = null) : IDiagnosticsProvider
+    ILogger<LocalDiagnosticsProvider> logger) : IDiagnosticsProvider
 {
     public DiagnosticsSnapshot CaptureSnapshot()
     {
@@ -21,13 +20,18 @@ public sealed class LocalDiagnosticsProvider(
             var cpuEstimate = Math.Min(100, Math.Max(1, Environment.ProcessorCount * 6));
 
             var connectionString = storageOptions.Value.ConnectionString ?? string.Empty;
-            var isAzurite = string.Equals(connectionString, "UseDevelopmentStorage=true", StringComparison.OrdinalIgnoreCase);
+            var isAzurite = IsAzuriteConnectionString(connectionString);
             var endpoint = isAzurite
-                ? "http://127.0.0.1:10000/devstoreaccount1"
+                ? GetConnectionValue(connectionString, "BlobEndpoint") ?? "http://127.0.0.1:10000/devstoreaccount1"
                 : GetConnectionValue(connectionString, "BlobEndpoint") ?? "managed-identity-vault";
             var apiKey = isAzurite
-                ? "DEV-LOCAL-KEY-12345"
+                ? GetConnectionValue(connectionString, "AccountKey") ?? "DEV-LOCAL-KEY-12345"
                 : GetConnectionValue(connectionString, "AccountKey") ?? "managed-identity";
+
+            logger.LogDebug(
+                "Diagnostics storage classification evaluated. IsAzurite={IsAzurite} EndpointHost={EndpointHost}",
+                isAzurite,
+                endpoint);
 
             var snapshot = new DiagnosticsSnapshot
             {
@@ -39,7 +43,7 @@ public sealed class LocalDiagnosticsProvider(
                 MaskedApiKey = MaskingUtility.MaskMiddle(apiKey)
             };
 
-            (logger ?? NullLogger<LocalDiagnosticsProvider>.Instance).LogInformation(
+            logger.LogInformation(
                 "Diagnostics snapshot captured. StorageConnectionStatus={StorageConnectionStatus} CpuLoadPercent={CpuLoadPercent} MemoryMb={MemoryMb}",
                 snapshot.StorageConnectionStatus,
                 snapshot.CpuLoadPercent,
@@ -49,8 +53,7 @@ public sealed class LocalDiagnosticsProvider(
         }
         catch (Exception ex)
         {
-            (logger ?? NullLogger<LocalDiagnosticsProvider>.Instance).LogWarning(ex, "Diagnostics snapshot capture degraded; returning safe fallback values.");
-
+            logger.LogWarning(ex, "Diagnostics snapshot capture degraded; returning safe fallback values.");
             return new DiagnosticsSnapshot
             {
                 CapturedAtUtc = DateTimeOffset.UtcNow,
@@ -61,6 +64,40 @@ public sealed class LocalDiagnosticsProvider(
                 MaskedApiKey = "***"
             };
         }
+    }
+
+    private static bool IsAzuriteConnectionString(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return false;
+        }
+
+        if (string.Equals(connectionString, "UseDevelopmentStorage=true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var accountName = GetConnectionValue(connectionString, "AccountName");
+        var blobEndpoint = GetConnectionValue(connectionString, "BlobEndpoint");
+        var tableEndpoint = GetConnectionValue(connectionString, "TableEndpoint");
+
+        return string.Equals(accountName, "devstoreaccount1", StringComparison.OrdinalIgnoreCase)
+            || IsLocalAzuriteEndpoint(blobEndpoint)
+            || IsLocalAzuriteEndpoint(tableEndpoint);
+    }
+
+    private static bool IsLocalAzuriteEndpoint(string? endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return false;
+        }
+
+        return endpoint.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+            || endpoint.Contains("localhost", StringComparison.OrdinalIgnoreCase)
+            || endpoint.Contains("azurite", StringComparison.OrdinalIgnoreCase)
+            || endpoint.Contains("devstoreaccount1", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? GetConnectionValue(string connectionString, string key)

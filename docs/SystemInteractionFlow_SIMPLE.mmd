@@ -1,0 +1,19 @@
+sequenceDiagram
+    actor Sensor
+    participant API as "PoWatch.Api"
+    participant Storage as "Azure Table Storage"
+    participant Client as "Blazor WASM"
+
+    Sensor->>API: POST /api/observer/ingest
+    API->>Storage: Write ObservationEvent
+    API-->>Sensor: accepted=true
+
+    loop Poll every N seconds
+        Client->>API: GET /api/observer/state
+        API-->>Client: ObserverRuntimeStateDto
+    end
+
+    Client->>API: GET /api/archives/{date}
+    API->>Storage: Query by partition key
+    Storage-->>API: ObservationEvent[]
+    API-->>Client: DailyChapterDto

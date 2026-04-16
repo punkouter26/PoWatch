@@ -9,9 +9,7 @@ public static class DependencyInjection
     {
         services.AddScoped<ObservationService>();
         services.AddScoped<ArchivesService>();
-        services.AddScoped<BlobSasService>();
         services.AddScoped<IdentityService>();
-        services.AddScoped<DiagnosticsService>();
 
         return services;
     }

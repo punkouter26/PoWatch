@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using PoWatch.Application.Contracts;
-using PoWatch.Application.Models;
+using PoWatch.Shared.Models;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 
@@ -32,7 +32,7 @@ public sealed class IdentityServiceTests
 
         var service = new IdentityService(subjects, observations, NullLogger<IdentityService>.Instance);
 
-        var result = await service.RenameAsync("Subject-1", new RenameSubjectRequest { NewName = "Maya" }, CancellationToken.None);
+        var result = await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, CancellationToken.None);
 
         Assert.Equal("maya", result.CanonicalSubjectId);
         Assert.Equal("Maya", result.CanonicalName);
@@ -78,7 +78,7 @@ public sealed class IdentityServiceTests
 
         var service = new IdentityService(subjects, observations, NullLogger<IdentityService>.Instance);
 
-        var result = await service.MergeAsync(new MergeIdentityRequest
+        var result = await service.MergeAsync(new MergeIdentityRequestDto
         {
             PrimarySubjectId = "kim",
             SecondarySubjectId = "Subject-2",
@@ -189,5 +189,8 @@ public sealed class IdentityServiceTests
             Items[renamed.SubjectId] = renamed;
             return Task.FromResult(renamed);
         }
+
+        public Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

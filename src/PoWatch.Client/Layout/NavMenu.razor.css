@@ -1,15 +1,39 @@
 .navbar-toggler {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(111, 61, 227, 0.3);
 }
 
-.top-row {
-    min-height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
+.brand-row {
+    min-height: 4.25rem;
+    background: rgba(5, 4, 14, 0.72);
 }
 
 .navbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
     font-size: 1rem;
-    color: #38ffa8;
+    color: #e9fef5;
+    text-decoration: none;
+}
+
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.7rem;
+    background: linear-gradient(135deg, rgba(56, 255, 168, 0.24), rgba(111, 61, 227, 0.38));
+    color: #cffff0;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.brand-copy {
+    color: #d5dbf8;
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 .bi {
@@ -39,31 +63,33 @@
     padding-bottom: 0.5rem;
 }
 
-    .nav-item:first-of-type {
-        padding-top: 1rem;
-    }
+.nav-item:first-of-type {
+    padding-top: 1rem;
+}
 
-    .nav-item:last-of-type {
-        padding-bottom: 1rem;
-    }
+.nav-item:last-of-type {
+    padding-bottom: 1rem;
+}
 
-    .nav-item ::deep a {
-            color: #c7cadf;
-        border-radius: 4px;
-        height: 3rem;
-        display: flex;
-        align-items: center;
-        line-height: 3rem;
-    }
+.nav-item ::deep a {
+    color: #c7cadf;
+    border-radius: 12px;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    line-height: 3rem;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
 
 .nav-item ::deep a.active {
-        background-color: rgba(111, 61, 227, 0.35);
-        color: #38ffa8;
+    background: linear-gradient(135deg, rgba(111, 61, 227, 0.42), rgba(56, 255, 168, 0.16));
+    color: #38ffa8;
 }
 
 .nav-item ::deep a:hover {
-        background-color: rgba(111, 61, 227, 0.18);
-        color: #ecf1ff;
+    background-color: rgba(111, 61, 227, 0.16);
+    color: #ecf1ff;
+    transform: translateY(-1px);
 }
 
 @media (min-width: 641px) {
@@ -72,13 +98,40 @@
     }
 
     .collapse {
-        /* Never collapse the sidebar for wide screens */
         display: block;
     }
 
     .nav-scrollable {
-        /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
+        height: calc(100vh - 4.25rem);
         overflow-y: auto;
+        padding-top: 0.25rem;
     }
+
+    .nav-item {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .nav-item ::deep a {
+        justify-content: center;
+        padding: 0;
+        margin: 0 0.6rem;
+    }
+
+    .nav-text,
+    .brand-copy {
+        display: none;
+    }
+
+    .bi {
+        margin-right: 0;
+    }
+}
+
+.bi-cpu-fill-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M5 0a.5.5 0 0 1 .5.5V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2A2.5 2.5 0 0 1 14 4.5h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14A2.5 2.5 0 0 1 11.5 14v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14A2.5 2.5 0 0 1 2 11.5H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2A2.5 2.5 0 0 1 4.5 2V.5A.5.5 0 0 1 5 0zm-.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3h-7zM5 6.5A1.5 1.5 0 0 1 6.5 5h3A1.5 1.5 0 0 1 11 6.5v3A1.5 1.5 0 0 1 9.5 11h-3A1.5 1.5 0 0 1 5 9.5v-3zM6.5 6a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z'/%3E%3C/svg%3E");
+}
+
+.bi-person-badge-fill-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath d='M4.5 0A2.5 2.5 0 0 0 2 2.5V14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2.5A2.5 2.5 0 0 0 11.5 0h-7zM3 2.5A1.5 1.5 0 0 1 4.5 1h7A1.5 1.5 0 0 1 13 2.5v10.795a4.2 4.2 0 0 0-.776-.492C11.392 12.387 10.063 12 8 12s-3.392.387-4.224.803a4.2 4.2 0 0 0-.776.492V2.5z'/%3E%3C/svg%3E");
 }

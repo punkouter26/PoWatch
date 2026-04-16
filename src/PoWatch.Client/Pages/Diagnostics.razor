@@ -1,8 +1,11 @@
 @page "/diagnostics"
 @page "/diag"
 @using PoWatch.Shared.Models
+@using Microsoft.Extensions.Options
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
 @inject IJSRuntime JS
+@inject IOptions<ClientFeatureFlagsOptions> ClientFlags
+@inject NotificationService NotificationService
 @implements IDisposable
 
 <PageTitle>PoWatch | Diagnostics</PageTitle>
@@ -14,12 +17,20 @@
             <p>Zero-waste transparency into runtime resource usage and connection health.</p>
         </header>
 
-        <RadzenButton Text="Refresh Diagnostics" ButtonStyle="ButtonStyle.Primary" Click="LoadAsync" />
-
-        @if (!string.IsNullOrWhiteSpace(statusMessage))
-        {
-            <div class="status-line">@statusMessage</div>
-        }
+        <div class="diagnostics-toolbar">
+            <RadzenButton Text="Refresh Now" ButtonStyle="ButtonStyle.Primary" Click="LoadAsync" />
+            <div class="auto-refresh-toggle">
+                <span>Auto-Refresh</span>
+                <RadzenSwitch TValue="bool" Value="autoRefresh" Change="OnAutoRefreshChanged" />
+            </div>
+            @if (lastRefreshed.HasValue)
+            {
+                <div class="refresh-indicator">
+                    <span class="refresh-dot @(autoRefresh ? "refresh-dot--active" : string.Empty)"></span>
+                    <span>@lastRefreshed.Value.ToString("HH:mm:ss")</span>
+                </div>
+            }
+        </div>
 
         @if (snapshot is not null)
         {
@@ -40,25 +51,23 @@
             <p>WebGPU / WASM model status and runtime telemetry.</p>
         </header>
 
-        <RadzenButton Text="Refresh Inference Diagnostics" ButtonStyle="ButtonStyle.Secondary" Click="RefreshInferenceDiagnosticsAsync" />
-
         @if (inferenceDiag is not null)
         {
             var isReady = inferenceDiag.LoadState == "ready";
             var isLoading = inferenceDiag.LoadState == "loading";
             var isError = inferenceDiag.LoadState == "error";
-            var isIdle = !isReady && !isLoading && !isError;
+            var stateClass = isReady ? "status-ready" : isLoading ? "status-loading" : isError ? "status-error" : "status-idle";
 
-            <div style="margin-top: 1rem; padding: 1rem; border-radius: 6px; background: @(isReady ? "rgba(0,200,100,0.08)" : isLoading ? "rgba(255,180,0,0.08)" : isError ? "rgba(220,50,50,0.08)" : "rgba(120,120,120,0.08)"); border: 1px solid @(isReady ? "var(--rz-success)" : isLoading ? "var(--rz-warning)" : isError ? "var(--rz-danger)" : "var(--rz-border-disabled-color)");">
-                <div style="display: flex; align-items: center; gap: 0.6rem;">
-                    <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: @(isReady ? "var(--rz-success)" : isLoading ? "var(--rz-warning)" : isError ? "var(--rz-danger)" : "var(--rz-text-disabled-color)");"></span>
-                    <span style="font-size: 1rem; font-weight: 700; color: @(isReady ? "var(--rz-success)" : isLoading ? "var(--rz-warning)" : isError ? "var(--rz-danger)" : "var(--rz-text-secondary-color)");">
+            <div class="inference-status @stateClass">
+                <div class="status-indicator">
+                    <span class="status-dot @stateClass"></span>
+                    <span class="status-label @stateClass">
                         @(isReady ? "MODEL LOADED" : isLoading ? "LOADING…" : isError ? "LOAD FAILED" : "NOT STARTED")
                     </span>
                 </div>
                 @if (isReady)
                 {
-                    <div style="margin-top: 0.4rem; font-size: 0.85rem; color: var(--rz-text-secondary-color);">
+                    <div class="status-sub">
                         Running on <strong>@inferenceDiag.Device!.ToUpperInvariant()</strong> · dtype <strong>@inferenceDiag.Dtype</strong>
                         @if (inferenceDiag.Fp16FallbackUsed) { <span> · fp16 → fp32 fallback active</span> }
                         @if (inferenceDiag.LoadDurationMs.HasValue) { <span> · loaded in @($"{inferenceDiag.LoadDurationMs:N0} ms")</span> }
@@ -66,12 +75,12 @@
                 }
                 @if (isError && !string.IsNullOrWhiteSpace(inferenceDiag.LoadError))
                 {
-                    <div style="margin-top: 0.4rem; font-size: 0.85rem; color: var(--rz-danger);">@inferenceDiag.LoadError</div>
+                    <div class="status-error-detail">@inferenceDiag.LoadError</div>
                 }
             </div>
 
-            <div class="hud-grid diagnostics-grid" style="margin-top: 1rem;">
-                <div><label>Model</label><span style="font-size: 0.78rem;">@inferenceDiag.ModelId</span></div>
+            <div class="hud-grid diagnostics-grid diagnostics-grid-spacer">
+                <div><label>Model</label><span class="model-id-text">@inferenceDiag.ModelId</span></div>
                 <div><label>WebGPU Adapter</label><span>@(inferenceDiag.WebGpuPresent ? "AVAILABLE" : "NONE")</span></div>
                 <div><label>Inference Count</label><span>@inferenceDiag.InferenceCount</span></div>
                 <div><label>Last Inference</label><span>@(inferenceDiag.LastInferenceTimestamp is not null ? DateTime.Parse(inferenceDiag.LastInferenceTimestamp).ToLocalTime().ToString("HH:mm:ss") : "—")</span></div>
@@ -80,9 +89,9 @@
 
             @if (!string.IsNullOrWhiteSpace(inferenceDiag.LastInferenceOutput))
             {
-                <div style="margin-top: 1rem;">
-                    <label style="display: block; margin-bottom: 0.25rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Last Raw Output</label>
-                    <pre style="background: var(--rz-base-background-color); padding: 0.75rem; border-radius: 4px; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;">@inferenceDiag.LastInferenceOutput</pre>
+                <div class="raw-output-container">
+                    <label class="raw-output-label">Last Raw Output</label>
+                    <pre class="raw-output-pre">@inferenceDiag.LastInferenceOutput</pre>
                 </div>
             }
         }
@@ -91,29 +100,36 @@
 
 @code {
     private DiagnosticsSnapshotDto? snapshot;
-    private string statusMessage = string.Empty;
     private InferenceDiagnosticsDto? inferenceDiag;
+    private bool autoRefresh;
+    private DateTime? lastRefreshed;
+    private int _autoRefreshIntervalSeconds;
     private CancellationTokenSource _cts = new();
 
     protected override async Task OnInitializedAsync()
     {
+        _autoRefreshIntervalSeconds = ClientFlags.Value.DiagnosticsAutoRefreshIntervalSeconds;
         await LoadAsync();
     }
 
-    protected override void OnAfterRender(bool firstRender)
+    private async Task OnAutoRefreshChanged(bool value)
     {
-        if (firstRender)
-            _ = PollInferenceDiagnosticsAsync(_cts.Token);
+        autoRefresh = value;
+        _cts.Cancel();
+        _cts = new CancellationTokenSource();
+
+        if (autoRefresh)
+            _ = AutoRefreshLoopAsync(_cts.Token);
     }
 
-    private async Task PollInferenceDiagnosticsAsync(CancellationToken ct)
+    private async Task AutoRefreshLoopAsync(CancellationToken ct)
     {
         try
         {
             while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(5000, ct);
-                await RefreshInferenceDiagnosticsAsync();
+                await Task.Delay(TimeSpan.FromSeconds(_autoRefreshIntervalSeconds), ct);
+                await LoadAsync();
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -131,17 +147,17 @@
         try
         {
             snapshot = await ApiClient.GetDiagnosticsAsync();
-            statusMessage = snapshot is null
-                ? "Diagnostics unavailable in current environment."
-                : "Diagnostics refreshed successfully.";
+            if (snapshot is null)
+                NotificationService.Notify(NotificationSeverity.Warning, "Diagnostics", "Unavailable in current environment.", duration: 4000);
         }
         catch
         {
             snapshot = null;
-            statusMessage = "Diagnostics unavailable in current environment.";
+            NotificationService.Notify(NotificationSeverity.Warning, "Diagnostics", "Unavailable in current environment.", duration: 4000);
         }
 
         await RefreshInferenceDiagnosticsAsync();
+        lastRefreshed = DateTime.Now;
     }
 
     private async Task RefreshInferenceDiagnosticsAsync()

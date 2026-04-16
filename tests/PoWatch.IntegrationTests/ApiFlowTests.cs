@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using PoWatch.Application.Models;
+using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
 
 namespace PoWatch.IntegrationTests;
@@ -17,7 +17,7 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
     [Fact]
     public async Task IngestAndArchiveFlow_ReturnsPersistedData()
     {
-        var ingestResponse = await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        var ingestResponse = await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             SubjectHint = "Kim",
             Activity = "Desk Work",
@@ -27,6 +27,14 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
         });
 
         Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+
+        var ingestResult = await ingestResponse.Content.ReadFromJsonAsync<IngestObservationResultDto>();
+        Assert.NotNull(ingestResult);
+        Assert.False(string.IsNullOrWhiteSpace(ingestResult.ImageReference));
+
+        var uploadAccess = await _client.GetFromJsonAsync<BlobAccessDescriptorDto>($"/api/blobs/sas?blobPath={Uri.EscapeDataString(ingestResult.ImageReference!)}&upload=true");
+        Assert.NotNull(uploadAccess);
+        Assert.Equal(ingestResult.ImageReference, uploadAccess.BlobPath);
 
         var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}");
 
@@ -38,7 +46,7 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
     [Fact]
     public async Task MergeIdentity_CompactsSubjectHistory()
     {
-        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             SubjectHint = "Subject-4",
             Activity = "Entered",
@@ -47,7 +55,7 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
             SignificantReason = "New entity"
         });
 
-        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequest
+        await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
             SubjectHint = "Subject-7",
             Activity = "Entered",
@@ -56,7 +64,7 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
             SignificantReason = "New entity"
         });
 
-        var mergeResponse = await _client.PostAsJsonAsync("/api/identity/merge", new MergeIdentityRequest
+        var mergeResponse = await _client.PostAsJsonAsync("/api/identity/merge", new MergeIdentityRequestDto
         {
             PrimarySubjectId = "Subject-4",
             SecondarySubjectId = "Subject-7",

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using PoWatch.Application.Contracts;
-using PoWatch.Application.Models;
 using PoWatch.Domain.Models;
+using PoWatch.Shared.Models;
 
 namespace PoWatch.Application.Services;
 
@@ -10,10 +10,20 @@ public sealed class IdentityService(
     IObservationRepository observationRepository,
     ILogger<IdentityService> logger)
 {
-    public Task<IReadOnlyList<SubjectProfile>> GetSubjectsAsync(CancellationToken cancellationToken) =>
-        subjectRepository.GetAllAsync(cancellationToken);
+    public async Task<IReadOnlyList<SubjectProfileDto>> GetSubjectsAsync(CancellationToken cancellationToken)
+    {
+        var profiles = await subjectRepository.GetAllAsync(cancellationToken);
+        return profiles.Select(p => new SubjectProfileDto
+        {
+            SubjectId = p.SubjectId,
+            DisplayName = p.DisplayName,
+            IsKnownIdentity = p.IsKnownIdentity,
+            FirstSeenUtc = p.FirstSeenUtc,
+            LastSeenUtc = p.LastSeenUtc
+        }).ToList();
+    }
 
-    public async Task<IdentityRevisionResult> RenameAsync(string subjectId, RenameSubjectRequest request, CancellationToken cancellationToken)
+    public async Task<IdentityRevisionResultDto> RenameAsync(string subjectId, RenameSubjectRequestDto request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(subjectId))
         {
@@ -41,7 +51,7 @@ public sealed class IdentityService(
             rewritten,
             removed);
 
-        return new IdentityRevisionResult
+        return new IdentityRevisionResultDto
         {
             CanonicalSubjectId = canonical.SubjectId,
             CanonicalName = canonical.DisplayName,
@@ -50,7 +60,7 @@ public sealed class IdentityService(
         };
     }
 
-    public async Task<IdentityRevisionResult> MergeAsync(MergeIdentityRequest request, CancellationToken cancellationToken)
+    public async Task<IdentityRevisionResultDto> MergeAsync(MergeIdentityRequestDto request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.PrimarySubjectId) || string.IsNullOrWhiteSpace(request.SecondarySubjectId))
         {
@@ -92,7 +102,7 @@ public sealed class IdentityService(
             rewritten,
             removed);
 
-        return new IdentityRevisionResult
+        return new IdentityRevisionResultDto
         {
             CanonicalSubjectId = merged.SubjectId,
             CanonicalName = merged.DisplayName,

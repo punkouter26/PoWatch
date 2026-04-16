@@ -20,6 +20,9 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
     public async Task<BlobAccessDescriptorDto?> GetBlobUploadAccessAsync(string subjectId, DateOnly date, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<BlobAccessDescriptorDto>($"api/blobs/sas?subjectId={Uri.EscapeDataString(subjectId)}&date={date:yyyyMMdd}", cancellationToken);
 
+    public async Task<BlobAccessDescriptorDto?> GetBlobUploadAccessForPathAsync(string blobPath, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<BlobAccessDescriptorDto>($"api/blobs/sas?blobPath={Uri.EscapeDataString(blobPath)}&upload=true", cancellationToken);
+
     public async Task<string?> GetBlobReadUrlAsync(string blobPath, CancellationToken cancellationToken = default)
     {
         var access = await httpClient.GetFromJsonAsync<BlobAccessDescriptorDto>($"api/blobs/sas?blobPath={Uri.EscapeDataString(blobPath)}", cancellationToken);

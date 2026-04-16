@@ -13,10 +13,24 @@ const _MODELS = {
     webgpuDtypeFallback: 'fp32',
     wasmDtype: 'q8',
   },
+  'smolvlm-500m': {
+    id: 'HuggingFaceTB/SmolVLM-500M-Instruct',
+    label: 'SmolVLM 500M',
+    webgpuDtype: 'fp16',
+    webgpuDtypeFallback: 'fp32',
+    wasmDtype: 'q8',
+  },
   'lfm2-vl-450m': {
     id: 'LiquidAI/LFM2.5-VL-450M-ONNX',
     label: 'LFM2.5-VL 450M',
     webgpuDtype: { vision_encoder: 'fp16', embed_tokens: 'fp16', decoder_model_merged: 'q4' },
+    webgpuDtypeFallback: null,
+    wasmDtype: { vision_encoder: 'q8', embed_tokens: 'fp16', decoder_model_merged: 'q8' },
+  },
+  'qwen2.5-vl-2b': {
+    id: 'onnx-community/Qwen2.5-VL-2B-Instruct-ONNX',
+    label: 'Qwen2.5-VL 2B',
+    webgpuDtype: { vision_encoder: 'q8', embed_tokens: 'fp16', decoder_model_merged: 'q4' },
     webgpuDtypeFallback: null,
     wasmDtype: { vision_encoder: 'q8', embed_tokens: 'fp16', decoder_model_merged: 'q8' },
   },
@@ -131,6 +145,8 @@ async function runInference(base64Frame, prompt) {
       clinicalPayload: '',
       isSignificant: false,
       significantReason: null,
+      confidenceScore: 0,
+      confidenceLabel: 'Unavailable',
     };
   }
 
@@ -145,6 +161,8 @@ async function runInference(base64Frame, prompt) {
       clinicalPayload: '',
       isSignificant: false,
       significantReason: null,
+      confidenceScore: 0,
+      confidenceLabel: 'Unavailable',
     };
   }
 
@@ -176,11 +194,28 @@ async function runInference(base64Frame, prompt) {
   const output = _processor.batch_decode(newTokenIds, { skip_special_tokens: true })[0].trim();
   _lastInferenceOutput = output;
 
-  // Parse structured LABEL / NOTE response
+  // Parse structured LABEL / NOTE response.
+  // Require LABEL: to be present — unstructured VLM output (no format compliance) is
+  // treated as a low-quality skip to prevent raw model text reaching the clinical stream.
   const labelMatch = output.match(/LABEL:\s*([^|\n]+)/i);
   const noteMatch  = output.match(/NOTE:\s*([^\n]+)/i);
-  let activity     = (labelMatch?.[1] ?? output.split(/[.,;]/)[0]).trim().slice(0, 80);
-  const clinicalNote    = (noteMatch?.[1]  ?? output).trim();
+
+  if (!labelMatch) {
+    return {
+      isAvailable: false,
+      status: 'Low-quality inference: unstructured output skipped',
+      subjectHint: null,
+      activity: 'Unavailable',
+      clinicalPayload: '',
+      isSignificant: false,
+      significantReason: null,
+      confidenceScore: 0.18,
+      confidenceLabel: 'Low',
+    };
+  }
+
+  let activity          = labelMatch[1].trim().slice(0, 80);
+  const clinicalNote    = (noteMatch?.[1] ?? output).trim();
   const clinicalPayload = `<S>${clinicalNote}<E>`;
 
   // Quality gate: reject trivially short or deny-listed single-word outputs
@@ -194,10 +229,19 @@ async function runInference(base64Frame, prompt) {
       clinicalPayload: '',
       isSignificant: false,
       significantReason: null,
+      confidenceScore: 0.24,
+      confidenceLabel: 'Low',
     };
   }
 
   const isSignificant = clinicalNote.length > 10;
+  const confidenceScore = Math.max(0.55, Math.min(0.98,
+    0.58 +
+    Math.min(activity.length, 32) / 120 +
+    Math.min(clinicalNote.length, 160) / 500 +
+    (noteMatch ? 0.07 : 0) +
+    (isSignificant ? 0.05 : 0)));
+  const confidenceLabel = confidenceScore >= 0.85 ? 'High' : confidenceScore >= 0.72 ? 'Medium' : 'Low';
 
   return {
     isAvailable: true,
@@ -207,6 +251,8 @@ async function runInference(base64Frame, prompt) {
     clinicalPayload,
     isSignificant,
     significantReason: isSignificant ? 'Inference result' : null,
+    confidenceScore: Number(confidenceScore.toFixed(2)),
+    confidenceLabel,
   };
 }
 
@@ -229,6 +275,8 @@ self.onmessage = async (e) => {
           clinicalPayload: '',
           isSignificant: false,
           significantReason: null,
+          confidenceScore: 0,
+          confidenceLabel: 'Unavailable',
         };
       }
       self.postMessage({ id, type: 'INFERENCE_RESULT', result });

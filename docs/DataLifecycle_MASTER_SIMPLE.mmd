@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph Lifecycle["Data Lifecycle (Simple)"]
+        INGEST["Ingestion\nPOST /api/observer/ingest"]
+        PROCESS["Processing\nSubject resolve + clinical parse"]
+        PERSIST["Persistence\nAzure Table Storage"]
+        TRANSFORM["Transformation\nArchivesService"]
+        EGRESS["Egress\nBlazor WASM UI"]
+    end
+
+    INGEST --> PROCESS --> PERSIST --> TRANSFORM --> EGRESS
+
+    style Lifecycle fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style INGEST fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style PROCESS fill:#2a3d16,stroke:#f0a500,color:#fff
+    style PERSIST fill:#1a3a2a,stroke:#52b788,color:#fff
+    style TRANSFORM fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style EGRESS fill:#3d2163,stroke:#9b72cf,color:#fff

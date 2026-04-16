@@ -1,6 +1,6 @@
 .archive-toolbar {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.5rem;
     align-items: center;
     margin-bottom: 1rem;
     flex-wrap: wrap;
@@ -19,34 +19,78 @@
     color: #9ef7d4;
 }
 
+/* Image-first evidence cards */
 .evidence-grid {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.5rem;
 }
 
-.evidence-item {
-    display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 0.9rem;
-    align-items: center;
-    padding: 0.75rem;
+.evidence-card {
     border: 1px solid rgba(56, 255, 168, 0.15);
     border-radius: 10px;
+    overflow: hidden;
+    background: rgba(15, 11, 31, 0.86);
+    transition: border-color 0.2s;
 }
 
-.evidence-thumb {
-    width: 140px;
-    height: 88px;
+.evidence-card:hover {
+    border-color: rgba(56, 255, 168, 0.4);
+}
+
+.evidence-image-wrap {
+    position: relative;
+}
+
+.evidence-full-img {
+    width: 100%;
+    height: 140px;
     object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid rgba(56, 255, 168, 0.25);
+    display: block;
 }
 
-.evidence-thumb-placeholder {
+.evidence-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, rgba(56, 255, 168, 0.12), rgba(111, 61, 227, 0.18));
     color: #9ef7d4;
     font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.evidence-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(5, 3, 10, 0.88));
+    padding: 0.5rem 0.6rem 0.35rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.evidence-subject {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #ecf1ff;
+}
+
+.evidence-activity {
+    font-size: 0.78rem;
+    color: #9ef7d4;
+}
+
+.evidence-caption {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    color: var(--text-muted, #9ea2bc);
+}
+
+.evidence-time {
+    font-family: var(--font-mono, monospace);
 }

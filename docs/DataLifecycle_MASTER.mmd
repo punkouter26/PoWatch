@@ -1,0 +1,100 @@
+flowchart TD
+    subgraph Ingestion["Ingestion — Raw Data Entry"]
+        RAW_HTTP["HTTP POST /api/observer/ingest\nIngestObservationRequestDto payload"]
+        TS_OVERRIDE["Server Timestamp Applied\nObservedAtUtc = UtcNow — client time discarded"]
+        SUBJECT_RES["Subject Resolution\nISubjectRepository.GetOrCreateAsync(hint)\nSubjectIdSlugger: hint → slug or Subject-N"]
+        CLINICAL_EX["ClinicalTagParser.TryExtract(clinicalPayload)\nValidates <S>text<E> schema, max 500 chars\nOutputs: extractedText or outlier=true"]
+        REDUNDANCY["Redundancy Suppression\nIf activity == SubjectProfile.LastActivity AND not outlier\nEvent silently dropped — no write to storage"]
+    end
+
+    subgraph Processing["Processing and Enrichment"]
+        EVENT_ID["EventId = new Guid()"]
+        OUTLIER_TAG["IsOutlier tagged\nClinical review required flag"]
+        SIG_CHECK{"IsSignificant\nAND SaveSignificantImages?"}
+        BLOB_REF["ImageReferencePath generated\nsignificant-images/{yyyyMMdd}/{subjectId}/{guid}.svg"]
+        BLOB_SAS["IBlobSasProvider.CreateUploadAccessAsync()\nSAS token — 30-min upload window"]
+        ROW_KEY["Row Key: SubjectId_InvertedTicks_EventId\nInvertedTicks = long.MaxValue - ticks\nEnables reverse-chrono query within subject"]
+    end
+
+    subgraph Persistence["Persistence — Azure Table Storage"]
+        OBS_WRITE["AzureObservationRepository.AddAsync()\nTableClient.UpsertEntityAsync()\nPartition: yyyyMMdd Row: SubjectId_InvTicks_EventId"]
+        SUBJ_WRITE["AzureSubjectRepository.UpdateLastActivityAsync()\nUpserts LastActivity + LastSeenUtc + IsOutlier flag"]
+        BLOB_UPLOAD["Azure Blob Storage write\nExternal client uploads via SAS URL\n(camera/sensor writes directly to blob)"]
+        OTEL_TRACE["OpenTelemetry ActivitySource 'PoWatch.Storage'\nSpan created per repository operation"]
+    end
+
+    subgraph Transformation["Transformation — Archives Service"]
+        DATE_QUERY["AzureObservationRepository.GetByDateAsync(date)\nQuery by partition key — O(partition size)"]
+        SORT_TIMELINE["Sort by ObservedAtUtc ASC → Timeline"]
+        HIGHLIGHT_FILTER["Filter IsSignificant=true\nTake top 30 DESC → Highlights"]
+        SUBJECT_STATS["Count by SubjectId → primary subject\nCount by Activity → dominant activity\nCount IsOutlier=true → outlier count"]
+        NARRATIVE_BUILD["Narrative string assembled\n'The room recorded {N} events. Primary: {name}.\nDominant: {activity}. Clinical outliers flagged: {N}.'"]
+        CHAPTER["DailyChapterDto assembled\n{ date, narrative, timeline[], highlights[] }"]
+    end
+
+    subgraph Egress["Egress — UI Rendering"]
+        ARCHIVES_PAGE["Archives.razor\nDate picker → timeline list + highlights grid + narrative card"]
+        OBSHUB_PAGE["ObserverHub.razor\nPoll loop → runtime state card + ingest trigger"]
+        IDENTITY_PAGE["IdentityNexus.razor\nSubject list → rename inline + merge modal"]
+        DIAG_PAGE["Diagnostics.razor\nAuto-refresh every DiagnosticsAutoRefreshIntervalSeconds\nMasked health snapshot cards"]
+    end
+
+    RAW_HTTP --> TS_OVERRIDE
+    TS_OVERRIDE --> SUBJECT_RES
+    SUBJECT_RES --> CLINICAL_EX
+    CLINICAL_EX --> REDUNDANCY
+    REDUNDANCY -->|"new event"| EVENT_ID
+    EVENT_ID --> OUTLIER_TAG
+    OUTLIER_TAG --> SIG_CHECK
+    SIG_CHECK -->|"yes"| BLOB_REF
+    SIG_CHECK -->|"no"| ROW_KEY
+    BLOB_REF --> BLOB_SAS
+    BLOB_REF --> ROW_KEY
+    ROW_KEY --> OBS_WRITE
+    OBS_WRITE --> SUBJ_WRITE
+    OBS_WRITE --> OTEL_TRACE
+    BLOB_SAS --> BLOB_UPLOAD
+
+    OBS_WRITE --> DATE_QUERY
+    DATE_QUERY --> SORT_TIMELINE
+    SORT_TIMELINE --> HIGHLIGHT_FILTER
+    HIGHLIGHT_FILTER --> SUBJECT_STATS
+    SUBJECT_STATS --> NARRATIVE_BUILD
+    NARRATIVE_BUILD --> CHAPTER
+
+    CHAPTER --> ARCHIVES_PAGE
+    SUBJ_WRITE --> IDENTITY_PAGE
+    SUBJ_WRITE --> OBSHUB_PAGE
+    SUBJ_WRITE --> DIAG_PAGE
+
+    style Ingestion fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Processing fill:#16213e,stroke:#f0a500,color:#fff
+    style Persistence fill:#1b4332,stroke:#52b788,color:#fff
+    style Transformation fill:#0f3460,stroke:#4a90d9,color:#fff
+    style Egress fill:#2c1654,stroke:#9b72cf,color:#fff
+
+    style RAW_HTTP fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style TS_OVERRIDE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SUBJECT_RES fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style CLINICAL_EX fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style REDUNDANCY fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style EVENT_ID fill:#2a3d16,stroke:#f0a500,color:#fff
+    style OUTLIER_TAG fill:#2a3d16,stroke:#f0a500,color:#fff
+    style SIG_CHECK fill:#2a3d16,stroke:#f0a500,color:#fff
+    style BLOB_REF fill:#2a3d16,stroke:#f0a500,color:#fff
+    style BLOB_SAS fill:#2a3d16,stroke:#f0a500,color:#fff
+    style ROW_KEY fill:#2a3d16,stroke:#f0a500,color:#fff
+    style OBS_WRITE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style SUBJ_WRITE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style BLOB_UPLOAD fill:#1a3a2a,stroke:#52b788,color:#fff
+    style OTEL_TRACE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style DATE_QUERY fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SORT_TIMELINE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style HIGHLIGHT_FILTER fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style SUBJECT_STATS fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style NARRATIVE_BUILD fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style CHAPTER fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style ARCHIVES_PAGE fill:#3d2163,stroke:#9b72cf,color:#fff
+    style OBSHUB_PAGE fill:#3d2163,stroke:#9b72cf,color:#fff
+    style IDENTITY_PAGE fill:#3d2163,stroke:#9b72cf,color:#fff
+    style DIAG_PAGE fill:#3d2163,stroke:#9b72cf,color:#fff

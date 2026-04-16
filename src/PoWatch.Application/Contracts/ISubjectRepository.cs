@@ -13,4 +13,7 @@ public interface ISubjectRepository
     Task<SubjectProfile> RenameAsync(string subjectId, string newDisplayName, CancellationToken cancellationToken);
 
     Task<SubjectProfile> MergeAsync(string primarySubjectId, string secondarySubjectId, string? explicitName, CancellationToken cancellationToken);
+
+    /// <summary>Updates the cached last-observed activity on the subject row (O(1) subject-keyed write).</summary>
+    Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken);
 }

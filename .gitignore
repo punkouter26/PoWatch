@@ -11,6 +11,12 @@ obj/
 *.rsuser
 .vscode/
 
+# VS Code extension state
+.potune-state.json
+
+# VS Code extension state
+.potune-state.json
+
 # NuGet
 *.nupkg
 *.snupkg

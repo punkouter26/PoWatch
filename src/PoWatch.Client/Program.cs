@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.Extensions.Options;
 using PoWatch.Client;
 using PoWatch.Client.Services;
 using Radzen;
@@ -15,11 +16,9 @@ builder.Services.AddScoped(sp => new HttpClient
 		? builder.HostEnvironment.BaseAddress
 		: apiBaseUrl)
 });
+builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddScoped<PoWatchApiClient>();
+builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddRadzenComponents();
-builder.Services.AddScoped<DialogService>();
-builder.Services.AddScoped<NotificationService>();
-builder.Services.AddScoped<TooltipService>();
-builder.Services.AddScoped<ContextMenuService>();
 
 await builder.Build().RunAsync();

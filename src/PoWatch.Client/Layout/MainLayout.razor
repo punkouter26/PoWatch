@@ -1,17 +1,46 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
 <div class="page">
-    <div class="sidebar">
+    <aside class="sidebar">
         <NavMenu />
-    </div>
+    </aside>
 
     <main>
-        <div class="top-row px-4 hud-top">
-            <span>Ambient Historian // Local-Only Inference</span>
-            <span class="clock">@DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")</span>
+        <div class="top-row hud-top">
+            <div class="shell-title">
+                <span class="shell-kicker">PoWatch</span>
+                <div>
+                    <strong>Observer Operations Console</strong>
+                    <div class="shell-subtitle">Local-only ambient monitoring</div>
+                </div>
+            </div>
+
+            <div class="shell-meta">
+                <span class="shell-badge">Inference ready</span>
+                <span class="clock">@_clock</span>
+            </div>
         </div>
 
-        <article class="content px-4 app-shell">
+        <article class="content app-shell">
             @Body
         </article>
     </main>
 </div>
+
+<RadzenNotification />
+
+@code {
+    private string _clock = DateTime.Now.ToString("HH:mm");
+    private System.Threading.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        _timer = new System.Threading.Timer(_ =>
+        {
+            _clock = DateTime.Now.ToString("HH:mm");
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

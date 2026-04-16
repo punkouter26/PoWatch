@@ -1,19 +1,30 @@
 @page "/archives"
 @using PoWatch.Shared.Models
+@using Microsoft.JSInterop
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject IJSRuntime JS
+@inject NotificationService NotificationService
 
 <PageTitle>PoWatch | Archives</PageTitle>
 
 <div class="sector-grid archives-grid">
-    <RadzenCard class="panel panel-overview">
+    <RadzenCard class="panel panel-chapter">
         <header class="panel-header">
             <h1>Archives</h1>
             <p>Daily chapters, narratives, and evidence highlights.</p>
         </header>
 
         <div class="archive-toolbar">
-            <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd" />
-            <RadzenButton Text="Load Chapter" ButtonStyle="ButtonStyle.Primary" Click="LoadChapterAsync" />
+            <RadzenButton Icon="chevron_left" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                Click="PreviousDayAsync" Disabled="@loading" aria-label="Previous day" />
+            <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd"
+                Change="@(async _ => await LoadChapterAsync())" />
+            <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                Click="NextDayAsync" Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
+            @if (loading)
+            {
+                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:100px; align-self:center;" />
+            }
         </div>
 
         <h3>Clinical Narrative</h3>
@@ -22,6 +33,37 @@
         @if (chapter is not null && chapter.Timeline.Count == 0)
         {
             <div class="archive-empty">No data for this day.</div>
+        }
+
+        @if (chapter?.Highlights?.Any() == true)
+        {
+            <h3>Evidence Highlights</h3>
+            <div class="evidence-grid">
+                @foreach (var item in chapter.Highlights)
+                {
+                    var evidenceUrl = GetEvidenceUrl(item);
+                    <div class="evidence-card">
+                        <div class="evidence-image-wrap">
+                            @if (!string.IsNullOrWhiteSpace(evidenceUrl))
+                            {
+                                <img class="evidence-full-img" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName" />
+                            }
+                            else
+                            {
+                                <div class="evidence-full-img evidence-placeholder">720p</div>
+                            }
+                            <div class="evidence-overlay">
+                                <span class="evidence-subject">@item.SubjectDisplayName</span>
+                                <span class="evidence-activity">@item.Activity</span>
+                            </div>
+                        </div>
+                        <div class="evidence-caption">
+                            <small>@(item.SignificantReason ?? "Significant event")</small>
+                            <small class="evidence-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm")</small>
+                        </div>
+                    </div>
+                }
+            </div>
         }
     </RadzenCard>
 
@@ -38,76 +80,76 @@
             </Columns>
         </RadzenDataGrid>
     </RadzenCard>
-
-    <RadzenCard class="panel panel-highlights">
-        <h2>Highlight Reel</h2>
-        <div class="evidence-grid">
-            @if (chapter?.Highlights?.Any() == true)
-            {
-                @foreach (var item in chapter.Highlights)
-                {
-                    var evidenceUrl = GetEvidenceUrl(item);
-
-                    <div class="evidence-item">
-                        @if (!string.IsNullOrWhiteSpace(evidenceUrl))
-                        {
-                            <img class="evidence-thumb" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName" />
-                        }
-                        else
-                        {
-                            <div class="evidence-thumb evidence-thumb-placeholder">720p</div>
-                        }
-                        <div>
-                            <strong>@item.SubjectDisplayName</strong>
-                            <div>@item.Activity</div>
-                            <small>@(item.SignificantReason ?? "Significant event")</small>
-                        </div>
-                    </div>
-                }
-            }
-            else
-            {
-                <p>No highlights captured for this chapter.</p>
-            }
-        </div>
-    </RadzenCard>
 </div>
 
 @code {
-    private DateTime? selectedDate = DateTime.UtcNow;
+    // Use local time so the default chapter matches the user's calendar day, not the UTC day.
+    private DateTime? selectedDate = DateTime.Now;
     private DailyChapterDto? chapter;
+    private bool loading;
     private readonly Dictionary<string, string> evidenceUrls = [];
 
     protected override async Task OnInitializedAsync()
     {
+        // Restore last-visited date from localStorage
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", "powatch:archivesDate");
+            if (!string.IsNullOrWhiteSpace(stored) && DateTime.TryParse(stored, out var restored))
+                selectedDate = restored;
+        }
+        catch { /* localStorage may be unavailable */ }
+
+        await LoadChapterAsync();
+    }
+
+    private async Task PreviousDayAsync()
+    {
+        selectedDate = (selectedDate ?? DateTime.Now).AddDays(-1);
+        await LoadChapterAsync();
+    }
+
+    private async Task NextDayAsync()
+    {
+        selectedDate = (selectedDate ?? DateTime.Now).AddDays(1);
         await LoadChapterAsync();
     }
 
     private async Task LoadChapterAsync()
     {
+        loading = true;
+        StateHasChanged();
         var date = DateOnly.FromDateTime((selectedDate ?? DateTime.UtcNow).Date);
         chapter = await ApiClient.GetChapterAsync(date);
 
-        evidenceUrls.Clear();
-        if (chapter?.Highlights is not null)
+        // Persist selected date for session continuity
+        try
         {
-            foreach (var item in chapter.Highlights.Where(x => !string.IsNullOrWhiteSpace(x.ImageReference)))
-            {
-                var url = await ApiClient.GetBlobReadUrlAsync(item.ImageReference!);
-                if (!string.IsNullOrWhiteSpace(url))
-                {
-                    evidenceUrls[item.ImageReference!] = url;
-                }
-            }
+            await JS.InvokeVoidAsync("localStorage.setItem", "powatch:archivesDate", selectedDate?.ToString("O") ?? string.Empty);
         }
+        catch { }
+
+        evidenceUrls.Clear();
+        var itemsWithImages = chapter?.Highlights?
+            .Where(x => !string.IsNullOrWhiteSpace(x.ImageReference))
+            .ToList() ?? [];
+
+        var sasResults = await Task.WhenAll(
+            itemsWithImages.Select(item => ApiClient.GetBlobReadUrlAsync(item.ImageReference!)));
+
+        for (var i = 0; i < itemsWithImages.Count; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(sasResults[i]))
+                evidenceUrls[itemsWithImages[i].ImageReference!] = sasResults[i]!;
+        }
+
+        loading = false;
     }
 
     private string? GetEvidenceUrl(ObservationEventDto item)
     {
         if (string.IsNullOrWhiteSpace(item.ImageReference))
-        {
             return null;
-        }
 
         return evidenceUrls.TryGetValue(item.ImageReference, out var url) ? url : null;
     }

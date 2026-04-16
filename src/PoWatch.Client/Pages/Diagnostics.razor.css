@@ -1,0 +1,151 @@
+/* UX-10: Diagnostics unified refresh toolbar */
+
+.diagnostics-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.auto-refresh-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.refresh-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--text-muted, #9ea2bc);
+    font-family: var(--font-mono, monospace);
+}
+
+.refresh-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--neon-green, #38ffa8);
+    flex-shrink: 0;
+    opacity: 0.35;
+}
+
+.refresh-dot--active {
+    opacity: 1;
+    animation: refreshPulse 2s ease-in-out infinite;
+}
+
+@keyframes refreshPulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+}
+
+/* Inference Engine status card */
+
+.inference-status {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid;
+}
+
+.inference-status.status-ready {
+    background: rgba(0, 200, 100, 0.08);
+    border-color: var(--rz-success);
+}
+
+.inference-status.status-loading {
+    background: rgba(255, 180, 0, 0.08);
+    border-color: var(--rz-warning);
+}
+
+.inference-status.status-error {
+    background: rgba(220, 50, 50, 0.08);
+    border-color: var(--rz-danger);
+}
+
+.inference-status.status-idle {
+    background: rgba(120, 120, 120, 0.08);
+    border-color: var(--rz-border-disabled-color);
+}
+
+/* Status indicator row */
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot.status-ready  { background: var(--rz-success); }
+.status-dot.status-loading { background: var(--rz-warning); }
+.status-dot.status-error   { background: var(--rz-danger); }
+.status-dot.status-idle    { background: var(--rz-text-disabled-color); }
+
+.status-label {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.status-label.status-ready  { color: var(--rz-success); }
+.status-label.status-loading { color: var(--rz-warning); }
+.status-label.status-error   { color: var(--rz-danger); }
+.status-label.status-idle    { color: var(--rz-text-secondary-color); }
+
+/* Sub-text inside status card */
+
+.status-sub {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--rz-text-secondary-color);
+}
+
+.status-error-detail {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--rz-danger);
+}
+
+/* Diagnostics grid spacing */
+
+.diagnostics-grid-spacer {
+    margin-top: 1rem;
+}
+
+/* Model ID small text */
+.model-id-text {
+    font-size: 0.78rem;
+}
+
+/* Raw output block */
+
+.raw-output-container {
+    margin-top: 1rem;
+}
+
+.raw-output-label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.raw-output-pre {
+    background: var(--rz-base-background-color);
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

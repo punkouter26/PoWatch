@@ -10,5 +10,6 @@ public sealed class FeatureFlagsOptions
 
     public bool ExposeDebugDetailsInUi { get; init; } = false;
 
-    public bool DeveloperBypassAuth { get; init; } = true;
+    // Production-safe default is false; enable only via appsettings.Development.json or an explicit override.
+    public bool DeveloperBypassAuth { get; init; } = false;
 }

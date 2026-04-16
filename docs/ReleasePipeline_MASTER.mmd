@@ -1,0 +1,93 @@
+flowchart TD
+    subgraph Source["Source Control"]
+        FEAT["Feature Branch\nlocal development"]
+        DEV["dev Branch\nintegration baseline"]
+        MAIN["main Branch\nproduction-ready"]
+    end
+
+    subgraph Build["Build Stage — dotnet build PoWatch.slnx"]
+        RESTORE["NuGet Restore\nDirectory.Packages.props — centralized versions"]
+        COMPILE["Compile All Projects\nTreatWarningsAsErrors=true, Nullable=enable"]
+    end
+
+    subgraph UnitGate["Unit Test Gate — dotnet test PoWatch.UnitTests"]
+        UT_ARCH["ArchivesServiceTests\nChapter generation, highlights, narrative"]
+        UT_CLIN["ClinicalTagParserTests\nPayload validation, tag extraction"]
+        UT_DIAG["DiagnosticsMaskingTests\nMasking utility coverage"]
+        UT_ID["IdentityServiceTests\nRename and merge logic"]
+        UT_OBS["ObservationServiceTests\nIngest pipeline, redundancy, gate backpressure"]
+    end
+
+    subgraph IntegGate["Integration Test Gate — dotnet test PoWatch.IntegrationTests"]
+        IT_AZURITE["AzuriteWebApplicationFactory\nTestcontainers.Azurite — isolated storage per test"]
+        IT_FLOW["ApiFlowTests\nEnd-to-end API workflows"]
+        IT_ARCH["ArchivesApiTests\nDate parsing, chapter retrieval"]
+        IT_INGEST["ObserverIngestFlowTests\nRedundancy, timeline consistency"]
+        IT_ID["IdentityRevisionistTests\nRename/merge via HTTP client"]
+    end
+
+    subgraph E2EGate["E2E Gate — npm test (Playwright)"]
+        E2E_LINT["npm run lint\nESLint TypeScript validation"]
+        E2E_ARCH["archives.spec.ts\nArchives page UI"]
+        E2E_DIAG["diagnostics.spec.ts\nDiagnostics refresh + health display"]
+        E2E_ID["identity-nexus.spec.ts\nRename and merge UI workflows"]
+        E2E_OBS["observer-hub.spec.ts\nIngest and monitoring scenarios"]
+    end
+
+    subgraph Environments["Environments"]
+        ENV_DEV["Dev\nAzurite emulator\nFeatureFlags: ExposeDebugDetailsInUi=true\nDeveloperBypassAuth=true"]
+        ENV_STAGE["Staging\nAzure Table + Blob Storage\nAll feature flags default"]
+        ENV_PROD["Production\nApp Insights connected\nSerilog file + AI sinks\nFeatureFlags: DeveloperBypassAuth=false"]
+    end
+
+    FEAT -->|"PR to dev"| RESTORE
+    RESTORE --> COMPILE
+    COMPILE -->|"Build success"| UT_ARCH
+    COMPILE -->|"Build success"| UT_CLIN
+    COMPILE -->|"Build success"| UT_DIAG
+    COMPILE -->|"Build success"| UT_ID
+    COMPILE -->|"Build success"| UT_OBS
+
+    UT_ARCH & UT_CLIN & UT_DIAG & UT_ID & UT_OBS -->|"All pass"| IT_AZURITE
+    IT_AZURITE --> IT_FLOW & IT_ARCH & IT_INGEST & IT_ID
+
+    IT_FLOW & IT_ARCH & IT_INGEST & IT_ID -->|"All pass"| E2E_LINT
+    E2E_LINT --> E2E_ARCH & E2E_DIAG & E2E_ID & E2E_OBS
+
+    E2E_ARCH & E2E_DIAG & E2E_ID & E2E_OBS -->|"All pass"| DEV
+    DEV -->|"Manual promotion"| ENV_STAGE
+    ENV_STAGE -->|"Manual approval gate"| MAIN
+    MAIN --> ENV_PROD
+
+    ENV_DEV -.->|"local dev"| FEAT
+
+    style Source fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Build fill:#16213e,stroke:#4a90d9,color:#fff
+    style UnitGate fill:#0f3460,stroke:#4a90d9,color:#fff
+    style IntegGate fill:#0f3460,stroke:#52b788,color:#fff
+    style E2EGate fill:#2c1654,stroke:#9b72cf,color:#fff
+    style Environments fill:#1b4332,stroke:#52b788,color:#fff
+
+    style FEAT fill:#2d3561,stroke:#4a90d9,color:#fff
+    style DEV fill:#2d3561,stroke:#4a90d9,color:#fff
+    style MAIN fill:#2d3561,stroke:#4a90d9,color:#fff
+    style RESTORE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style COMPILE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style UT_ARCH fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style UT_CLIN fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style UT_DIAG fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style UT_ID fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style UT_OBS fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style IT_AZURITE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style IT_FLOW fill:#1a3a2a,stroke:#52b788,color:#fff
+    style IT_ARCH fill:#1a3a2a,stroke:#52b788,color:#fff
+    style IT_INGEST fill:#1a3a2a,stroke:#52b788,color:#fff
+    style IT_ID fill:#1a3a2a,stroke:#52b788,color:#fff
+    style E2E_LINT fill:#3d2163,stroke:#9b72cf,color:#fff
+    style E2E_ARCH fill:#3d2163,stroke:#9b72cf,color:#fff
+    style E2E_DIAG fill:#3d2163,stroke:#9b72cf,color:#fff
+    style E2E_ID fill:#3d2163,stroke:#9b72cf,color:#fff
+    style E2E_OBS fill:#3d2163,stroke:#9b72cf,color:#fff
+    style ENV_DEV fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ENV_STAGE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ENV_PROD fill:#1a3a2a,stroke:#52b788,color:#fff
