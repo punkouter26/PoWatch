@@ -136,6 +136,9 @@ public sealed class IdentityServiceTests
 
             return Task.FromResult(rewritten);
         }
+
+        public Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(Items);
     }
 
     private sealed class FakeSubjectRepository : ISubjectRepository

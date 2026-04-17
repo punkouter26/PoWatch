@@ -12,6 +12,8 @@ public sealed class ObservationService(
     IObservationRepository observationRepository,
     ISubjectRepository subjectRepository,
     IObservationProcessingGate processingGate,
+    ITelemetryContentSanitizer telemetryContentSanitizer,
+    AlertThresholdEvaluator thresholdEvaluator,
     IOptions<FeatureFlagsOptions> featureFlags,
     IOptions<ObserverOptions> observerOptions,
     ILogger<ObservationService> logger)
@@ -53,6 +55,27 @@ public sealed class ObservationService(
 
         try
         {
+            if (featureFlags.Value.EnableTelemetrySanitizer)
+            {
+                if (!telemetryContentSanitizer.TrySanitize(request, out var sanitizedRequest, out var sanitizationReason))
+                {
+                    logger.LogWarning(
+                        "Observation rejected by telemetry sanitizer. Reason={Reason} Activity={Activity} SubjectHint={SubjectHint}",
+                        sanitizationReason,
+                        request.Activity,
+                        request.SubjectHint);
+
+                    return new IngestObservationResultDto
+                    {
+                        Accepted = false,
+                        Dropped = true,
+                        Detail = $"Rejected by telemetry sanitizer: {sanitizationReason}"
+                    };
+                }
+
+                request = sanitizedRequest;
+            }
+
             var subject = await subjectRepository.GetOrCreateAsync(request.SubjectHint, cancellationToken);
             var isOutlier = !ClinicalTagParser.TryExtract(request.ClinicalPayload, out var extracted);
             var description = isOutlier ? "Clinical outlier: malformed inference payload." : extracted;
@@ -106,14 +129,17 @@ public sealed class ObservationService(
             await observationRepository.AddAsync(observation, cancellationToken);
             await subjectRepository.UpdateLastActivityAsync(subject.SubjectId, observation.Activity, observation.IsClinicalOutlier, cancellationToken);
 
+            var triggeredAlerts = thresholdEvaluator.Evaluate(observation);
+
             logger.LogInformation(
-                "Observation persisted. EventId={EventId}, SubjectId={SubjectId}, Significant={Significant}, Outlier={Outlier}, ImageReference={ImageReference}, ObservedAtUtc={ObservedAtUtc}",
+                "Observation persisted. EventId={EventId}, SubjectId={SubjectId}, Significant={Significant}, Outlier={Outlier}, ImageReference={ImageReference}, ObservedAtUtc={ObservedAtUtc}, TriggeredAlerts={TriggeredAlertCount}",
                 observation.Id,
                 observation.SubjectId,
                 observation.IsSignificant,
                 observation.IsClinicalOutlier,
                 observation.ImageReference,
-                observation.ObservedAtUtc);
+                observation.ObservedAtUtc,
+                triggeredAlerts.Count);
 
             return new IngestObservationResultDto
             {
@@ -124,7 +150,8 @@ public sealed class ObservationService(
                 SubjectId = observation.SubjectId,
                 SubjectDisplayName = observation.SubjectDisplayName,
                 ImageReference = observation.ImageReference,
-                Detail = observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."
+                Detail = observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded.",
+                TriggeredAlerts = triggeredAlerts
             };
         }
         finally

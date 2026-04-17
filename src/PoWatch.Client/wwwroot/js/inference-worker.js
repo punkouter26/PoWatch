@@ -58,13 +58,28 @@ let _lastInferenceOutput = null;
 
 // Cached single WebGPU adapter probe — avoids multiple requestAdapter() calls.
 let _webGpuProbePromise = null;
+let _gpuAdapterVendor = null;
+let _gpuAdapterName = null;
+let _gpuPowerPreference = 'default'; // 'default' | 'high-performance' | 'low-power'
 function probeWebGpu() {
   if (!_webGpuProbePromise) {
     _webGpuProbePromise = (async () => {
       if (typeof navigator === 'undefined' || !navigator.gpu) return false;
       try {
-        const adapter = await navigator.gpu.requestAdapter();
-        return adapter !== null;
+        const adapterOpts = _gpuPowerPreference !== 'default' ? { powerPreference: _gpuPowerPreference } : undefined;
+        const adapter = await navigator.gpu.requestAdapter(adapterOpts);
+        if (adapter === null) return false;
+        // requestAdapterInfo() is the standard API (Chrome 113+).
+        // Fall back to the deprecated adapter.name when unavailable.
+        try {
+          const info = await adapter.requestAdapterInfo();
+          _gpuAdapterVendor = info.vendor ?? '';
+          _gpuAdapterName = info.description || info.device || info.architecture || 'GPU';
+        } catch {
+          _gpuAdapterName = adapter.name ?? 'GPU';
+          _gpuAdapterVendor = '';
+        }
+        return true;
       } catch {
         return false;
       }
@@ -135,7 +150,7 @@ async function ensureModelLoaded() {
   }
 }
 
-async function runInference(base64Frame, prompt) {
+async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   if (!base64Frame) {
     return {
       isAvailable: false,
@@ -181,9 +196,12 @@ async function runInference(base64Frame, prompt) {
   const inputs = await _processor(text, [image]);
 
   const inferStart = performance.now();
+  const safeMaxNewTokens = Number.isFinite(maxNewTokens)
+    ? Math.min(256, Math.max(32, Math.trunc(maxNewTokens)))
+    : 96;
   const generatedIds = await _model.generate({
     ...inputs,
-    max_new_tokens: 200,
+    max_new_tokens: safeMaxNewTokens,
   });
   _lastInferenceMs = Math.round(performance.now() - inferStart);
   _lastInferenceTimestamp = new Date().toISOString();
@@ -195,31 +213,48 @@ async function runInference(base64Frame, prompt) {
   _lastInferenceOutput = output;
 
   // Parse structured LABEL / NOTE response.
-  // Require LABEL: to be present — unstructured VLM output (no format compliance) is
-  // treated as a low-quality skip to prevent raw model text reaching the clinical stream.
+  // LABEL: is preferred. When absent (common with small models like 256M that don't
+  // reliably follow format instructions), fall back to extracting the first sentence
+  // of the raw output as a low-confidence activity rather than discarding the inference.
   const labelMatch = output.match(/LABEL:\s*([^|\n]+)/i);
   const noteMatch  = output.match(/NOTE:\s*([^\n]+)/i);
 
+  const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
+
+  let activity;
+  let clinicalNote;
+  let isUnstructured = false;
+
   if (!labelMatch) {
-    return {
-      isAvailable: false,
-      status: 'Low-quality inference: unstructured output skipped',
-      subjectHint: null,
-      activity: 'Unavailable',
-      clinicalPayload: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0.18,
-      confidenceLabel: 'Low',
-    };
+    // Fallback: use the first sentence of raw output as the activity summary.
+    const rawTrimmed = output.replace(/\s+/g, ' ').trim();
+    const firstSentence = rawTrimmed.split(/[.\n]/)[0].trim().slice(0, 80);
+
+    if (firstSentence.length < 6 || _DENY.has(firstSentence.toLowerCase())) {
+      return {
+        isAvailable: false,
+        status: 'Low-quality inference: unstructured output skipped',
+        subjectHint: null,
+        activity: 'Unavailable',
+        clinicalPayload: '',
+        isSignificant: false,
+        significantReason: null,
+        confidenceScore: 0.18,
+        confidenceLabel: 'Low',
+      };
+    }
+
+    activity = firstSentence;
+    clinicalNote = rawTrimmed.slice(0, 200);
+    isUnstructured = true;
+  } else {
+    activity     = labelMatch[1].trim().slice(0, 80);
+    clinicalNote = (noteMatch?.[1] ?? output).trim();
   }
 
-  let activity          = labelMatch[1].trim().slice(0, 80);
-  const clinicalNote    = (noteMatch?.[1] ?? output).trim();
   const clinicalPayload = `<S>${clinicalNote}<E>`;
 
   // Quality gate: reject trivially short or deny-listed single-word outputs
-  const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
   if (activity.length < 6 || _DENY.has(activity.toLowerCase())) {
     return {
       isAvailable: false,
@@ -235,22 +270,30 @@ async function runInference(base64Frame, prompt) {
   }
 
   const isSignificant = clinicalNote.length > 10;
-  const confidenceScore = Math.max(0.55, Math.min(0.98,
-    0.58 +
-    Math.min(activity.length, 32) / 120 +
-    Math.min(clinicalNote.length, 160) / 500 +
-    (noteMatch ? 0.07 : 0) +
-    (isSignificant ? 0.05 : 0)));
+
+  // Unstructured outputs from small models are capped at Low confidence (max 0.50).
+  // Structured outputs with LABEL: use the full scoring range (0.55–0.98).
+  const confidenceScore = isUnstructured
+    ? Math.max(0.30, Math.min(0.50,
+        0.32 +
+        Math.min(activity.length, 32) / 120 +
+        Math.min(clinicalNote.length, 160) / 500))
+    : Math.max(0.55, Math.min(0.98,
+        0.58 +
+        Math.min(activity.length, 32) / 120 +
+        Math.min(clinicalNote.length, 160) / 500 +
+        (noteMatch ? 0.07 : 0) +
+        (isSignificant ? 0.05 : 0)));
   const confidenceLabel = confidenceScore >= 0.85 ? 'High' : confidenceScore >= 0.72 ? 'Medium' : 'Low';
 
   return {
     isAvailable: true,
-    status: 'OK',
+    status: isUnstructured ? 'Unstructured (low confidence)' : 'OK',
     subjectHint: null,
     activity,
     clinicalPayload,
     isSignificant,
-    significantReason: isSignificant ? 'Inference result' : null,
+    significantReason: isSignificant ? (isUnstructured ? 'Unstructured inference' : 'Inference result') : null,
     confidenceScore: Number(confidenceScore.toFixed(2)),
     confidenceLabel,
   };
@@ -265,7 +308,7 @@ self.onmessage = async (e) => {
     case 'RUN_INFERENCE': {
       let result;
       try {
-        result = await runInference(payload.base64Frame, payload.prompt);
+        result = await runInference(payload.base64Frame, payload.prompt, payload.maxNewTokens);
       } catch (err) {
         result = {
           isAvailable: false,
@@ -312,6 +355,34 @@ self.onmessage = async (e) => {
       break;
     }
 
+    case 'SET_POWER_PREFERENCE': {
+      const valid = ['default', 'high-performance', 'low-power'];
+      const pref = valid.includes(payload.preference) ? payload.preference : 'default';
+      if (pref !== _gpuPowerPreference) {
+        _gpuPowerPreference = pref;
+        // Reset GPU probe and model load state so next inference uses the new adapter
+        _webGpuProbePromise = null;
+        _model = null;
+        _processor = null;
+        _RawImage = null;
+        _loadState = 'idle';
+        _loadError = null;
+        _loadPromise = null;
+        _device = null;
+        _dtype = null;
+        _fp16FallbackUsed = false;
+        _loadStartMs = null;
+        _loadEndMs = null;
+        _inferenceCount = 0;
+        _lastInferenceMs = null;
+        _lastInferenceTimestamp = null;
+        _lastInferenceOutput = null;
+        self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
+      }
+      self.postMessage({ id, type: 'POWER_PREFERENCE_SET' });
+      break;
+    }
+
     case 'GET_DIAGNOSTICS': {
       self.postMessage({
         id,
@@ -331,6 +402,8 @@ self.onmessage = async (e) => {
           lastInferenceTimestamp: _lastInferenceTimestamp,
           lastInferenceOutput: _lastInferenceOutput,
           webGpuPresent: typeof navigator !== 'undefined' && !!navigator.gpu,
+          gpuAdapterVendor: _gpuAdapterVendor,
+          gpuAdapterName: _gpuAdapterName,
         },
       });
       break;

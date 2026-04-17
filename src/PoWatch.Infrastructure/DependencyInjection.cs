@@ -11,6 +11,18 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPoWatchInfrastructure(this IServiceCollection services)
     {
+        // Handoff Coach summarizer — template is always registered; Azure OpenAI used when configured
+        services.AddScoped<TemplateHandoffSummarizer>();
+        services.AddScoped<AzureOpenAiHandoffSummarizer>();
+        services.AddScoped<IHandoffSummarizer>(sp =>
+        {
+            var flags = sp.GetRequiredService<IOptions<FeatureFlagsOptions>>().Value;
+            var openAiOptions = sp.GetRequiredService<IOptions<AzureOpenAiOptions>>().Value;
+            return flags.AzureOpenAiEnabled && !string.IsNullOrWhiteSpace(openAiOptions.Endpoint)
+                ? sp.GetRequiredService<AzureOpenAiHandoffSummarizer>()
+                : sp.GetRequiredService<TemplateHandoffSummarizer>();
+        });
+
         services.AddSingleton<AzureStorageClients>();
 
         services.AddSingleton<InMemoryObservationRepository>();
@@ -37,6 +49,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
+        services.AddSingleton<ITelemetryContentSanitizer, TelemetryContentSanitizer>();
 
         return services;
     }

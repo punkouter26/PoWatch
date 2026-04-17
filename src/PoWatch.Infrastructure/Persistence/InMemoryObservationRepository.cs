@@ -42,6 +42,20 @@ public sealed class InMemoryObservationRepository(ILogger<InMemoryObservationRep
         return Task.FromResult<IReadOnlyList<ObservationEvent>>(items);
     }
 
+    public Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
+    {
+        var items = _events.Values
+            .Where(x =>
+            {
+                var d = DateOnly.FromDateTime(x.ObservedAtUtc.UtcDateTime);
+                return d >= from && d <= to;
+            })
+            .OrderBy(x => x.ObservedAtUtc)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<ObservationEvent>>(items);
+    }
+
     public Task<ObservationEvent?> GetLatestForSubjectAsync(string subjectId, CancellationToken cancellationToken)
     {
         var item = _events.Values

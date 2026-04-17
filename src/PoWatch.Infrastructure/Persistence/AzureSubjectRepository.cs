@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Data.Tables;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
@@ -11,14 +12,18 @@ namespace PoWatch.Infrastructure.Persistence;
 public sealed class AzureSubjectRepository : ISubjectRepository
 {
     private readonly TableClient _tableClient;
+    private readonly ILogger<AzureSubjectRepository> _logger;
 
-    public AzureSubjectRepository(AzureStorageClients clients, IOptions<AzureStorageOptions> options)
+    public AzureSubjectRepository(AzureStorageClients clients, IOptions<AzureStorageOptions> options, ILogger<AzureSubjectRepository> logger)
     {
         _tableClient = clients.TableService.GetTableClient(options.Value.SubjectsTable);
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<SubjectProfile>> GetAllAsync(CancellationToken cancellationToken)
     {
+        try
+        {
         await _tableClient.CreateIfNotExistsAsync(cancellationToken);
 
         var items = new List<SubjectProfile>();
@@ -28,6 +33,14 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         }
 
         return items.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogError(ex,
+                "Subject storage read failed — check Azurite/Azure connection. AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
+                ex.Status, ex.ErrorCode, ex.Message);
+            throw;
+        }
     }
 
     public async Task<SubjectProfile> GetOrCreateAsync(string? hint, CancellationToken cancellationToken)

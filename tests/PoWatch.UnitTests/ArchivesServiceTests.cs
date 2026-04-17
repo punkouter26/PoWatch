@@ -82,6 +82,9 @@ public sealed class ArchivesServiceTests
         public Task<ObservationEvent?> GetLatestForSubjectAsync(string subjectId, CancellationToken cancellationToken) =>
             Task.FromResult(_items.Where(x => x.SubjectId == subjectId).OrderByDescending(x => x.ObservedAtUtc).FirstOrDefault());
 
+        public Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(_items);
+
         public Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken) => Task.FromResult(0);
     }
 }

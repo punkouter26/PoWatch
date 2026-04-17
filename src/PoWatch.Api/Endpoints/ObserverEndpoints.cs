@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
 
@@ -41,6 +42,75 @@ internal static class ObserverEndpoints
             .WithName("ObserverState")
             .WithSummary("Get the live observer runtime status and feature flags.");
 
+        // SSE streaming — pushes new observations to subscribed clients in real time
+        group.MapGet("/events", (
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTimeOffset? since,
+            ArchivesService archivesService,
+            ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            var logger = loggerFactory.CreateLogger("PoWatch.ObserverEventStream");
+            var cursor = since ?? DateTimeOffset.UtcNow.AddMinutes(-5);
+            logger.LogDebug("SSE stream opened. Cursor={Cursor}", cursor);
+            return TypedResults.ServerSentEvents(PollAsync(archivesService, cursor, logger, ct));
+        })
+        .WithName("ObserverEventStream")
+        .WithSummary("Subscribe to a real-time SSE stream of observation events.");
+
         return app;
     }
+
+    private static async IAsyncEnumerable<ObservationEventDto> PollAsync(
+        ArchivesService archivesService,
+        DateTimeOffset cursor,
+        ILogger logger,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            IReadOnlyList<ObservationEventDto> entries;
+            try
+            {
+                var date = DateOnly.FromDateTime(cursor.UtcDateTime);
+                var chapter = await archivesService.GetChapterAsync(date, ct).ConfigureAwait(false);
+                entries = [.. chapter.Timeline
+                    .Where(e => e.ObservedAtUtc > cursor)
+                    .OrderBy(e => e.ObservedAtUtc)
+                    .Select(e => new ObservationEventDto
+                    {
+                        Id = e.Id,
+                        ObservedAtUtc = e.ObservedAtUtc,
+                        SubjectId = e.SubjectId,
+                        SubjectDisplayName = e.SubjectDisplayName,
+                        Activity = e.Activity,
+                        ClinicalDescription = e.ClinicalDescription,
+                        IsSignificant = e.IsSignificant,
+                        SignificantReason = e.SignificantReason,
+                        IsClinicalOutlier = e.IsClinicalOutlier,
+                        ImageReference = e.ImageReference
+                    })];
+            }
+            catch (OperationCanceledException)
+            {
+                yield break;
+            }
+
+            foreach (var entry in entries)
+            {
+                cursor = entry.ObservedAtUtc;
+                yield return entry;
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogDebug("SSE stream closed. Cursor={Cursor}", cursor);
+                yield break;
+            }
+        }
+    }
 }
+

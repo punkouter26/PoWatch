@@ -24,7 +24,8 @@ public sealed class AzureObservationRepository : IObservationRepository
     public async Task AddAsync(ObservationEvent observation, CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("Storage.AddObservation");
-
+        try
+        {
         await _tableClient.CreateIfNotExistsAsync(cancellationToken);
 
         var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
@@ -56,10 +57,20 @@ public sealed class AzureObservationRepository : IObservationRepository
             observation.SubjectId,
             partitionKey,
             Activity.Current?.TraceId.ToString());
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogError(ex,
+                "Storage write failed — check Azurite/Azure connection. SubjectId={SubjectId} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
+                observation.SubjectId, ex.Status, ex.ErrorCode, ex.Message);
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<ObservationEvent>> GetByDateAsync(DateOnly date, CancellationToken cancellationToken)
     {
+        try
+        {
         await _tableClient.CreateIfNotExistsAsync(cancellationToken);
 
         var partitionKey = date.ToString("yyyyMMdd");
@@ -81,10 +92,45 @@ public sealed class AzureObservationRepository : IObservationRepository
             Activity.Current?.TraceId.ToString());
 
         return ordered;
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogError(ex,
+                "Storage read failed — check Azurite/Azure connection. Date={Date} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
+                date, ex.Status, ex.ErrorCode, ex.Message);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
+    {
+        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
+
+        var fromKey = from.ToString("yyyyMMdd");
+        var toKey = to.ToString("yyyyMMdd");
+        var items = new List<ObservationEvent>();
+
+        // PartitionKey is yyyyMMdd — range filter uses string comparison which matches lexicographic ordering
+        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                           filter: $"PartitionKey ge '{fromKey}' and PartitionKey le '{toKey}'",
+                           cancellationToken: cancellationToken))
+        {
+            items.Add(Map(entity));
+        }
+
+        _logger.LogDebug(
+            "Date range read completed. From={From} To={To} Count={Count}",
+            from,
+            to,
+            items.Count);
+
+        return items.OrderBy(x => x.ObservedAtUtc).ToList();
     }
 
     public async Task<ObservationEvent?> GetLatestForSubjectAsync(string subjectId, CancellationToken cancellationToken)
     {
+        try
+        {
         await _tableClient.CreateIfNotExistsAsync(cancellationToken);
 
         var safeSubjectId = subjectId.Replace("'", "''");
@@ -98,6 +144,14 @@ public sealed class AzureObservationRepository : IObservationRepository
         }
 
         return items.OrderByDescending(x => x.ObservedAtUtc).FirstOrDefault();
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogError(ex,
+                "Storage query failed — check Azurite/Azure connection. SubjectId={SubjectId} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
+                subjectId, ex.Status, ex.ErrorCode, ex.Message);
+            throw;
+        }
     }
 
     public async Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken)

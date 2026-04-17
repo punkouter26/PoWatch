@@ -1,12 +1,16 @@
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using PoWatch.Api.Endpoints;
 using PoWatch.Api.HealthChecks;
+using PoWatch.Api.Infrastructure.KeyVault;
+using PoWatch.Api.Middleware;
 using PoWatch.Api.Observability;
 using PoWatch.Api.Security;
 using PoWatch.Application;
@@ -16,10 +20,24 @@ using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Context;
 
+// Bootstrap Serilog early so startup errors are captured before host is built
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
+
 var builder = WebApplication.CreateBuilder(args);
 
     // T010: Two-stage Serilog initialisation — reads config from appsettings after host is built
     builder.Host.UseSerilog(TelemetrySetup.ConfigureSerilog);
+
+    // Key Vault: add secrets as a config source before binding feature flags
+    var rawKvUri = builder.Configuration["KeyVaultUri"];
+    var tempFlags = builder.Configuration.GetSection("FeatureFlags").Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
+    if (tempFlags.EnableKeyVault && !string.IsNullOrWhiteSpace(rawKvUri) && Uri.TryCreate(rawKvUri, UriKind.Absolute, out var kvUri))
+        KeyVaultConfiguration.AddPoWatchKeyVault(builder.Configuration, kvUri, Log.Logger);
 
     // T013: Bind feature flags early so conditional registrations below can read them
     var featureFlags = builder.Configuration
@@ -29,6 +47,10 @@ var builder = WebApplication.CreateBuilder(args);
     builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
     builder.Services.Configure<AzureStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
     builder.Services.Configure<ObserverOptions>(builder.Configuration.GetSection("ObserverOptions"));
+    builder.Services.Configure<PoWatch.Application.Options.AlertThresholdOptions>(builder.Configuration.GetSection("AlertThresholds"));
+    builder.Services.Configure<PoWatch.Application.Options.DriftRadarOptions>(builder.Configuration.GetSection("DriftRadar"));
+    builder.Services.Configure<PoWatch.Application.Options.HandoffCoachOptions>(builder.Configuration.GetSection("HandoffCoach"));
+    builder.Services.Configure<PoWatch.Application.Options.AzureOpenAiOptions>(builder.Configuration.GetSection("AzureOpenAi"));
 
     // T009: OpenAPI document at /openapi/v1.json
     builder.Services.AddOpenApi();
@@ -36,9 +58,29 @@ var builder = WebApplication.CreateBuilder(args);
     // T010: OpenTelemetry tracing (passes config so Azure Monitor exporter can be gated on connection string)
     builder.Services.AddPoWatchTelemetry(builder.Configuration);
 
-    // T009a: Health checks — Azure Storage ping + JSON endpoint at /health
-    builder.Services.AddHealthChecks()
+    // T009a: Health checks — Azure Storage ping + Key Vault ping (when enabled) + JSON endpoint at /health
+    var hcBuilder = builder.Services.AddHealthChecks()
         .AddCheck<AzureStorageHealthCheck>("azure-storage");
+    if (featureFlags.EnableKeyVault)
+        hcBuilder.AddCheck<KeyVaultHealthCheck>("azure-key-vault");
+
+    // Rate limiting: 60 requests per minute per IP address (sliding window)
+    builder.Services.AddRateLimiter(rl =>
+    {
+        rl.AddSlidingWindowLimiter("ApiPerIpPolicy", o =>
+        {
+            o.PermitLimit = 60;
+            o.Window = TimeSpan.FromMinutes(1);
+            o.SegmentsPerWindow = 6;
+            o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            o.QueueLimit = 5;
+        });
+        rl.OnRejected = (context, _) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            return ValueTask.CompletedTask;
+        };
+    });
 
     builder.Services.AddPoWatchApplication();
     builder.Services.AddPoWatchInfrastructure();
@@ -95,7 +137,14 @@ var builder = WebApplication.CreateBuilder(args);
         });
     });
 
-    app.UseHttpsRedirection();
+    // T007: Only enforce HTTPS redirect in non-development environments.
+    // In dev the API binds only to HTTP; the middleware cannot resolve the HTTPS port and
+    // emits a WRN on every request otherwise.
+    if (!app.Environment.IsDevelopment())
+        app.UseHttpsRedirection();
+
+    app.UseRateLimiter();
+    app.UseMiddleware<CorrelationIdMiddleware>();
 
     // T008: Auth middleware — only active when FakeAuth is registered
     if (featureFlags.DeveloperBypassAuth)
@@ -144,6 +193,7 @@ var builder = WebApplication.CreateBuilder(args);
     app.MapArchivesEndpoints();
     app.MapBlobEndpoints();
     app.MapIdentityEndpoints();
+    app.MapFhirEndpoints();
     app.MapDiagnosticsEndpoints();
 
     // T005: Fall back to the Blazor WASM entry point for all unmatched requests

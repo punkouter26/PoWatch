@@ -167,7 +167,7 @@
       return 'OK';
     },
 
-    async captureAndInfer(prompt, videoElement) {
+    async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96) {
       const webcam = await window.powatchInference.ensureWebcamAccess();
       if (!webcam.available) {
         return {
@@ -209,7 +209,11 @@
 
       // Capture frame on main thread (DOM), then hand off to the worker
       const base64Frame = await captureFrame(videoElement);
-      const res = await postToWorker('RUN_INFERENCE', { base64Frame, prompt });
+      const res = await postToWorker('RUN_INFERENCE', {
+        base64Frame,
+        prompt,
+        maxNewTokens: maxInferenceTokens,
+      });
       return {
         ...res.result,
         motionScore,
@@ -225,8 +229,20 @@
     // Async — queries the worker for the full diagnostics snapshot.
     async getInferenceDiagnostics() {
       const res = await postToWorker('GET_DIAGNOSTICS', {});
+      // JS heap usage — Chrome-only (performance.memory is not in the spec).
+      // Returns MB used / total, e.g. "42 / 128 MB". Returns null elsewhere.
+      let jsHeapMb = null;
+      try {
+        const mem = performance?.memory;
+        if (mem?.usedJSHeapSize) {
+          const used  = Math.round(mem.usedJSHeapSize  / 1_048_576);
+          const total = Math.round(mem.jsHeapSizeLimit  / 1_048_576);
+          jsHeapMb = `${used} / ${total} MB`;
+        }
+      } catch { /* non-Chrome: silently ignore */ }
       return {
         ...res.data,
+        jsHeapMb,
         streamActive: !!activeStream,
         previewWidth: activePreviewElement?.videoWidth ?? 0,
         previewHeight: activePreviewElement?.videoHeight ?? 0,
@@ -236,6 +252,13 @@
     setModel(modelKey) {
       _cachedLoadState = 'idle';
       postToWorker('SET_MODEL', { modelKey });
+    },
+
+    setPowerPreference(preference) {
+      const valid = ['default', 'high-performance', 'low-power'];
+      if (!valid.includes(preference)) return;
+      _cachedLoadState = 'idle';
+      postToWorker('SET_POWER_PREFERENCE', { preference });
     },
 
     getAvailableModels() {

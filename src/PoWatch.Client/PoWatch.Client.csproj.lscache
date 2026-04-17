@@ -58,15 +58,23 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 /warnaserror+:NU1605,SYSLIB0011
 
 [sourceFiles]
-Models/ClientDtos.cs
+ClientFeatureFlagsOptions.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  EmbeddedAttribute.cs
  PoWatch.Client.AssemblyInfo.cs
  PoWatch.Client.GlobalUsings.g.cs
  ValidatableTypeAttribute.cs
+Pages/ObserverHub.razor.cs
 Program.cs
-Services/PoWatchApiClient.cs
+Services/
+ IInferenceService.cs
+ InferenceResult.cs
+ MockInferenceService.cs
+ MonitorPolicyHelper.cs
+ MonitorStateService.cs
+ PoWatchApiClient.cs
+ WebGpuInferenceService.cs
 
 [metadataReferences]
 ../PoWatch.Shared/obj/Debug/net10.0/ref/PoWatch.Shared.dll
@@ -304,7 +312,9 @@ Layout/
 Pages/
  Archives.razor
  Diagnostics.razor
+ Home.razor
  IdentityNexus.razor
+ LiveDashboard.razor
  NotFound.razor
  ObserverHub.razor
 _Imports.razor
@@ -317,7 +327,9 @@ Layout/
 Pages/
  Archives.razor
  Diagnostics.razor
+ Home.razor
  IdentityNexus.razor
+ LiveDashboard.razor
  NotFound.razor
  ObserverHub.razor
 _Imports.razor

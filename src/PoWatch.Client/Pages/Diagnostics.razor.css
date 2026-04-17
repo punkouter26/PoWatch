@@ -149,3 +149,29 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+@media (max-width: 760px) {
+    .diagnostics-toolbar {
+        gap: 0.55rem;
+    }
+
+    .diagnostics-toolbar .rz-button,
+    .auto-refresh-toggle {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .refresh-indicator {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .status-sub {
+        line-height: 1.4;
+    }
+
+    .raw-output-pre {
+        max-height: 180px;
+        overflow: auto;
+    }
+}

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
+using PoWatch.Client.Services;
 using PoWatch.Shared.Models;
 using Radzen;
 using Radzen.Blazor;
@@ -8,6 +10,8 @@ namespace PoWatch.Client.Pages;
 
 public partial class ObserverHub
 {
+    [Inject] private IOptions<ClientFeatureFlagsOptions> FeatureFlags { get; set; } = default!;
+
     private sealed record ModelOption(string Value, string Label);
     private static readonly IReadOnlyList<ModelOption> ModelOptions =
     [
@@ -40,6 +44,10 @@ public partial class ObserverHub
     private double lastMotionPercent;
     private string lastMotionLabel = "Still";
 
+    // Active threshold alerts — cleared when user dismisses or a new monitoring session starts
+    private List<ThresholdAlertDto> _activeThresholdAlerts = [];
+    private bool HasActiveThresholdAlerts => _activeThresholdAlerts.Count > 0;
+
     private string MonitoringStateLabel => thinking ? "Analysing" : monitoring ? "Live" : "Standby";
     private string SelectedModelLabel => ModelOptions.FirstOrDefault(option => option.Value == selectedModelKey)?.Label ?? selectedModelKey;
     private string LatestActivityLabel => streamItems.FirstOrDefault()?.Activity ?? "Waiting for first event";
@@ -71,6 +79,63 @@ public partial class ObserverHub
     private string ConnectionStatusLabel => monitoring ? lastSyncStatus : "Standby";
     private string MotionDisplayLabel => $"{lastMotionLabel} · {lastMotionPercent:0}%";
     private string PrivacyStatusLabel => muted ? "Video only · Muted" : "Video only · Voice on";
+    private string SessionDurationText => monitoringStartedAtUtc is { } startedAt
+        ? FormatElapsed(DateTimeOffset.UtcNow - startedAt)
+        : "--:--:--";
+
+    // HUD fields (visible when FeatureFlags.EnableHud = true)
+    private long _hudCycleMs = 0;
+    private double _emaInferenceMs = 0.0;
+    private int _hudTokenCount = 0;
+    private string _hudTokensPerSecond = "0";
+    private string _hudMemory = "--";
+    private string _hudModel = "--";
+    private string _hudBackend = "--";
+    private string _gpuAdapterVendor = string.Empty;
+    private string _gpuAdapterName = "--";
+    private int _frameCount = 0;
+
+    // Live-adjustable polling interval (persisted to localStorage)
+    private const string PollingStorageKey = "pw_polling_interval";
+    private int _livePollingSeconds;
+
+    // GPU power preference
+    private string _selectedGpuPreference = "default";
+
+    // P95 latency tracking
+    private readonly Queue<long> _latencyHistory = new();
+    private long _p95LatencyMs;
+
+    // Inference analytics tracking fields (stats 6-10)
+    private int _totalCycles;
+    private int _skippedCycles;
+    private int _structuredCycles;
+    private long _minInferenceMs = long.MaxValue;
+    private long _maxInferenceMs;
+    private long _totalActiveMs;
+
+    // Computed display: stats 1-5 (from diagnostics)
+    private string DtypeDisplay => inferenceDiagnostics?.Dtype?.ToUpperInvariant() ?? "--";
+    private string LoadTimeDisplay => inferenceDiagnostics?.LoadDurationMs is int ldms ? $"{ldms:N0} ms" : "--";
+    private string InferCountDisplay => $"{inferenceDiagnostics?.InferenceCount ?? 0}";
+    private string LastMsDisplay => inferenceDiagnostics?.LastInferenceMs is int lms ? $"{lms:N0} ms" : "--";
+    private string Fp16FallbackDisplay => inferenceDiagnostics is null ? "--" : inferenceDiagnostics.Fp16FallbackUsed ? "Yes · fp32 used" : "No · fp16 OK";
+
+    // Computed display: stats 6-10 (session-accumulated)
+    private string SkipRateDisplay => _totalCycles > 0 ? $"{_skippedCycles * 100 / _totalCycles:0}% ({_skippedCycles}/{_totalCycles})" : "--";
+    private string StructRateDisplay => _totalCycles > 0 ? $"{_structuredCycles * 100 / _totalCycles:0}% ({_structuredCycles}/{_totalCycles})" : "--";
+    private string MinMaxInferDisplay => _maxInferenceMs > 0 ? $"{_minInferenceMs}/{_maxInferenceMs} ms" : "--";
+    private string DriftDisplay => _emaInferenceMs > 0 && _hudCycleMs > 0 ? $"{Math.Abs(_hudCycleMs - (long)_emaInferenceMs)} ms" : "--";
+    private string DutyCycleDisplay
+    {
+        get
+        {
+            if (!monitoring || monitoringStartedAtUtc is null || _totalActiveMs == 0) return "--";
+            var totalMs = (DateTimeOffset.UtcNow - monitoringStartedAtUtc.Value).TotalMilliseconds;
+            return totalMs > 0 ? $"{_totalActiveMs * 100.0 / totalMs:0}%" : "--";
+        }
+    }
+    private string P95LatencyDisplay => _p95LatencyMs > 0 ? $"{_p95LatencyMs:N0} ms" : "--";
 
     protected override async Task OnInitializedAsync()
     {
@@ -78,6 +143,19 @@ public partial class ObserverHub
         await RefreshTimelineAsync();
         await RefreshDiagnosticsAsync();
         muted = !(observerState?.TtsAnnouncementsEnabled ?? false);
+
+        // Restore persisted polling interval; fall back to appSettings default
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("PoWatchStorage.get", PollingStorageKey);
+            _livePollingSeconds = int.TryParse(stored, out var parsed) && parsed is >= 5 and <= 120
+                ? parsed
+                : FeatureFlags.Value.PollingIntervalSeconds;
+        }
+        catch
+        {
+            _livePollingSeconds = FeatureFlags.Value.PollingIntervalSeconds;
+        }
     }
 
     private async Task StartMonitoringAsync()
@@ -99,6 +177,17 @@ public partial class ObserverHub
         lastConfidenceLabel = "Awaiting AI";
         lastMotionPercent = 0;
         lastMotionLabel = "Still";
+
+        // Reset inference analytics counters
+        _totalCycles = 0;
+        _skippedCycles = 0;
+        _structuredCycles = 0;
+        _minInferenceMs = long.MaxValue;
+        _maxInferenceMs = 0;
+        _totalActiveMs = 0;
+        _latencyHistory.Clear();
+        _p95LatencyMs = 0;
+        _activeThresholdAlerts = [];
 
         monitoring = true;
         await InvokeAsync(StateHasChanged);
@@ -143,6 +232,23 @@ public partial class ObserverHub
         NotificationService.Notify(NotificationSeverity.Info, "Model", "Will load on next inference.", duration: 3000);
     }
 
+    private async Task OnPollingIntervalChangedAsync(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var seconds) || seconds is < 5 or > 120) return;
+        _livePollingSeconds = seconds;
+        try { await JS.InvokeVoidAsync("PoWatchStorage.set", PollingStorageKey, seconds.ToString()); }
+        catch { /* persistence is best-effort */ }
+    }
+
+    private async Task OnGpuPreferenceChangedAsync(ChangeEventArgs e)
+    {
+        var pref = e.Value?.ToString() ?? "default";
+        if (pref == _selectedGpuPreference) return;
+        _selectedGpuPreference = pref;
+        await JS.InvokeVoidAsync("powatchInference.setPowerPreference", pref);
+        NotificationService.Notify(NotificationSeverity.Info, "GPU", "Power preference updated. Restart monitoring to apply.", duration: 4000);
+    }
+
     private async Task RunMonitorLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -163,7 +269,7 @@ public partial class ObserverHub
                 await InvokeAsync(StateHasChanged);
             }
 
-            var delaySeconds = Math.Max(1, observerState?.PollIntervalSeconds ?? 10);
+            var delaySeconds = Math.Max(1, _livePollingSeconds > 0 ? _livePollingSeconds : (observerState?.PollIntervalSeconds ?? FeatureFlags.Value.PollingIntervalSeconds));
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
@@ -177,6 +283,38 @@ public partial class ObserverHub
 
     private async Task RunSingleCycleAsync(CancellationToken cancellationToken)
     {
+        _totalCycles++;
+        var _cycleStartTs = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            await RunCycleBodyAsync(cancellationToken);
+        }
+        finally
+        {
+            var elapsedMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_cycleStartTs).TotalMilliseconds;
+            _hudCycleMs = elapsedMs;
+            _emaInferenceMs = _emaInferenceMs <= 0 ? elapsedMs : 0.8 * _emaInferenceMs + 0.2 * elapsedMs;
+            _frameCount++;
+            if (inferenceDiagnostics is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(inferenceDiagnostics.ModelId)) _hudModel = inferenceDiagnostics.ModelId;
+                if (!string.IsNullOrWhiteSpace(inferenceDiagnostics.Device)) _hudBackend = inferenceDiagnostics.Device.ToUpperInvariant();
+                if (inferenceDiagnostics.LastInferenceMs is int inferMs && inferMs > 0)
+                {
+                    _totalActiveMs += inferMs;
+                    if (inferMs < _minInferenceMs) _minInferenceMs = inferMs;
+                    if (inferMs > _maxInferenceMs) _maxInferenceMs = inferMs;
+                    _latencyHistory.Enqueue(inferMs);
+                    if (_latencyHistory.Count > 100) _latencyHistory.Dequeue();
+                    var sorted = _latencyHistory.OrderBy(x => x).ToArray();
+                    _p95LatencyMs = sorted[(int)Math.Floor((sorted.Length - 1) * 0.95)];
+                }
+            }
+        }
+    }
+
+    private async Task RunCycleBodyAsync(CancellationToken cancellationToken)
+    {
         thinking = true;
         lastInferenceStatus = "Analysing frame...";
         await InvokeAsync(StateHasChanged);
@@ -185,7 +323,8 @@ public partial class ObserverHub
             "powatchInference.captureAndInfer",
             cancellationToken,
             "Observe the person or room. Reply strictly as: LABEL: <5 word activity summary> | NOTE: <one clinical sentence describing what you see>",
-            liveCameraFeed);
+            liveCameraFeed,
+            Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256));
 
         lastInferenceStatus = inference.Status;
         lastMotionPercent = inference.MotionScore ?? 0;
@@ -204,6 +343,7 @@ public partial class ObserverHub
                 lastSyncStatus = inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase)
                     ? "No sync needed"
                     : "Awaiting clearer frame";
+                _skippedCycles++;
                 await RefreshDiagnosticsAsync();
                 await InvokeAsync(StateHasChanged);
                 return;
@@ -223,11 +363,13 @@ public partial class ObserverHub
                 NotificationService.Notify(NotificationSeverity.Warning, "Inference", inference.Status, duration: 5000);
             }
 
+            _skippedCycles++;
             await RefreshDiagnosticsAsync();
             await InvokeAsync(StateHasChanged);
             return;
         }
 
+        _structuredCycles++;
         lastConfidencePercent = Math.Round(inference.ConfidenceScore * 100d, 0);
         lastConfidenceLabel = string.IsNullOrWhiteSpace(inference.ConfidenceLabel) ? "Structured" : inference.ConfidenceLabel;
         if (!string.IsNullOrWhiteSpace(inference.SubjectHint))
@@ -296,13 +438,43 @@ public partial class ObserverHub
 
         if (result is not null && !muted && !result.SkippedAsRedundant)
         {
-            await AnnounceAsync(result.SubjectDisplayName, string.IsNullOrWhiteSpace(inference.SubjectHint));
+            if (result.IsOutlier && FeatureFlags.Value.TtsAnnouncementsEnabled)
+                await JS.InvokeVoidAsync("powatchAudio.announceOutlier", result.SubjectDisplayName, inference.Activity);
+            else if (inference.IsSignificant && FeatureFlags.Value.TtsAnnouncementsEnabled)
+                await JS.InvokeVoidAsync("powatchAudio.announceSignificant", result.SubjectDisplayName, inference.Activity, inference.SignificantReason);
+            else
+                await AnnounceAsync(result.SubjectDisplayName, string.IsNullOrWhiteSpace(inference.SubjectHint));
+        }
+
+        // Announce any threshold alerts triggered by this ingest
+        if (result is not null && result.TriggeredAlerts.Count > 0 && !muted && FeatureFlags.Value.TtsAnnouncementsEnabled)
+        {
+            foreach (var alert in result.TriggeredAlerts)
+            {
+                await JS.InvokeVoidAsync("powatchAudio.announceThresholdAlert", alert.RuleName, result.SubjectDisplayName);
+            }
+        }
+
+        // Accumulate threshold alerts for the banner
+        if (result is not null && result.TriggeredAlerts.Count > 0 && FeatureFlags.Value.AlertThresholdsEnabled)
+        {
+            foreach (var alert in result.TriggeredAlerts)
+            {
+                if (!_activeThresholdAlerts.Any(a => a.RuleName == alert.RuleName && a.SubjectId == alert.SubjectId))
+                    _activeThresholdAlerts.Add(alert);
+            }
         }
 
         await RefreshTimelineAsync();
         await RefreshDiagnosticsAsync();
         await InvokeAsync(StateHasChanged);
     }
+
+    private void DismissThresholdAlert(ThresholdAlertDto alert) =>
+        _activeThresholdAlerts.Remove(alert);
+
+    private void DismissAllThresholdAlerts() =>
+        _activeThresholdAlerts.Clear();
 
     private async Task InjectEventAsync()
     {
@@ -326,7 +498,10 @@ public partial class ObserverHub
 
         if (result is not null && !muted && !result.SkippedAsRedundant)
         {
-            await AnnounceAsync(result.SubjectDisplayName, false);
+            if (result.IsOutlier && FeatureFlags.Value.TtsAnnouncementsEnabled)
+                await JS.InvokeVoidAsync("powatchAudio.announceOutlier", result.SubjectDisplayName, "Unknown movement");
+            else
+                await AnnounceAsync(result.SubjectDisplayName, true);
         }
 
         await RefreshTimelineAsync();
@@ -354,7 +529,10 @@ public partial class ObserverHub
 
         if (result is not null && !muted)
         {
-            await AnnounceAsync(result.SubjectDisplayName, true);
+            if (result.IsOutlier && FeatureFlags.Value.TtsAnnouncementsEnabled)
+                await JS.InvokeVoidAsync("powatchAudio.announceOutlier", result.SubjectDisplayName, "Unknown movement");
+            else
+                await AnnounceAsync(result.SubjectDisplayName, true);
         }
 
         await RefreshTimelineAsync();
@@ -405,6 +583,12 @@ public partial class ObserverHub
         try
         {
             inferenceDiagnostics = await JS.InvokeAsync<InferenceDiagnosticsSnapshot>("powatchInference.getInferenceDiagnostics");
+            if (inferenceDiagnostics is not null)
+            {
+                _gpuAdapterVendor = inferenceDiagnostics.GpuAdapterVendor ?? string.Empty;
+                _gpuAdapterName   = inferenceDiagnostics.GpuAdapterName   ?? "--";
+                _hudMemory        = inferenceDiagnostics.JsHeapMb          ?? "--";
+            }
         }
         catch
         {
@@ -414,7 +598,7 @@ public partial class ObserverHub
 
     private async Task RefreshTimelineAsync()
     {
-        var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+        var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.Now));
         streamItems = chapter?.Timeline is not null
             ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(50).ToList()
             : [];
@@ -480,6 +664,9 @@ public partial class ObserverHub
         public string? LastInferenceTimestamp { get; init; }
         public string? LastInferenceOutput { get; init; }
         public bool WebGpuPresent { get; init; }
+        public string? GpuAdapterVendor { get; init; }
+        public string? GpuAdapterName { get; init; }
+        public string? JsHeapMb { get; init; }
         public bool StreamActive { get; init; }
         public int PreviewWidth { get; init; }
         public int PreviewHeight { get; init; }

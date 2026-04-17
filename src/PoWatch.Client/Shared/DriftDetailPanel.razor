@@ -1,0 +1,81 @@
+@using PoWatch.Shared.Models
+@using Radzen.Blazor
+
+<div class="drift-detail-panel">
+    <div class="drift-detail-header">
+        <div class="drift-score-badge drift-score-badge--@SeverityClass">
+            <span class="drift-score-value">@DriftStatus.DriftScore.ToString("F0")</span>
+            <span class="drift-score-unit">/100</span>
+        </div>
+        <div class="drift-detail-meta">
+            <strong class="drift-label-text">@DriftStatus.DriftLabel</strong>
+            <small>@DriftStatus.TodayEventCount events today · computed @DriftStatus.ComputedAtUtc.ToLocalTime().ToString("HH:mm")</small>
+        </div>
+    </div>
+
+    @if (chartData.Count > 0)
+    {
+        <div class="drift-chart-section">
+            <p class="drift-chart-label">Hourly activity density — baseline vs today</p>
+            <RadzenChart Style="height:180px;">
+                <RadzenLineSeries Smooth="true" Data="@chartData" CategoryProperty="Hour" ValueProperty="BaselineDensity"
+                                  Title="7-day baseline" Stroke="rgba(74,144,217,0.8)" StrokeWidth="2" />
+                <RadzenLineSeries Smooth="true" Data="@chartData" CategoryProperty="Hour" ValueProperty="TodayDensity"
+                                  Title="Today" Stroke="rgba(82,183,136,0.9)" StrokeWidth="2" />
+                <RadzenCategoryAxis>
+                    <RadzenTicks>
+                        <Template>@(context.Value is int h && h % 6 == 0 ? $"{h:D2}:00" : string.Empty)</Template>
+                    </RadzenTicks>
+                </RadzenCategoryAxis>
+                <RadzenValueAxis FormatString="{0:P0}" Min="0" />
+                <RadzenLegend Position="LegendPosition.Bottom" />
+            </RadzenChart>
+        </div>
+    }
+
+    @if (DriftStatus.Insights.Count > 0)
+    {
+        <div class="drift-insights-section">
+            <p class="drift-chart-label">Drift insights</p>
+            <ul class="drift-insights-list">
+                @foreach (var insight in DriftStatus.Insights)
+                {
+                    <li class="drift-insight-item drift-insight--@insight.Severity">
+                        <span class="drift-insight-title">@insight.Title</span>
+                        <span class="drift-insight-desc">@insight.Description</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+    else
+    {
+        <p class="drift-no-insights">No specific drift contributors identified.</p>
+    }
+</div>
+
+@code {
+    [Parameter] public SubjectDriftStatusDto DriftStatus { get; set; } = default!;
+
+    private sealed record HourPoint(int Hour, double BaselineDensity, double TodayDensity);
+
+    private List<HourPoint> chartData = [];
+
+    private string SeverityClass => DriftStatus.DriftLabel switch
+    {
+        "Extreme Deviation" or "High Drift" => "high",
+        "Moderate Drift" => "medium",
+        "Slight Variation" => "low",
+        _ => "normal"
+    };
+
+    protected override void OnParametersSet()
+    {
+        chartData = Enumerable.Range(0, 24)
+            .Select(h => new HourPoint(
+                h,
+                DriftStatus.HourlyBaselineVector.Count > h ? DriftStatus.HourlyBaselineVector[h] : 0,
+                DriftStatus.HourlyTodayVector.Count > h ? DriftStatus.HourlyTodayVector[h] : 0))
+            .ToList();
+    }
+}

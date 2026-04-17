@@ -57,7 +57,20 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 /warnaserror+:NU1605,SYSLIB0011
 
 [sourceFiles]
-HealthChecks/AzureStorageHealthCheck.cs
+Endpoints/
+ ArchivesEndpoints.cs
+ BlobEndpoints.cs
+ DiagnosticsEndpoints.cs
+ FhirEndpoints.cs
+ IdentityEndpoints.cs
+ ObserverEndpoints.cs
+HealthChecks/
+ AzureStorageHealthCheck.cs
+ KeyVaultHealthCheck.cs
+Infrastructure/
+ HandoffReportRenderer.cs
+ KeyVault/KeyVaultConfiguration.cs
+Middleware/CorrelationIdMiddleware.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  PoWatch.Api.AssemblyInfo.cs
@@ -383,18 +396,25 @@ Security/FakeAuthHandler.cs
  System.Xml.XPath.XDocument.dll
  WindowsBase.dll
 <NUGET>/
- azure.core/1.43.0/lib/net6.0/Azure.Core.dll
+ azure.core/1.51.1/lib/net10.0/Azure.Core.dll
  azure.data.tables/12.9.0/lib/netstandard2.0/Azure.Data.Tables.dll
+ azure.extensions.aspnetcore.configuration.secrets/1.4.0/lib/net8.0/Azure.Extensions.AspNetCore.Configuration.Secrets.dll
+ azure.identity/1.13.2/lib/net8.0/Azure.Identity.dll
  azure.monitor.opentelemetry.exporter/1.3.0/lib/net6.0/Azure.Monitor.OpenTelemetry.Exporter.dll
+ azure.security.keyvault.secrets/4.9.0/lib/net10.0/Azure.Security.KeyVault.Secrets.dll
  azure.storage.blobs/12.22.0/lib/net6.0/Azure.Storage.Blobs.dll
  azure.storage.common/12.21.0/lib/net6.0/Azure.Storage.Common.dll
+ fluentvalidation/12.1.1/lib/net8.0/FluentValidation.dll
  microsoft.applicationinsights/2.20.0/lib/netstandard2.0/Microsoft.ApplicationInsights.dll
  microsoft.aspnetcore.components.webassembly.server/10.0.5/lib/net10.0/Microsoft.AspNetCore.Components.WebAssembly.Server.dll
  microsoft.aspnetcore.components.webassembly/10.0.5/lib/net10.0/Microsoft.AspNetCore.Components.WebAssembly.dll
  microsoft.aspnetcore.openapi/10.0.5/lib/net10.0/Microsoft.AspNetCore.OpenApi.dll
- microsoft.bcl.asyncinterfaces/6.0.0/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll
+ microsoft.bcl.asyncinterfaces/10.0.2/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll
  microsoft.dotnet.hotreload.webassembly.browser/10.0.202/lib/net10.0/Microsoft.DotNet.HotReload.WebAssembly.Browser.dll
  microsoft.extensions.dependencymodel/9.0.0/lib/net9.0/Microsoft.Extensions.DependencyModel.dll
+ microsoft.identity.client.extensions.msal/4.67.2/lib/net8.0/Microsoft.Identity.Client.Extensions.Msal.dll
+ microsoft.identity.client/4.67.2/lib/net8.0/Microsoft.Identity.Client.dll
+ microsoft.identitymodel.abstractions/6.35.0/lib/net6.0/Microsoft.IdentityModel.Abstractions.dll
  microsoft.jsinterop.webassembly/10.0.5/lib/net10.0/Microsoft.JSInterop.WebAssembly.dll
  microsoft.openapi/2.0.0/lib/net8.0/Microsoft.OpenApi.dll
  opentelemetry.api.providerbuilderextensions/1.12.0/lib/net9.0/OpenTelemetry.Api.ProviderBuilderExtensions.dll
@@ -405,21 +425,25 @@ Security/FakeAuthHandler.cs
  opentelemetry.persistentstorage.abstractions/1.0.0/lib/netstandard2.0/OpenTelemetry.PersistentStorage.Abstractions.dll
  opentelemetry.persistentstorage.filesystem/1.0.0/lib/netstandard2.0/OpenTelemetry.PersistentStorage.FileSystem.dll
  opentelemetry/1.12.0/lib/net9.0/OpenTelemetry.dll
+ questpdf/2025.4.0/lib/net8.0/QuestPDF.dll
  radzen.blazor/10.2.3/lib/net10.0/Radzen.Blazor.dll
  scalar.aspnetcore/2.13.22/lib/net10.0/Scalar.AspNetCore.dll
  serilog.aspnetcore/9.0.0/lib/net9.0/Serilog.AspNetCore.dll
+ serilog.enrichers.environment/3.0.1/lib/net8.0/Serilog.Enrichers.Environment.dll
+ serilog.enrichers.thread/4.0.0/lib/net8.0/Serilog.Enrichers.Thread.dll
  serilog.extensions.hosting/9.0.0/lib/net9.0/Serilog.Extensions.Hosting.dll
  serilog.extensions.logging/9.0.0/lib/net9.0/Serilog.Extensions.Logging.dll
  serilog.formatting.compact/3.0.0/lib/net8.0/Serilog.Formatting.Compact.dll
  serilog.settings.configuration/9.0.0/lib/net9.0/Serilog.Settings.Configuration.dll
  serilog.sinks.applicationinsights/4.0.0/lib/net6.0/Serilog.Sinks.ApplicationInsights.dll
- serilog.sinks.console/6.0.0/lib/net8.0/Serilog.Sinks.Console.dll
+ serilog.sinks.console/6.1.1/lib/net8.0/Serilog.Sinks.Console.dll
  serilog.sinks.debug/3.0.0/lib/net8.0/Serilog.Sinks.Debug.dll
  serilog.sinks.file/6.0.0/lib/net8.0/Serilog.Sinks.File.dll
  serilog/4.2.0/lib/net9.0/Serilog.dll
- system.clientmodel/1.0.0/lib/net6.0/System.ClientModel.dll
+ system.clientmodel/1.9.0/lib/net10.0/System.ClientModel.dll
  system.io.hashing/6.0.0/lib/net6.0/System.IO.Hashing.dll
- system.memory.data/1.0.2/lib/netstandard2.0/System.Memory.Data.dll
+ system.memory.data/10.0.1/lib/net10.0/System.Memory.Data.dll
+ system.security.cryptography.protecteddata/4.5.0/ref/netstandard2.0/System.Security.Cryptography.ProtectedData.dll
 
 [analyzerReferences]
 <DOTNET>/packs/Microsoft.AspNetCore.App.Ref/10.0.6/analyzers/dotnet/cs/
@@ -447,7 +471,9 @@ Security/FakeAuthHandler.cs
 <DOTNET>/sdk/10.0.202/Sdks/Microsoft.NET.Sdk/analyzers/
  Microsoft.CodeAnalysis.CSharp.NetAnalyzers.dll
  Microsoft.CodeAnalysis.NetAnalyzers.dll
-<NUGET>/microsoft.aspnetcore.openapi/10.0.5/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll
+<NUGET>/
+ microsoft.aspnetcore.openapi/10.0.5/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll
+ system.clientmodel/1.9.0/analyzers/dotnet/cs/System.ClientModel.SourceGeneration.dll
 
 [analyzerConfigFiles]
 <DOTNET>/sdk/10.0.202/Sdks/Microsoft.NET.Sdk/analyzers/build/config/analysislevel_10_default.globalconfig

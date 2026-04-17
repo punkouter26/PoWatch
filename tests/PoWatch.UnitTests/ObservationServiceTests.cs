@@ -5,6 +5,7 @@ using PoWatch.Shared.Models;
 using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
+using PoWatch.Infrastructure.Runtime;
 
 namespace PoWatch.UnitTests;
 
@@ -88,6 +89,26 @@ public sealed class ObservationServiceTests
     }
 
     [Fact]
+    public async Task IngestAsync_RejectsRepetitiveLowQualityOutput_WhenSanitizerEnabled()
+    {
+        var service = BuildService(new OpenGate(), out var observations, out _, new FeatureFlagsOptions
+        {
+            EnableTelemetrySanitizer = true
+        });
+
+        var result = await service.IngestAsync(new IngestObservationRequestDto
+        {
+            Activity = "The art of the art of the art of the art of the art",
+            ClinicalPayload = "The art of the art of the art of the art of the art of the art of the art of the art."
+        }, CancellationToken.None);
+
+        Assert.False(result.Accepted);
+        Assert.True(result.Dropped);
+        Assert.Empty(observations.Items);
+        Assert.Contains("telemetry sanitizer", result.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void GetRuntimeState_UsesConfiguredPollingInterval()
     {
         var service = BuildService(new OpenGate(), out _, out _, new FeatureFlagsOptions(), new ObserverOptions
@@ -114,6 +135,10 @@ public sealed class ObservationServiceTests
             observations,
             subjects,
             gate,
+            new TelemetryContentSanitizer(),
+            new AlertThresholdEvaluator(
+                Microsoft.Extensions.Options.Options.Create(new PoWatch.Application.Options.AlertThresholdOptions()),
+                NullLogger<AlertThresholdEvaluator>.Instance),
             Options.Create(flags ?? new FeatureFlagsOptions()),
             Options.Create(observerOptions ?? new ObserverOptions()),
             NullLogger<ObservationService>.Instance);
@@ -149,6 +174,9 @@ public sealed class ObservationServiceTests
                 .Where(x => string.Equals(x.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(x => x.ObservedAtUtc)
                 .FirstOrDefault());
+
+        public Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(Items);
 
         public Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken) =>
             Task.FromResult(0);

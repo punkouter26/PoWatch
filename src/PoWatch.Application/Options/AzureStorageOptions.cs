@@ -6,4 +6,5 @@ public sealed class AzureStorageOptions
     public string ObservationsTable { get; init; } = "PoWatchObservations";
     public string SubjectsTable { get; init; } = "PoWatchSubjects";
     public string SignificantImagesContainer { get; init; } = "significant-images";
+    public string[] DevCorsAllowedOrigins { get; init; } = [];
 }

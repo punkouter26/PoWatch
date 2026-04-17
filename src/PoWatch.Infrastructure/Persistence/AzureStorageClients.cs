@@ -26,9 +26,10 @@ public sealed class AzureStorageClients
         TableService = new TableServiceClient(_connectionString);
         BlobService = new BlobServiceClient(_connectionString);
 
+        var allowedOrigins = options.Value.DevCorsAllowedOrigins;
         _devCorsConfigured = new Lazy<bool>(() =>
         {
-            ConfigureDevelopmentCorsIfNeeded(_connectionString, BlobService);
+            ConfigureDevelopmentCorsIfNeeded(_connectionString, BlobService, allowedOrigins);
             return true;
         });
     }
@@ -39,20 +40,17 @@ public sealed class AzureStorageClients
         _ = _devCorsConfigured.Value;
     }
 
-    private static void ConfigureDevelopmentCorsIfNeeded(string? connectionString, BlobServiceClient blobService)
+    private static void ConfigureDevelopmentCorsIfNeeded(string? connectionString, BlobServiceClient blobService, string[] allowedOrigins)
     {
         if (!string.Equals(connectionString, "UseDevelopmentStorage=true", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
-        var allowedOrigins = new[]
+        if (allowedOrigins.Length == 0)
         {
-            "http://localhost:5000",
-            "https://localhost:5001",
-            "http://127.0.0.1:5000",
-            "https://127.0.0.1:5001"
-        };
+            return;
+        }
 
         try
         {

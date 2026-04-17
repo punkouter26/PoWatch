@@ -63,30 +63,28 @@ Contracts/
  IObservationRepository.cs
  ISubjectRepository.cs
 DependencyInjection.cs
-Models/
- BlobAccessDescriptor.cs
- IngestObservationRequest.cs
- IngestObservationResult.cs
- MergeIdentityRequest.cs
- ObserverRuntimeState.cs
- RenameSubjectRequest.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  PoWatch.Application.AssemblyInfo.cs
  PoWatch.Application.GlobalUsings.g.cs
 Options/
+ AlertThresholdOptions.cs
  AzureStorageOptions.cs
  FeatureFlagsOptions.cs
  ObserverOptions.cs
 Services/
+ AlertThresholdEvaluator.cs
  ArchivesService.cs
- BlobSasService.cs
- DiagnosticsService.cs
+ BaselineService.cs
+ FhirMappingService.cs
  IdentityService.cs
  ObservationService.cs
+ ReportService.cs
 
 [metadataReferences]
-../PoWatch.Domain/obj/Debug/net10.0/ref/PoWatch.Domain.dll
+../
+ PoWatch.Domain/obj/Debug/net10.0/ref/PoWatch.Domain.dll
+ PoWatch.Shared/obj/Debug/net10.0/ref/PoWatch.Shared.dll
 <DOTNET>/packs/Microsoft.NETCore.App.Ref/10.0.6/ref/net10.0/
  Microsoft.CSharp.dll
  Microsoft.VisualBasic.Core.dll

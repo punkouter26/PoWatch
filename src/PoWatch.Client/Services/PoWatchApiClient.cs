@@ -35,6 +35,17 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return items ?? [];
     }
 
+    public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await httpClient.GetFromJsonAsync<List<SubjectLiveStatusDto>>("api/identity/subjects/live-status", cancellationToken);
+        return items ?? [];
+    }
+
+    public async Task<SubjectBaselineDto?> GetSubjectBaselineAsync(string subjectId, int days = 7, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<SubjectBaselineDto>(
+            $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}/baseline?days={days}",
+            cancellationToken);
+
     public async Task<IdentityRevisionResultDto?> RenameSubjectAsync(string subjectId, RenameSubjectRequestDto request, CancellationToken cancellationToken = default)
     {
         using var message = new HttpRequestMessage(HttpMethod.Patch, $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}")
@@ -54,4 +65,20 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 
     public async Task<DiagnosticsSnapshotDto?> GetDiagnosticsAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync<DiagnosticsSnapshotDto>("api/diagnostics/status", cancellationToken);
+
+    public string GetHandoffReportUrl(DateOnly date, string shiftWindow) =>
+        $"{httpClient.BaseAddress}api/archives/{date:yyyy-MM-dd}/handoff-report?shiftWindow={Uri.EscapeDataString(shiftWindow)}";
+
+    public async Task<IReadOnlyList<SubjectDriftStatusDto>> GetDriftStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await httpClient.GetFromJsonAsync<List<SubjectDriftStatusDto>>("api/identity/subjects/live-risk", cancellationToken);
+        return items ?? [];
+    }
+
+    public async Task<HandoffBriefDto?> GenerateHandoffBriefAsync(DateOnly date, GenerateHandoffBriefRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync($"api/archives/{date:yyyy-MM-dd}/handoff-brief", request, cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<HandoffBriefDto>(cancellationToken: cancellationToken);
+    }
 }

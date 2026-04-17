@@ -19,6 +19,25 @@
     color: #9ef7d4;
 }
 
+.archive-empty p {
+    margin: 0 0 0.5rem;
+}
+
+.archive-empty-cta {
+    display: inline-block;
+    color: var(--neon-green, #38ffa8);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: opacity 0.15s;
+}
+
+.archive-empty-cta:hover {
+    opacity: 0.75;
+    text-decoration: underline;
+}
+
 /* Image-first evidence cards */
 .evidence-grid {
     display: grid;
@@ -93,4 +112,40 @@
 
 .evidence-time {
     font-family: var(--font-mono, monospace);
+}
+
+@media (max-width: 760px) {
+    .archive-toolbar {
+        display: grid;
+        grid-template-columns: 40px 1fr 40px;
+        gap: 0.45rem;
+        align-items: center;
+    }
+
+    .archive-toolbar-divider {
+        display: none;
+    }
+
+    .archive-toolbar .rz-datepicker,
+    .archive-toolbar .rz-dropdown,
+    .archive-toolbar .rz-button {
+        width: 100%;
+    }
+
+    .archive-toolbar .rz-dropdown {
+        grid-column: 1 / -1;
+    }
+
+    .archive-toolbar .rz-button:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .evidence-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.6rem;
+    }
+
+    .evidence-full-img {
+        height: 122px;
+    }
 }

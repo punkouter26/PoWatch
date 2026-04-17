@@ -99,3 +99,9 @@ main {
         backdrop-filter: blur(12px);
     }
 }
+
+@media (min-width: 1280px) {
+    .sidebar {
+        width: 210px;
+    }
+}

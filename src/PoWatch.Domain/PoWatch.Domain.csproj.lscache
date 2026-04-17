@@ -57,6 +57,7 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 
 [sourceFiles]
 Models/
+ AlertThresholdRule.cs
  DailyChapter.cs
  DiagnosticsSnapshot.cs
  ObservationEvent.cs
@@ -65,7 +66,9 @@ obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  PoWatch.Domain.AssemblyInfo.cs
  PoWatch.Domain.GlobalUsings.g.cs
-Services/ClinicalTagParser.cs
+Services/
+ ClinicalTagParser.cs
+ SubjectIdSlugger.cs
 
 [metadataReferences]
 <DOTNET>/packs/Microsoft.NETCore.App.Ref/10.0.6/ref/net10.0/

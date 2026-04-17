@@ -11,13 +11,29 @@ public sealed class LocalDiagnosticsProvider(
     IOptions<AzureStorageOptions> storageOptions,
     ILogger<LocalDiagnosticsProvider> logger) : IDiagnosticsProvider
 {
+    private (TimeSpan CpuTime, DateTime WallTime) _lastCpuSample;
+
     public DiagnosticsSnapshot CaptureSnapshot()
     {
         try
         {
             var process = Process.GetCurrentProcess();
             var memoryMb = Math.Round(process.WorkingSet64 / 1024d / 1024d, 2);
-            var cpuEstimate = Math.Min(100, Math.Max(1, Environment.ProcessorCount * 6));
+
+            var nowUtc = DateTime.UtcNow;
+            var currentCpuTime = process.TotalProcessorTime;
+            double cpuEstimate;
+            if (_lastCpuSample.WallTime == default || (nowUtc - _lastCpuSample.WallTime).TotalSeconds < 0.5)
+            {
+                cpuEstimate = 0;
+            }
+            else
+            {
+                var wallElapsed = (nowUtc - _lastCpuSample.WallTime).TotalSeconds;
+                var cpuElapsed = (currentCpuTime - _lastCpuSample.CpuTime).TotalSeconds;
+                cpuEstimate = Math.Round(Math.Min(100, cpuElapsed / (Environment.ProcessorCount * wallElapsed) * 100), 1);
+            }
+            _lastCpuSample = (currentCpuTime, nowUtc);
 
             var connectionString = storageOptions.Value.ConnectionString ?? string.Empty;
             var isAzurite = IsAzuriteConnectionString(connectionString);
@@ -43,7 +59,7 @@ public sealed class LocalDiagnosticsProvider(
                 MaskedApiKey = MaskingUtility.MaskMiddle(apiKey)
             };
 
-            logger.LogInformation(
+            logger.LogDebug(
                 "Diagnostics snapshot captured. StorageConnectionStatus={StorageConnectionStatus} CpuLoadPercent={CpuLoadPercent} MemoryMb={MemoryMb}",
                 snapshot.StorageConnectionStatus,
                 snapshot.CpuLoadPercent,

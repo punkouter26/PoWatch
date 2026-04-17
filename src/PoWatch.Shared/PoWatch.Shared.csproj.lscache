@@ -56,7 +56,15 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 /warnaserror+:NU1605,SYSLIB0011
 
 [sourceFiles]
-Models/SharedDtos.cs
+Models/
+ ArchivesDtos.cs
+ BaselineDtos.cs
+ BlobDtos.cs
+ DiagnosticsDtos.cs
+ IdentityDtos.cs
+ LiveDashboardDtos.cs
+ ObserverDtos.cs
+ ReportDtos.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  PoWatch.Shared.AssemblyInfo.cs

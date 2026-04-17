@@ -16,6 +16,7 @@ public sealed class InfrastructureDependencyInjectionTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
+        services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
         services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
         services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
         {

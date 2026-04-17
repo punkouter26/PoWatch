@@ -35,4 +35,14 @@ public sealed class IngestObservationResultDto
     public string SubjectDisplayName { get; init; } = string.Empty;
     public string? ImageReference { get; init; }
     public string Detail { get; init; } = string.Empty;
+    /// <summary>Alert threshold rules that fired during this ingest cycle.</summary>
+    public IReadOnlyList<ThresholdAlertDto> TriggeredAlerts { get; init; } = [];
+}
+
+public sealed class ThresholdAlertDto
+{
+    public string RuleName { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string SubjectId { get; init; } = string.Empty;
+    public DateTimeOffset TriggeredAtUtc { get; init; }
 }

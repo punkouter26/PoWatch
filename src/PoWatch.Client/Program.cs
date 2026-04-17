@@ -18,7 +18,16 @@ builder.Services.AddScoped(sp => new HttpClient
 });
 builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddScoped<PoWatchApiClient>();
-builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddRadzenComponents();
+
+// Inference service: mock for dev/testing, WebGPU for production
+var flags = builder.Configuration.GetSection("FeatureFlags").Get<ClientFeatureFlagsOptions>() ?? new ClientFeatureFlagsOptions();
+if (flags.UseMockAi)
+    builder.Services.AddScoped<IInferenceService, MockInferenceService>();
+else
+    builder.Services.AddScoped<IInferenceService, WebGpuInferenceService>();
+
+// Singleton monitor state shared between NavMenu and ObserverHub
+builder.Services.AddSingleton<MonitorStateService>();
 
 await builder.Build().RunAsync();

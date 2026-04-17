@@ -15,7 +15,29 @@
 
         <h2>Subject Library</h2>
         <p class="identity-hint">Double-click a name to rename it inline.</p>
-        <RadzenDataGrid Data="subjects" TItem="SubjectProfileDto" AllowPaging="true" PageSize="8" AllowColumnResize="true">
+
+        @if (loading)
+        {
+            <div class="skeleton-block">
+                <div class="skeleton-line skeleton-line--wide"></div>
+                <div class="skeleton-line skeleton-line--medium"></div>
+                <div class="skeleton-line skeleton-line--wide"></div>
+                <div class="skeleton-line skeleton-line--short"></div>
+                <div class="skeleton-line skeleton-line--medium"></div>
+            </div>
+        }
+        else
+        {
+        @if (subjects.Count == 0)
+        {
+            <div class="archive-empty">
+                <p>No subjects identified yet.</p>
+                <a href="/" class="archive-empty-cta">→ Go to Observer Hub to start detecting subjects</a>
+            </div>
+        }
+        else
+        {
+        <RadzenDataGrid Data="subjects" TItem="SubjectProfileDto" AllowPaging="true" PageSize="8" AllowColumnResize="true" class="identity-grid-table">
             <Columns>
                 <RadzenDataGridColumn TItem="SubjectProfileDto" Property="DisplayName" Title="Name">
                     <Template Context="item">
@@ -47,7 +69,18 @@
                 </RadzenDataGridColumn>
             </Columns>
         </RadzenDataGrid>
+        }
+        }
     </RadzenCard>
+
+    @if (mergeUndoVisible)
+    {
+        <div class="undo-toast">
+            <span>Merge committed. <strong>@mergeUndoMessage</strong></span>
+            <span class="undo-countdown">@mergeUndoCountdown s</span>
+            <button class="btn btn-sm btn-outline-warning" @onclick="UndoMergeAsync">Undo</button>
+        </div>
+    }
 
     <RadzenCard class="panel panel-merge">
         <button class="merge-expand-toggle" @onclick="@(() => mergeExpanded = !mergeExpanded)">
@@ -78,13 +111,24 @@
     private string? secondarySubjectId;
     private string? canonicalName;
     private bool busy;
+    private bool loading;
     private bool mergeExpanded;
     private string? editingSubjectId;
     private string editingName = string.Empty;
 
+    // Merge undo toast state
+    private bool mergeUndoVisible;
+    private string mergeUndoMessage = string.Empty;
+    private int mergeUndoCountdown;
+    private string? lastMergedPrimaryId;
+    private string? lastMergedSecondaryId;
+    private CancellationTokenSource? _undoCts;
+
     protected override async Task OnInitializedAsync()
     {
+        loading = true;
         await LoadSubjectsAsync();
+        loading = false;
     }
 
     private async Task LoadSubjectsAsync()
@@ -177,10 +221,56 @@
         busy = false;
 
         if (merged is null)
+        {
             NotificationService.Notify(NotificationSeverity.Error, "Merge", "Merge failed.", duration: 5000);
+        }
         else
-            NotificationService.Notify(NotificationSeverity.Success, "Merged", $"{merged.CanonicalName} now owns {merged.EventsRewritten} events; {merged.SubjectsRemoved} duplicate removed.", duration: 5000);
+        {
+            lastMergedPrimaryId = primarySubjectId;
+            lastMergedSecondaryId = secondarySubjectId;
+            mergeUndoMessage = $"{merged.CanonicalName} now owns {merged.EventsRewritten} events.";
+            _ = ShowUndoToastAsync();
+            NotificationService.Notify(NotificationSeverity.Success, "Merged", mergeUndoMessage, duration: 3000);
+        }
 
         await LoadSubjectsAsync();
     }
+
+    private async Task ShowUndoToastAsync()
+    {
+        _undoCts?.Cancel();
+        _undoCts = new CancellationTokenSource();
+        var ct = _undoCts.Token;
+
+        mergeUndoCountdown = 8;
+        mergeUndoVisible = true;
+        StateHasChanged();
+
+        try
+        {
+            while (mergeUndoCountdown > 0 && !ct.IsCancellationRequested)
+            {
+                await Task.Delay(1000, ct);
+                mergeUndoCountdown--;
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            mergeUndoVisible = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task UndoMergeAsync()
+    {
+        _undoCts?.Cancel();
+        mergeUndoVisible = false;
+        // Note: The API does not expose an undo endpoint — this dismisses the toast only.
+        // A true undo would require a dedicated API call.
+        NotificationService.Notify(NotificationSeverity.Info, "Undo", "Undo is not supported by the current API version.", duration: 4000);
+        return Task.CompletedTask;
+    }
 }
+

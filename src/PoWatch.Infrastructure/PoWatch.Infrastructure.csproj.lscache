@@ -72,11 +72,13 @@ Runtime/
  InMemoryObservationProcessingGate.cs
  LocalDiagnosticsProvider.cs
  MaskingUtility.cs
+ TelemetryContentSanitizer.cs
 
 [metadataReferences]
 ../
  PoWatch.Application/obj/Debug/net10.0/ref/PoWatch.Application.dll
  PoWatch.Domain/obj/Debug/net10.0/ref/PoWatch.Domain.dll
+ PoWatch.Shared/obj/Debug/net10.0/ref/PoWatch.Shared.dll
 <DOTNET>/packs/Microsoft.NETCore.App.Ref/10.0.6/ref/net10.0/
  Microsoft.CSharp.dll
  Microsoft.VisualBasic.Core.dll

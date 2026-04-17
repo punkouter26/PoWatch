@@ -1,0 +1,194 @@
+@page "/live-dashboard"
+@using PoWatch.Shared.Models
+@using Microsoft.Extensions.Options
+@implements IAsyncDisposable
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject IOptions<ClientFeatureFlagsOptions> FeatureFlags
+
+<PageTitle>PoWatch | Live Dashboard</PageTitle>
+
+<div class="live-dashboard-page">
+    <header class="live-dashboard-header">
+        <div>
+            <p class="observer-eyebrow">Multi-subject view</p>
+            <h1>Live Dashboard</h1>
+            <p class="panel-summary">Real-time status for all known subjects. Auto-refreshes every @RefreshIntervalSeconds seconds.</p>
+        </div>
+        <div class="live-dashboard-controls">
+            @if (loading)
+            {
+                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
+            }
+            <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                Click="RefreshAsync" Disabled="@loading" aria-label="Refresh" />
+        </div>
+    </header>
+
+    @if (subjects.Count == 0 && !loading)
+    {
+        <div class="live-dashboard-empty">
+            <p>No subjects observed yet. Start the Observer Hub to begin monitoring.</p>
+        </div>
+    }
+
+    <div class="subject-card-grid">
+        @foreach (var subject in subjects)
+        {
+            var cardClass = GetCardClass(subject);
+            <div class="subject-card @cardClass" @onclick="() => NavigateToSubject(subject.SubjectId)" role="button" tabindex="0">
+                <div class="subject-card-header">
+                    <span class="subject-card-name">@subject.DisplayName</span>
+                    @if (subject.UnacknowledgedSignificantCount > 0)
+                    {
+                        <span class="subject-card-badge subject-card-badge--alert">@subject.UnacknowledgedSignificantCount</span>
+                    }
+                    @if (subject.LastActivityIsOutlier)
+                    {
+                        <span class="subject-card-badge subject-card-badge--outlier">OUTLIER</span>
+                    }
+                    @if (!subject.IsKnownIdentity)
+                    {
+                        <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
+                    }
+                    @if (FeatureFlags.Value.DriftRadarEnabled)
+                    {
+                        var drift = GetDriftStatus(subject.SubjectId);
+                        if (drift is not null && drift.DriftLabel is not "Insufficient Data")
+                        {
+                            <button class="subject-card-badge subject-card-drift subject-card-drift--@DriftBadgeClass(drift.DriftLabel)"
+                                    @onclick="async () => await OpenDriftDetailsAsync(drift)"
+                                    @onclick:stopPropagation="true"
+                                    title="Drift score @drift.DriftScore.ToString("F0")/100 — click for details">
+                                DRIFT · @drift.DriftScore.ToString("F0")
+                            </button>
+                        }
+                    }
+                </div>
+
+                <div class="subject-card-activity">
+                    <span class="subject-card-label">Last activity</span>
+                    <strong class="subject-card-value">@(string.IsNullOrWhiteSpace(subject.LastActivity) ? "No data" : subject.LastActivity)</strong>
+                </div>
+
+                <div class="subject-card-meta">
+                    <span class="subject-card-label">Last seen</span>
+                    <span class="subject-card-value subject-card-mono">@subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                </div>
+
+                @if (subject.RecentEvents.Count > 0)
+                {
+                    <div class="subject-card-sparkline">
+                        @foreach (var ev in subject.RecentEvents.Take(10).Reverse())
+                        {
+                            <span class="sparkline-dot @(ev.IsClinicalOutlier ? "sparkline-dot--outlier" : ev.IsSignificant ? "sparkline-dot--significant" : "sparkline-dot--normal")"
+                                  title="@ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm") — @ev.Activity"></span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private const int RefreshIntervalSeconds = 15;
+
+    private List<SubjectLiveStatusDto> subjects = [];
+    private List<SubjectDriftStatusDto> _driftStatus = [];
+    private bool loading;
+    private CancellationTokenSource? _timerCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        StartAutoRefresh();
+    }
+
+    private async Task RefreshAsync()
+    {
+        loading = true;
+        StateHasChanged();
+        try
+        {
+            subjects = [.. await ApiClient.GetLiveDashboardStatusAsync()];
+
+            if (FeatureFlags.Value.DriftRadarEnabled)
+            {
+                try
+                {
+                    _driftStatus = [.. await ApiClient.GetDriftStatusAsync()];
+                }
+                catch
+                {
+                    // Drift Radar data is non-critical — swallow and continue
+                    _driftStatus = [];
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dashboard", ex.Message, duration: 5000);
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void StartAutoRefresh()
+    {
+        _timerCts = new CancellationTokenSource();
+        var token = _timerCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try { await Task.Delay(TimeSpan.FromSeconds(RefreshIntervalSeconds), token); }
+                catch (OperationCanceledException) { break; }
+
+                await InvokeAsync(RefreshAsync);
+            }
+        }, token);
+    }
+
+    private static string GetCardClass(SubjectLiveStatusDto subject)
+    {
+        if (subject.LastActivityIsOutlier) return "subject-card--outlier";
+        if (subject.UnacknowledgedSignificantCount > 0) return "subject-card--alert";
+        return string.Empty;
+    }
+
+    private void NavigateToSubject(string subjectId) =>
+        Navigation.NavigateTo($"/?subjectFilter={Uri.EscapeDataString(subjectId)}");
+
+    private SubjectDriftStatusDto? GetDriftStatus(string subjectId) =>
+        _driftStatus.FirstOrDefault(d => string.Equals(d.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase));
+
+    private static string DriftBadgeClass(string driftLabel) => driftLabel switch
+    {
+        "Extreme Deviation" or "High Drift" => "high",
+        "Moderate Drift" => "medium",
+        "Slight Variation" => "low",
+        _ => "normal"
+    };
+
+    private async Task OpenDriftDetailsAsync(SubjectDriftStatusDto drift)
+    {
+        await DialogService.OpenAsync<PoWatch.Client.Shared.DriftDetailPanel>(
+            $"Drift Details — {drift.DisplayName}",
+            new Dictionary<string, object?> { ["DriftStatus"] = drift },
+            new DialogOptions { Width = "640px", Resizable = true, CloseDialogOnOverlayClick = true });
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _timerCts?.Cancel();
+        _timerCts?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

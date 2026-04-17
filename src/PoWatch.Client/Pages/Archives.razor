@@ -1,9 +1,11 @@
 @page "/archives"
 @using PoWatch.Shared.Models
 @using Microsoft.JSInterop
+@using Microsoft.Extensions.Options
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
 @inject IJSRuntime JS
 @inject NotificationService NotificationService
+@inject IOptions<ClientFeatureFlagsOptions> ClientFlags
 
 <PageTitle>PoWatch | Archives</PageTitle>
 
@@ -18,21 +20,102 @@
             <RadzenButton Icon="chevron_left" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="PreviousDayAsync" Disabled="@loading" aria-label="Previous day" />
             <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd"
-                Change="@(async _ => await LoadChapterAsync())" />
+                Change="@(async _ => await LoadChapterAsync())" aria-label="Select date" />
             <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="NextDayAsync" Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
             @if (loading)
             {
                 <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:100px; align-self:center;" />
             }
+
+            <span class="archive-toolbar-divider"></span>
+
+            <RadzenDropDown @bind-Value="selectedShift" Data="@shiftOptions"
+                TextProperty="Label" ValueProperty="Value"
+                Style="min-width:140px" />
+            <RadzenButton Icon="download" Text="Handoff Report" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                Click="DownloadHandoffReportAsync" Disabled="@(selectedDate is null)" />
+            @if (ClientFlags.Value.HandoffCoachEnabled)
+            {
+                <RadzenButton Icon="auto_awesome" Text="Generate Brief" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                    Click="GenerateHandoffBriefAsync" Disabled="@(selectedDate is null || generatingBrief)" />
+                @if (generatingBrief)
+                {
+                    <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Info" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
+                }
+            }
         </div>
 
         <h3>Clinical Narrative</h3>
-        <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a chapter to begin.")</p>
+        @if (loading)
+        {
+            <div class="skeleton-block">
+                <div class="skeleton-line skeleton-line--wide"></div>
+                <div class="skeleton-line skeleton-line--medium"></div>
+                <div class="skeleton-line skeleton-line--wide"></div>
+                <div class="skeleton-line skeleton-line--short"></div>
+                <div class="skeleton-line skeleton-line--medium"></div>
+            </div>
+        }
+        else
+        {
+            <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a chapter to begin.")</p>
+        }
+
+        @if (handoffBrief is not null)
+        {
+            <div class="handoff-brief-panel">
+                <div class="handoff-brief-header">
+                    <h3>Handoff Brief</h3>
+                    <span class="brief-badge @(handoffBrief.IsAiGenerated ? "brief-badge--ai" : "brief-badge--template")">
+                        @(handoffBrief.IsAiGenerated ? "AI-assisted" : "Template")
+                    </span>
+                    <small class="brief-meta">@handoffBrief.Audience &middot; @handoffBrief.ShiftWindow &middot; @handoffBrief.GeneratedAtUtc.ToLocalTime().ToString("HH:mm")</small>
+                    <button class="brief-close" @onclick="() => handoffBrief = null" aria-label="Close brief">&times;</button>
+                </div>
+                <p class="brief-summary">@handoffBrief.Summary</p>
+                @if (handoffBrief.PriorityItems.Count > 0)
+                {
+                    <div class="brief-section">
+                        <h4 class="brief-section-label">Priority Items</h4>
+                        <ul class="brief-list brief-list--priority">
+                            @foreach (var item in handoffBrief.PriorityItems)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                @if (handoffBrief.FollowUps.Count > 0)
+                {
+                    <div class="brief-section">
+                        <h4 class="brief-section-label">Follow-ups for Next Shift</h4>
+                        <ul class="brief-list brief-list--followup">
+                            @foreach (var item in handoffBrief.FollowUps)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                <details class="brief-source-notes">
+                    <summary>Source notes</summary>
+                    <ul>
+                        @foreach (var note in handoffBrief.SourceNotes)
+                        {
+                            <li>@note</li>
+                        }
+                    </ul>
+                </details>
+            </div>
+        }
 
         @if (chapter is not null && chapter.Timeline.Count == 0)
         {
-            <div class="archive-empty">No data for this day.</div>
+            <div class="archive-empty">
+                <p>No observations recorded for this day.</p>
+                <a href="/" class="archive-empty-cta">→ Go to Observer Hub to start capturing</a>
+            </div>
         }
 
         @if (chapter?.Highlights?.Any() == true)
@@ -69,7 +152,7 @@
 
     <RadzenCard class="panel panel-timeline">
         <h2>Chronological Timeline</h2>
-        <RadzenDataGrid Data="chapter?.Timeline" TItem="ObservationEventDto" AllowPaging="true" PageSize="8" AllowSorting="true">
+        <RadzenDataGrid Data="chapter?.Timeline" TItem="ObservationEventDto" AllowPaging="true" PageSize="8" AllowSorting="true" class="archive-timeline-grid">
             <Columns>
                 <RadzenDataGridColumn TItem="ObservationEventDto" Property="ObservedAtUtc" Title="Time">
                     <Template Context="item">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</Template>
@@ -83,11 +166,25 @@
 </div>
 
 @code {
+    private sealed record ShiftOption(string Value, string Label);
+
+    private static readonly IReadOnlyList<ShiftOption> shiftOptions =
+    [
+        new("FullDay", "Full Day"),
+        new("Morning", "Morning (06–14)"),
+        new("Afternoon", "Afternoon (14–22)"),
+        new("Night", "Night (22–06)")
+    ];
+
     // Use local time so the default chapter matches the user's calendar day, not the UTC day.
     private DateTime? selectedDate = DateTime.Now;
+    private string selectedShift = "FullDay";
     private DailyChapterDto? chapter;
     private bool loading;
     private readonly Dictionary<string, string> evidenceUrls = [];
+    private HandoffBriefDto? handoffBrief;
+    private bool generatingBrief;
+    private string briefAudience = "NurseToNurse";
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,7 +216,7 @@
     {
         loading = true;
         StateHasChanged();
-        var date = DateOnly.FromDateTime((selectedDate ?? DateTime.UtcNow).Date);
+        var date = DateOnly.FromDateTime((selectedDate ?? DateTime.Now).Date);
         chapter = await ApiClient.GetChapterAsync(date);
 
         // Persist selected date for session continuity
@@ -152,5 +249,37 @@
             return null;
 
         return evidenceUrls.TryGetValue(item.ImageReference, out var url) ? url : null;
+    }
+
+    private async Task DownloadHandoffReportAsync()
+    {
+        if (selectedDate is null) return;
+
+        var date = DateOnly.FromDateTime(selectedDate.Value);
+        var url = ApiClient.GetHandoffReportUrl(date, selectedShift);
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task GenerateHandoffBriefAsync()
+    {
+        if (selectedDate is null) return;
+        generatingBrief = true;
+        handoffBrief = null;
+        StateHasChanged();
+
+        var date = DateOnly.FromDateTime(selectedDate.Value);
+        var request = new GenerateHandoffBriefRequestDto
+        {
+            ShiftWindow = selectedShift,
+            Audience = briefAudience,
+            IncludeUnresolvedAlerts = true,
+            IncludeHighlights = true
+        };
+
+        handoffBrief = await ApiClient.GenerateHandoffBriefAsync(date, request);
+        generatingBrief = false;
+
+        if (handoffBrief is null)
+            NotificationService.Notify(NotificationSeverity.Error, "Handoff Brief", "Brief generation failed.", duration: 5000);
     }
 }

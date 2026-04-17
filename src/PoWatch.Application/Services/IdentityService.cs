@@ -110,4 +110,59 @@ public sealed class IdentityService(
             SubjectsRemoved = removed
         };
     }
+
+    /// <summary>
+    /// Returns a live status snapshot for every known subject, including their last 10 events
+    /// and count of unacknowledged significant events from today.
+    /// </summary>
+    public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken)
+    {
+        logger.LogDebug("Live dashboard status requested.");
+
+        var profiles = await subjectRepository.GetAllAsync(cancellationToken);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
+
+        var result = new List<SubjectLiveStatusDto>(profiles.Count);
+
+        foreach (var profile in profiles)
+        {
+            var subjectEvents = todayEvents
+                .Where(e => string.Equals(e.SubjectId, profile.SubjectId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(e => e.ObservedAtUtc)
+                .ToList();
+
+            var recentEvents = subjectEvents
+                .Take(10)
+                .Select(e => new ObservationEventDto
+                {
+                    Id = e.Id,
+                    ObservedAtUtc = e.ObservedAtUtc,
+                    SubjectId = e.SubjectId,
+                    SubjectDisplayName = e.SubjectDisplayName,
+                    Activity = e.Activity,
+                    ClinicalDescription = e.ClinicalDescription,
+                    IsSignificant = e.IsSignificant,
+                    SignificantReason = e.SignificantReason,
+                    IsClinicalOutlier = e.IsClinicalOutlier,
+                    ImageReference = e.ImageReference
+                })
+                .ToList();
+
+            result.Add(new SubjectLiveStatusDto
+            {
+                SubjectId = profile.SubjectId,
+                DisplayName = profile.DisplayName,
+                IsKnownIdentity = profile.IsKnownIdentity,
+                LastSeenUtc = profile.LastSeenUtc,
+                LastActivity = profile.LastActivity ?? string.Empty,
+                LastActivityIsOutlier = profile.LastActivityIsOutlier,
+                UnacknowledgedSignificantCount = subjectEvents.Count(e => e.IsSignificant),
+                RecentEvents = recentEvents
+            });
+        }
+
+        logger.LogDebug("Live dashboard status built. SubjectCount={SubjectCount}", result.Count);
+        return result;
+    }
 }
