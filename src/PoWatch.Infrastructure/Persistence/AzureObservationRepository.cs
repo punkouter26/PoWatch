@@ -28,7 +28,7 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
         await _tableClient.CreateIfNotExistsAsync(cancellationToken);
 
-        var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
+        var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.LocalDateTime).ToString("yyyyMMdd");
         var invertedTicks = DateTime.MaxValue.Ticks - observation.ObservedAtUtc.UtcDateTime.Ticks;
         var rowKey = $"{observation.SubjectId}_{invertedTicks:D19}_{observation.Id:N}";
 

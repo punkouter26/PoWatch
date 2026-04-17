@@ -1,38 +1,34 @@
-﻿<div class="top-row ps-3 navbar navbar-dark brand-row">
+﻿<div class="top-row ps-3 navbar navbar-dark brand-row @(SidebarCollapsed ? "brand-row--hidden" : "")">
     <div class="container-fluid">
         <a class="navbar-brand" href="" aria-label="PoWatch home">
             <span class="brand-mark">PW</span>
             <span class="brand-copy">PoWatch</span>
         </a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu"
+                aria-expanded="@(!collapseNavMenu)" aria-controls="main-nav">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
+<div id="main-nav" class="@NavMenuCssClass nav-scrollable @(SidebarCollapsed ? "nav-collapsed" : "")" @onclick="ToggleNavMenu">
+    <nav class="nav flex-column" role="navigation" aria-label="Main navigation">
+        <div class="nav-item px-3" data-label="Home">
+            <NavLink class="nav-link" href="home" title="Home">
+                <span class="bi bi-window-nav-menu" aria-hidden="true"></span><span class="nav-text"> Home</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3" data-label="Observer Hub">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Observer Hub">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Observer Hub</span>
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="archives" title="Archives">
-                <span class="bi bi-archive-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Archives</span>
+        <div class="nav-item px-3" data-label="Monitor">
+            <NavLink class="nav-link" href="monitor" title="Monitor">
+                <span class="bi bi-grid-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Monitor</span>
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="live-dashboard" title="Live Dashboard">
-                <span class="bi bi-grid-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Live Dashboard</span>
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="identity" title="Subjects">
-                <span class="bi bi-person-badge-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Subjects</span>
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
+        <div class="nav-item px-3" data-label="Diagnostics">
             <NavLink class="nav-link" href="diagnostics" title="Diagnostics">
                 <span class="bi bi-cpu-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Diagnostics</span>
             </NavLink>
@@ -40,7 +36,17 @@
     </nav>
 </div>
 
+<button class="sidebar-toggle-btn"
+        @onclick="OnToggleCollapse"
+        title="@(SidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
+        aria-label="@(SidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")">
+    <span aria-hidden="true">@(SidebarCollapsed ? "›" : "‹")</span>
+</button>
+
 @code {
+    [Parameter] public bool SidebarCollapsed { get; set; }
+    [Parameter] public EventCallback OnToggleCollapse { get; set; }
+
     private bool collapseNavMenu = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;

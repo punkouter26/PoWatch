@@ -27,7 +27,7 @@ public sealed class DriftRadarService(
             return [];
         }
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
         var historyFrom = today.AddDays(-options.Value.BaselineDays);
         var historyTo = today.AddDays(-1);
 

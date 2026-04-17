@@ -1,27 +1,35 @@
 ﻿@inherits LayoutComponentBase
 @implements IDisposable
-<div class="page">
-    <aside class="sidebar">
-        <NavMenu />
+@inject NavigationManager Nav
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<div class="page @(_sidebarCollapsed ? "sidebar-collapsed" : "")">
+    <aside class="sidebar" role="complementary">
+        <NavMenu SidebarCollapsed="_sidebarCollapsed" OnToggleCollapse="ToggleSidebar" />
     </aside>
 
     <main>
         <div class="top-row hud-top">
             <div class="shell-title">
-                <span class="shell-kicker">PoWatch</span>
                 <div>
-                    <strong>Observer Operations Console</strong>
+                    <strong>@_pageTitle</strong>
                     <div class="shell-subtitle">Local-only ambient monitoring</div>
                 </div>
             </div>
 
             <div class="shell-meta">
                 <span class="shell-badge">Inference ready</span>
-                <span class="clock">@_clock</span>
+                <span class="clock" aria-live="polite">@_clock</span>
             </div>
         </div>
 
-        <article class="content app-shell">
+        @if (_navigating)
+        {
+            <div class="nav-loading-bar" role="progressbar" aria-label="Page loading"></div>
+        }
+
+        <article class="content app-shell" id="main-content">
             @Body
         </article>
     </main>
@@ -30,17 +38,58 @@
 <RadzenNotification />
 
 @code {
-    private string _clock = DateTime.Now.ToString("HH:mm");
+    private string _clock = DateTime.Now.ToString("HH:mm:ss");
     private System.Threading.Timer? _timer;
+    private bool _sidebarCollapsed = false;
+    private bool _navigating = false;
+    private string _pageTitle = "Observer Hub";
+
+    private static readonly Dictionary<string, string> _routeTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "/", "Observer Hub" },
+        { "/archives", "Archives" },
+        { "/live-dashboard", "Live Dashboard" },
+        { "/identity", "Subjects" },
+        { "/diagnostics", "Diagnostics" },
+        { "/home", "Home" },
+    };
 
     protected override void OnInitialized()
     {
         _timer = new System.Threading.Timer(_ =>
         {
-            _clock = DateTime.Now.ToString("HH:mm");
+            _clock = DateTime.Now.ToString("HH:mm:ss");
             InvokeAsync(StateHasChanged);
-        }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        Nav.LocationChanged += OnLocationChanged;
+        UpdatePageTitle(Nav.Uri);
     }
 
-    public void Dispose() => _timer?.Dispose();
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _navigating = true;
+        InvokeAsync(StateHasChanged);
+        Task.Delay(350).ContinueWith(_ =>
+        {
+            _navigating = false;
+            UpdatePageTitle(e.Location);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void UpdatePageTitle(string uri)
+    {
+        var path = new Uri(uri).AbsolutePath.TrimEnd('/');
+        if (string.IsNullOrEmpty(path)) path = "/";
+        _pageTitle = _routeTitles.TryGetValue(path, out var title) ? title : "PoWatch";
+    }
+
+    private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        Nav.LocationChanged -= OnLocationChanged;
+    }
 }

@@ -1,0 +1,848 @@
+@page "/monitor"
+@using PoWatch.Shared.Models
+@using Microsoft.JSInterop
+@using Microsoft.Extensions.Options
+@implements IAsyncDisposable
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject IJSRuntime JS
+@inject IOptions<ClientFeatureFlagsOptions> FeatureFlags
+
+<PageTitle>PoWatch | Monitor</PageTitle>
+
+<div class="monitor-page">
+
+    <div class="monitor-tabs" role="tablist">
+        <button class="monitor-tab @(activeTab == "live" ? "monitor-tab--active" : "")"
+                role="tab" aria-selected="@(activeTab == "live")"
+                @onclick='async () => await SetTabAsync("live")'>
+            Live Dashboard
+        </button>
+        <button class="monitor-tab @(activeTab == "archives" ? "monitor-tab--active" : "")"
+                role="tab" aria-selected="@(activeTab == "archives")"
+                @onclick='async () => await SetTabAsync("archives")'>
+            Archives
+        </button>
+        <button class="monitor-tab @(activeTab == "profiles" ? "monitor-tab--active" : "")"
+                role="tab" aria-selected="@(activeTab == "profiles")"
+                @onclick='async () => await SetTabAsync("profiles")'>
+            Subjects
+        </button>
+        <div class="monitor-tabs-spacer"></div>
+        @if (liveLoading || archivesLoading || profilesLoading)
+        {
+            <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:3px; width:60px; align-self:center;" />
+        }
+        @if (activeTab == "live")
+        {
+            <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                Click="RefreshLiveAsync" Disabled="@liveLoading" aria-label="Refresh live data" />
+        }
+    </div>
+
+    @* ─── Live Dashboard tab ─────────────────────────────────────────── *@
+    @if (activeTab == "live")
+    {
+        <div class="monitor-tab-panel">
+            <header class="monitor-panel-header">
+                <div>
+                    <p class="observer-eyebrow">Multi-subject view</p>
+                    <p class="panel-summary">Real-time status for all known subjects. Auto-refreshes every @RefreshIntervalSeconds seconds.</p>
+                </div>
+            </header>
+
+            @if (subjects.Count == 0 && !liveLoading)
+            {
+                <div class="live-dashboard-empty">
+                    <p>No subjects observed yet. Start the Observer Hub to begin monitoring.</p>
+                </div>
+            }
+
+            <div class="subject-card-grid">
+                @foreach (var subject in subjects)
+                {
+                    var cardClass = GetCardClass(subject);
+                    var lastNote = subject.RecentEvents.FirstOrDefault()?.ClinicalDescription;
+                    var outlierCount = subject.RecentEvents.Count(x => x.IsClinicalOutlier);
+                    var todayCount = GetTodayEventCount(subject);
+                    cardThumbnails.TryGetValue(subject.SubjectId, out var thumbUrl);
+                    var drift = GetDriftStatus(subject.SubjectId);
+
+                    <div class="subject-card @cardClass" @onclick="() => NavigateToSubject(subject.SubjectId)" role="button" tabindex="0">
+
+                        <div class="subject-card-header">
+                            @if (renameCardSubjectId == subject.SubjectId)
+                            {
+                                <div class="inline-edit-row" @onclick:stopPropagation="true">
+                                    <RadzenTextBox @bind-Value="renameCardName" Style="flex:1; min-width:0;"
+                                        @onkeydown="@(async e => { if (e.Key == "Enter") await CommitCardRenameAsync(); else if (e.Key == "Escape") CancelCardRename(); })" />
+                                    <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                        Click="CommitCardRenameAsync" Disabled="@(string.IsNullOrWhiteSpace(renameCardName))" aria-label="Save" />
+                                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                        Click="CancelCardRename" aria-label="Cancel" />
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="subject-card-name" @ondblclick:stopPropagation="true" @ondblclick="() => BeginCardRename(subject)">@subject.DisplayName</span>
+                                <button class="card-rename-btn" @onclick:stopPropagation="true" @onclick="() => BeginCardRename(subject)" title="Rename subject">✏</button>
+                            }
+
+                            @if (subject.UnacknowledgedSignificantCount > 0)
+                            {
+                                <span class="subject-card-badge subject-card-badge--alert">@subject.UnacknowledgedSignificantCount</span>
+                            }
+                            @if (subject.LastActivityIsOutlier)
+                            {
+                                <span class="subject-card-badge subject-card-badge--outlier">OUTLIER</span>
+                            }
+                            @if (!subject.IsKnownIdentity)
+                            {
+                                <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
+                            }
+                            @if (FeatureFlags.Value.DriftRadarEnabled && drift is not null && drift.DriftLabel is not "Insufficient Data" and not "Normal")
+                            {
+                                <button class="subject-card-badge subject-card-drift subject-card-drift--@DriftBadgeClass(drift.DriftLabel)"
+                                        @onclick="async () => await OpenDriftDetailsAsync(drift)"
+                                        @onclick:stopPropagation="true"
+                                        title="Drift @drift.DriftScore.ToString("F0")/100 — click for details">
+                                    DRIFT · @drift.DriftScore.ToString("F0")
+                                </button>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(thumbUrl))
+                        {
+                            <a class="card-thumb-link" href="@thumbUrl" target="_blank" rel="noopener noreferrer"
+                               @onclick:stopPropagation="true" title="View evidence image">
+                                <img class="card-thumb" src="@thumbUrl" alt="Evidence for @subject.DisplayName" loading="lazy" />
+                            </a>
+                        }
+
+                        <div class="subject-card-activity">
+                            <span class="subject-card-label">Last activity</span>
+                            <strong class="subject-card-value">@(string.IsNullOrWhiteSpace(subject.LastActivity) ? "No data" : subject.LastActivity)</strong>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(lastNote))
+                        {
+                            <div class="subject-card-note">@lastNote</div>
+                        }
+
+                        <div class="subject-card-stats">
+                            <span class="card-stat">
+                                <span class="card-stat-val">@todayCount</span>
+                                <span class="card-stat-label">today</span>
+                            </span>
+                            @if (outlierCount > 0)
+                            {
+                                <span class="card-stat card-stat--outlier">
+                                    <span class="card-stat-val">@outlierCount</span>
+                                    <span class="card-stat-label">outliers</span>
+                                </span>
+                            }
+                            <span class="card-stat">
+                                <span class="card-stat-val subject-card-mono">@subject.LastSeenUtc.ToLocalTime().ToString("HH:mm")</span>
+                                <span class="card-stat-label">last seen</span>
+                            </span>
+                        </div>
+
+                        @if (subject.RecentEvents.Count > 0)
+                        {
+                            <div class="subject-card-sparkline">
+                                @foreach (var ev in subject.RecentEvents.Take(10).Reverse())
+                                {
+                                    <span class="sparkline-dot @(ev.IsClinicalOutlier ? "sparkline-dot--outlier" : ev.IsSignificant ? "sparkline-dot--significant" : "sparkline-dot--normal")"
+                                          title="@ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm") — @ev.Activity"></span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @* ─── Archives tab ───────────────────────────────────────────────── *@
+    else if (activeTab == "archives")
+    {
+        <div class="monitor-tab-panel">
+            <div class="archive-toolbar">
+                <RadzenButton Icon="chevron_left" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                    Click="ArchivePreviousDayAsync" Disabled="@archivesLoading" aria-label="Previous day" />
+                <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd"
+                    Change="@(async _ => await LoadChapterAsync())" aria-label="Select date" />
+                <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                    Click="ArchiveNextDayAsync" Disabled="@(archivesLoading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
+
+                <span class="archive-toolbar-divider"></span>
+
+                <RadzenDropDown @bind-Value="selectedShift" Data="@shiftOptions"
+                    TextProperty="Label" ValueProperty="Value" Style="min-width:140px" />
+                <RadzenButton Icon="download" Text="Handoff Report" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                    Click="DownloadHandoffReportAsync" Disabled="@(selectedDate is null)" />
+                @if (FeatureFlags.Value.HandoffCoachEnabled)
+                {
+                    <RadzenButton Icon="auto_awesome" Text="Generate Brief" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                        Click="GenerateHandoffBriefAsync" Disabled="@(selectedDate is null || generatingBrief)" />
+                }
+            </div>
+
+            @if (archivesLoading)
+            {
+                <div class="skeleton-block">
+                    <div class="skeleton-line skeleton-line--wide"></div>
+                    <div class="skeleton-line skeleton-line--medium"></div>
+                    <div class="skeleton-line skeleton-line--wide"></div>
+                    <div class="skeleton-line skeleton-line--short"></div>
+                </div>
+            }
+            else
+            {
+                <h3>Clinical Narrative</h3>
+                <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a date to view the chapter.")</p>
+
+                @if (handoffBrief is not null)
+                {
+                    <div class="handoff-brief-panel">
+                        <div class="handoff-brief-header">
+                            <h3>Handoff Brief</h3>
+                            <span class="brief-badge @(handoffBrief.IsAiGenerated ? "brief-badge--ai" : "brief-badge--template")">
+                                @(handoffBrief.IsAiGenerated ? "AI-assisted" : "Template")
+                            </span>
+                            <small class="brief-meta">@handoffBrief.Audience &middot; @handoffBrief.ShiftWindow &middot; @handoffBrief.GeneratedAtUtc.ToLocalTime().ToString("HH:mm")</small>
+                            <button class="brief-close" @onclick="() => handoffBrief = null" aria-label="Close brief">&times;</button>
+                        </div>
+                        <p class="brief-summary">@handoffBrief.Summary</p>
+                        @if (handoffBrief.PriorityItems.Count > 0)
+                        {
+                            <div class="brief-section">
+                                <h4 class="brief-section-label">Priority Items</h4>
+                                <ul class="brief-list brief-list--priority">
+                                    @foreach (var item in handoffBrief.PriorityItems)
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        @if (handoffBrief.FollowUps.Count > 0)
+                        {
+                            <div class="brief-section">
+                                <h4 class="brief-section-label">Follow-ups for Next Shift</h4>
+                                <ul class="brief-list brief-list--followup">
+                                    @foreach (var item in handoffBrief.FollowUps)
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        <details class="brief-source-notes">
+                            <summary>Source notes</summary>
+                            <ul>
+                                @foreach (var note in handoffBrief.SourceNotes)
+                                {
+                                    <li>@note</li>
+                                }
+                            </ul>
+                        </details>
+                    </div>
+                }
+
+                @if (chapter is not null && chapter.Timeline.Count == 0)
+                {
+                    <div class="archive-empty">
+                        <p>No observations recorded for this day.</p>
+                        <a href="/" class="archive-empty-cta">→ Go to Observer Hub to start capturing</a>
+                    </div>
+                }
+
+                @if (chapter?.Highlights?.Any() == true)
+                {
+                    <h3>Evidence Highlights</h3>
+                    <div class="evidence-grid">
+                        @foreach (var item in chapter.Highlights)
+                        {
+                            var evidenceUrl = GetEvidenceUrl(item);
+                            <div class="evidence-card">
+                                <div class="evidence-image-wrap">
+                                    @if (!string.IsNullOrWhiteSpace(evidenceUrl))
+                                    {
+                                        <img class="evidence-full-img" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="evidence-full-img evidence-placeholder">No image</div>
+                                    }
+                                    <div class="evidence-overlay">
+                                        <span class="evidence-subject">@item.SubjectDisplayName</span>
+                                        <span class="evidence-activity">@item.Activity</span>
+                                    </div>
+                                </div>
+                                <div class="evidence-caption">
+                                    <small>@(item.SignificantReason ?? "Significant event")</small>
+                                    <small class="evidence-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm")</small>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (chapter?.Timeline is { Count: > 0 })
+                {
+                    <h3>Chronological Timeline</h3>
+                    <ul class="activity-list activity-list--archives">
+                        @foreach (var item in chapter.Timeline)
+                        {
+                            <li class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
+                                <div class="activity-item-header">
+                                    <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                                    <span class="activity-subject">@item.SubjectDisplayName</span>
+                                    @if (item.IsClinicalOutlier)
+                                    {
+                                        <span class="activity-badge activity-badge--outlier">Outlier</span>
+                                    }
+                                    else if (item.IsSignificant)
+                                    {
+                                        <span class="activity-badge activity-badge--significant">Significant</span>
+                                    }
+                                    <span class="activity-activity">@item.Activity</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
+                                {
+                                    <div class="activity-note">@item.ClinicalDescription</div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+        </div>
+    }
+
+    @* ─── Subjects / Profiles tab ────────────────────────────────────── *@
+    else if (activeTab == "profiles")
+    {
+        <div class="monitor-tab-panel monitor-profiles-panel">
+
+            @if (profilesLoading)
+            {
+                <div class="skeleton-block">
+                    <div class="skeleton-line skeleton-line--wide"></div>
+                    <div class="skeleton-line skeleton-line--medium"></div>
+                    <div class="skeleton-line skeleton-line--wide"></div>
+                    <div class="skeleton-line skeleton-line--short"></div>
+                    <div class="skeleton-line skeleton-line--medium"></div>
+                </div>
+            }
+            else if (profiles.Count == 0)
+            {
+                <div class="archive-empty">
+                    <p>No subjects identified yet.</p>
+                    <a href="/" class="archive-empty-cta">→ Go to Observer Hub to start detecting subjects</a>
+                </div>
+            }
+            else
+            {
+                <div class="profiles-layout">
+                    <div class="profiles-table-section">
+                        <h3>Subject Library</h3>
+                        <p class="identity-hint">Double-click a name to rename it inline.</p>
+                        <RadzenDataGrid Data="profiles" TItem="SubjectProfileDto" AllowPaging="true" PageSize="10" AllowColumnResize="true" class="identity-grid-table">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="SubjectProfileDto" Property="DisplayName" Title="Name">
+                                    <Template Context="item">
+                                        @if (editingProfileSubjectId == item.SubjectId)
+                                        {
+                                            <div class="inline-edit-row">
+                                                <RadzenTextBox @bind-Value="editingProfileName" Style="flex:1;"
+                                                    @onkeydown="@(async e => { if (e.Key == "Enter") await CommitProfileRenameAsync(); else if (e.Key == "Escape") CancelProfileEdit(); })" />
+                                                <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                                    Click="CommitProfileRenameAsync" Disabled="@(string.IsNullOrWhiteSpace(editingProfileName))" aria-label="Save" />
+                                                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                                    Click="CancelProfileEdit" aria-label="Cancel" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="subject-name" @ondblclick="@(() => BeginProfileEdit(item))" title="Double-click to rename">@item.DisplayName</span>
+                                        }
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Known" Width="70px">
+                                    <Template Context="item">@(item.IsKnownIdentity ? "Yes" : "No")</Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="First Seen" Width="155px">
+                                    <Template Context="item">@item.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Last Seen" Width="155px">
+                                    <Template Context="item">@item.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    </div>
+
+                    <div class="profiles-merge-section">
+                        <button class="merge-expand-toggle" @onclick="@(() => mergeExpanded = !mergeExpanded)">
+                            @(mergeExpanded ? "▾" : "▸") Merge Two Identities
+                        </button>
+                        @if (mergeExpanded)
+                        {
+                            <div class="merge-form">
+                                <label>Primary Subject</label>
+                                <RadzenDropDown Data="profiles" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="mergeTargetPrimaryId" Style="width:100%;" />
+                                <label>Secondary Subject</label>
+                                <RadzenDropDown Data="profiles.Where(x => x.SubjectId != mergeTargetPrimaryId)" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="mergeTargetSecondaryId" Style="width:100%;" />
+                                <label>Canonical Name (optional)</label>
+                                <RadzenTextBox @bind-Value="mergeCanonicalName" Style="width:100%;" />
+                                <RadzenButton Text="Commit Merge" ButtonStyle="ButtonStyle.Danger" Click="MergeAsync" Disabled="@(mergeBusy || profiles.Count < 2)" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (mergeUndoVisible)
+            {
+                <div class="undo-toast">
+                    <span>Merge committed. <strong>@mergeUndoMessage</strong></span>
+                    <span class="undo-countdown">@mergeUndoCountdown s</span>
+                    <button class="btn btn-sm btn-outline-warning" @onclick="DismissMergeUndo">Dismiss</button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    // ── Tab state ────────────────────────────────────────────────────────
+    private string activeTab = "live";
+    private bool archivesTabEverLoaded;
+    private bool profilesTabEverLoaded;
+
+    private async Task SetTabAsync(string tab)
+    {
+        activeTab = tab;
+        if (tab == "archives" && !archivesTabEverLoaded)
+        {
+            archivesTabEverLoaded = true;
+            await LoadChapterAsync();
+        }
+        else if (tab == "profiles" && !profilesTabEverLoaded)
+        {
+            profilesTabEverLoaded = true;
+            await LoadProfilesAsync();
+        }
+    }
+
+    // ── Live Dashboard ───────────────────────────────────────────────────
+    private const int RefreshIntervalSeconds = 15;
+    private List<SubjectLiveStatusDto> subjects = [];
+    private List<SubjectDriftStatusDto> _driftStatus = [];
+    private bool liveLoading;
+    private CancellationTokenSource? _timerCts;
+    private Dictionary<string, string> cardThumbnails = [];
+    private string? renameCardSubjectId;
+    private string renameCardName = string.Empty;
+
+    private async Task RefreshLiveAsync()
+    {
+        liveLoading = true;
+        StateHasChanged();
+        try
+        {
+            subjects = [.. await ApiClient.GetLiveDashboardStatusAsync()];
+
+            if (FeatureFlags.Value.DriftRadarEnabled)
+            {
+                try { _driftStatus = [.. await ApiClient.GetDriftStatusAsync()]; }
+                catch { _driftStatus = []; }
+            }
+
+            _ = LoadCardThumbnailsAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dashboard", ex.Message, duration: 5000);
+        }
+        finally
+        {
+            liveLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCardThumbnailsAsync()
+    {
+        cardThumbnails.Clear();
+        var tasks = subjects
+            .Select(s => new
+            {
+                SubjectId = s.SubjectId,
+                ImageRef = s.RecentEvents.FirstOrDefault(e => !string.IsNullOrWhiteSpace(e.ImageReference))?.ImageReference
+            })
+            .Where(x => x.ImageRef is not null)
+            .Select(async x =>
+            {
+                var url = await ApiClient.GetBlobReadUrlAsync(x.ImageRef!);
+                if (!string.IsNullOrWhiteSpace(url))
+                    cardThumbnails[x.SubjectId] = url;
+            });
+        await Task.WhenAll(tasks);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void StartAutoRefresh()
+    {
+        _timerCts = new CancellationTokenSource();
+        var token = _timerCts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try { await Task.Delay(TimeSpan.FromSeconds(RefreshIntervalSeconds), token); }
+                catch (OperationCanceledException) { break; }
+                await InvokeAsync(RefreshLiveAsync);
+            }
+        }, token);
+    }
+
+    private static string GetCardClass(SubjectLiveStatusDto subject)
+    {
+        if (subject.LastActivityIsOutlier) return "subject-card--outlier";
+        if (subject.UnacknowledgedSignificantCount > 0) return "subject-card--alert";
+        return string.Empty;
+    }
+
+    private void NavigateToSubject(string subjectId) =>
+        Navigation.NavigateTo($"/?subjectFilter={Uri.EscapeDataString(subjectId)}");
+
+    private int GetTodayEventCount(SubjectLiveStatusDto subject)
+    {
+        if (FeatureFlags.Value.DriftRadarEnabled)
+        {
+            var drift = _driftStatus.FirstOrDefault(d => string.Equals(d.SubjectId, subject.SubjectId, StringComparison.OrdinalIgnoreCase));
+            if (drift is not null) return drift.TodayEventCount;
+        }
+        return subject.RecentEvents.Count(x => x.ObservedAtUtc.ToLocalTime().Date == DateTime.Today);
+    }
+
+    private SubjectDriftStatusDto? GetDriftStatus(string subjectId) =>
+        _driftStatus.FirstOrDefault(d => string.Equals(d.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase));
+
+    private static string DriftBadgeClass(string driftLabel) => driftLabel switch
+    {
+        "Extreme Deviation" or "High Drift" => "high",
+        "Moderate Drift" => "medium",
+        "Slight Variation" => "low",
+        _ => "normal"
+    };
+
+    private async Task OpenDriftDetailsAsync(SubjectDriftStatusDto drift)
+    {
+        await DialogService.OpenAsync<PoWatch.Client.Shared.DriftDetailPanel>(
+            $"Drift Details — {drift.DisplayName}",
+            new Dictionary<string, object?> { ["DriftStatus"] = drift },
+            new DialogOptions { Width = "640px", Resizable = true, CloseDialogOnOverlayClick = true });
+    }
+
+    private void BeginCardRename(SubjectLiveStatusDto subject)
+    {
+        renameCardSubjectId = subject.SubjectId;
+        renameCardName = subject.DisplayName;
+    }
+
+    private void CancelCardRename()
+    {
+        renameCardSubjectId = null;
+        renameCardName = string.Empty;
+    }
+
+    private async Task CommitCardRenameAsync()
+    {
+        if (string.IsNullOrWhiteSpace(renameCardSubjectId) || string.IsNullOrWhiteSpace(renameCardName))
+            return;
+
+        var subjectId = renameCardSubjectId;
+        var newName = renameCardName.Trim();
+        renameCardSubjectId = null;
+        renameCardName = string.Empty;
+
+        var result = await ApiClient.RenameSubjectAsync(subjectId, new RenameSubjectRequestDto { NewName = newName });
+
+        if (result is null)
+            NotificationService.Notify(NotificationSeverity.Error, "Rename", "Rename failed.", duration: 5000);
+        else
+            NotificationService.Notify(NotificationSeverity.Success, "Renamed", $"{result.CanonicalName} — {result.EventsRewritten} events updated.", duration: 4000);
+
+        await RefreshLiveAsync();
+    }
+
+    // ── Archives ─────────────────────────────────────────────────────────
+    private sealed record ShiftOption(string Value, string Label);
+
+    private static readonly IReadOnlyList<ShiftOption> shiftOptions =
+    [
+        new("FullDay",   "Full Day"),
+        new("Morning",   "Morning (06–14)"),
+        new("Afternoon", "Afternoon (14–22)"),
+        new("Night",     "Night (22–06)")
+    ];
+
+    private DateTime? selectedDate = DateTime.Now;
+    private string selectedShift = "FullDay";
+    private DailyChapterDto? chapter;
+    private bool archivesLoading;
+    private readonly Dictionary<string, string> evidenceUrls = [];
+    private HandoffBriefDto? handoffBrief;
+    private bool generatingBrief;
+    private string briefAudience = "NurseToNurse";
+
+    private async Task LoadChapterAsync()
+    {
+        archivesLoading = true;
+        StateHasChanged();
+
+        var date = DateOnly.FromDateTime((selectedDate ?? DateTime.Now).Date);
+        chapter = await ApiClient.GetChapterAsync(date);
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", "powatch:archivesDate", selectedDate?.ToString("O") ?? string.Empty);
+        }
+        catch { }
+
+        evidenceUrls.Clear();
+        var itemsWithImages = chapter?.Highlights?
+            .Where(x => !string.IsNullOrWhiteSpace(x.ImageReference))
+            .ToList() ?? [];
+
+        var sasResults = await Task.WhenAll(
+            itemsWithImages.Select(item => ApiClient.GetBlobReadUrlAsync(item.ImageReference!)));
+
+        for (var i = 0; i < itemsWithImages.Count; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(sasResults[i]))
+                evidenceUrls[itemsWithImages[i].ImageReference!] = sasResults[i]!;
+        }
+
+        archivesLoading = false;
+    }
+
+    private async Task ArchivePreviousDayAsync()
+    {
+        selectedDate = (selectedDate ?? DateTime.Now).AddDays(-1);
+        await LoadChapterAsync();
+    }
+
+    private async Task ArchiveNextDayAsync()
+    {
+        selectedDate = (selectedDate ?? DateTime.Now).AddDays(1);
+        await LoadChapterAsync();
+    }
+
+    private string? GetEvidenceUrl(ObservationEventDto item) =>
+        !string.IsNullOrWhiteSpace(item.ImageReference) && evidenceUrls.TryGetValue(item.ImageReference, out var url)
+            ? url : null;
+
+    private async Task DownloadHandoffReportAsync()
+    {
+        if (selectedDate is null) return;
+        var url = ApiClient.GetHandoffReportUrl(DateOnly.FromDateTime(selectedDate.Value), selectedShift);
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task GenerateHandoffBriefAsync()
+    {
+        if (selectedDate is null) return;
+        generatingBrief = true;
+        handoffBrief = null;
+        StateHasChanged();
+
+        handoffBrief = await ApiClient.GenerateHandoffBriefAsync(
+            DateOnly.FromDateTime(selectedDate.Value),
+            new GenerateHandoffBriefRequestDto
+            {
+                ShiftWindow = selectedShift,
+                Audience = briefAudience,
+                IncludeUnresolvedAlerts = true,
+                IncludeHighlights = true
+            });
+
+        generatingBrief = false;
+        if (handoffBrief is null)
+            NotificationService.Notify(NotificationSeverity.Error, "Handoff Brief", "Brief generation failed.", duration: 5000);
+    }
+
+    // ── Profiles (Subjects) ──────────────────────────────────────────────
+    private List<SubjectProfileDto> profiles = [];
+    private bool profilesLoading;
+    private bool mergeExpanded;
+    private string? mergeTargetPrimaryId;
+    private string? mergeTargetSecondaryId;
+    private string? mergeCanonicalName;
+    private bool mergeBusy;
+    private bool mergeUndoVisible;
+    private string mergeUndoMessage = string.Empty;
+    private int mergeUndoCountdown;
+    private CancellationTokenSource? _undoCts;
+
+    private string? editingProfileSubjectId;
+    private string editingProfileName = string.Empty;
+
+    private async Task LoadProfilesAsync()
+    {
+        profilesLoading = true;
+        StateHasChanged();
+
+        profiles = (await ApiClient.GetSubjectsAsync())
+            .OrderByDescending(x => x.LastSeenUtc)
+            .ToList();
+
+        if (profiles.Count > 0 && string.IsNullOrWhiteSpace(mergeTargetPrimaryId))
+            mergeTargetPrimaryId = profiles[0].SubjectId;
+
+        if (profiles.Count > 1 && (string.IsNullOrWhiteSpace(mergeTargetSecondaryId) || mergeTargetSecondaryId == mergeTargetPrimaryId))
+            mergeTargetSecondaryId = profiles.First(x => x.SubjectId != mergeTargetPrimaryId).SubjectId;
+
+        profilesLoading = false;
+    }
+
+    private void BeginProfileEdit(SubjectProfileDto subject)
+    {
+        editingProfileSubjectId = subject.SubjectId;
+        editingProfileName = subject.DisplayName;
+    }
+
+    private void CancelProfileEdit()
+    {
+        editingProfileSubjectId = null;
+        editingProfileName = string.Empty;
+    }
+
+    private async Task CommitProfileRenameAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editingProfileSubjectId) || string.IsNullOrWhiteSpace(editingProfileName))
+            return;
+
+        var subjectId = editingProfileSubjectId;
+        var newName = editingProfileName.Trim();
+        editingProfileSubjectId = null;
+        editingProfileName = string.Empty;
+
+        profilesLoading = true;
+        var result = await ApiClient.RenameSubjectAsync(subjectId, new RenameSubjectRequestDto { NewName = newName });
+        profilesLoading = false;
+
+        if (result is null)
+            NotificationService.Notify(NotificationSeverity.Error, "Rename", "Rename failed.", duration: 5000);
+        else
+            NotificationService.Notify(NotificationSeverity.Success, "Renamed", $"{result.CanonicalName} — {result.EventsRewritten} events updated.", duration: 4000);
+
+        await LoadProfilesAsync();
+    }
+
+    private async Task MergeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(mergeTargetPrimaryId) || string.IsNullOrWhiteSpace(mergeTargetSecondaryId))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Merge", "Both subjects are required.", duration: 4000);
+            return;
+        }
+        if (string.Equals(mergeTargetPrimaryId, mergeTargetSecondaryId, StringComparison.OrdinalIgnoreCase))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Merge", "Choose two different subjects.", duration: 4000);
+            return;
+        }
+
+        var primaryName   = profiles.FirstOrDefault(x => x.SubjectId == mergeTargetPrimaryId)?.DisplayName   ?? mergeTargetPrimaryId;
+        var secondaryName = profiles.FirstOrDefault(x => x.SubjectId == mergeTargetSecondaryId)?.DisplayName ?? mergeTargetSecondaryId;
+
+        var confirmed = await DialogService.Confirm(
+            $"Merge '{secondaryName}' into '{primaryName}'? All historical events will be rewritten and the secondary subject permanently deleted. This cannot be undone.",
+            "Confirm Irreversible Merge",
+            new ConfirmOptions { OkButtonText = "Commit Merge", CancelButtonText = "Cancel", CloseDialogOnOverlayClick = true });
+
+        if (confirmed != true) return;
+
+        mergeBusy = true;
+        var merged = await ApiClient.MergeIdentityAsync(new MergeIdentityRequestDto
+        {
+            PrimarySubjectId   = mergeTargetPrimaryId,
+            SecondarySubjectId = mergeTargetSecondaryId,
+            NewDisplayName     = mergeCanonicalName
+        });
+        mergeBusy = false;
+
+        if (merged is null)
+            NotificationService.Notify(NotificationSeverity.Error, "Merge", "Merge failed.", duration: 5000);
+        else
+        {
+            mergeUndoMessage = $"{merged.CanonicalName} now owns {merged.EventsRewritten} events.";
+            _ = ShowMergeUndoToastAsync();
+            NotificationService.Notify(NotificationSeverity.Success, "Merged", mergeUndoMessage, duration: 3000);
+        }
+
+        await LoadProfilesAsync();
+    }
+
+    private async Task ShowMergeUndoToastAsync()
+    {
+        _undoCts?.Cancel();
+        _undoCts = new CancellationTokenSource();
+        var ct = _undoCts.Token;
+        mergeUndoCountdown = 8;
+        mergeUndoVisible = true;
+        StateHasChanged();
+        try
+        {
+            while (mergeUndoCountdown > 0 && !ct.IsCancellationRequested)
+            {
+                await Task.Delay(1000, ct);
+                mergeUndoCountdown--;
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            mergeUndoVisible = false;
+            StateHasChanged();
+        }
+    }
+
+    private void DismissMergeUndo()
+    {
+        _undoCts?.Cancel();
+        mergeUndoVisible = false;
+        NotificationService.Notify(NotificationSeverity.Info, "Undo", "Undo is not supported by the current API version.", duration: 4000);
+    }
+
+    // ── Lifecycle ────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        // Restore last-visited archives date from localStorage
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", "powatch:archivesDate");
+            if (!string.IsNullOrWhiteSpace(stored) && DateTime.TryParse(stored, out var restored))
+                selectedDate = restored;
+        }
+        catch { }
+
+        await RefreshLiveAsync();
+        StartAutoRefresh();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _timerCts?.Cancel();
+        _timerCts?.Dispose();
+        _undoCts?.Cancel();
+        _undoCts?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

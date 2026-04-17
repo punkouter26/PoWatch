@@ -302,25 +302,37 @@
                 <span class="activity-count">@streamItems.Count events today</span>
             </header>
 
-            <RadzenDataGrid Data="streamItems" TItem="ObservationEventDto" AllowPaging="false" AllowSorting="false" class="activity-grid"
-                            RowRender="@StreamRowRender">
-                <Template Context="item">
-                    <div class="stream-row-detail">@item.ClinicalDescription</div>
-                </Template>
-                <Columns>
-                    <RadzenDataGridColumn TItem="ObservationEventDto" Property="ObservedAtUtc" Title="Time">
-                        <Template Context="item">
-                            <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
-                        </Template>
-                    </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="ObservationEventDto" Property="SubjectDisplayName" Title="Subject" />
-                    <RadzenDataGridColumn TItem="ObservationEventDto" Property="ClinicalDescription" Title="Note">
-                        <Template Context="item">
-                            <span class="activity-note">@item.ClinicalDescription</span>
-                        </Template>
-                    </RadzenDataGridColumn>
-                </Columns>
-            </RadzenDataGrid>
+@if (streamItems.Count == 0)
+            {
+                <div class="activity-empty">No records to display.</div>
+            }
+            else
+            {
+                <ul class="activity-list">
+                    @foreach (var item in streamItems)
+                    {
+                        <li class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
+                            <div class="activity-item-header">
+                                <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                                <span class="activity-subject">@item.SubjectDisplayName</span>
+                                @if (item.IsClinicalOutlier)
+                                {
+                                    <span class="activity-badge activity-badge--outlier">Outlier</span>
+                                }
+                                else if (item.IsSignificant)
+                                {
+                                    <span class="activity-badge activity-badge--significant">Significant</span>
+                                }
+                                <span class="activity-activity">@item.Activity</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
+                            {
+                                <div class="activity-note">@item.ClinicalDescription</div>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
         </RadzenCard>
     </div>
 </div>

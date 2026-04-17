@@ -71,7 +71,7 @@ internal static class ObserverEndpoints
             IReadOnlyList<ObservationEventDto> entries;
             try
             {
-                var date = DateOnly.FromDateTime(cursor.UtcDateTime);
+                var date = DateOnly.FromDateTime(cursor.LocalDateTime);
                 var chapter = await archivesService.GetChapterAsync(date, ct).ConfigureAwait(false);
                 entries = [.. chapter.Timeline
                     .Where(e => e.ObservedAtUtc > cursor)

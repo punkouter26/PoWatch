@@ -40,7 +40,7 @@ internal static class FhirEndpoints
             }
             else
             {
-                targetDate = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+                targetDate = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
             }
 
             var maxResults = Math.Clamp(count ?? 100, 1, 1000);
@@ -86,7 +86,7 @@ internal static class FhirEndpoints
 
             logger.LogInformation("FHIR single Observation requested. Id={Id} TraceId={TraceId}", id, Activity.Current?.TraceId.ToString());
 
-            var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+            var today = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
             var events = await observationRepository.GetByDateAsync(today, cancellationToken);
             var obs = events.FirstOrDefault(e => e.Id.ToString().Equals(id, StringComparison.OrdinalIgnoreCase));
 

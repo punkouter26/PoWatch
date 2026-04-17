@@ -33,7 +33,7 @@ public sealed class BaselineService(
             throw new InvalidOperationException($"Subject '{subjectId}' was not found.");
         }
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
         var historyFrom = today.AddDays(-(baselineDays));
         var historyTo = today.AddDays(-1); // exclude today from baseline
 

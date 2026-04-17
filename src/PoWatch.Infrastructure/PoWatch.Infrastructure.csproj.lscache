@@ -69,10 +69,12 @@ Persistence/
  InMemoryObservationRepository.cs
  InMemorySubjectRepository.cs
 Runtime/
+ AzureOpenAiHandoffSummarizer.cs
  InMemoryObservationProcessingGate.cs
  LocalDiagnosticsProvider.cs
  MaskingUtility.cs
  TelemetryContentSanitizer.cs
+ TemplateHandoffSummarizer.cs
 
 [metadataReferences]
 ../

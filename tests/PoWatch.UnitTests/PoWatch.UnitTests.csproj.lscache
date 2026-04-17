@@ -60,6 +60,8 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 ArchivesServiceTests.cs
 ClinicalTagParserTests.cs
 DiagnosticsMaskingTests.cs
+DriftRadarServiceTests.cs
+HandoffCoachServiceTests.cs
 IdentityServiceTests.cs
 InfrastructureDependencyInjectionTests.cs
 obj/Debug/net10.0/
@@ -67,6 +69,7 @@ obj/Debug/net10.0/
  PoWatch.UnitTests.AssemblyInfo.cs
  PoWatch.UnitTests.GlobalUsings.g.cs
 ObservationServiceTests.cs
+TelemetryContentSanitizerTests.cs
 
 [metadataReferences]
 ../../src/

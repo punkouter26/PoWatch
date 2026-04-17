@@ -59,9 +59,11 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 Contracts/
  IBlobSasProvider.cs
  IDiagnosticsProvider.cs
+ IHandoffSummarizer.cs
  IObservationProcessingGate.cs
  IObservationRepository.cs
  ISubjectRepository.cs
+ ITelemetryContentSanitizer.cs
 DependencyInjection.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
@@ -69,14 +71,19 @@ obj/Debug/net10.0/
  PoWatch.Application.GlobalUsings.g.cs
 Options/
  AlertThresholdOptions.cs
+ AzureOpenAiOptions.cs
  AzureStorageOptions.cs
+ DriftRadarOptions.cs
  FeatureFlagsOptions.cs
+ HandoffCoachOptions.cs
  ObserverOptions.cs
 Services/
  AlertThresholdEvaluator.cs
  ArchivesService.cs
  BaselineService.cs
+ DriftRadarService.cs
  FhirMappingService.cs
+ HandoffCoachService.cs
  IdentityService.cs
  ObservationService.cs
  ReportService.cs

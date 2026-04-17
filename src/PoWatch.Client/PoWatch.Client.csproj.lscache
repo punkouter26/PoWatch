@@ -315,8 +315,10 @@ Pages/
  Home.razor
  IdentityNexus.razor
  LiveDashboard.razor
+ Monitor.razor
  NotFound.razor
  ObserverHub.razor
+Shared/DriftDetailPanel.razor
 _Imports.razor
 
 [dynamicFiles]
@@ -330,6 +332,8 @@ Pages/
  Home.razor
  IdentityNexus.razor
  LiveDashboard.razor
+ Monitor.razor
  NotFound.razor
  ObserverHub.razor
+Shared/DriftDetailPanel.razor
 _Imports.razor

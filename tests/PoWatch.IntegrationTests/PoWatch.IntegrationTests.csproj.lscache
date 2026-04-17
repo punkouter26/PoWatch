@@ -60,6 +60,8 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 ApiFlowTests.cs
 ArchivesApiTests.cs
 DiagnosticsApiTests.cs
+DriftRadarApiTests.cs
+HandoffCoachApiTests.cs
 IdentityRevisionistTests.cs
 Infrastructure/AzuriteWebApplicationFactory.cs
 obj/Debug/net10.0/

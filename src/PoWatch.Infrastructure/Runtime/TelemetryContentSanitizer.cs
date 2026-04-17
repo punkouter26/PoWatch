@@ -78,6 +78,13 @@ public sealed partial class TelemetryContentSanitizer : ITelemetryContentSanitiz
             return false;
         }
 
+        if (TautologyPattern().IsMatch(normalizedPayload) || TautologyPattern().IsMatch(normalizedActivity))
+        {
+            sanitized = input;
+            reason = "Observation contains tautological or zero-information text.";
+            return false;
+        }
+
         if (HasDegenerateText(normalizedPayload) || HasDegenerateText(normalizedActivity))
         {
             sanitized = input;
@@ -147,7 +154,9 @@ public sealed partial class TelemetryContentSanitizer : ITelemetryContentSanitiz
             if (tokens[index] == tokens[index - 1])
             {
                 consecutiveRepeats++;
-                if (consecutiveRepeats >= 3)
+                // For short texts (≤5 tokens) two consecutive repeats is enough to reject.
+                var repeatThreshold = tokens.Length <= 5 ? 2 : 3;
+                if (consecutiveRepeats >= repeatThreshold)
                     return true;
             }
             else
@@ -156,7 +165,8 @@ public sealed partial class TelemetryContentSanitizer : ITelemetryContentSanitiz
             }
         }
 
-        if (tokens.Length >= 8)
+        // Apply diversity check to any text of 5+ tokens (previously 8+).
+        if (tokens.Length >= 5)
         {
             var uniqueRatio = tokens.Distinct(StringComparer.Ordinal).Count() / (double)tokens.Length;
             if (uniqueRatio < 0.45)
@@ -180,6 +190,10 @@ public sealed partial class TelemetryContentSanitizer : ITelemetryContentSanitiz
 
     [GeneratedRegex("^\\s*(i am not sure|i'm not sure|the answer is|unknown answer|not sure)\\b", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex LowInformationPattern();
+
+    /// <summary>Matches tautologies such as "the man is a man" or "a dog is a dog".</summary>
+    [GeneratedRegex("\\b(\\w{3,})\\s+is\\s+(?:an?\\s+)?\\1\\b", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex TautologyPattern();
 
     [GeneratedRegex("[A-Za-z]{2,}", RegexOptions.Compiled)]
     private static partial Regex WordTokenPattern();

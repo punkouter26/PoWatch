@@ -16,9 +16,7 @@ public partial class ObserverHub
     private static readonly IReadOnlyList<ModelOption> ModelOptions =
     [
         new("smolvlm-256m", "SmolVLM 256M"),
-        new("smolvlm-500m", "SmolVLM 500M"),
-        new("lfm2-vl-450m", "LFM2.5-VL 450M"),
-        new("qwen2.5-vl-2b", "Qwen2.5-VL 2B")
+        new("smolvlm-500m", "SmolVLM 500M")
     ];
 
     private List<ObservationEventDto> streamItems = [];
@@ -433,7 +431,7 @@ public partial class ObserverHub
 
         if (result is not null && !result.Dropped && !result.SkippedAsRedundant && inference.IsSignificant)
         {
-            await TryUploadEvidenceAsync(result.SubjectId, $"{result.SubjectDisplayName}: {inference.Activity}");
+            await TryUploadEvidenceAsync(result.ImageReference, $"{result.SubjectDisplayName}: {inference.Activity}");
         }
 
         if (result is not null && !muted && !result.SkippedAsRedundant)
@@ -622,11 +620,6 @@ public partial class ObserverHub
 
     private static string FormatElapsed(TimeSpan elapsed) =>
         $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
-
-    private void StreamRowRender(RowRenderEventArgs<ObservationEventDto> args)
-    {
-        args.Expandable = args.Data is not null && !string.IsNullOrWhiteSpace(args.Data.ClinicalDescription);
-    }
 
     public async ValueTask DisposeAsync()
     {

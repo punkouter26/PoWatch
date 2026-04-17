@@ -61,6 +61,8 @@ Models/
  BaselineDtos.cs
  BlobDtos.cs
  DiagnosticsDtos.cs
+ DriftRadarDtos.cs
+ HandoffCoachDtos.cs
  IdentityDtos.cs
  LiveDashboardDtos.cs
  ObserverDtos.cs

@@ -120,7 +120,7 @@ public sealed class IdentityService(
         logger.LogDebug("Live dashboard status requested.");
 
         var profiles = await subjectRepository.GetAllAsync(cancellationToken);
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
         var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
 
         var result = new List<SubjectLiveStatusDto>(profiles.Count);

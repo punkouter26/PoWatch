@@ -20,20 +20,7 @@ const _MODELS = {
     webgpuDtypeFallback: 'fp32',
     wasmDtype: 'q8',
   },
-  'lfm2-vl-450m': {
-    id: 'LiquidAI/LFM2.5-VL-450M-ONNX',
-    label: 'LFM2.5-VL 450M',
-    webgpuDtype: { vision_encoder: 'fp16', embed_tokens: 'fp16', decoder_model_merged: 'q4' },
-    webgpuDtypeFallback: null,
-    wasmDtype: { vision_encoder: 'q8', embed_tokens: 'fp16', decoder_model_merged: 'q8' },
-  },
-  'qwen2.5-vl-2b': {
-    id: 'onnx-community/Qwen2.5-VL-2B-Instruct-ONNX',
-    label: 'Qwen2.5-VL 2B',
-    webgpuDtype: { vision_encoder: 'q8', embed_tokens: 'fp16', decoder_model_merged: 'q4' },
-    webgpuDtypeFallback: null,
-    wasmDtype: { vision_encoder: 'q8', embed_tokens: 'fp16', decoder_model_merged: 'q8' },
-  },
+
 };
 
 // Model state

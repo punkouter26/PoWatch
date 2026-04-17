@@ -608,47 +608,114 @@ code,
     font-weight: 700;
 }
 
-.activity-grid {
-    margin-top: 0.6rem;
-    border: 1px solid rgba(111, 61, 227, 0.22);
-    border-radius: 14px;
+/* ── Activity List (replaces Radzen DataGrid) ──────────────────────────── */
+.activity-empty {
+    margin-top: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 1.4rem 0;
+}
+
+.activity-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 420px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
+}
+
+.activity-item {
+    padding: 0.5rem 0.7rem;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.12);
+    border-left: 3px solid transparent;
+    transition: background 0.15s;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-item:hover {
+    background: rgba(56, 255, 168, 0.04);
+}
+
+.activity-item--significant {
+    border-left-color: rgba(56, 255, 168, 0.5);
+}
+
+.activity-item--outlier {
+    border-left-color: rgba(220, 60, 60, 0.7);
+    background: rgba(220, 60, 60, 0.04);
+}
+
+.activity-item-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.activity-time {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--neon-green);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.activity-subject {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #c8d0f0;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.activity-activity {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
-    background: rgba(7, 6, 16, 0.75);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.activity-grid .rz-datatable-thead th,
-.activity-grid .rz-sortable-column,
-.activity-grid .rz-data-grid-header {
-    background: rgba(12, 10, 24, 0.95) !important;
-    color: #bbc3df !important;
-    border-color: rgba(111, 61, 227, 0.18) !important;
+.activity-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.1em 0.45em;
+    border-radius: 4px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.76rem;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
 }
 
-.activity-grid .rz-data-grid-data td,
-.activity-grid .rz-grid-table td,
-.activity-grid .rz-datatable-data td,
-.activity-grid .rz-cell-data {
-    background: transparent !important;
-    color: var(--text-primary) !important;
-    border-color: rgba(111, 61, 227, 0.14) !important;
+.activity-badge--significant {
+    background: rgba(56, 255, 168, 0.12);
+    color: #38ffa8;
+    border: 1px solid rgba(56, 255, 168, 0.3);
 }
 
-.activity-grid .rz-data-row:hover td,
-.activity-grid .rz-datatable-even:hover td {
-    background: rgba(56, 255, 168, 0.05) !important;
+.activity-badge--outlier {
+    background: rgba(220, 60, 60, 0.15);
+    color: #ff7070;
+    border: 1px solid rgba(220, 60, 60, 0.4);
 }
 
-.activity-grid .rz-expanded-row-content,
-.activity-grid .stream-row-detail {
-    background: rgba(10, 8, 22, 0.92);
-    color: #dbe2fb;
-}
-
-.activity-grid .rz-row-toggler {
-    color: #9ef7d4 !important;
+.activity-note {
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    padding-left: 0.1rem;
 }
 
 .controls-row .rz-button,
@@ -658,10 +725,42 @@ code,
     font-weight: 700;
 }
 
+/* Dropdown trigger */
 .setup-row .rz-dropdown,
-.setup-row .rz-dropdown-label {
+.setup-row .rz-dropdown-label,
+.setup-row .rz-text {
     background: rgba(9, 7, 20, 0.88) !important;
     color: var(--text-primary) !important;
+}
+
+/* Dropdown popup panel */
+.rz-dropdown-panel,
+.rz-multiselect-panel {
+    background: #0f0b1f !important;
+    border: 1px solid rgba(111, 61, 227, 0.4) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.5) !important;
+}
+
+/* Each option item */
+.rz-dropdown-panel .rz-dropdown-item,
+.rz-dropdown-panel li {
+    background: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+/* Hover state */
+.rz-dropdown-panel .rz-dropdown-item:hover,
+.rz-dropdown-panel li:hover {
+    background: rgba(111, 61, 227, 0.18) !important;
+    color: #fff !important;
+}
+
+/* Selected / highlighted item */
+.rz-dropdown-panel .rz-dropdown-item.rz-state-highlight,
+.rz-dropdown-panel li.rz-state-highlight {
+    background: rgba(111, 61, 227, 0.35) !important;
+    color: #fff !important;
 }
 
 #blazor-error-ui {
@@ -1144,3 +1243,185 @@ code,
         border-radius: 10px;
     }
 }
+
+/* ══ Monitor (consolidated) page ════════════════════════════════════════ */
+
+/* Fix Radzen material-base border on h1/h2 in page headers */
+h1, h2 {
+    border: none;
+    outline: none;
+}
+
+.monitor-page {
+    display: grid;
+    gap: 0;
+}
+
+/* ── Tab bar ─────────────────────────────────────────────────────────── */
+.monitor-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.25);
+    padding: 0 0.2rem 0;
+    margin-bottom: 1.2rem;
+    flex-wrap: wrap;
+}
+
+.monitor-tabs-spacer {
+    flex: 1;
+}
+
+.monitor-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.18s, border-color 0.18s;
+    white-space: nowrap;
+    margin-bottom: -1px;
+    border-radius: 4px 4px 0 0;
+}
+
+.monitor-tab:hover {
+    color: var(--text-primary);
+    background: rgba(111, 61, 227, 0.07);
+}
+
+.monitor-tab--active {
+    color: #9ef7d4;
+    border-bottom-color: #9ef7d4;
+    font-weight: 600;
+}
+
+/* ── Tab panel ───────────────────────────────────────────────────────── */
+.monitor-tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+}
+
+.monitor-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* ── Archives compact timeline ───────────────────────────────────────── */
+.activity-list--archives {
+    max-height: 600px;
+}
+
+/* ── Enhanced subject card ───────────────────────────────────────────── */
+.card-rename-btn {
+    background: none;
+    border: none;
+    padding: 0 0.2rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.subject-card:hover .card-rename-btn {
+    opacity: 1;
+}
+
+.subject-card-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    border-left: 2px solid rgba(111, 61, 227, 0.3);
+    padding-left: 0.5rem;
+    margin-top: 0.1rem;
+}
+
+.subject-card-stats {
+    display: flex;
+    gap: 0.8rem;
+    align-items: baseline;
+    margin-top: 0.1rem;
+    flex-wrap: wrap;
+}
+
+.card-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+}
+
+.card-stat-val {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.card-stat-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.card-stat--outlier .card-stat-val {
+    color: #ff7070;
+}
+
+/* ── Card thumbnail ──────────────────────────────────────────────────── */
+.card-thumb-link {
+    display: block;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    align-self: flex-start;
+    border: 1px solid rgba(111, 61, 227, 0.25);
+    transition: border-color 0.15s;
+}
+
+.card-thumb-link:hover {
+    border-color: #9ef7d4;
+}
+
+.card-thumb {
+    display: block;
+    width: 100%;
+    max-height: 80px;
+    object-fit: cover;
+    border-radius: 7px;
+}
+
+/* ── Profiles tab layout ─────────────────────────────────────────────── */
+.monitor-profiles-panel {
+    gap: 1.4rem;
+}
+
+.profiles-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 1.2rem;
+    align-items: start;
+}
+
+.profiles-table-section h3,
+.profiles-merge-section h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+}
+
+@media (max-width: 900px) {
+    .profiles-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
