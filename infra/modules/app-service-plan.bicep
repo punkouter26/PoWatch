@@ -1,4 +1,4 @@
-// App Service Plan — Free tier (F1), shared across Po* apps in PoShared RG.
+// App Service Plan — Free tier (F1), shared across PoWatch resources in PoWatch-Shared-RG.
 
 param location string
 param environment string

@@ -92,10 +92,11 @@ public sealed class ObservationService(
             if (subject.LastActivity is not null &&
                 string.Equals(subject.LastActivity, request.Activity, StringComparison.OrdinalIgnoreCase) &&
                 !subject.LastActivityIsOutlier &&
-                !isOutlier)
+                !isOutlier &&
+                IsStableActivity(request.Activity))
             {
                 logger.LogInformation(
-                    "Redundant observation skipped (activity matches cached subject state). SubjectId={SubjectId} Activity={Activity}",
+                    "Redundant stable-state observation skipped (activity matches cached subject state). SubjectId={SubjectId} Activity={Activity}",
                     subject.SubjectId,
                     request.Activity);
 
@@ -110,10 +111,11 @@ public sealed class ObservationService(
                 };
             }
 
+            var observedAtUtc = DateTimeOffset.UtcNow;
             var observation = new ObservationEvent
             {
                 // Server-authoritative timestamp; client-supplied ObservedAtUtc is not trusted to prevent backdating.
-                ObservedAtUtc = DateTimeOffset.UtcNow,
+                ObservedAtUtc = observedAtUtc,
                 SubjectId = subject.SubjectId,
                 SubjectDisplayName = subject.DisplayName,
                 Activity = request.Activity,
@@ -122,7 +124,7 @@ public sealed class ObservationService(
                 SignificantReason = request.SignificantReason,
                 IsClinicalOutlier = isOutlier,
                 ImageReference = request.IsSignificant && featureFlags.Value.SaveSignificantImages
-                    ? $"significant-images/{DateOnly.FromDateTime(request.ObservedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.svg"
+                    ? $"significant-images/{DateOnly.FromDateTime(observedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.svg"
                     : null
             };
 
@@ -173,4 +175,16 @@ public sealed class ObservationService(
             ? "Observer loop ready for the next local inference poll."
             : "Observation loop disabled by operator."
     };
+
+    private static bool IsStableActivity(string activity)
+    {
+        if (string.IsNullOrWhiteSpace(activity))
+            return false;
+
+        return activity.Contains("desk", StringComparison.OrdinalIgnoreCase)
+            || activity.Contains("sit", StringComparison.OrdinalIgnoreCase)
+            || activity.Contains("sleep", StringComparison.OrdinalIgnoreCase)
+            || activity.Contains("idle", StringComparison.OrdinalIgnoreCase)
+            || activity.Contains("rest", StringComparison.OrdinalIgnoreCase);
+    }
 }

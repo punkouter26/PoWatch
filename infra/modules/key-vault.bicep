@@ -1,5 +1,5 @@
 // Azure Key Vault for PoWatch app-specific secrets.
-// Placed in PoWatch-RG. Access via Managed Identity (RBAC model).
+// Placed in PoWatch-App-RG. Access via Managed Identity (RBAC model).
 // Secret naming convention: app-specific secrets prefixed with "powatch-".
 // Shared secrets (e.g. shared App Insights key) have no prefix.
 

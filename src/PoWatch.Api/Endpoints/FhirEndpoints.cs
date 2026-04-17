@@ -10,7 +10,22 @@ internal static class FhirEndpoints
 {
     internal static IEndpointRouteBuilder MapFhirEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/fhir").WithTags("FHIR");
+        var group = app.MapGroup("/fhir").WithTags("FHIR")
+            // Single feature-flag gate for all FHIR endpoints — no per-handler repetition
+            .AddEndpointFilter(async (ctx, next) =>
+            {
+                var flags = ctx.HttpContext.RequestServices
+                    .GetRequiredService<IOptions<FeatureFlagsOptions>>().Value;
+                if (!flags.FhirExportEnabled)
+                {
+                    ctx.HttpContext.RequestServices
+                        .GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("FhirEndpoints")
+                        .LogInformation("FHIR request blocked — FhirExportEnabled is false.");
+                    return Results.StatusCode(503);
+                }
+                return await next(ctx);
+            });
 
         // GET /fhir/Observation?subject={id}&date={yyyy-MM-dd}[&_count={n}]
         group.MapGet("/Observation", async (
@@ -19,16 +34,9 @@ internal static class FhirEndpoints
             int? count,
             IObservationRepository observationRepository,
             FhirMappingService fhirMapper,
-            IOptions<FeatureFlagsOptions> flags,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
-            if (!flags.Value.FhirExportEnabled)
-            {
-                logger.LogInformation("FHIR export requested but feature flag is disabled. TraceId={TraceId}", Activity.Current?.TraceId.ToString());
-                return Results.StatusCode(503);
-            }
-
             if (string.IsNullOrWhiteSpace(subject))
                 return Results.BadRequest(new { message = "'subject' query parameter is required." });
 
@@ -40,7 +48,7 @@ internal static class FhirEndpoints
             }
             else
             {
-                targetDate = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
+                targetDate = DateOnly.FromDateTime(DateTime.UtcNow);
             }
 
             var maxResults = Math.Clamp(count ?? 100, 1, 1000);
@@ -74,19 +82,15 @@ internal static class FhirEndpoints
             string id,
             IObservationRepository observationRepository,
             FhirMappingService fhirMapper,
-            IOptions<FeatureFlagsOptions> flags,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
-            if (!flags.Value.FhirExportEnabled)
-                return Results.StatusCode(503);
-
             if (string.IsNullOrWhiteSpace(id))
                 return Results.BadRequest(new { message = "id is required." });
 
             logger.LogInformation("FHIR single Observation requested. Id={Id} TraceId={TraceId}", id, Activity.Current?.TraceId.ToString());
 
-            var today = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var events = await observationRepository.GetByDateAsync(today, cancellationToken);
             var obs = events.FirstOrDefault(e => e.Id.ToString().Equals(id, StringComparison.OrdinalIgnoreCase));
 

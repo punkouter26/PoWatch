@@ -27,6 +27,7 @@ public partial class ObserverHub
     private bool monitoring;
     private bool hasCameraFeed;
     private bool devToolsExpanded;
+    private bool _hudExpanded;
     private ElementReference liveCameraFeed;
     private CancellationTokenSource? monitorCts;
     private string selectedModelKey = "smolvlm-256m";
@@ -596,7 +597,7 @@ public partial class ObserverHub
 
     private async Task RefreshTimelineAsync()
     {
-        var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.Now));
+        var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.UtcNow));
         streamItems = chapter?.Timeline is not null
             ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(50).ToList()
             : [];

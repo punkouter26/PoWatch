@@ -14,7 +14,7 @@
         </header>
 
         <h2>Subject Library</h2>
-        <p class="identity-hint">Double-click a name to rename it inline.</p>
+        <p class="identity-hint">Double-click a name or use the edit button to rename it inline.</p>
 
         @if (loading)
         {
@@ -55,6 +55,8 @@
                         else
                         {
                             <span class="subject-name" @ondblclick="@(() => BeginInlineEdit(item))" title="Double-click to rename">@item.DisplayName</span>
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                Click="@(() => BeginInlineEdit(item))" aria-label="Rename subject" title="Rename subject" />
                         }
                     </Template>
                 </RadzenDataGridColumn>

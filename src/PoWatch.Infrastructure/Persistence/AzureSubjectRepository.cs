@@ -70,26 +70,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             return created;
         }
 
-        var all = await GetAllAsync(cancellationToken);
-        var nextNumber = all
-            .Select(x => x.SubjectId)
-            .Where(x => x.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase))
-            .Select(x => int.TryParse(x[8..], out var parsed) ? parsed : 0)
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-
-        var subjectId = $"Subject-{nextNumber}";
-        var profile = new SubjectProfile
-        {
-            SubjectId = subjectId,
-            DisplayName = subjectId,
-            IsKnownIdentity = false,
-            FirstSeenUtc = DateTimeOffset.UtcNow,
-            LastSeenUtc = DateTimeOffset.UtcNow
-        };
-
-        await UpsertAsync(profile, cancellationToken);
-        return profile;
+        return await CreateAutoNumberedSubjectAsync(cancellationToken);
     }
 
     public async Task<SubjectProfile?> GetByIdAsync(string subjectId, CancellationToken cancellationToken)
@@ -189,6 +170,49 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         };
 
         await _tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace, cancellationToken);
+    }
+
+    private async Task<SubjectProfile> CreateAutoNumberedSubjectAsync(CancellationToken cancellationToken)
+    {
+        var all = await GetAllAsync(cancellationToken);
+        var nextNumber = all
+            .Select(x => x.SubjectId)
+            .Where(x => x.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase))
+            .Select(x => int.TryParse(x[8..], out var parsed) ? parsed : 0)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+
+        for (var attempt = 0; attempt < 25; attempt++)
+        {
+            var subjectId = $"Subject-{nextNumber + attempt}";
+            var now = DateTimeOffset.UtcNow;
+            var entity = new TableEntity("Subjects", subjectId)
+            {
+                ["DisplayName"] = subjectId,
+                ["IsKnownIdentity"] = false,
+                ["FirstSeenUtc"] = now,
+                ["LastSeenUtc"] = now
+            };
+
+            try
+            {
+                await _tableClient.AddEntityAsync(entity, cancellationToken);
+                _logger.LogInformation(
+                    "Created auto-numbered subject. SubjectId={SubjectId} Attempt={Attempt}",
+                    subjectId,
+                    attempt + 1);
+                return Map(entity);
+            }
+            catch (RequestFailedException ex) when (ex.Status == 409)
+            {
+                _logger.LogWarning(
+                    "Auto-numbered subject collision detected. Retrying with next identifier. SubjectId={SubjectId} Attempt={Attempt}",
+                    subjectId,
+                    attempt + 1);
+            }
+        }
+
+        throw new InvalidOperationException("Unable to allocate a unique subject identifier after multiple retries.");
     }
 
     private async Task TryDeleteAsync(string subjectId, CancellationToken cancellationToken)

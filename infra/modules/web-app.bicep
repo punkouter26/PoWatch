@@ -1,5 +1,5 @@
 // Azure App Service (Web App) — hosts PoWatch API + Blazor WASM.
-// Placed in PoWatch-RG. Uses free App Service Plan from PoShared RG.
+// Placed in PoWatch-App-RG. Uses free App Service Plan from PoWatch-Shared-RG.
 // System-assigned Managed Identity used for all Azure resource access.
 
 param location string

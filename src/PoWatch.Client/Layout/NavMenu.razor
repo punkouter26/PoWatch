@@ -13,19 +13,24 @@
 
 <div id="main-nav" class="@NavMenuCssClass nav-scrollable @(SidebarCollapsed ? "nav-collapsed" : "")" @onclick="ToggleNavMenu">
     <nav class="nav flex-column" role="navigation" aria-label="Main navigation">
-        <div class="nav-item px-3" data-label="Home">
-            <NavLink class="nav-link" href="home" title="Home">
-                <span class="bi bi-window-nav-menu" aria-hidden="true"></span><span class="nav-text"> Home</span>
-            </NavLink>
-        </div>
         <div class="nav-item px-3" data-label="Observer Hub">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Observer Hub">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Observer Hub</span>
             </NavLink>
         </div>
-        <div class="nav-item px-3" data-label="Monitor">
-            <NavLink class="nav-link" href="monitor" title="Monitor">
-                <span class="bi bi-grid-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Monitor</span>
+        <div class="nav-item px-3" data-label="Live Dashboard">
+            <NavLink class="nav-link" href="live-dashboard" title="Live Dashboard">
+                <span class="bi bi-graph-up-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Live Dashboard</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3" data-label="Archives">
+            <NavLink class="nav-link" href="archives" title="Archives">
+                <span class="bi bi-archive-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Archives</span>
+            </NavLink>
+        </div>
+        <div class="nav-item px-3" data-label="Identity">
+            <NavLink class="nav-link" href="identity" title="Identity Nexus">
+                <span class="bi bi-person-badge-fill-nav-menu" aria-hidden="true"></span><span class="nav-text"> Identity</span>
             </NavLink>
         </div>
         <div class="nav-item px-3" data-label="Diagnostics">

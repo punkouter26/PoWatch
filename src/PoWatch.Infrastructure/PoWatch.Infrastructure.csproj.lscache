@@ -250,18 +250,27 @@ Runtime/
  System.Xml.XPath.XDocument.dll
  WindowsBase.dll
 <NUGET>/
- azure.core/1.43.0/lib/net6.0/Azure.Core.dll
- azure.data.tables/12.9.0/lib/netstandard2.0/Azure.Data.Tables.dll
+ azure.core/1.44.1/lib/net6.0/Azure.Core.dll
+ azure.data.tables/12.11.0/lib/net8.0/Azure.Data.Tables.dll
  azure.storage.blobs/12.22.0/lib/net6.0/Azure.Storage.Blobs.dll
  azure.storage.common/12.21.0/lib/net6.0/Azure.Storage.Common.dll
  microsoft.bcl.asyncinterfaces/6.0.0/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll
+ microsoft.extensions.configuration.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.Abstractions.dll
+ microsoft.extensions.configuration.binder/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.Binder.dll
+ microsoft.extensions.configuration/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.dll
  microsoft.extensions.dependencyinjection.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
+ microsoft.extensions.dependencyinjection/10.0.6/lib/net10.0/Microsoft.Extensions.DependencyInjection.dll
+ microsoft.extensions.diagnostics.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.Diagnostics.Abstractions.dll
+ microsoft.extensions.diagnostics/10.0.6/lib/net10.0/Microsoft.Extensions.Diagnostics.dll
+ microsoft.extensions.http/10.0.6/lib/net10.0/Microsoft.Extensions.Http.dll
  microsoft.extensions.logging.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.Logging.Abstractions.dll
+ microsoft.extensions.logging/10.0.6/lib/net10.0/Microsoft.Extensions.Logging.dll
+ microsoft.extensions.options.configurationextensions/10.0.6/lib/net10.0/Microsoft.Extensions.Options.ConfigurationExtensions.dll
  microsoft.extensions.options/10.0.6/lib/net10.0/Microsoft.Extensions.Options.dll
  microsoft.extensions.primitives/10.0.6/lib/net10.0/Microsoft.Extensions.Primitives.dll
- system.clientmodel/1.0.0/lib/net6.0/System.ClientModel.dll
+ system.clientmodel/1.1.0/lib/net6.0/System.ClientModel.dll
  system.io.hashing/6.0.0/lib/net6.0/System.IO.Hashing.dll
- system.memory.data/1.0.2/lib/netstandard2.0/System.Memory.Data.dll
+ system.memory.data/6.0.0/lib/net6.0/System.Memory.Data.dll
 
 [analyzerReferences]
 <DOTNET>/packs/Microsoft.NETCore.App.Ref/10.0.6/analyzers/dotnet/cs/

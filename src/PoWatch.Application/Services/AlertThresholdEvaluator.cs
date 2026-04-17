@@ -37,22 +37,49 @@ public sealed class AlertThresholdEvaluator(
         var now = observation.ObservedAtUtc;
         var maxWindowMinutes = enabledRules.Max(r => r.WindowMinutes);
         var cutoff = now.AddMinutes(-maxWindowMinutes);
+        var subjectRetentionMinutes = Math.Max(maxWindowMinutes, options.Value.SubjectRetentionMinutes);
+        var staleSubjectCutoff = now.AddMinutes(-subjectRetentionMinutes);
+        List<string> evictedSubjects = [];
 
         List<RollingEntry> window;
 
         lock (_lock)
         {
+            foreach (var pair in _windows)
+            {
+                pair.Value.RemoveAll(entry => entry.ObservedAtUtc < cutoff);
+
+                var mostRecent = pair.Value.Count == 0
+                    ? DateTimeOffset.MinValue
+                    : pair.Value.Max(entry => entry.ObservedAtUtc);
+
+                if (pair.Key != observation.SubjectId &&
+                    (pair.Value.Count == 0 || mostRecent < staleSubjectCutoff) &&
+                    _windows.TryRemove(pair.Key, out _))
+                {
+                    evictedSubjects.Add(pair.Key);
+                }
+            }
+
             if (!_windows.TryGetValue(observation.SubjectId, out var existing))
             {
                 existing = [];
                 _windows[observation.SubjectId] = existing;
             }
 
-            // Prune entries older than the widest window to bound memory usage
+            // Prune entries older than the widest rule window before recording the new event.
             existing.RemoveAll(e => e.ObservedAtUtc < cutoff);
 
             existing.Add(new RollingEntry(now, observation.IsSignificant, observation.IsClinicalOutlier));
             window = [.. existing];
+        }
+
+        foreach (var evictedSubject in evictedSubjects)
+        {
+            logger.LogDebug(
+                "Evicted stale alert threshold window. SubjectId={SubjectId} RetentionMinutes={RetentionMinutes}",
+                evictedSubject,
+                subjectRetentionMinutes);
         }
 
         var triggered = new List<ThresholdAlertDto>();

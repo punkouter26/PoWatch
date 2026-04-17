@@ -65,6 +65,13 @@ Contracts/
  ISubjectRepository.cs
  ITelemetryContentSanitizer.cs
 DependencyInjection.cs
+Features/
+ Analytics/AnalyticsFeatureRegistration.cs
+ Archives/ArchivesFeatureRegistration.cs
+ Fhir/FhirFeatureRegistration.cs
+ Identity/IdentityFeatureRegistration.cs
+ Observer/ObserverFeatureRegistration.cs
+ Risk/RiskFeatureRegistration.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  PoWatch.Application.AssemblyInfo.cs
@@ -81,6 +88,7 @@ Services/
  AlertThresholdEvaluator.cs
  ArchivesService.cs
  BaselineService.cs
+ DriftMath.cs
  DriftRadarService.cs
  FhirMappingService.cs
  HandoffCoachService.cs

@@ -79,33 +79,33 @@ Services/
 [metadataReferences]
 ../PoWatch.Shared/obj/Debug/net10.0/ref/PoWatch.Shared.dll
 <NUGET>/
- microsoft.aspnetcore.authorization/10.0.5/lib/net10.0/Microsoft.AspNetCore.Authorization.dll
- microsoft.aspnetcore.components.forms/10.0.5/lib/net10.0/Microsoft.AspNetCore.Components.Forms.dll
- microsoft.aspnetcore.components.web/10.0.5/lib/net10.0/Microsoft.AspNetCore.Components.Web.dll
- microsoft.aspnetcore.components.webassembly/10.0.5/lib/net10.0/Microsoft.AspNetCore.Components.WebAssembly.dll
- microsoft.aspnetcore.components/10.0.5/lib/net10.0/Microsoft.AspNetCore.Components.dll
- microsoft.aspnetcore.metadata/10.0.5/lib/net10.0/Microsoft.AspNetCore.Metadata.dll
+ microsoft.aspnetcore.authorization/10.0.6/lib/net10.0/Microsoft.AspNetCore.Authorization.dll
+ microsoft.aspnetcore.components.forms/10.0.6/lib/net10.0/Microsoft.AspNetCore.Components.Forms.dll
+ microsoft.aspnetcore.components.web/10.0.6/lib/net10.0/Microsoft.AspNetCore.Components.Web.dll
+ microsoft.aspnetcore.components.webassembly/10.0.6/lib/net10.0/Microsoft.AspNetCore.Components.WebAssembly.dll
+ microsoft.aspnetcore.components/10.0.6/lib/net10.0/Microsoft.AspNetCore.Components.dll
+ microsoft.aspnetcore.metadata/10.0.6/lib/net10.0/Microsoft.AspNetCore.Metadata.dll
  microsoft.dotnet.hotreload.webassembly.browser/10.0.202/lib/net10.0/Microsoft.DotNet.HotReload.WebAssembly.Browser.dll
- microsoft.extensions.configuration.abstractions/10.0.5/lib/net10.0/Microsoft.Extensions.Configuration.Abstractions.dll
- microsoft.extensions.configuration.binder/10.0.5/lib/net10.0/Microsoft.Extensions.Configuration.Binder.dll
- microsoft.extensions.configuration.fileextensions/10.0.5/lib/net10.0/Microsoft.Extensions.Configuration.FileExtensions.dll
- microsoft.extensions.configuration.json/10.0.5/lib/net10.0/Microsoft.Extensions.Configuration.Json.dll
- microsoft.extensions.configuration/10.0.5/lib/net10.0/Microsoft.Extensions.Configuration.dll
- microsoft.extensions.dependencyinjection.abstractions/10.0.5/lib/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
- microsoft.extensions.dependencyinjection/10.0.5/lib/net10.0/Microsoft.Extensions.DependencyInjection.dll
- microsoft.extensions.diagnostics.abstractions/10.0.5/lib/net10.0/Microsoft.Extensions.Diagnostics.Abstractions.dll
- microsoft.extensions.diagnostics/10.0.5/lib/net10.0/Microsoft.Extensions.Diagnostics.dll
- microsoft.extensions.fileproviders.abstractions/10.0.5/lib/net10.0/Microsoft.Extensions.FileProviders.Abstractions.dll
- microsoft.extensions.fileproviders.physical/10.0.5/lib/net10.0/Microsoft.Extensions.FileProviders.Physical.dll
- microsoft.extensions.filesystemglobbing/10.0.5/lib/net10.0/Microsoft.Extensions.FileSystemGlobbing.dll
- microsoft.extensions.logging.abstractions/10.0.5/lib/net10.0/Microsoft.Extensions.Logging.Abstractions.dll
- microsoft.extensions.logging/10.0.5/lib/net10.0/Microsoft.Extensions.Logging.dll
- microsoft.extensions.options.configurationextensions/10.0.5/lib/net10.0/Microsoft.Extensions.Options.ConfigurationExtensions.dll
- microsoft.extensions.options/10.0.5/lib/net10.0/Microsoft.Extensions.Options.dll
- microsoft.extensions.primitives/10.0.5/lib/net10.0/Microsoft.Extensions.Primitives.dll
- microsoft.extensions.validation/10.0.5/lib/net10.0/Microsoft.Extensions.Validation.dll
- microsoft.jsinterop.webassembly/10.0.5/lib/net10.0/Microsoft.JSInterop.WebAssembly.dll
- microsoft.jsinterop/10.0.5/lib/net10.0/Microsoft.JSInterop.dll
+ microsoft.extensions.configuration.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.Abstractions.dll
+ microsoft.extensions.configuration.binder/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.Binder.dll
+ microsoft.extensions.configuration.fileextensions/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.FileExtensions.dll
+ microsoft.extensions.configuration.json/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.Json.dll
+ microsoft.extensions.configuration/10.0.6/lib/net10.0/Microsoft.Extensions.Configuration.dll
+ microsoft.extensions.dependencyinjection.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
+ microsoft.extensions.dependencyinjection/10.0.6/lib/net10.0/Microsoft.Extensions.DependencyInjection.dll
+ microsoft.extensions.diagnostics.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.Diagnostics.Abstractions.dll
+ microsoft.extensions.diagnostics/10.0.6/lib/net10.0/Microsoft.Extensions.Diagnostics.dll
+ microsoft.extensions.fileproviders.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.FileProviders.Abstractions.dll
+ microsoft.extensions.fileproviders.physical/10.0.6/lib/net10.0/Microsoft.Extensions.FileProviders.Physical.dll
+ microsoft.extensions.filesystemglobbing/10.0.6/lib/net10.0/Microsoft.Extensions.FileSystemGlobbing.dll
+ microsoft.extensions.logging.abstractions/10.0.6/lib/net10.0/Microsoft.Extensions.Logging.Abstractions.dll
+ microsoft.extensions.logging/10.0.6/lib/net10.0/Microsoft.Extensions.Logging.dll
+ microsoft.extensions.options.configurationextensions/10.0.6/lib/net10.0/Microsoft.Extensions.Options.ConfigurationExtensions.dll
+ microsoft.extensions.options/10.0.6/lib/net10.0/Microsoft.Extensions.Options.dll
+ microsoft.extensions.primitives/10.0.6/lib/net10.0/Microsoft.Extensions.Primitives.dll
+ microsoft.extensions.validation/10.0.6/lib/net10.0/Microsoft.Extensions.Validation.dll
+ microsoft.jsinterop.webassembly/10.0.6/lib/net10.0/Microsoft.JSInterop.WebAssembly.dll
+ microsoft.jsinterop/10.0.6/lib/net10.0/Microsoft.JSInterop.dll
  microsoft.netcore.app.ref/10.0.5/ref/net10.0/
   Microsoft.CSharp.dll
   Microsoft.VisualBasic.Core.dll
@@ -285,10 +285,10 @@ Services/
  Microsoft.CodeAnalysis.CSharp.NetAnalyzers.dll
  Microsoft.CodeAnalysis.NetAnalyzers.dll
 <NUGET>/
- microsoft.aspnetcore.components.analyzers/10.0.5/analyzers/dotnet/cs/Microsoft.AspNetCore.Components.Analyzers.dll
- microsoft.extensions.logging.abstractions/10.0.5/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Logging.Generators.dll
- microsoft.extensions.options/10.0.5/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Options.SourceGeneration.dll
- microsoft.extensions.validation/10.0.5/analyzers/dotnet/cs/Microsoft.Extensions.Validation.ValidationsGenerator.dll
+ microsoft.aspnetcore.components.analyzers/10.0.6/analyzers/dotnet/cs/Microsoft.AspNetCore.Components.Analyzers.dll
+ microsoft.extensions.logging.abstractions/10.0.6/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Logging.Generators.dll
+ microsoft.extensions.options/10.0.6/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Options.SourceGeneration.dll
+ microsoft.extensions.validation/10.0.6/analyzers/dotnet/cs/Microsoft.Extensions.Validation.ValidationsGenerator.dll
  microsoft.net.illink.tasks/10.0.6/analyzers/dotnet/cs/
   ILLink.CodeFixProvider.dll
   ILLink.RoslynAnalyzer.dll
@@ -312,10 +312,8 @@ Layout/
 Pages/
  Archives.razor
  Diagnostics.razor
- Home.razor
  IdentityNexus.razor
  LiveDashboard.razor
- Monitor.razor
  NotFound.razor
  ObserverHub.razor
 Shared/DriftDetailPanel.razor
@@ -329,10 +327,8 @@ Layout/
 Pages/
  Archives.razor
  Diagnostics.razor
- Home.razor
  IdentityNexus.razor
  LiveDashboard.razor
- Monitor.razor
  NotFound.razor
  ObserverHub.razor
 Shared/DriftDetailPanel.razor

@@ -30,18 +30,25 @@
 
             <span class="archive-toolbar-divider"></span>
 
-            <RadzenDropDown @bind-Value="selectedShift" Data="@shiftOptions"
-                TextProperty="Label" ValueProperty="Value"
-                Style="min-width:140px" />
-            <RadzenButton Icon="download" Text="Handoff Report" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
-                Click="DownloadHandoffReportAsync" Disabled="@(selectedDate is null)" />
-            @if (ClientFlags.Value.HandoffCoachEnabled)
+            <button class="archive-toolbar-handoff-toggle" @onclick="@(() => _handoffExpanded = !_handoffExpanded)"
+                    aria-expanded="@_handoffExpanded" aria-label="@(_handoffExpanded ? "Collapse handoff controls" : "Expand handoff controls")">
+                Handoff @(_handoffExpanded ? "▴" : "▾")
+            </button>
+            @if (_handoffExpanded)
             {
-                <RadzenButton Icon="auto_awesome" Text="Generate Brief" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
-                    Click="GenerateHandoffBriefAsync" Disabled="@(selectedDate is null || generatingBrief)" />
-                @if (generatingBrief)
+                <RadzenDropDown @bind-Value="selectedShift" Data="@shiftOptions"
+                    TextProperty="Label" ValueProperty="Value"
+                    Style="min-width:140px" />
+                <RadzenButton Icon="download" Text="Handoff Report" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                    Click="DownloadHandoffReportAsync" Disabled="@(selectedDate is null)" />
+                @if (ClientFlags.Value.HandoffCoachEnabled)
                 {
-                    <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Info" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
+                    <RadzenButton Icon="auto_awesome" Text="Generate Brief" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                        Click="GenerateHandoffBriefAsync" Disabled="@(selectedDate is null || generatingBrief)" />
+                    @if (generatingBrief)
+                    {
+                        <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Info" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
+                    }
                 }
             }
         </div>
@@ -129,11 +136,13 @@
                         <div class="evidence-image-wrap">
                             @if (!string.IsNullOrWhiteSpace(evidenceUrl))
                             {
-                                <img class="evidence-full-img" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName" />
+                                <img class="evidence-full-img" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                <div class="evidence-full-img evidence-placeholder" style="display:none;">No image</div>
                             }
                             else
                             {
-                                <div class="evidence-full-img evidence-placeholder">720p</div>
+                                <div class="evidence-full-img evidence-placeholder">No image</div>
                             }
                             <div class="evidence-overlay">
                                 <span class="evidence-subject">@item.SubjectDisplayName</span>
@@ -197,11 +206,12 @@
         new("Night", "Night (22–06)")
     ];
 
-    // Use local time so the default chapter matches the user's calendar day, not the UTC day.
-    private DateTime? selectedDate = DateTime.Now;
+    // Use local time so the default chapter matches the clinician's calendar day.
+    private DateTime? selectedDate = DateTime.Today;
     private string selectedShift = "FullDay";
     private DailyChapterDto? chapter;
     private bool loading;
+    private bool _handoffExpanded;
     private readonly Dictionary<string, string> evidenceUrls = [];
     private HandoffBriefDto? handoffBrief;
     private bool generatingBrief;
@@ -223,13 +233,13 @@
 
     private async Task PreviousDayAsync()
     {
-        selectedDate = (selectedDate ?? DateTime.Now).AddDays(-1);
+        selectedDate = (selectedDate ?? DateTime.Today).AddDays(-1);
         await LoadChapterAsync();
     }
 
     private async Task NextDayAsync()
     {
-        selectedDate = (selectedDate ?? DateTime.Now).AddDays(1);
+        selectedDate = (selectedDate ?? DateTime.Today).AddDays(1);
         await LoadChapterAsync();
     }
 
@@ -237,31 +247,38 @@
     {
         loading = true;
         StateHasChanged();
-        var date = DateOnly.FromDateTime((selectedDate ?? DateTime.Now).Date);
-        chapter = await ApiClient.GetChapterAsync(date);
-
-        // Persist selected date for session continuity
         try
         {
+            var date = DateOnly.FromDateTime((selectedDate ?? DateTime.Today).Date);
+            chapter = await ApiClient.GetChapterAsync(date);
+
+            // Persist selected date for session continuity
             await JS.InvokeVoidAsync("localStorage.setItem", "powatch:archivesDate", selectedDate?.ToString("O") ?? string.Empty);
+            evidenceUrls.Clear();
+            var itemsWithImages = chapter?.Highlights?
+                .Where(x => !string.IsNullOrWhiteSpace(x.ImageReference))
+                .ToList() ?? [];
+
+            var sasResults = await Task.WhenAll(
+                itemsWithImages.Select(item => ApiClient.GetBlobReadUrlAsync(item.ImageReference!)));
+
+            for (var i = 0; i < itemsWithImages.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(sasResults[i]))
+                    evidenceUrls[itemsWithImages[i].ImageReference!] = sasResults[i]!;
+            }
         }
-        catch { }
-
-        evidenceUrls.Clear();
-        var itemsWithImages = chapter?.Highlights?
-            .Where(x => !string.IsNullOrWhiteSpace(x.ImageReference))
-            .ToList() ?? [];
-
-        var sasResults = await Task.WhenAll(
-            itemsWithImages.Select(item => ApiClient.GetBlobReadUrlAsync(item.ImageReference!)));
-
-        for (var i = 0; i < itemsWithImages.Count; i++)
+        catch (Exception ex)
         {
-            if (!string.IsNullOrWhiteSpace(sasResults[i]))
-                evidenceUrls[itemsWithImages[i].ImageReference!] = sasResults[i]!;
+            chapter = null;
+            evidenceUrls.Clear();
+            NotificationService.Notify(NotificationSeverity.Error, "Archives", ex.Message, duration: 6000);
         }
-
-        loading = false;
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
     }
 
     private string? GetEvidenceUrl(ObservationEventDto item)
@@ -288,19 +305,30 @@
         handoffBrief = null;
         StateHasChanged();
 
-        var date = DateOnly.FromDateTime(selectedDate.Value);
-        var request = new GenerateHandoffBriefRequestDto
+        try
         {
-            ShiftWindow = selectedShift,
-            Audience = briefAudience,
-            IncludeUnresolvedAlerts = true,
-            IncludeHighlights = true
-        };
+            var date = DateOnly.FromDateTime(selectedDate.Value);
+            var request = new GenerateHandoffBriefRequestDto
+            {
+                ShiftWindow = selectedShift,
+                Audience = briefAudience,
+                IncludeUnresolvedAlerts = true,
+                IncludeHighlights = true
+            };
 
-        handoffBrief = await ApiClient.GenerateHandoffBriefAsync(date, request);
-        generatingBrief = false;
+            handoffBrief = await ApiClient.GenerateHandoffBriefAsync(date, request);
 
-        if (handoffBrief is null)
-            NotificationService.Notify(NotificationSeverity.Error, "Handoff Brief", "Brief generation failed.", duration: 5000);
+            if (handoffBrief is null)
+                NotificationService.Notify(NotificationSeverity.Error, "Handoff Brief", "Brief generation failed.", duration: 5000);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Handoff Brief", ex.Message, duration: 6000);
+        }
+        finally
+        {
+            generatingBrief = false;
+            StateHasChanged();
+        }
     }
 }

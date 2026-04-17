@@ -1,5 +1,5 @@
 // Azure Storage Account (Table + Blob) for PoWatch.
-// Placed in PoWatch-RG (app-specific, not PoShared).
+// Placed in PoWatch-App-RG (app-specific, not PoWatch-Shared-RG).
 // Access via Managed Identity — no connection strings.
 
 param location string

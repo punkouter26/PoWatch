@@ -12,6 +12,12 @@ public sealed class AlertThresholdOptions
     public bool Enabled { get; init; } = true;
 
     /// <summary>
+    /// How long an inactive subject window may remain in memory before it is evicted.
+    /// This is clamped at runtime so it never becomes shorter than the widest active rule window.
+    /// </summary>
+    public int SubjectRetentionMinutes { get; init; } = 1440;
+
+    /// <summary>
     /// The set of named rules. Configured via appsettings.json under "AlertThresholds:Rules".
     /// Defaults to two sensible clinical rules when the config section is absent.
     /// </summary>

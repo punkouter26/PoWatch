@@ -1,5 +1,5 @@
 // Shared Log Analytics Workspace + Application Insights
-// Placed in PoShared resource group; connection string shared across Po* apps.
+// Placed in PoWatch-Shared-RG; connection string shared across PoWatch resources.
 
 param location string
 param environment string

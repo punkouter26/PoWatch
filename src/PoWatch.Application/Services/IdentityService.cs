@@ -41,8 +41,9 @@ public sealed class IdentityService(
             request.NewName);
 
         var canonical = await subjectRepository.RenameAsync(subjectId, request.NewName, cancellationToken);
+        var subjectIdChanged = !string.Equals(subjectId, canonical.SubjectId, StringComparison.OrdinalIgnoreCase);
         var rewritten = await observationRepository.MergeSubjectAsync(subjectId, canonical, cancellationToken);
-        var removed = string.Equals(subjectId, canonical.SubjectId, StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+        var removed = subjectIdChanged ? 1 : 0;
 
         logger.LogInformation(
             "Inline rename completed. CanonicalSubjectId={CanonicalSubjectId}, CanonicalName={CanonicalName}, EventsRewritten={EventsRewritten}, SubjectsRemoved={SubjectsRemoved}",
@@ -120,7 +121,7 @@ public sealed class IdentityService(
         logger.LogDebug("Live dashboard status requested.");
 
         var profiles = await subjectRepository.GetAllAsync(cancellationToken);
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.LocalDateTime);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
 
         var result = new List<SubjectLiveStatusDto>(profiles.Count);

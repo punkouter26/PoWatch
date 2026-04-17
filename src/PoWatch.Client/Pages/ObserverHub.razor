@@ -59,34 +59,47 @@
     @if (FeatureFlags.Value.EnableHud)
     {
         <div class="hud-bar">
-            <div class="hud-group">
-                <span class="hud-group-label">Runtime</span>
-                <span class="hud-item">SESSION <span class="hud-val">@SessionDurationText</span></span>
-                <span class="hud-item">FRAMES <span class="hud-val">@_frameCount</span></span>
-                <span class="hud-item">CYCLE <span class="hud-val">@_hudCycleMs ms</span></span>
-                <span class="hud-item">EMA <span class="hud-val">@_emaInferenceMs.ToString("F0") ms</span></span>
-                <span class="hud-item">DRIFT <span class="hud-val">@DriftDisplay</span></span>
-            </div>
-            <div class="hud-group">
-                <span class="hud-group-label">Inference</span>
+            <div class="hud-group hud-group--key">
+                <span class="hud-item">STATUS <span class="hud-val">@MonitoringStateLabel</span></span>
                 <span class="hud-item">LAST <span class="hud-val">@LastMsDisplay</span></span>
-                <span class="hud-item">COUNT <span class="hud-val">@InferCountDisplay</span></span>
-                <span class="hud-item">SKIP <span class="hud-val">@SkipRateDisplay</span></span>
-                <span class="hud-item">STRUCT <span class="hud-val">@StructRateDisplay</span></span>
-                <span class="hud-item">FP16 <span class="hud-val">@(inferenceDiagnostics?.Fp16FallbackUsed == true ? "FALLBACK" : "OK")</span></span>
-                <span class="hud-item">LOAD <span class="hud-val">@LoadTimeDisplay</span></span>
-            </div>
-            <div class="hud-group">
-                <span class="hud-group-label">Engine</span>
-                <span class="hud-item">MODEL <span class="hud-val">@_hudModel</span></span>
-                <span class="hud-item">BACKEND <span class="hud-val">@_hudBackend</span></span>
-                <span class="hud-item">DTYPE <span class="hud-val">@DtypeDisplay</span></span>
-                <span class="hud-item">TOKENS <span class="hud-val">@_hudTokenCount</span></span>
                 <span class="hud-item">TPS <span class="hud-val">@_hudTokensPerSecond</span></span>
+                <span class="hud-item">BACKEND <span class="hud-val">@_hudBackend</span></span>
                 <span class="hud-item">GPU <span class="hud-val">@(!string.IsNullOrWhiteSpace(_gpuAdapterVendor) ? $"{_gpuAdapterVendor} {_gpuAdapterName}" : _gpuAdapterName)</span></span>
-                <span class="hud-item">MEM <span class="hud-val">@_hudMemory</span></span>
             </div>
+            <button class="hud-expand-btn" @onclick="@(() => _hudExpanded = !_hudExpanded)"
+                    aria-expanded="@_hudExpanded" aria-label="@(_hudExpanded ? "Collapse diagnostics" : "Expand diagnostics")">
+                @(_hudExpanded ? "−" : "+")
+            </button>
         </div>
+
+        @if (_hudExpanded)
+        {
+            <div class="hud-bar hud-bar--detail">
+                <div class="hud-group">
+                    <span class="hud-group-label">Runtime</span>
+                    <span class="hud-item">SESSION <span class="hud-val">@SessionDurationText</span></span>
+                    <span class="hud-item">FRAMES <span class="hud-val">@_frameCount</span></span>
+                    <span class="hud-item">CYCLE <span class="hud-val">@_hudCycleMs ms</span></span>
+                    <span class="hud-item">EMA <span class="hud-val">@_emaInferenceMs.ToString("F0") ms</span></span>
+                    <span class="hud-item">DRIFT <span class="hud-val">@DriftDisplay</span></span>
+                </div>
+                <div class="hud-group">
+                    <span class="hud-group-label">Inference</span>
+                    <span class="hud-item">COUNT <span class="hud-val">@InferCountDisplay</span></span>
+                    <span class="hud-item">SKIP <span class="hud-val">@SkipRateDisplay</span></span>
+                    <span class="hud-item">STRUCT <span class="hud-val">@StructRateDisplay</span></span>
+                    <span class="hud-item">FP16 <span class="hud-val">@(inferenceDiagnostics?.Fp16FallbackUsed == true ? "FALLBACK" : "OK")</span></span>
+                    <span class="hud-item">LOAD <span class="hud-val">@LoadTimeDisplay</span></span>
+                </div>
+                <div class="hud-group">
+                    <span class="hud-group-label">Engine</span>
+                    <span class="hud-item">MODEL <span class="hud-val">@_hudModel</span></span>
+                    <span class="hud-item">DTYPE <span class="hud-val">@DtypeDisplay</span></span>
+                    <span class="hud-item">TOKENS <span class="hud-val">@_hudTokenCount</span></span>
+                    <span class="hud-item">MEM <span class="hud-val">@_hudMemory</span></span>
+                </div>
+            </div>
+        }
     }
 
     <div class="sector-grid observer-grid @(monitoring ? "observer-grid--active" : string.Empty)">

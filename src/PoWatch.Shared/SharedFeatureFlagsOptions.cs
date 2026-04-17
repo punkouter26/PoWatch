@@ -1,0 +1,20 @@
+namespace PoWatch.Shared;
+
+/// <summary>
+/// Feature flags shared between the server (FeatureFlagsOptions) and the Blazor client
+/// (ClientFeatureFlagsOptions). Centralising them here prevents the two classes drifting
+/// out of sync — add shared flags here once and both sides inherit automatically.
+/// </summary>
+public abstract class SharedFeatureFlagsOptions
+{
+    public bool ObservationLoopEnabled { get; init; } = true;
+    public bool SaveSignificantImages { get; init; } = true;
+    public bool TtsAnnouncementsEnabled { get; init; } = false;
+    public bool UseMockAi { get; init; } = false;
+    public int PollingIntervalSeconds { get; init; } = 10;
+    public int MaxHistoryRows { get; init; } = 50;
+    public bool EnableHud { get; init; } = false;
+    public bool AlertThresholdsEnabled { get; init; } = true;
+    public bool DriftRadarEnabled { get; init; } = true;
+    public bool HandoffCoachEnabled { get; init; } = true;
+}

@@ -1,0 +1,55 @@
+using PoWatch.Domain.Models;
+
+namespace PoWatch.Application.Services;
+
+/// <summary>
+/// Shared drift math used by both <see cref="BaselineService"/> (single-subject) and
+/// <see cref="DriftRadarService"/> (bulk multi-subject). Single source of truth for
+/// hourly-vector construction and cosine-similarity drift scoring.
+/// </summary>
+internal static class DriftMath
+{
+    /// <summary>
+    /// Builds a 24-element density vector where each element is the fraction of events
+    /// in that local hour relative to the total event count (0–1 per slot).
+    /// Returns a zero vector when there are no events.
+    /// </summary>
+    public static double[] BuildHourlyVector(IReadOnlyList<ObservationEvent> events, TimeSpan localOffset)
+    {
+        var vector = new double[24];
+        if (events.Count == 0) return vector;
+
+        foreach (var e in events)
+        {
+            var localHour = (int)((e.ObservedAtUtc + localOffset).TimeOfDay.TotalHours) % 24;
+            vector[localHour]++;
+        }
+
+        var total = (double)events.Count;
+        for (var i = 0; i < 24; i++)
+            vector[i] /= total;
+
+        return vector;
+    }
+
+    /// <summary>
+    /// Returns (1 − cosine_similarity) × 100. Range: 0 (identical pattern) → 100 (orthogonal).
+    /// Both zero vectors → 0. One zero vector → 100 (maximum drift).
+    /// </summary>
+    public static double ComputeDriftScore(double[] baseline, double[] today)
+    {
+        double dot = 0, magA = 0, magB = 0;
+        for (var i = 0; i < 24; i++)
+        {
+            dot  += baseline[i] * today[i];
+            magA += baseline[i] * baseline[i];
+            magB += today[i]    * today[i];
+        }
+
+        if (magA == 0 || magB == 0)
+            return (magA == 0 && magB == 0) ? 0 : 100;
+
+        var cosine = Math.Max(-1.0, Math.Min(1.0, dot / (Math.Sqrt(magA) * Math.Sqrt(magB))));
+        return (1.0 - cosine) * 100.0;
+    }
+}

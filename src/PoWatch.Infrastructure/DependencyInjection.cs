@@ -11,6 +11,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPoWatchInfrastructure(this IServiceCollection services)
     {
+        // Named HttpClient for Azure OpenAI — proper lifetime, DNS refresh, and disposal via IHttpClientFactory
+        services.AddHttpClient("AzureOpenAi", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(45);
+        });
         // Handoff Coach summarizer — template is always registered; Azure OpenAI used when configured
         services.AddScoped<TemplateHandoffSummarizer>();
         services.AddScoped<AzureOpenAiHandoffSummarizer>();

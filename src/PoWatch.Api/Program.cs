@@ -7,6 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using PoWatch.Api.Features.Archives;
+using PoWatch.Api.Features.Diagnostics;
+using PoWatch.Api.Features.Fhir;
+using PoWatch.Api.Features.Identity;
+using PoWatch.Api.Features.Observer;
 using PoWatch.Api.Endpoints;
 using PoWatch.Api.HealthChecks;
 using PoWatch.Api.Infrastructure.KeyVault;
@@ -20,13 +25,15 @@ using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Context;
 
-// Bootstrap Serilog early so startup errors are captured before host is built
+// Initialise Serilog early so startup errors are captured before host construction.
+// Use a regular logger here so repeated WebApplicationFactory host creation in integration tests
+// does not re-freeze a shared ReloadableLogger instance.
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .Enrich.WithMachineName()
     .Enrich.WithThreadId()
     .WriteTo.Console()
-    .CreateBootstrapLogger();
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -189,12 +196,11 @@ var builder = WebApplication.CreateBuilder(args);
     app.UseStaticFiles();
 
     // --- API routes ---
-    app.MapObserverEndpoints();
-    app.MapArchivesEndpoints();
-    app.MapBlobEndpoints();
-    app.MapIdentityEndpoints();
-    app.MapFhirEndpoints();
-    app.MapDiagnosticsEndpoints();
+    app.MapObserverFeature();
+    app.MapArchivesFeature();
+    app.MapIdentityFeature();
+    app.MapFhirFeature();
+    app.MapDiagnosticsFeature();
 
     // T005: Fall back to the Blazor WASM entry point for all unmatched requests
     app.MapFallbackToFile("index.html");

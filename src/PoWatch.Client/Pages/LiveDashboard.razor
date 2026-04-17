@@ -38,7 +38,12 @@
         @foreach (var subject in subjects)
         {
             var cardClass = GetCardClass(subject);
-            <div class="subject-card @cardClass" @onclick="() => NavigateToSubject(subject.SubjectId)" role="button" tabindex="0">
+              <div class="subject-card @cardClass"
+                  @onclick="() => NavigateToSubject(subject.SubjectId)"
+                  @onkeydown="@(args => HandleSubjectCardKeyDown(args, subject.SubjectId))"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Open subject @subject.DisplayName">
                 <div class="subject-card-header">
                     <span class="subject-card-name">@subject.DisplayName</span>
                     @if (subject.UnacknowledgedSignificantCount > 0)
@@ -165,6 +170,16 @@
 
     private void NavigateToSubject(string subjectId) =>
         Navigation.NavigateTo($"/?subjectFilter={Uri.EscapeDataString(subjectId)}");
+
+    private void HandleSubjectCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args, string subjectId)
+    {
+        if (string.Equals(args.Key, "Enter", StringComparison.Ordinal) ||
+            string.Equals(args.Key, " ", StringComparison.Ordinal) ||
+            string.Equals(args.Key, "Spacebar", StringComparison.OrdinalIgnoreCase))
+        {
+            NavigateToSubject(subjectId);
+        }
+    }
 
     private SubjectDriftStatusDto? GetDriftStatus(string subjectId) =>
         _driftStatus.FirstOrDefault(d => string.Equals(d.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase));

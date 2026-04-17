@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -18,12 +17,10 @@ namespace PoWatch.Infrastructure.Runtime;
 /// </summary>
 public sealed class AzureOpenAiHandoffSummarizer(
     TemplateHandoffSummarizer templateFallback,
+    IHttpClientFactory httpClientFactory,
     IOptions<AzureOpenAiOptions> openAiOptions,
     ILogger<AzureOpenAiHandoffSummarizer> logger) : IHandoffSummarizer
 {
-    // Shared static HttpClient — safe for high-concurrency singleton usage
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(45) };
-
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -66,7 +63,8 @@ public sealed class AzureOpenAiHandoffSummarizer(
 
             logger.LogDebug("Azure OpenAI handoff brief request. Deployment={Deployment} Tokens={Tokens}", opts.DeploymentName, opts.MaxCompletionTokens);
 
-            using var response = await _http.SendAsync(httpRequest, cancellationToken);
+            var http = httpClientFactory.CreateClient("AzureOpenAi");
+            using var response = await http.SendAsync(httpRequest, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
