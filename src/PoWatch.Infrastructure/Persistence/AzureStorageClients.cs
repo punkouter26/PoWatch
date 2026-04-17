@@ -1,4 +1,5 @@
 using Azure.Data.Tables;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
@@ -23,8 +24,23 @@ public sealed class AzureStorageClients
     public AzureStorageClients(IOptions<AzureStorageOptions> options)
     {
         _connectionString = options.Value.ConnectionString;
-        TableService = new TableServiceClient(_connectionString);
-        BlobService = new BlobServiceClient(_connectionString);
+        var serviceUri = options.Value.ServiceUri;
+
+        // Prefer Managed Identity when a ServiceUri is configured; fall back to connection string.
+        if (!string.IsNullOrWhiteSpace(serviceUri) &&
+            Uri.TryCreate(serviceUri, UriKind.Absolute, out var tableUri))
+        {
+            var credential = new DefaultAzureCredential();
+            TableService = new TableServiceClient(tableUri, credential);
+            // Blob endpoint is derived from the table URI host (same storage account).
+            var blobUri = new Uri($"https://{tableUri.Host.Replace(".table.", ".blob.")}");
+            BlobService = new BlobServiceClient(blobUri, credential);
+        }
+        else
+        {
+            TableService = new TableServiceClient(_connectionString);
+            BlobService = new BlobServiceClient(_connectionString);
+        }
 
         var allowedOrigins = options.Value.DevCorsAllowedOrigins;
         _devCorsConfigured = new Lazy<bool>(() =>
