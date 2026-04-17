@@ -1,43 +1,66 @@
 flowchart TD
-    subgraph Exceptions["Exception User Flows (Simple)"]
-        INGEST["POST /api/observer/ingest"]
-        FLAG_FAIL["Dropped — Loop disabled"]
-        GATE_FAIL["Dropped — Backpressure"]
-        OUTLIER["Flagged — Clinical outlier"]
-        REDUND_FAIL["Dropped — Redundant"]
-        OK["Accepted"]
-
-        AUTH["Authentication"]
-        AUTH_FAIL["Anonymous session"]
-        AUTH_OK["Authenticated session"]
-
-        IDENTITY["Identity operations"]
-        ID_FAIL["400/404 error"]
-        ID_OK["IdentityRevisionResultDto"]
+    subgraph IngestErrors["Ingest Errors"]
+        IREQ["POST /api/observer/ingest"]
+        IFLAG{"Loop enabled?"}
+        IGATE{"Gate available?"}
+        ICLIN{"Valid payload?"}
+        IREDUND{"Not redundant?"}
+        ACCEPT["200 — Accepted"]
+        DROP["200 — Dropped"]
     end
 
-    INGEST -->|"loop off"| FLAG_FAIL
-    INGEST -->|"gate busy"| GATE_FAIL
-    INGEST -->|"bad payload"| OUTLIER
-    INGEST -->|"duplicate"| REDUND_FAIL
-    INGEST -->|"success"| OK
+    subgraph AuthErrors["Auth Errors"]
+        ABYPASS{"BypassAuth flag?"}
+        ANON["Anonymous"]
+        AUTH["Authenticated"]
+    end
 
-    AUTH -->|"no header"| AUTH_FAIL
-    AUTH -->|"header present"| AUTH_OK
+    subgraph IdentityErrors["Identity Errors"]
+        RENAME["PATCH /identity/subjects/{id}"]
+        MERGE["POST /identity/merge"]
+        NAME_ERR["400 — Name required"]
+        NOT_FOUND["404 — Subject not found"]
+        SAME_ERR["400 — Cannot merge self"]
+        OK["200 — Success"]
+    end
 
-    IDENTITY -->|"invalid input"| ID_FAIL
-    IDENTITY -->|"valid"| ID_OK
+    subgraph DiagErrors["Diagnostics Errors"]
+        DIAG["GET /diagnostics/status"]
+        DEBUG{"Debug flag?"}
+        DETAIL["Full exception"]
+        NO_DETAIL["Generic error"]
+    end
 
-    style Exceptions fill:#1a1a2e,stroke:#4a90d9,color:#fff
-    style FLAG_FAIL fill:#6b2737,stroke:#e63946,color:#fff
-    style GATE_FAIL fill:#6b2737,stroke:#e63946,color:#fff
-    style REDUND_FAIL fill:#6b2737,stroke:#e63946,color:#fff
-    style ID_FAIL fill:#6b2737,stroke:#e63946,color:#fff
-    style OUTLIER fill:#7d4e00,stroke:#f0a500,color:#fff
-    style AUTH_FAIL fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    IREQ --> IFLAG -->|"no"| DROP
+    IFLAG -->|"yes"| IGATE -->|"no"| DROP
+    IGATE -->|"yes"| ICLIN -->|"invalid"| ACCEPT
+    ICLIN -->|"valid"| IREDUND -->|"no"| DROP
+    IREDUND -->|"yes"| ACCEPT
+
+    ABYPASS -->|"Prod"| ANON
+    ABYPASS -->|"Dev"| AUTH
+
+    RENAME --> NAME_ERR
+    RENAME --> NOT_FOUND
+    RENAME --> OK
+    MERGE --> SAME_ERR
+    MERGE --> OK
+
+    DIAG --> DEBUG --> DETAIL
+    DEBUG -->|"no"| NO_DETAIL
+
+    style IngestErrors fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style AuthErrors fill:#2c1654,stroke:#9b72cf,color:#fff
+    style IdentityErrors fill:#1b4332,stroke:#52b788,color:#fff
+    style DiagErrors fill:#2c3e50,stroke:#7f8c8d,color:#fff
+
+    style ACCEPT fill:#1a3a2a,stroke:#52b788,color:#fff
+    style DROP fill:#6b2737,stroke:#e63946,color:#fff
+    style ANON fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style AUTH fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style NAME_ERR fill:#6b2737,stroke:#e63946,color:#fff
+    style NOT_FOUND fill:#6b2737,stroke:#e63946,color:#fff
+    style SAME_ERR fill:#6b2737,stroke:#e63946,color:#fff
     style OK fill:#1a3a2a,stroke:#52b788,color:#fff
-    style AUTH_OK fill:#1a3a2a,stroke:#52b788,color:#fff
-    style ID_OK fill:#1a3a2a,stroke:#52b788,color:#fff
-    style INGEST fill:#1e3a5f,stroke:#4a90d9,color:#fff
-    style AUTH fill:#3d2163,stroke:#9b72cf,color:#fff
-    style IDENTITY fill:#1b4332,stroke:#52b788,color:#fff
+    style DETAIL fill:#7d4e00,stroke:#f0a500,color:#fff
+    style NO_DETAIL fill:#1a3a2a,stroke:#52b788,color:#fff

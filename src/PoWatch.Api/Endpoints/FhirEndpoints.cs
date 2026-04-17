@@ -8,6 +8,9 @@ namespace PoWatch.Api.Endpoints;
 
 internal static class FhirEndpoints
 {
+    /// <summary>
+    /// Maps all FHIR R4 endpoints. Conditionally enabled via <see cref="FeatureFlagsOptions.FhirExportEnabled"/>.
+    /// </summary>
     internal static IEndpointRouteBuilder MapFhirEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/fhir").WithTags("FHIR")

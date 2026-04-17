@@ -1,50 +1,50 @@
 flowchart TD
     subgraph AppShell["App Shell — Blazor Host"]
-        PROG["Program.cs\nHttpClient + PoWatchApiClient registered (Scoped)\nClientFeatureFlagsOptions registered\nRadzen components registered"]
+        PROG["Program.cs\nHttpClient + PoWatchApiClient registered\nClientFeatureFlagsOptions registered\nRadzen components registered"]
         APPROUTER["App.razor\nBlazor Router — route table"]
         LAYOUT["MainLayout.razor\nShared page wrapper + NavMenu sidebar"]
     end
 
     subgraph Pages["Routed Pages"]
-        OBSHUB["ObserverHub.razor\nRoute: /observer-hub\ncode-behind: ObserverHub.razor.cs\nMonitor runtime state + manual ingest trigger\nUses: PollingLoop → GetObserverStateAsync every N sec"]
-        ARCHIVES["Archives.razor\nRoute: /archives\nDate picker → GetChapterAsync(date)\nRenders: Narrative card, Timeline list, Highlights grid\nCSS: Archives.razor.css"]
-        IDNEXUS["IdentityNexus.razor\nRoute: /identity\nSubject list → RenameSubjectAsync inline\nMerge modal → MergeIdentityAsync\nUses: GetSubjectsAsync on load"]
-        DIAG["Diagnostics.razor\nRoute: /diagnostics\nAuto-refresh every DiagnosticsAutoRefreshIntervalSeconds\nRenders: CPU%, memory, storage status, masked keys\nCSS: Diagnostics.razor.css"]
+        OBSHUB["ObserverHub.razor\nRoute: /observer-hub\ncode-behind: ObserverHub.razor.cs\nMonitor runtime state + manual ingest trigger"]
+        ARCHIVES["Archives.razor\nRoute: /archives\nDate picker → GetChapterAsync(date)\nRenders: Narrative card, Timeline list, Highlights grid"]
+        IDNEXUS["IdentityNexus.razor\nRoute: /identity\nSubject list → RenameSubjectAsync inline\nMerge modal → MergeIdentityAsync"]
+        DIAG["Diagnostics.razor\nRoute: /diagnostics\nAuto-refresh every N seconds\nRenders: CPU%, memory, storage status, masked keys"]
         NOTFOUND["NotFound.razor\n404 catch-all page"]
     end
 
     subgraph ApiClientLayer["API Client Layer"]
         APICLNT["PoWatchApiClient\nScoped — typed HttpClient wrapper\nBase URL from appsettings/HostEnvironment"]
         subgraph ObserverMethods["Observer API Methods"]
-            M_STATE["GetObserverStateAsync()\nGET /api/observer/state → ObserverRuntimeStateDto"]
-            M_INGEST["IngestObservationAsync(request)\nPOST /api/observer/ingest → IngestObservationResultDto"]
+            M_STATE["GetObserverStateAsync()\nGET /api/observer/state"]
+            M_INGEST["IngestObservationAsync(request)\nPOST /api/observer/ingest"]
         end
         subgraph ArchivesMethods["Archives API Methods"]
-            M_CHAPTER["GetChapterAsync(date)\nGET /api/archives/{date} → DailyChapterDto"]
+            M_CHAPTER["GetChapterAsync(date)\nGET /api/archives/{date}"]
         end
         subgraph BlobMethods["Blob API Methods"]
-            M_BLOB_UP["GetBlobUploadAccessAsync(subjectId, date)\nGET /api/blobs/sas?subjectId+date → BlobAccessDescriptorDto"]
-            M_BLOB_RD["GetBlobReadUrlAsync(blobPath)\nGET /api/blobs/sas?blobPath → BlobAccessDescriptorDto"]
+            M_BLOB_UP["GetBlobUploadAccessAsync(subjectId, date)\nGET /api/blobs/sas"]
+            M_BLOB_RD["GetBlobReadUrlAsync(blobPath)\nGET /api/blobs/sas"]
         end
         subgraph IdentityMethods["Identity API Methods"]
-            M_SUBJS["GetSubjectsAsync()\nGET /api/identity/subjects → SubjectProfileDto[]"]
+            M_SUBJS["GetSubjectsAsync()\nGET /api/identity/subjects"]
             M_RENAME["RenameSubjectAsync(id, request)\nPATCH /api/identity/subjects/{id}"]
             M_MERGE["MergeIdentityAsync(request)\nPOST /api/identity/merge"]
         end
         subgraph DiagMethods["Diagnostics API Methods"]
-            M_DIAG["GetDiagnosticsAsync()\nGET /api/diagnostics/status → DiagnosticsSnapshotDto"]
+            M_DIAG["GetDiagnosticsAsync()\nGET /api/diagnostics/status"]
         end
     end
 
     subgraph Configuration["Client Configuration"]
-        FLAGS["ClientFeatureFlagsOptions\nObservationLoopEnabled: bool\nSaveSignificantImages: bool\nTtsAnnouncementsEnabled: bool (placeholder)\nDiagnosticsAutoRefreshIntervalSeconds: int"]
-        HTTP_CLIENT["HttpClient\nBaseAddress from appsettings.json\nor HostEnvironment.BaseAddress"]
+        FLAGS["ClientFeatureFlagsOptions\nObservationLoopEnabled: bool\nSaveSignificantImages: bool\nDiagnosticsAutoRefreshIntervalSeconds: int"]
+        HTTP_CLIENT["HttpClient\nBaseAddress from appsettings.json"]
     end
 
     subgraph SharedDTOs["Shared DTOs — PoWatch.Shared"]
         OBS_DTOS["Observer DTOs\nIngestObservationRequestDto\nIngestObservationResultDto\nObserverRuntimeStateDto"]
         ARCH_DTOS["Archives DTOs\nDailyChapterDto\nObservationEventDto"]
-        ID_DTOS["Identity DTOs\nSubjectProfileDto\nRenameSubjectRequestDto\nMergeIdentityRequestDto\nIdentityRevisionResultDto"]
+        ID_DTOS["Identity DTOs\nSubjectProfileDto\nRenameSubjectRequestDto\nMergeIdentityRequestDto"]
         BLOB_DTOS["Blob DTOs\nBlobAccessDescriptorDto"]
         DIAG_DTOS["Diagnostics DTOs\nDiagnosticsSnapshotDto"]
     end

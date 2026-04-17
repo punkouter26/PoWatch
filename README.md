@@ -52,72 +52,98 @@ cd tests/PoWatch.E2E && npm test
 
 ## Documentation — `/docs` Folder
 
-### Architecture & CI/CD Strategy
+### Master Mermaid Suite
+
+#### 1. Architecture & CI/CD Strategy
 
 | File | Description |
 |---|---|
 | [docs/Architecture_MASTER.mmd](docs/Architecture_MASTER.mmd) | Hybrid C4 Level 1/2 — Edge, Compute, Data tiers + external services |
-| [docs/Architecture_MASTER_SIMPLE.mmd](docs/Architecture_MASTER_SIMPLE.mmd) | C4 context overview — stakeholder-facing |
+| [docs/Architecture_MASTER_SIMPLE.mmd](docs/Architecture_MASTER_SIMPLE.mmd) | Simplified architecture for stakeholder review |
 | [docs/ReleasePipeline_MASTER.mmd](docs/ReleasePipeline_MASTER.mmd) | CI/CD pipeline: Build → Unit → Integration → E2E → Dev → Staging → Prod |
-| [docs/ReleasePipeline_MASTER_SIMPLE.mmd](docs/ReleasePipeline_MASTER_SIMPLE.mmd) | Pipeline branch-to-environment summary |
+| [docs/ReleasePipeline_MASTER_SIMPLE.mmd](docs/ReleasePipeline_MASTER_SIMPLE.mmd) | Simplified pipeline flow |
 
-### User Usage & Behavioral Flowcharts
+#### 2. User Usage & Behavioral Flowcharts
 
 | File | Description |
 |---|---|
 | [docs/OnboardingJourney.mmd](docs/OnboardingJourney.mmd) | New user path: access → auth → ObserverHub → first observation → Aha! moment |
-| [docs/OnboardingJourney_SIMPLE.mmd](docs/OnboardingJourney_SIMPLE.mmd) | High-level onboarding steps |
+| [docs/OnboardingJourney_SIMPLE.mmd](docs/OnboardingJourney_SIMPLE.mmd) | Simplified onboarding flow |
 | [docs/PrimaryValueFlow.mmd](docs/PrimaryValueFlow.mmd) | Happy path: sensor → ingest → storage → archives → UI render |
-| [docs/PrimaryValueFlow_SIMPLE.mmd](docs/PrimaryValueFlow_SIMPLE.mmd) | Core value chain at a glance |
+| [docs/PrimaryValueFlow_SIMPLE.mmd](docs/PrimaryValueFlow_SIMPLE.mmd) | Simplified primary value flow |
 | [docs/ExceptionUserFlows.mmd](docs/ExceptionUserFlows.mmd) | Backpressure drops, loop disabled, outlier flagging, auth failures, identity validation errors |
-| [docs/ExceptionUserFlows_SIMPLE.mmd](docs/ExceptionUserFlows_SIMPLE.mmd) | Exception branch summary |
+| [docs/ExceptionUserFlows_SIMPLE.mmd](docs/ExceptionUserFlows_SIMPLE.mmd) | Simplified exception flows |
 
-### Logic & State Dynamics
+#### 3. Logic & State Dynamics
 
 | File | Description |
 |---|---|
 | [docs/SystemFlow_MASTER.mmd](docs/SystemFlow_MASTER.mmd) | Full system flow: auth middleware → all four pipelines (observer, archives, identity, diagnostics) |
-| [docs/SystemFlow_MASTER_SIMPLE.mmd](docs/SystemFlow_MASTER_SIMPLE.mmd) | System pipeline overview |
+| [docs/SystemFlow_MASTER_SIMPLE.mmd](docs/SystemFlow_MASTER_SIMPLE.mmd) | Simplified system flow |
 | [docs/StateDynamics_MASTER.mmd](docs/StateDynamics_MASTER.mmd) | `stateDiagram-v2` — ObservationEvent lifecycle, Subject identity lifecycle, ProcessingGate states |
-| [docs/StateDynamics_MASTER_SIMPLE.mmd](docs/StateDynamics_MASTER_SIMPLE.mmd) | Key state transitions only |
+| [docs/StateDynamics_MASTER_SIMPLE.mmd](docs/StateDynamics_MASTER_SIMPLE.mmd) | Simplified state dynamics |
 
-### Data & Security Schema
+#### 4. Data & Security Schema
 
 | File | Description |
 |---|---|
 | [docs/DataModel.mmd](docs/DataModel.mmd) | ERD — `ObservationEvent`, `SubjectProfile`, `DailyChapter`, `Highlight`, `BlobAccessDescriptor`, `DiagnosticsSnapshot`, `FeatureFlags`, `AzureStorageOptions` |
-| [docs/DataModel_SIMPLE.mmd](docs/DataModel_SIMPLE.mmd) | Core entity relationships only |
+| [docs/DataModel_SIMPLE.mmd](docs/DataModel_SIMPLE.mmd) | Simplified entity relationships |
 | [docs/AccessControl_MATRIX.mmd](docs/AccessControl_MATRIX.mmd) | Role-to-endpoint matrix — anonymous vs dev-authenticated, security notes, module ownership |
-| [docs/AccessControl_MATRIX_SIMPLE.mmd](docs/AccessControl_MATRIX_SIMPLE.mmd) | Public vs auth-required endpoint groups |
+| [docs/AccessControl_MATRIX_SIMPLE.mmd](docs/AccessControl_MATRIX_SIMPLE.mmd) | Simplified access control |
 | [docs/DataLifecycle_MASTER.mmd](docs/DataLifecycle_MASTER.mmd) | High-density trace: Ingestion → Processing → Persistence → Transformation → Egress |
-| [docs/DataLifecycle_MASTER_SIMPLE.mmd](docs/DataLifecycle_MASTER_SIMPLE.mmd) | Five-stage lifecycle summary |
+| [docs/DataLifecycle_MASTER_SIMPLE.mmd](docs/DataLifecycle_MASTER_SIMPLE.mmd) | Simplified data lifecycle |
 
-### Dependency & UI Hierarchy
+#### 5. Dependency & UI Hierarchy
 
 | File | Description |
 |---|---|
 | [docs/SystemInteractionFlow.mmd](docs/SystemInteractionFlow.mmd) | Sequence diagram — concurrent ingest + poll, archives retrieval, identity rename with row-key rewriting |
-| [docs/SystemInteractionFlow_SIMPLE.mmd](docs/SystemInteractionFlow_SIMPLE.mmd) | Core interaction sequence |
+| [docs/SystemInteractionFlow_SIMPLE.mmd](docs/SystemInteractionFlow_SIMPLE.mmd) | Simplified interaction flow |
 | [docs/ServiceMap_MASTER.mmd](docs/ServiceMap_MASTER.mmd) | Full dependency graph — solution projects, DI contracts, implementations, external services, test projects |
-| [docs/ServiceMap_MASTER_SIMPLE.mmd](docs/ServiceMap_MASTER_SIMPLE.mmd) | Project-to-project dependency summary — use for blast radius assessment |
+| [docs/ServiceMap_MASTER_SIMPLE.mmd](docs/ServiceMap_MASTER_SIMPLE.mmd) | Simplified service map |
 | [docs/InterfaceHierarchy_MASTER.mmd](docs/InterfaceHierarchy_MASTER.mmd) | Blazor component tree, `PoWatchApiClient` methods, `ClientFeatureFlagsOptions`, DTO mapping |
-| [docs/InterfaceHierarchy_MASTER_SIMPLE.mmd](docs/InterfaceHierarchy_MASTER_SIMPLE.mmd) | Page-to-client-to-DTOs hierarchy |
+| [docs/InterfaceHierarchy_MASTER_SIMPLE.mmd](docs/InterfaceHierarchy_MASTER_SIMPLE.mmd) | Simplified interface hierarchy |
 
 ---
 
-## Refactor Blast Radius Guide
+## Refactor Blast Radius Assessment
 
-> Before any refactor, consult [docs/ServiceMap_MASTER.mmd](docs/ServiceMap_MASTER.mmd) as the source of truth.
+> **Before any refactor, consult [docs/ServiceMap_MASTER.mmd](docs/ServiceMap_MASTER.mmd) as the source of truth.**
 
-| Change Target | Downstream Impact |
-|---|---|
-| `IObservationRepository` contract | `AzureObservationRepository`, `InMemoryObservationRepository`, `ObservationService`, `ArchivesService`, `IdentityService`, all integration + unit tests |
-| `ISubjectRepository` contract | `AzureSubjectRepository`, `InMemorySubjectRepository`, `ObservationService`, `IdentityService` |
-| `ObservationEvent` model | `PoWatch.Domain`, `PoWatch.Infrastructure` (row key format, table entity), `PoWatch.Application`, `PoWatch.Shared` (DTOs), `PoWatch.Client`, all tests |
-| `DailyChapterDto` / `ObservationEventDto` | `PoWatch.Shared`, `PoWatch.Client` (Archives.razor), `PoWatch.Api` (ArchivesEndpoints), integration + E2E tests |
-| `FeatureFlagsOptions` | `PoWatch.Api` (Program.cs, all endpoints), `PoWatch.Application` (ObservationService), `PoWatch.Client` (ClientFeatureFlagsOptions) |
-| `AzureStorageClients` | All Azure repository implementations and `AzureBlobSasProvider` — switching storage SDK version |
-| Auth scheme (FakeAuth) | `PoWatch.Api/Security/`, all integration tests using `AzuriteWebApplicationFactory`, E2E tests |
+### Critical Dependency Analysis
+
+| Change Target | Downstream Impact | Risk Level |
+|---|---|---|
+| `IObservationRepository` contract | `AzureObservationRepository`, `InMemoryObservationRepository`, `ObservationService`, `ArchivesService`, `IdentityService`, all integration + unit tests | **HIGH** |
+| `ISubjectRepository` contract | `AzureSubjectRepository`, `InMemorySubjectRepository`, `ObservationService`, `IdentityService` | **HIGH** |
+| `ObservationEvent` model | `PoWatch.Domain`, `PoWatch.Infrastructure` (row key format, table entity), `PoWatch.Application`, `PoWatch.Shared` (DTOs), `PoWatch.Client`, all tests | **CRITICAL** |
+| `DailyChapterDto` / `ObservationEventDto` | `PoWatch.Shared`, `PoWatch.Client` (Archives.razor), `PoWatch.Api` (ArchivesEndpoints), integration + E2E tests | **HIGH** |
+| `FeatureFlagsOptions` | `PoWatch.Api` (Program.cs, all endpoints), `PoWatch.Application` (ObservationService), `PoWatch.Client` (ClientFeatureFlagsOptions) | **MEDIUM** |
+| `AzureStorageClients` | All Azure repository implementations and `AzureBlobSasProvider` — switching storage SDK version | **HIGH** |
+| Auth scheme (FakeAuth) | `PoWatch.Api/Security/`, all integration tests using `AzuriteWebApplicationFactory`, E2E tests | **MEDIUM** |
+
+### Service Map Summary
+
+```
+Client (Blazor WASM)
+    ↓ HttpClient REST calls
+PoWatch.Api (Minimal API)
+    ↓ Business Logic
+PoWatch.Application (Services + Contracts)
+    ↓ Dependency Inversion
+PoWatch.Infrastructure (Implementations)
+    ↓ Azure SDK
+Azure Table Storage + Azure Blob Storage
+```
+
+### Test Coverage Blast Radius
+
+| Test Project | Tests | Dependencies |
+|---|---|---|
+| `PoWatch.UnitTests` | Domain logic, ClinicalTagParser, service logic | Domain, Application (no I/O) |
+| `PoWatch.IntegrationTests` | Full API pipeline | API, Infrastructure, Azurite via Testcontainers |
+| `PoWatch.E2E` | Browser automation | Client, API (full stack) |
 
 ---
 
@@ -150,3 +176,25 @@ PATCH /identity/subjects/{id} → Rename subject → MergeSubjectAsync (rebuild 
 - **Scalar.AspNetCore 2.13.22** — interactive API docs at `/scalar/v1`
 - **xUnit 2.9.3** + **Testcontainers.Azurite 4.11.0** — unit + integration testing
 - **Playwright** (TypeScript) — E2E testing
+
+---
+
+## Mermaid Syntax Standards
+
+All diagrams in `/docs` follow these strict conventions:
+
+1. **Direct Starts**: Files begin immediately with `flowchart`, `erDiagram`, `sequenceDiagram`, `stateDiagram-v2`, or `C4Context`
+2. **Grouping**: Every logical boundary uses `subgraph Name["Label"]`
+3. **Quoted Labels**: All labels containing spaces or special characters are double-quoted
+4. **Total Styling**: Every style line explicitly specifies `fill`, `stroke`, and `color`
+5. **Contrast Rules**: Dark fill with `color:#fff` or light fill with `color:#000` for legibility
+
+### Diagram Types Used
+
+| Type | Purpose | Files |
+|---|---|---|
+| `C4Context` | Architecture visualization | Architecture_MASTER, Architecture_MASTER_SIMPLE |
+| `flowchart TD/LR` | Process flows, hierarchies, maps | All other MASTER files |
+| `erDiagram` | Entity relationships | DataModel, DataModel_SIMPLE |
+| `stateDiagram-v2` | Entity lifecycles | StateDynamics_MASTER, StateDynamics_MASTER_SIMPLE |
+| `sequenceDiagram` | Interaction sequences | SystemInteractionFlow, SystemInteractionFlow_SIMPLE |

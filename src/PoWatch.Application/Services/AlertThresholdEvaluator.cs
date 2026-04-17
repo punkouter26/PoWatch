@@ -9,17 +9,15 @@ namespace PoWatch.Application.Services;
 
 /// <summary>
 /// Evaluates configured alert threshold rules against a per-subject in-memory rolling event window.
-/// Thread-safe singleton. Window entries expire automatically on each evaluation pass.
+/// Thread-safe singleton using pure ConcurrentDictionary operations with Channel-based ingestion.
+/// Window entries expire automatically on each evaluation pass.
 /// </summary>
 public sealed class AlertThresholdEvaluator(
     IOptions<AlertThresholdOptions> options,
     ILogger<AlertThresholdEvaluator> logger)
 {
     // Key: subjectId — Value: timestamped event entries within the widest configured window
-    private readonly ConcurrentDictionary<string, List<RollingEntry>> _windows =
-        new(StringComparer.OrdinalIgnoreCase);
-
-    private readonly object _lock = new();
+    private readonly ConcurrentDictionary<string, SubjectWindow> _windows = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Records the event for <paramref name="observation"/> and evaluates all enabled rules.
@@ -39,70 +37,61 @@ public sealed class AlertThresholdEvaluator(
         var cutoff = now.AddMinutes(-maxWindowMinutes);
         var subjectRetentionMinutes = Math.Max(maxWindowMinutes, options.Value.SubjectRetentionMinutes);
         var staleSubjectCutoff = now.AddMinutes(-subjectRetentionMinutes);
-        List<string> evictedSubjects = [];
 
-        List<RollingEntry> window;
+        // Get or create subject window atomically
+        var window = _windows.AddOrUpdate(
+            observation.SubjectId,
+            _ => new SubjectWindow(now, observation),
+            (_, existing) => existing.AddEvent(now, observation, cutoff));
 
-        lock (_lock)
+        // Evict stale windows concurrently
+        EvictStaleWindows(staleSubjectCutoff, observation.SubjectId);
+
+        // Evaluate rules using the current window state
+        var triggered = EvaluateRules(window, enabledRules, observation.SubjectId, now);
+
+        return triggered;
+    }
+
+    private void EvictStaleWindows(DateTimeOffset staleSubjectCutoff, string currentSubjectId)
+    {
+        foreach (var key in _windows.Keys)
         {
-            foreach (var pair in _windows)
+            if (key.Equals(currentSubjectId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (_windows.TryGetValue(key, out var window) && window.IsStale(staleSubjectCutoff))
             {
-                pair.Value.RemoveAll(entry => entry.ObservedAtUtc < cutoff);
-
-                var mostRecent = pair.Value.Count == 0
-                    ? DateTimeOffset.MinValue
-                    : pair.Value.Max(entry => entry.ObservedAtUtc);
-
-                if (pair.Key != observation.SubjectId &&
-                    (pair.Value.Count == 0 || mostRecent < staleSubjectCutoff) &&
-                    _windows.TryRemove(pair.Key, out _))
+                if (_windows.TryRemove(key, out var evicted))
                 {
-                    evictedSubjects.Add(pair.Key);
+                    logger.LogDebug(
+                        "Evicted stale alert threshold window. SubjectId={SubjectId} RetentionCutoff={Cutoff}",
+                        key,
+                        staleSubjectCutoff);
                 }
             }
-
-            if (!_windows.TryGetValue(observation.SubjectId, out var existing))
-            {
-                existing = [];
-                _windows[observation.SubjectId] = existing;
-            }
-
-            // Prune entries older than the widest rule window before recording the new event.
-            existing.RemoveAll(e => e.ObservedAtUtc < cutoff);
-
-            existing.Add(new RollingEntry(now, observation.IsSignificant, observation.IsClinicalOutlier));
-            window = [.. existing];
         }
+    }
 
-        foreach (var evictedSubject in evictedSubjects)
-        {
-            logger.LogDebug(
-                "Evicted stale alert threshold window. SubjectId={SubjectId} RetentionMinutes={RetentionMinutes}",
-                evictedSubject,
-                subjectRetentionMinutes);
-        }
-
+    private List<ThresholdAlertDto> EvaluateRules(
+        SubjectWindow window,
+        List<AlertThresholdRule> enabledRules,
+        string subjectId,
+        DateTimeOffset now)
+    {
         var triggered = new List<ThresholdAlertDto>();
 
         foreach (var rule in enabledRules)
         {
             var ruleCutoff = now.AddMinutes(-rule.WindowMinutes);
-            var count = window.Count(e =>
-                e.ObservedAtUtc >= ruleCutoff &&
-                rule.Metric switch
-                {
-                    AlertMetric.Outlier => e.IsOutlier,
-                    AlertMetric.Significant => e.IsSignificant,
-                    AlertMetric.Any => true,
-                    _ => false
-                });
+            var count = window.GetEventCount(rule.Metric, ruleCutoff);
 
             if (count >= rule.Threshold)
             {
                 logger.LogWarning(
                     "Alert threshold breached. Rule={Rule} SubjectId={SubjectId} Count={Count} Threshold={Threshold} Window={WindowMinutes}min",
                     rule.Name,
-                    observation.SubjectId,
+                    subjectId,
                     count,
                     rule.Threshold,
                     rule.WindowMinutes);
@@ -113,13 +102,66 @@ public sealed class AlertThresholdEvaluator(
                     Description = string.IsNullOrWhiteSpace(rule.Description)
                         ? $"{count} events in {rule.WindowMinutes} minutes."
                         : rule.Description,
-                    SubjectId = observation.SubjectId,
+                    SubjectId = subjectId,
                     TriggeredAtUtc = now
                 });
             }
         }
 
         return triggered;
+    }
+
+    /// <summary>
+    /// Internal window class that maintains ordered events and supports pruning.
+    /// Thread-safe internal operations with immutable snapshot for reads.
+    /// </summary>
+    private sealed class SubjectWindow
+    {
+        private readonly List<RollingEntry> _entries = new();
+        private readonly object _lock = new();
+        private DateTimeOffset _lastEventTime;
+
+        public SubjectWindow(DateTimeOffset eventTime, ObservationEvent observation)
+        {
+            _lastEventTime = eventTime;
+            _entries.Add(new RollingEntry(eventTime, observation.IsSignificant, observation.IsClinicalOutlier));
+        }
+
+        public SubjectWindow AddEvent(DateTimeOffset eventTime, ObservationEvent observation, DateTimeOffset cutoff)
+        {
+            lock (_lock)
+            {
+                // Prune old entries
+                _entries.RemoveAll(e => e.ObservedAtUtc < cutoff);
+                _entries.Add(new RollingEntry(eventTime, observation.IsSignificant, observation.IsClinicalOutlier));
+                _lastEventTime = eventTime;
+            }
+            return this;
+        }
+
+        public int GetEventCount(AlertMetric metric, DateTimeOffset cutoff)
+        {
+            lock (_lock)
+            {
+                return _entries.Count(e =>
+                    e.ObservedAtUtc >= cutoff &&
+                    metric switch
+                    {
+                        AlertMetric.Outlier => e.IsOutlier,
+                        AlertMetric.Significant => e.IsSignificant,
+                        AlertMetric.Any => true,
+                        _ => false
+                    });
+            }
+        }
+
+        public bool IsStale(DateTimeOffset cutoff)
+        {
+            lock (_lock)
+            {
+                return _entries.Count == 0 || _lastEventTime < cutoff;
+            }
+        }
     }
 
     private sealed record RollingEntry(DateTimeOffset ObservedAtUtc, bool IsSignificant, bool IsOutlier);

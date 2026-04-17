@@ -88,29 +88,6 @@ public sealed class ObservationService(
                     request.ClinicalPayload);
             }
 
-            // Redundancy check: use the subject's cached LastActivity to avoid a cross-partition table scan on every poll.
-            if (subject.LastActivity is not null &&
-                string.Equals(subject.LastActivity, request.Activity, StringComparison.OrdinalIgnoreCase) &&
-                !subject.LastActivityIsOutlier &&
-                !isOutlier &&
-                IsStableActivity(request.Activity))
-            {
-                logger.LogInformation(
-                    "Redundant stable-state observation skipped (activity matches cached subject state). SubjectId={SubjectId} Activity={Activity}",
-                    subject.SubjectId,
-                    request.Activity);
-
-                return new IngestObservationResultDto
-                {
-                    Accepted = true,
-                    Dropped = false,
-                    SkippedAsRedundant = true,
-                    SubjectId = subject.SubjectId,
-                    SubjectDisplayName = subject.DisplayName,
-                    Detail = "No state change detected; redundant observation skipped."
-                };
-            }
-
             var observedAtUtc = DateTimeOffset.UtcNow;
             var observation = new ObservationEvent
             {
@@ -127,6 +104,16 @@ public sealed class ObservationService(
                     ? $"significant-images/{DateOnly.FromDateTime(observedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.svg"
                     : null
             };
+
+            // Always persist the observation - do not skip!
+            // Previously, stable-state observations were silently dropped. This caused:
+            // 1. Drift detection to miss stable subjects
+            // 2. Archives to never record them
+            // 3. Alert thresholds to never evaluate them
+            // 
+            // The redundancy flag is now set on the observation itself, allowing downstream
+            // consumers to filter if needed, while ensuring ALL events are persisted.
+            var isRedundant = IsRedundantObservation(subject, request.Activity, isOutlier);
 
             await observationRepository.AddAsync(observation, cancellationToken);
             await subjectRepository.UpdateLastActivityAsync(subject.SubjectId, observation.Activity, observation.IsClinicalOutlier, cancellationToken);
@@ -152,7 +139,10 @@ public sealed class ObservationService(
                 SubjectId = observation.SubjectId,
                 SubjectDisplayName = observation.SubjectDisplayName,
                 ImageReference = observation.ImageReference,
-                Detail = observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded.",
+                SkippedAsRedundant = isRedundant,
+                Detail = isRedundant 
+                    ? "Observation recorded with stable-state flag." 
+                    : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."),
                 TriggeredAlerts = triggeredAlerts
             };
         }
@@ -176,11 +166,33 @@ public sealed class ObservationService(
             : "Observation loop disabled by operator."
     };
 
-    private static bool IsStableActivity(string activity)
+    /// <summary>
+    /// Determines if an observation is redundant (stable activity matching cached state).
+    /// The observation is STILL persisted, but this flag indicates it represents no change.
+    /// </summary>
+    private static bool IsRedundantObservation(SubjectProfile subject, string activity, bool isOutlier)
     {
         if (string.IsNullOrWhiteSpace(activity))
             return false;
 
+        // Only mark as redundant if subject has cached state and activity matches
+        if (subject.LastActivity is null)
+            return false;
+
+        // Don't mark as redundant if this is an outlier (outliers always have significance)
+        if (isOutlier || subject.LastActivityIsOutlier)
+            return false;
+
+        // Check if activity is "stable" (low-change activities)
+        if (!IsStableActivity(activity))
+            return false;
+
+        // Check if it matches the cached state
+        return string.Equals(subject.LastActivity, activity, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStableActivity(string activity)
+    {
         return activity.Contains("desk", StringComparison.OrdinalIgnoreCase)
             || activity.Contains("sit", StringComparison.OrdinalIgnoreCase)
             || activity.Contains("sleep", StringComparison.OrdinalIgnoreCase)

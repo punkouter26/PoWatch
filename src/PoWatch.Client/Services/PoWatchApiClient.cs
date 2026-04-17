@@ -35,6 +35,13 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return items ?? [];
     }
 
+    public async Task<SubjectProfileDto?> RegisterSubjectAsync(RegisterSubjectRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("api/identity/subjects", request, cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<SubjectProfileDto>(cancellationToken: cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken = default)
     {
         var items = await httpClient.GetFromJsonAsync<List<SubjectLiveStatusDto>>("api/identity/subjects/live-status", cancellationToken);

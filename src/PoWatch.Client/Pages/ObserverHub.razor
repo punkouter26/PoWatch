@@ -34,24 +34,26 @@
                 <p class="observer-eyebrow">Observer workspace</p>
                 <h1>Observer Hub</h1>
             </div>
-            <p class="observer-summary">A streamlined view for live monitoring, local inference, and room activity review.</p>
+            <p class="observer-summary">Monitor room activity with AI-powered inference and trend analysis.</p>
         </div>
 
-        <div class="observer-metrics" role="list" aria-label="Session highlights">
-            <div class="metric-card metric-card--status" role="listitem">
-                <span class="metric-label">Status</span>
-                <strong class="metric-value">@MonitoringStateLabel</strong>
-                <small>@SessionDurationText</small>
-            </div>
-            <div class="metric-card metric-card--model" role="listitem">
-                <span class="metric-label">Model</span>
-                <strong class="metric-value">@SelectedModelLabel</strong>
-                <small>DTYPE @DtypeDisplay</small>
-            </div>
-            <div class="metric-card metric-card--activity" role="listitem">
-                <span class="metric-label">Latest activity</span>
-                <strong class="metric-value">@LatestActivityLabel</strong>
-                <small>@LatestTimestampLabel</small>
+        <div class="command-center" role="region" aria-label="Command Center">
+            <div class="command-center-metrics" role="list" aria-label="Session highlights">
+                <div class="metric-card metric-card--status" role="listitem">
+                    <span class="metric-label">Status</span>
+                    <strong class="metric-value">@MonitoringStateLabel</strong>
+                    <small>@SessionDurationText</small>
+                </div>
+                <div class="metric-card metric-card--model" role="listitem">
+                    <span class="metric-label">Model</span>
+                    <strong class="metric-value">@SelectedModelLabel</strong>
+                    <small>DTYPE @DtypeDisplay</small>
+                </div>
+                <div class="metric-card metric-card--activity" role="listitem">
+                    <span class="metric-label">Latest activity</span>
+                    <strong class="metric-value">@LatestActivityLabel</strong>
+                    <small>@LatestTimestampLabel</small>
+                </div>
             </div>
         </div>
     </section>
@@ -315,37 +317,7 @@
                 <span class="activity-count">@streamItems.Count events today</span>
             </header>
 
-@if (streamItems.Count == 0)
-            {
-                <div class="activity-empty">No records to display.</div>
-            }
-            else
-            {
-                <ul class="activity-list">
-                    @foreach (var item in streamItems)
-                    {
-                        <li class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
-                            <div class="activity-item-header">
-                                <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
-                                <span class="activity-subject">@item.SubjectDisplayName</span>
-                                @if (item.IsClinicalOutlier)
-                                {
-                                    <span class="activity-badge activity-badge--outlier">Outlier</span>
-                                }
-                                else if (item.IsSignificant)
-                                {
-                                    <span class="activity-badge activity-badge--significant">Significant</span>
-                                }
-                                <span class="activity-activity">@item.Activity</span>
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
-                            {
-                                <div class="activity-note">@item.ClinicalDescription</div>
-                            }
-                        </li>
-                    }
-                </ul>
-            }
+            <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
         </RadzenCard>
     </div>
 </div>

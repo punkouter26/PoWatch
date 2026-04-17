@@ -1,47 +1,47 @@
 flowchart TD
     subgraph SolutionProjects["Solution Projects — PoWatch.slnx"]
-        CLIENT["PoWatch.Client\nBlazor WASM SPA\n.NET 10 / Radzen.Blazor 10.2.3"]
+        CLIENT["PoWatch.Client\nBlazor WASM SPA\n.NET 10 / Radzen.Blazor"]
         API["PoWatch.Api\n.NET 10 Minimal API\nSerilog + OpenTelemetry + Scalar"]
         APP["PoWatch.Application\nBusiness Logic\nService interfaces + implementations"]
-        DOMAIN["PoWatch.Domain\nCore domain — zero external dependencies\nModels + ClinicalTagParser + SubjectIdSlugger"]
+        DOMAIN["PoWatch.Domain\nCore domain — zero external dependencies\nModels + Services"]
         INFRA["PoWatch.Infrastructure\nData Access\nAzure Table/Blob + InMemory fallbacks"]
-        SHARED["PoWatch.Shared\nDTO contracts — Client-API surface\nIngestObservationRequestDto, DailyChapterDto etc."]
+        SHARED["PoWatch.Shared\nDTO contracts — Client-API surface"]
     end
 
     subgraph Contracts["Application Contracts — Dependency Inversion"]
-        I_OBS_REPO["IObservationRepository\nAddAsync, GetByDateAsync,\nGetLatestForSubjectAsync, MergeSubjectAsync"]
-        I_SUBJ_REPO["ISubjectRepository\nGetAllAsync, GetOrCreateAsync, GetByIdAsync\nRenameAsync, MergeAsync, UpdateLastActivityAsync"]
-        I_BLOB["IBlobSasProvider\nCreateUploadAccessAsync\nCreateReadAccessUrlAsync"]
+        I_OBS_REPO["IObservationRepository\nAddAsync, GetByDateAsync, MergeSubjectAsync"]
+        I_SUBJ_REPO["ISubjectRepository\nGetAllAsync, GetOrCreateAsync, RenameAsync, MergeAsync"]
+        I_BLOB["IBlobSasProvider\nCreateUploadAccessAsync, CreateReadAccessUrlAsync"]
         I_GATE["IObservationProcessingGate\nTryEnter, Exit"]
         I_DIAG["IDiagnosticsProvider\nCaptureSnapshot"]
     end
 
     subgraph Implementations["Infrastructure Implementations"]
-        AZ_OBS["AzureObservationRepository\nAzure Table Storage — PoWatchObservations\nOpenTelemetry ActivitySource tracing"]
-        MEM_OBS["InMemoryObservationRepository\nConcurrentDictionary fallback\nNo ConnectionString configured"]
-        AZ_SUBJ["AzureSubjectRepository\nAzure Table Storage — PoWatchSubjects"]
-        MEM_SUBJ["InMemorySubjectRepository\nConcurrentDictionary + auto Subject-N counter"]
-        AZ_BLOB["AzureBlobSasProvider\nAzure.Storage.Blobs SDK\nLazy CORS config for dev"]
-        MEM_GATE["InMemoryObservationProcessingGate\nSemaphoreSlim(1,1) backpressure"]
-        LOCAL_DIAG["LocalDiagnosticsProvider\nCPU/memory snapshot + MaskingUtility"]
-        AZ_CLIENTS["AzureStorageClients (Singleton)\nTableServiceClient + BlobServiceClient lifecycle"]
+        AZ_OBS["AzureObservationRepository\nAzure Table Storage"]
+        MEM_OBS["InMemoryObservationRepository\nConcurrentDictionary fallback"]
+        AZ_SUBJ["AzureSubjectRepository\nAzure Table Storage"]
+        MEM_SUBJ["InMemorySubjectRepository\nConcurrentDictionary"]
+        AZ_BLOB["AzureBlobSasProvider\nAzure.Storage.Blobs SDK"]
+        MEM_GATE["InMemoryObservationProcessingGate\nSemaphoreSlim(1,1)"]
+        LOCAL_DIAG["LocalDiagnosticsProvider\nCPU/memory snapshot"]
+        AZ_CLIENTS["AzureStorageClients (Singleton)\nTableServiceClient + BlobServiceClient"]
     end
 
     subgraph ExternalServices["External Services"]
         AZ_TABLE["Azure Table Storage\nPoWatchObservations + PoWatchSubjects"]
         AZ_BLOB_STORE["Azure Blob Storage\nsignificant-images container"]
         APP_INSIGHTS["Application Insights\nOpenTelemetry OTLP exporter"]
-        AZURITE["Azurite Emulator (Dev)\nDocker — ports 10000/10001/10002\nUseDevelopmentStorage=true"]
-        TESTCONTAINERS["Testcontainers.Azurite\nIntegration tests — isolated storage"]
+        AZURITE["Azurite Emulator (Dev)\nDocker — ports 10000/10001/10002"]
+        TESTCONTAINERS["Testcontainers.Azurite\nIntegration tests"]
     end
 
     subgraph TestProjects["Test Projects"]
-        UNIT_TESTS["PoWatch.UnitTests\nxUnit — domain + service logic\nFake repositories — no I/O"]
-        INT_TESTS["PoWatch.IntegrationTests\nAzuriteWebApplicationFactory\nMvc.Testing — full API pipeline"]
-        E2E_TESTS["PoWatch.E2E\nPlaywright TypeScript\nFull browser automation"]
+        UNIT_TESTS["PoWatch.UnitTests\nxUnit — domain + service logic"]
+        INT_TESTS["PoWatch.IntegrationTests\nAzuriteWebApplicationFactory"]
+        E2E_TESTS["PoWatch.E2E\nPlaywright TypeScript"]
     end
 
-    CLIENT -->|"HttpClient → REST calls"| API
+    CLIENT -->|"HttpClient → REST"| API
     CLIENT --> SHARED
     API --> APP
     API --> INFRA

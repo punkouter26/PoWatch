@@ -288,6 +288,14 @@ public sealed class HandoffCoachServiceTests
 
         public Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken) =>
             Task.FromResult(0);
+
+        public Task<IReadOnlyList<ObservationEvent>> GetBySubjectAndDateRangeAsync(
+            string subjectId,
+            DateOnly from,
+            DateOnly to,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(
+                events.Where(e => string.Equals(e.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 
     private sealed class FakeHandoffSubjectRepository(params SubjectProfile[] subjects) : ISubjectRepository
@@ -311,5 +319,8 @@ public sealed class HandoffCoachServiceTests
 
         public Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
+            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
     }
 }

@@ -208,6 +208,23 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
 
   const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
 
+  // Detect repetitive / hallucinated output, e.g.:
+  //   "I am I I I I I I I" — any word repeated more than 3 times
+  //   "I'm'NON'NON'NON..."  — a short substring repeated 4+ times in a row
+  //   "the most common and most common..." — word-pair repetition
+  // Returns true when the text is dominated by repetition and should be discarded.
+  function hasRepetition(text) {
+    const words = text.toLowerCase().split(/\s+/);
+    const wordCounts = Object.create(null);
+    for (const w of words) {
+      if (w.length < 2) continue;
+      wordCounts[w] = (wordCounts[w] ?? 0) + 1;
+      if (wordCounts[w] > 3) return true;
+    }
+    // Character-level: any 3+-char chunk that repeats 4+ times consecutively
+    return /(.{3,})\1{3,}/i.test(text);
+  }
+
   let activity;
   let clinicalNote;
   let isUnstructured = false;
@@ -217,7 +234,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     const rawTrimmed = output.replace(/\s+/g, ' ').trim();
     const firstSentence = rawTrimmed.split(/[.\n]/)[0].trim().slice(0, 80);
 
-    if (firstSentence.length < 6 || _DENY.has(firstSentence.toLowerCase())) {
+    if (firstSentence.length < 6 || _DENY.has(firstSentence.toLowerCase()) || hasRepetition(firstSentence)) {
       return {
         isAvailable: false,
         status: 'Low-quality inference: unstructured output skipped',
@@ -239,10 +256,23 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     clinicalNote = (noteMatch?.[1] ?? output).trim();
   }
 
-  const clinicalPayload = `<S>${clinicalNote}<E>`;
+  // Guard: reject any output that echoes prompt placeholder tokens (e.g. "<5 word activity>")
+  if (/[<>]/.test(activity)) {
+    return {
+      isAvailable: false,
+      status: 'Low-quality inference: prompt echo detected',
+      subjectHint: null,
+      activity: 'Unavailable',
+      clinicalPayload: '',
+      isSignificant: false,
+      significantReason: null,
+      confidenceScore: 0,
+      confidenceLabel: 'Low',
+    };
+  }
 
-  // Quality gate: reject trivially short or deny-listed single-word outputs
-  if (activity.length < 6 || _DENY.has(activity.toLowerCase())) {
+  // Quality gate: reject trivially short, deny-listed, or repetitive outputs
+  if (activity.length < 6 || _DENY.has(activity.toLowerCase()) || hasRepetition(activity)) {
     return {
       isAvailable: false,
       status: 'Low-quality inference: skipped',
@@ -257,6 +287,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   }
 
   const isSignificant = clinicalNote.length > 10;
+  const clinicalPayload = `<S>${clinicalNote}<E>`;
 
   // Unstructured outputs from small models are capped at Low confidence (max 0.50).
   // Structured outputs with LABEL: use the full scoring range (0.55–0.98).

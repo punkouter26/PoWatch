@@ -1,25 +1,34 @@
 flowchart TD
-    subgraph Flow["System Flow (Simple)"]
-        ACTORS["External Actors\nSensor + Clinician"]
-        MIDDLEWARE["Middleware\nAuth + Logging + OTel"]
-        INGEST["Observer Pipeline\nPOST /api/observer/ingest"]
-        ARCHIVES["Archives Pipeline\nGET /api/archives/{date}"]
-        IDENTITY["Identity Pipeline\nPATCH/POST /api/identity"]
-        STORAGE["Azure Table Storage\nObservations + Subjects"]
+    subgraph External["External"]
+        SENSOR["Sensor"]
+        CLINICIAN["Clinician"]
     end
 
-    ACTORS --> MIDDLEWARE
-    MIDDLEWARE --> INGEST
-    MIDDLEWARE --> ARCHIVES
-    MIDDLEWARE --> IDENTITY
-    INGEST --> STORAGE
-    ARCHIVES --> STORAGE
-    IDENTITY --> STORAGE
+    subgraph Middleware["Middleware"]
+        LOG["Serilog"]
+        AUTH["FakeAuth"]
+        OTEL["OpenTelemetry"]
+    end
 
-    style Flow fill:#1a1a2e,stroke:#4a90d9,color:#fff
-    style ACTORS fill:#3d4b5c,stroke:#7f8c8d,color:#fff
-    style MIDDLEWARE fill:#3d2163,stroke:#9b72cf,color:#fff
-    style INGEST fill:#1e3a5f,stroke:#4a90d9,color:#fff
-    style ARCHIVES fill:#2a3d16,stroke:#f0a500,color:#fff
-    style IDENTITY fill:#1b4332,stroke:#52b788,color:#fff
-    style STORAGE fill:#1a3a2a,stroke:#52b788,color:#fff
+    subgraph Pipelines["Service Pipelines"]
+        OBS["Observer Pipeline"]
+        ARCH["Archives Pipeline"]
+        ID["Identity Pipeline"]
+        DIAG["Diagnostics Pipeline"]
+    end
+
+    SENSOR & CLINICIAN --> LOG --> AUTH --> OTEL --> OBS & ARCH & ID & DIAG
+
+    style External fill:#2c3e50,stroke:#7f8c8d,color:#fff
+    style Middleware fill:#2c1654,stroke:#9b72cf,color:#fff
+    style Pipelines fill:#1a1a2e,stroke:#4a90d9,color:#fff
+
+    style SENSOR fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style CLINICIAN fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style LOG fill:#3d2163,stroke:#9b72cf,color:#fff
+    style AUTH fill:#3d2163,stroke:#9b72cf,color:#fff
+    style OTEL fill:#3d2163,stroke:#9b72cf,color:#fff
+    style OBS fill:#0f3460,stroke:#4a90d9,color:#fff
+    style ARCH fill:#0f3460,stroke:#f0a500,color:#fff
+    style ID fill:#0f3460,stroke:#52b788,color:#fff
+    style DIAG fill:#0f3460,stroke:#7f8c8d,color:#fff

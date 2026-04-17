@@ -1,43 +1,43 @@
 flowchart TD
     subgraph Source["Source Control"]
-        FEAT["Feature Branch\nlocal development"]
-        DEV["dev Branch\nintegration baseline"]
-        MAIN["main Branch\nproduction-ready"]
+        FEAT["Feature Branch"]
+        DEV["dev Branch"]
+        MAIN["main Branch"]
     end
 
     subgraph Build["Build Stage — dotnet build PoWatch.slnx"]
-        RESTORE["NuGet Restore\nDirectory.Packages.props — centralized versions"]
-        COMPILE["Compile All Projects\nTreatWarningsAsErrors=true, Nullable=enable"]
+        RESTORE["NuGet Restore"]
+        COMPILE["Compile All Projects"]
     end
 
-    subgraph UnitGate["Unit Test Gate — dotnet test PoWatch.UnitTests"]
-        UT_ARCH["ArchivesServiceTests\nChapter generation, highlights, narrative"]
-        UT_CLIN["ClinicalTagParserTests\nPayload validation, tag extraction"]
-        UT_DIAG["DiagnosticsMaskingTests\nMasking utility coverage"]
-        UT_ID["IdentityServiceTests\nRename and merge logic"]
-        UT_OBS["ObservationServiceTests\nIngest pipeline, redundancy, gate backpressure"]
+    subgraph UnitGate["Unit Test Gate"]
+        UT_ARCH["ArchivesServiceTests"]
+        UT_CLIN["ClinicalTagParserTests"]
+        UT_DIAG["DiagnosticsMaskingTests"]
+        UT_ID["IdentityServiceTests"]
+        UT_OBS["ObservationServiceTests"]
     end
 
-    subgraph IntegGate["Integration Test Gate — dotnet test PoWatch.IntegrationTests"]
-        IT_AZURITE["AzuriteWebApplicationFactory\nTestcontainers.Azurite — isolated storage per test"]
-        IT_FLOW["ApiFlowTests\nEnd-to-end API workflows"]
-        IT_ARCH["ArchivesApiTests\nDate parsing, chapter retrieval"]
-        IT_INGEST["ObserverIngestFlowTests\nRedundancy, timeline consistency"]
-        IT_ID["IdentityRevisionistTests\nRename/merge via HTTP client"]
+    subgraph IntegGate["Integration Test Gate"]
+        IT_AZURITE["AzuriteWebApplicationFactory"]
+        IT_FLOW["ApiFlowTests"]
+        IT_ARCH["ArchivesApiTests"]
+        IT_INGEST["ObserverIngestFlowTests"]
+        IT_ID["IdentityRevisionistTests"]
     end
 
-    subgraph E2EGate["E2E Gate — npm test (Playwright)"]
-        E2E_LINT["npm run lint\nESLint TypeScript validation"]
-        E2E_ARCH["archives.spec.ts\nArchives page UI"]
-        E2E_DIAG["diagnostics.spec.ts\nDiagnostics refresh + health display"]
-        E2E_ID["identity-nexus.spec.ts\nRename and merge UI workflows"]
-        E2E_OBS["observer-hub.spec.ts\nIngest and monitoring scenarios"]
+    subgraph E2EGate["E2E Gate — Playwright"]
+        E2E_LINT["npm run lint"]
+        E2E_ARCH["archives.spec.ts"]
+        E2E_DIAG["diagnostics.spec.ts"]
+        E2E_ID["identity-nexus.spec.ts"]
+        E2E_OBS["observer-hub.spec.ts"]
     end
 
     subgraph Environments["Environments"]
-        ENV_DEV["Dev\nAzurite emulator\nFeatureFlags: ExposeDebugDetailsInUi=true\nDeveloperBypassAuth=true"]
-        ENV_STAGE["Staging\nAzure Table + Blob Storage\nAll feature flags default"]
-        ENV_PROD["Production\nApp Insights connected\nSerilog file + AI sinks\nFeatureFlags: DeveloperBypassAuth=false"]
+        ENV_DEV["Dev — Azurite emulator"]
+        ENV_STAGE["Staging — Azure Storage"]
+        ENV_PROD["Production — App Insights"]
     end
 
     FEAT -->|"PR to dev"| RESTORE

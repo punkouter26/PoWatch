@@ -3,6 +3,8 @@ using Azure;
 using Azure.Data.Tables;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Retry;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
@@ -14,11 +16,39 @@ public sealed class AzureObservationRepository : IObservationRepository
     private static readonly ActivitySource ActivitySource = new("PoWatch.Storage");
     private readonly TableClient _tableClient;
     private readonly ILogger<AzureObservationRepository> _logger;
+    private readonly ResiliencePipeline _retryPipeline;
 
     public AzureObservationRepository(AzureStorageClients clients, IOptions<AzureStorageOptions> options, ILogger<AzureObservationRepository> logger)
     {
         _tableClient = clients.TableService.GetTableClient(options.Value.ObservationsTable);
         _logger = logger;
+
+        // Configure retry pipeline for transient Azure Storage errors
+        _retryPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(200),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(ex =>
+                    ex.Status == 408 || // Request Timeout
+                    ex.Status == 429 || // Too Many Requests
+                    ex.Status == 500 || // Internal Server Error
+                    ex.Status == 502 || // Bad Gateway
+                    ex.Status == 503 || // Service Unavailable
+                    ex.Status == 504    // Gateway Timeout
+                ),
+                OnRetry = args =>
+                {
+                    _logger.LogWarning(
+                        "Azure Storage operation retrying. Attempt={Attempt} Delay={Delay}ms Status={Status}",
+                        args.AttemptNumber,
+                        args.RetryDelay.TotalMilliseconds,
+                        args.Outcome.Exception is RequestFailedException rfe ? rfe.Status : 0);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     public async Task AddAsync(ObservationEvent observation, CancellationToken cancellationToken)
@@ -26,42 +56,45 @@ public sealed class AzureObservationRepository : IObservationRepository
         using var activity = ActivitySource.StartActivity("Storage.AddObservation");
         try
         {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
+            await _retryPipeline.ExecuteAsync(async ct =>
+            {
+                await _tableClient.CreateIfNotExistsAsync(ct);
 
-        var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
-        var invertedTicks = DateTime.MaxValue.Ticks - observation.ObservedAtUtc.UtcDateTime.Ticks;
-        var rowKey = $"{observation.SubjectId}_{invertedTicks:D19}_{observation.Id:N}";
+                var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
+                var invertedTicks = DateTime.MaxValue.Ticks - observation.ObservedAtUtc.UtcDateTime.Ticks;
+                var rowKey = $"{observation.SubjectId}_{invertedTicks:D19}_{observation.Id:N}";
 
-        activity?.SetTag("powatch.subject_id", observation.SubjectId);
-        activity?.SetTag("powatch.partition_key", partitionKey);
-        activity?.SetTag("powatch.is_significant", observation.IsSignificant);
+                activity?.SetTag("powatch.subject_id", observation.SubjectId);
+                activity?.SetTag("powatch.partition_key", partitionKey);
+                activity?.SetTag("powatch.is_significant", observation.IsSignificant);
 
-        var entity = new TableEntity(partitionKey, rowKey)
-        {
-            ["Id"] = observation.Id.ToString("N"),
-            ["ObservedAtUtc"] = observation.ObservedAtUtc,
-            ["SubjectId"] = observation.SubjectId,
-            ["SubjectDisplayName"] = observation.SubjectDisplayName,
-            ["Activity"] = observation.Activity,
-            ["ClinicalDescription"] = observation.ClinicalDescription,
-            ["IsSignificant"] = observation.IsSignificant,
-            ["SignificantReason"] = observation.SignificantReason,
-            ["IsClinicalOutlier"] = observation.IsClinicalOutlier,
-            ["ImageReference"] = observation.ImageReference
-        };
+                var entity = new TableEntity(partitionKey, rowKey)
+                {
+                    ["Id"] = observation.Id.ToString("N"),
+                    ["ObservedAtUtc"] = observation.ObservedAtUtc,
+                    ["SubjectId"] = observation.SubjectId,
+                    ["SubjectDisplayName"] = observation.SubjectDisplayName,
+                    ["Activity"] = observation.Activity,
+                    ["ClinicalDescription"] = observation.ClinicalDescription,
+                    ["IsSignificant"] = observation.IsSignificant,
+                    ["SignificantReason"] = observation.SignificantReason,
+                    ["IsClinicalOutlier"] = observation.IsClinicalOutlier,
+                    ["ImageReference"] = observation.ImageReference
+                };
 
-        await _tableClient.AddEntityAsync(entity, cancellationToken);
+                await _tableClient.AddEntityAsync(entity, ct);
+            }, cancellationToken);
 
-        _logger.LogInformation(
-            "Observation storage write completed. SubjectId={SubjectId} PartitionKey={PartitionKey} TraceId={TraceId}",
-            observation.SubjectId,
-            partitionKey,
-            Activity.Current?.TraceId.ToString());
+            _logger.LogInformation(
+                "Observation storage write completed. SubjectId={SubjectId} PartitionKey={PartitionKey} TraceId={TraceId}",
+                observation.SubjectId,
+                DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd"),
+                Activity.Current?.TraceId.ToString());
         }
         catch (RequestFailedException ex)
         {
             _logger.LogError(ex,
-                "Storage write failed — check Azurite/Azure connection. SubjectId={SubjectId} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
+                "Storage write failed after retries — check Azurite/Azure connection. SubjectId={SubjectId} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
                 observation.SubjectId, ex.Status, ex.ErrorCode, ex.Message);
             throw;
         }
@@ -71,27 +104,30 @@ public sealed class AzureObservationRepository : IObservationRepository
     {
         try
         {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
+            var items = await _retryPipeline.ExecuteAsync(async ct =>
+            {
+                await _tableClient.CreateIfNotExistsAsync(ct);
 
-        var partitionKey = date.ToString("yyyyMMdd");
-        var items = new List<ObservationEvent>();
+                var partitionKey = date.ToString("yyyyMMdd");
+                var results = new List<ObservationEvent>();
 
-        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
-                           filter: $"PartitionKey eq '{partitionKey}'",
-                           cancellationToken: cancellationToken))
-        {
-            items.Add(Map(entity));
-        }
+                await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                                   filter: $"PartitionKey eq '{partitionKey}'",
+                                   cancellationToken: ct))
+                {
+                    results.Add(Map(entity));
+                }
 
-        var ordered = items.OrderBy(x => x.ObservedAtUtc).ToList();
+                return results.OrderBy(x => x.ObservedAtUtc).ToList();
+            }, cancellationToken);
 
-        _logger.LogDebug(
-            "Observation chapter read completed. Date={Date} Count={Count} TraceId={TraceId}",
-            date,
-            ordered.Count,
-            Activity.Current?.TraceId.ToString());
+            _logger.LogDebug(
+                "Observation chapter read completed. Date={Date} Count={Count} TraceId={TraceId}",
+                date,
+                items.Count,
+                Activity.Current?.TraceId.ToString());
 
-        return ordered;
+            return items;
         }
         catch (RequestFailedException ex)
         {
@@ -104,8 +140,6 @@ public sealed class AzureObservationRepository : IObservationRepository
 
     public async Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         var fromKey = from.ToString("yyyyMMdd");
         var toKey = to.ToString("yyyyMMdd");
         var items = new List<ObservationEvent>();
@@ -131,25 +165,76 @@ public sealed class AzureObservationRepository : IObservationRepository
     {
         try
         {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
+            var item = await _retryPipeline.ExecuteAsync(async ct =>
+            {
+                await _tableClient.CreateIfNotExistsAsync(ct);
 
-        var safeSubjectId = subjectId.Replace("'", "''");
-        var items = new List<ObservationEvent>();
+                var safeSubjectId = subjectId.Replace("'", "''");
+                var items = new List<ObservationEvent>();
 
-        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
-                           filter: $"SubjectId eq '{safeSubjectId}'",
-                           cancellationToken: cancellationToken))
-        {
-            items.Add(Map(entity));
-        }
+                await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                                   filter: $"SubjectId eq '{safeSubjectId}'",
+                                   cancellationToken: ct))
+                {
+                    items.Add(Map(entity));
+                }
 
-        return items.OrderByDescending(x => x.ObservedAtUtc).FirstOrDefault();
+                return items.OrderByDescending(x => x.ObservedAtUtc).FirstOrDefault();
+            }, cancellationToken);
+
+            return item;
         }
         catch (RequestFailedException ex)
         {
             _logger.LogError(ex,
                 "Storage query failed — check Azurite/Azure connection. SubjectId={SubjectId} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
                 subjectId, ex.Status, ex.ErrorCode, ex.Message);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<ObservationEvent>> GetBySubjectAndDateRangeAsync(
+        string subjectId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var items = await _retryPipeline.ExecuteAsync(async ct =>
+            {
+                await _tableClient.CreateIfNotExistsAsync(ct);
+
+                var safeSubjectId = subjectId.Replace("'", "''");
+                var fromKey = from.ToString("yyyyMMdd");
+                var toKey = to.ToString("yyyyMMdd");
+                var results = new List<ObservationEvent>();
+
+                // Query across date range for specific subject
+                await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                                   filter: $"SubjectId eq '{safeSubjectId}' and PartitionKey ge '{fromKey}' and PartitionKey le '{toKey}'",
+                                   cancellationToken: ct))
+                {
+                    results.Add(Map(entity));
+                }
+
+                return results.OrderBy(x => x.ObservedAtUtc).ToList();
+            }, cancellationToken);
+
+            _logger.LogDebug(
+                "Filtered observation read completed. SubjectId={SubjectId} From={From} To={To} Count={Count}",
+                subjectId,
+                from,
+                to,
+                items.Count);
+
+            return items;
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogError(ex,
+                "Storage filtered query failed. SubjectId={SubjectId} From={From} To={To} AzureStatus={Status} AzureErrorCode={ErrorCode} Detail={Detail}",
+                subjectId, from, to, ex.Status, ex.ErrorCode, ex.Message);
             throw;
         }
     }

@@ -18,6 +18,8 @@
             <p class="panel-summary">Real-time status for all known subjects. Auto-refreshes every @RefreshIntervalSeconds seconds.</p>
         </div>
         <div class="live-dashboard-controls">
+            <RadzenTextBox Placeholder="Filter subjects…" @bind-Value="subjectFilter" @oninput="OnFilterInput"
+                Style="width:200px;" aria-label="Filter subjects by name or activity" />
             @if (loading)
             {
                 <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
@@ -34,8 +36,15 @@
         </div>
     }
 
+    @if (subjects.Count > 0 && FilteredSubjects.Count == 0)
+    {
+        <div class="live-dashboard-empty">
+            <p>No subjects match "@subjectFilter".</p>
+        </div>
+    }
+
     <div class="subject-card-grid">
-        @foreach (var subject in subjects)
+        @foreach (var subject in FilteredSubjects)
         {
             var cardClass = GetCardClass(subject);
               <div class="subject-card @cardClass"
@@ -54,7 +63,7 @@
                     {
                         <span class="subject-card-badge subject-card-badge--outlier">OUTLIER</span>
                     }
-                    @if (!subject.IsKnownIdentity)
+                    @if (!subject.IsKnownIdentity && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations)
                     {
                         <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
                     }
@@ -104,7 +113,22 @@
     private List<SubjectLiveStatusDto> subjects = [];
     private List<SubjectDriftStatusDto> _driftStatus = [];
     private bool loading;
+    private string subjectFilter = string.Empty;
     private CancellationTokenSource? _timerCts;
+
+    private IReadOnlyList<SubjectLiveStatusDto> FilteredSubjects =>
+        string.IsNullOrWhiteSpace(subjectFilter)
+            ? subjects
+            : subjects
+                .Where(s =>
+                    s.DisplayName.Contains(subjectFilter, StringComparison.OrdinalIgnoreCase) ||
+                    (s.LastActivity ?? string.Empty).Contains(subjectFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+    private void OnFilterInput(ChangeEventArgs e)
+    {
+        subjectFilter = e.Value?.ToString() ?? string.Empty;
+    }
 
     protected override async Task OnInitializedAsync()
     {

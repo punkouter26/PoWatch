@@ -86,5 +86,13 @@ public sealed class ArchivesServiceTests
             Task.FromResult<IReadOnlyList<ObservationEvent>>(_items);
 
         public Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken) => Task.FromResult(0);
+
+        public Task<IReadOnlyList<ObservationEvent>> GetBySubjectAndDateRangeAsync(
+            string subjectId,
+            DateOnly from,
+            DateOnly to,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(
+                _items.Where(e => string.Equals(e.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 }

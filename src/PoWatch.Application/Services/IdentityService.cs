@@ -112,6 +112,31 @@ public sealed class IdentityService(
         };
     }
 
+    /// <summary>Pre-registers a known subject without needing an observation.</summary>
+    public async Task<SubjectProfileDto> RegisterKnownSubjectAsync(RegisterSubjectRequestDto request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+            throw new InvalidOperationException("DisplayName is required.");
+
+        logger.LogInformation("RegisterKnownSubject requested. DisplayName={DisplayName}", request.DisplayName);
+
+        var profile = await subjectRepository.RegisterKnownAsync(request.DisplayName, cancellationToken);
+
+        logger.LogInformation(
+            "RegisterKnownSubject completed. SubjectId={SubjectId} DisplayName={DisplayName}",
+            profile.SubjectId,
+            profile.DisplayName);
+
+        return new SubjectProfileDto
+        {
+            SubjectId = profile.SubjectId,
+            DisplayName = profile.DisplayName,
+            IsKnownIdentity = profile.IsKnownIdentity,
+            FirstSeenUtc = profile.FirstSeenUtc,
+            LastSeenUtc = profile.LastSeenUtc
+        };
+    }
+
     /// <summary>
     /// Returns a live status snapshot for every known subject, including their last 10 events
     /// and count of unacknowledged significant events from today.

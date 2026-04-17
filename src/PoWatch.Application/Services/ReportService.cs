@@ -79,6 +79,19 @@ public sealed class ReportService(
         };
     }
 
+    /// <summary>
+    /// Filters events by shift window using local time.
+    /// 
+    /// Shift Window Boundaries (local time):
+    /// - Morning:   [06:00, 14:00) — includes 06:00, excludes 14:00
+    /// - Afternoon: [14:00, 22:00) — includes 14:00, excludes 22:00  
+    /// - Night:     [22:00, 06:00) — includes 22:00-23:59 and 00:00-05:59
+    /// - FullDay:   All events (no filtering)
+    /// 
+    /// Note: At exactly 06:00, events belong to Morning (not Night).
+    /// At exactly 14:00, events belong to Afternoon (not Morning).
+    /// At exactly 22:00, events belong to Night (not Afternoon).
+    /// </summary>
     private static IEnumerable<ObservationEvent> FilterByShift(
         IReadOnlyList<ObservationEvent> events,
         DateOnly date,
@@ -91,12 +104,21 @@ public sealed class ReportService(
 
         return events.Where(e =>
         {
+            // Calculate local hour from UTC timestamp
             var localHour = (int)((e.ObservedAtUtc + localOffset).TimeOfDay.TotalHours);
+            
+            // Use half-open intervals [start, end) for Morning/Afternoon
+            // and compound condition for Night [22,24) ∪ [0,6)
             return window switch
             {
-                ShiftWindow.Morning => localHour >= 6 && localHour < 14,
-                ShiftWindow.Afternoon => localHour >= 14 && localHour < 22,
+                // Half-open interval: includes start hour, excludes end hour
+                ShiftWindow.Morning => localHour >= 6 && localHour < 14,     // [06:00, 14:00)
+                ShiftWindow.Afternoon => localHour >= 14 && localHour < 22,  // [14:00, 22:00)
+                
+                // Night uses union of two ranges: [22:00-23:59] OR [00:00-05:59]
+                // Equivalent to: localHour >= 22 OR localHour < 6
                 ShiftWindow.Night => localHour >= 22 || localHour < 6,
+                
                 _ => true
             };
         });

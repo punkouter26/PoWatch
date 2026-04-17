@@ -3,16 +3,16 @@ erDiagram
         guid EventId PK
         string SubjectId FK
         string Activity
+        datetime ObservedAtUtc
         bool IsSignificant
         bool IsOutlier
-        datetime ObservedAtUtc
     }
 
     SubjectProfile {
         string SubjectId PK
         string DisplayName
-        string LastActivity
         datetime LastSeenUtc
+        string LastActivity
     }
 
     DailyChapter {
@@ -20,5 +20,12 @@ erDiagram
         string Narrative
     }
 
+    Highlight {
+        guid EventId FK
+        int Rank
+    }
+
     SubjectProfile ||--o{ ObservationEvent : "has"
     DailyChapter ||--o{ ObservationEvent : "timeline"
+    DailyChapter ||--o{ Highlight : "highlights"
+    Highlight }|--|| ObservationEvent : "references"

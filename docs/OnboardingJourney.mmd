@@ -1,41 +1,41 @@
 flowchart TD
     subgraph Access["Access and Authentication"]
         START(["New User Accesses PoWatch URL"])
-        AUTHFLAG{"DeveloperBypassAuth\nFeature Flag?"}
-        FAKEAUTH["FakeAuth Handler registered\nDev mode — reads X-Dev-User-Id header"]
-        HEADER{"X-Dev-User-Id\nheader present?"}
-        ANON["Anonymous session\nUserId=anonymous in Serilog context"]
-        AUTHCTX["Authenticated session\nUserId + Name enriched in structured logs"]
-        PRODAUTH["Production Auth Scheme\nnot yet implemented — effectively anonymous"]
+        AUTHFLAG{"DeveloperBypassAuth Feature Flag?"}
+        FAKEAUTH["FakeAuth Handler registered — Dev mode"]
+        HEADER{"X-Dev-User-Id header present?"}
+        ANON["Anonymous session — UserId=anonymous"]
+        AUTHCTX["Authenticated session — UserId enriched in logs"]
+        PRODAUTH["Production Auth — not yet implemented"]
     end
 
     subgraph FirstView["First View — ObserverHub"]
-        HUB_LOAD["ObserverHub.razor loads\nGET /api/observer/state"]
-        STATE_RESP["ObserverRuntimeStateDto received\nflags, pollingIntervalSeconds, status"]
-        LOOP_CHECK{"ObservationLoopEnabled\n= true?"}
-        FLAG_WARN["Warning banner displayed\nLoop disabled — contact administrator"]
-        HUB_READY["Hub active — polling started\nevery PollingIntervalSeconds (default: 10s)"]
+        HUB_LOAD["ObserverHub.razor loads — GET /api/observer/state"]
+        STATE_RESP["ObserverRuntimeStateDto received"]
+        LOOP_CHECK{"ObservationLoopEnabled = true?"}
+        FLAG_WARN["Warning banner — Loop disabled"]
+        HUB_READY["Hub active — polling started"]
     end
 
     subgraph FirstEvent["First Observation — System Comes Alive"]
-        SENSOR_POST["Camera/Sensor sends\nPOST /api/observer/ingest"]
-        SUBJ_CREATED["Subject-1 auto-created\nSubjectIdSlugger generates 'Subject-1'"]
-        OBS_STORED["ObservationEvent persisted\nPoWatchObservations partition: yyyyMMdd"]
-        CACHE_UPDATED["SubjectProfile.LastActivity cached\nfor redundancy suppression"]
-        POLL_DETECTS["Client polling detects new state\nObserverHub UI updates"]
+        SENSOR_POST["Camera/Sensor sends POST /api/observer/ingest"]
+        SUBJ_CREATED["Subject-1 auto-created by SubjectIdSlugger"]
+        OBS_STORED["ObservationEvent persisted to PoWatchObservations"]
+        CACHE_UPDATED["SubjectProfile.LastActivity cached"]
+        POLL_DETECTS["Client polling detects new state"]
     end
 
     subgraph Discovery["Discovery — Aha! Moment"]
-        ARCHIVES["User navigates to Archives\nGET /api/archives/{today}"]
-        CHAPTER["DailyChapterDto rendered\nNarrative + Timeline + Highlights"]
-        IDENTITY["User navigates to IdentityNexus\nGET /api/identity/subjects"]
-        RENAME["User renames Subject-1 to 'Patient A'\nPATCH /api/identity/subjects/subject-1"]
-        REWRITE["All observations rewritten\nIObservationRepository.MergeSubjectAsync()"]
-        AHA(["Aha! Named subject with clinical context\nTimeline is live and accurately attributed"])
+        ARCHIVES["User navigates to Archives"]
+        CHAPTER["DailyChapterDto rendered — Narrative + Timeline + Highlights"]
+        IDENTITY["User navigates to IdentityNexus"]
+        RENAME["User renames Subject-1 to 'Patient A'"]
+        REWRITE["All observations rewritten via MergeSubjectAsync()"]
+        AHA(["Aha! Named subject with clinical context"])
     end
 
     START --> AUTHFLAG
-    AUTHFLAG -->|"true — Dev mode"| FAKEAUTH
+    AUTHFLAG -->|"true — Dev"| FAKEAUTH
     AUTHFLAG -->|"false — Production"| PRODAUTH
     FAKEAUTH --> HEADER
     HEADER -->|"Missing"| ANON

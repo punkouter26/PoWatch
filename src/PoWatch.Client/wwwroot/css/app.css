@@ -1,13 +1,64 @@
 :root {
+    /* ── Color System ─────────────────────────────────────────────────────── */
     --bg-main: #05030a;
     --bg-panel: #0f0b1f;
     --bg-panel-soft: #15112c;
     --line: #6f3de3;
     --neon-green: #38ffa8;
+    --neon-green-dim: rgba(56, 255, 168, 0.15);
+    --neon-green-glow: rgba(56, 255, 168, 0.4);
+    --accent-purple: #6f3de3;
+    --accent-purple-dim: rgba(111, 61, 227, 0.2);
+    --accent-purple-glow: rgba(111, 61, 227, 0.5);
+    --alert-orange: #ff9f40;
+    --alert-red: #ff7070;
     --text-primary: #ecf1ff;
     --text-muted: #9ea2bc;
+    --text-bright: #ffffff;
+    
+    /* ── Typography Scale ──────────────────────────────────────────────────── */
     --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "Consolas", "Lucida Console", monospace;
+    
+    /* ── Fluid Typography ──────────────────────────────────────────────────── */
+    --text-xs: clamp(0.65rem, 0.6vw + 0.45rem, 0.72rem);
+    --text-sm: clamp(0.78rem, 0.7vw + 0.55rem, 0.85rem);
+    --text-base: clamp(0.88rem, 0.8vw + 0.6rem, 0.95rem);
+    --text-lg: clamp(1rem, 1vw + 0.7rem, 1.1rem);
+    --text-xl: clamp(1.15rem, 1.2vw + 0.8rem, 1.35rem);
+    --text-2xl: clamp(1.35rem, 1.5vw + 0.9rem, 1.55rem);
+    --text-3xl: clamp(1.55rem, 2vw + 1rem, 1.85rem);
+    
+    /* ── Spacing Scale ───────────────────────────────────────────────────── */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    
+    /* ── Border Radius ────────────────────────────────────────────────────── */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+    --radius-full: 9999px;
+    
+    /* ── Shadows ─────────────────────────────────────────────────────────── */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-glow-green: 0 0 20px rgba(56, 255, 168, 0.25);
+    --shadow-glow-purple: 0 0 20px rgba(111, 61, 227, 0.25);
+    
+    /* ── Transitions ──────────────────────────────────────────────────────── */
+    --transition-fast: 150ms ease;
+    --transition-base: 250ms ease;
+    --transition-slow: 400ms ease;
+    --transition-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 html,
@@ -1422,6 +1473,993 @@ h1, h2 {
 @media (max-width: 900px) {
     .profiles-layout {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODERN UI/UX ENHANCEMENTS (2025/2026)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── UI-2: Micro-Interactions & Motion Design ─────────────────────────────── */
+
+/* Staggered entrance animations for grid items */
+@keyframes fadeSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Apply entrance animations */
+.subject-card,
+.metric-card,
+.monitor-metric-card,
+.evidence-card {
+    animation: fadeSlideUp 0.4s ease-out backwards;
+}
+
+/* Stagger delays for grid items */
+.subject-card:nth-child(1) { animation-delay: 0ms; }
+.subject-card:nth-child(2) { animation-delay: 50ms; }
+.subject-card:nth-child(3) { animation-delay: 100ms; }
+.subject-card:nth-child(4) { animation-delay: 150ms; }
+.subject-card:nth-child(5) { animation-delay: 200ms; }
+.subject-card:nth-child(6) { animation-delay: 250ms; }
+.subject-card:nth-child(7) { animation-delay: 300ms; }
+.subject-card:nth-child(8) { animation-delay: 350ms; }
+
+/* Card hover lift effect */
+.subject-card:hover,
+.metric-card:hover,
+.monitor-metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
+}
+
+/* Smooth transitions for all interactive elements */
+button,
+.nav-link,
+.subject-card,
+.metric-card,
+.monitor-metric-card,
+.panel,
+input,
+select,
+textarea {
+    transition: all var(--transition-base);
+}
+
+/* Focus states with glow */
+*:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--neon-green-dim), 0 0 0 4px var(--neon-green-glow);
+}
+
+/* Button press effect */
+button:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+/* Loading shimmer effect */
+.skeleton-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.skeleton-line {
+    height: 1rem;
+    background: linear-gradient(
+        90deg,
+        rgba(111, 61, 227, 0.1) 0%,
+        rgba(111, 61, 227, 0.2) 50%,
+        rgba(111, 61, 227, 0.1) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-line--wide { width: 100%; }
+.skeleton-line--medium { width: 70%; }
+.skeleton-line--short { width: 40%; }
+
+/* ── UI-4: Enhanced Card & Panel Polish ──────────────────────────────────── */
+
+/* Gradient border effect for panels */
+.panel,
+.rz-card.panel {
+    position: relative;
+}
+
+.panel::before,
+.rz-card.panel::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+        135deg,
+        rgba(56, 255, 168, 0.3) 0%,
+        rgba(111, 61, 227, 0.3) 50%,
+        rgba(56, 255, 168, 0.1) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.5;
+    transition: opacity var(--transition-base);
+}
+
+.panel:hover::before,
+.rz-card.panel:hover::before {
+    opacity: 1;
+}
+
+/* Enhanced badge styling with glow */
+.panel-badge,
+.activity-badge,
+.subject-card-badge {
+    position: relative;
+    overflow: hidden;
+}
+
+.panel-badge::before,
+.activity-badge::before,
+.subject-card-badge::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 50%
+    );
+    pointer-events: none;
+}
+
+/* Pulse animation for live indicators */
+@keyframes subtlePulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.pulse {
+    animation: subtlePulse 2s ease-in-out infinite;
+}
+
+/* ── UX-6: Keyboard Shortcuts ────────────────────────────────────────────── */
+
+/* Keyboard shortcut hint styling */
+.kbd-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.35rem;
+    background: rgba(111, 61, 227, 0.15);
+    border: 1px solid rgba(111, 61, 227, 0.3);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-left: 0.5rem;
+}
+
+/* Command palette overlay */
+.command-palette-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 3, 10, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 15vh;
+    animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.command-palette {
+    width: 100%;
+    max-width: 560px;
+    background: var(--bg-panel);
+    border: 1px solid rgba(111, 61, 227, 0.4);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
+    overflow: hidden;
+    animation: scaleIn 0.2s ease-out;
+}
+
+.command-palette-input {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.2);
+    color: var(--text-primary);
+    font-size: var(--text-lg);
+    outline: none;
+}
+
+.command-palette-input::placeholder {
+    color: var(--text-muted);
+}
+
+.command-palette-results {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.command-palette-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.command-palette-item:hover,
+.command-palette-item--selected {
+    background: rgba(111, 61, 227, 0.15);
+}
+
+.command-palette-item-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--neon-green);
+}
+
+.command-palette-item-label {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.command-palette-item-shortcut {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* ── UX-7: Smart Filtering & Search ─────────────────────────────────────── */
+
+/* Search input with icon */
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-icon {
+    position: absolute;
+    left: 0.75rem;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+    background: rgba(15, 11, 31, 0.8);
+    border: 1px solid rgba(111, 61, 227, 0.3);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.search-input:focus {
+    border-color: var(--neon-green);
+    box-shadow: 0 0 0 3px var(--neon-green-dim);
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Filter chips */
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    background: rgba(111, 61, 227, 0.1);
+    border: 1px solid rgba(111, 61, 227, 0.25);
+    border-radius: var(--radius-full);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filter-chip:hover {
+    background: rgba(111, 61, 227, 0.2);
+    color: var(--text-primary);
+}
+
+.filter-chip--active {
+    background: var(--neon-green-dim);
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+}
+
+.filter-chip--active:hover {
+    background: rgba(56, 255, 168, 0.2);
+}
+
+/* ── UX-8: Bulk Actions ─────────────────────────────────────────────────── */
+
+/* Bulk action toolbar */
+.bulk-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(56, 255, 168, 0.08);
+    border: 1px solid rgba(56, 255, 168, 0.25);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    animation: fadeSlideUp 0.3s ease-out;
+}
+
+.bulk-action-bar-count {
+    font-size: var(--text-sm);
+    color: var(--neon-green);
+}
+
+.bulk-action-bar-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+/* Checkbox styling */
+.selection-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--neon-green);
+    cursor: pointer;
+}
+
+/* ── UX-9: Enhanced Real-Time Feedback ───────────────────────────────────── */
+
+/* Toast notification enhancements */
+.rz-notification-container {
+    font-family: var(--font-ui);
+}
+
+.rz-notification {
+    border-radius: var(--radius-md) !important;
+    backdrop-filter: blur(12px);
+}
+
+/* Connection status indicator */
+.connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+}
+
+.connection-status--connected {
+    background: var(--neon-green-dim);
+    color: var(--neon-green);
+}
+
+.connection-status--disconnected {
+    background: rgba(220, 60, 60, 0.15);
+    color: var(--alert-red);
+}
+
+.connection-status--reconnecting {
+    background: rgba(255, 159, 64, 0.15);
+    color: var(--alert-orange);
+}
+
+.connection-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.connection-status--connected .connection-status-dot {
+    background: var(--neon-green);
+    animation: livePulse 1.8s ease-in-out infinite;
+}
+
+.connection-status--disconnected .connection-status-dot {
+    background: var(--alert-red);
+}
+
+.connection-status--reconnecting .connection-status-dot {
+    background: var(--alert-orange);
+    animation: subtlePulse 1s ease-in-out infinite;
+}
+
+/* Relative time display */
+.relative-time {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+/* ── UX-10: User Preferences ─────────────────────────────────────────────── */
+
+/* Theme toggle */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    background: rgba(111, 61, 227, 0.1);
+    border: 1px solid rgba(111, 61, 227, 0.2);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.theme-toggle:hover {
+    background: rgba(111, 61, 227, 0.2);
+}
+
+/* Compact mode toggle */
+.compact-mode .subject-card {
+    padding: 0.75rem;
+}
+
+.compact-mode .metric-card {
+    padding: 0.4rem 0.5rem;
+}
+
+.compact-mode .monitor-metric-card {
+    padding: 0.35rem 0.5rem;
+}
+
+/* Preferences panel */
+.preferences-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    background: var(--bg-panel);
+    border-left: 1px solid rgba(111, 61, 227, 0.3);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform var(--transition-base);
+}
+
+.preferences-panel--open {
+    transform: translateX(0);
+}
+
+.preferences-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.2);
+}
+
+.preferences-content {
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+    height: calc(100% - 4rem);
+}
+
+.preference-group {
+    margin-bottom: 1.5rem;
+}
+
+.preference-group-label {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--neon-green);
+    margin-bottom: 0.75rem;
+}
+
+.preference-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+}
+
+.preference-item-label {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+/* ── Utility Classes ─────────────────────────────────────────────────────── */
+
+/* Text gradient effect */
+.text-gradient {
+    background: linear-gradient(135deg, var(--neon-green) 0%, var(--accent-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Subtle glow on text */
+.text-glow {
+    text-shadow: 0 0 10px currentColor;
+}
+
+/* Glass effect */
+.glass {
+    background: rgba(15, 11, 31, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Noise texture overlay */
+.noise-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(111, 61, 227, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(111, 61, 227, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UX IMPROVEMENTS IMPLEMENTATION (2026)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── UX-6: Actionable Empty States ──────────────────────────────────────── */
+
+.actionable-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    background: rgba(56, 255, 168, 0.05);
+    border: 1px dashed rgba(56, 255, 168, 0.25);
+    border-radius: 14px;
+    margin-top: 1rem;
+}
+
+.actionable-empty .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.8;
+}
+
+.actionable-empty .empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+}
+
+.actionable-empty .empty-subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0 0 1.25rem;
+    max-width: 320px;
+}
+
+.archive-empty-cta.primary-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    background: var(--neon-green-dim);
+    border: 1px solid var(--neon-green);
+    border-radius: var(--radius-md);
+    color: var(--neon-green);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.archive-empty-cta.primary-cta:hover {
+    background: rgba(56, 255, 168, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(56, 255, 168, 0.2);
+}
+
+/* ── UI-1: Command Center Layout ──────────────────────────────────────────── */
+
+.command-center {
+    flex: 1 1 480px;
+    align-self: stretch;
+    min-width: min(100%, 420px);
+    max-width: 760px;
+}
+
+.command-center-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 0.55rem;
+}
+
+/* ── UI-2: Floating Action Button (FAB) ───────────────────────────────────── */
+
+.fab-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.fab-main {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--neon-green) 0%, #20d990 100%);
+    border: none;
+    box-shadow: 0 4px 20px rgba(56, 255, 168, 0.4), 0 2px 8px rgba(0,0,0,0.3);
+    color: #05030a;
+    font-size: 1.5rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-spring);
+}
+
+.fab-main:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 28px rgba(56, 255, 168, 0.5), 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.fab-main:active {
+    transform: scale(0.95);
+}
+
+.fab-expanded {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    animation: fadeSlideUp 0.2s ease-out;
+}
+
+.fab-action {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-panel);
+    border: 1px solid rgba(111, 61, 227, 0.3);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.fab-action:hover {
+    background: rgba(111, 61, 227, 0.15);
+    border-color: var(--accent-purple);
+}
+
+.fab-action-icon {
+    font-size: 1rem;
+}
+
+/* ── UX-7: Global Monitoring Indicator ─────────────────────────────────── */
+
+.monitoring-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.monitoring-indicator--idle {
+    background: rgba(158, 162, 188, 0.12);
+    border: 1px solid rgba(158, 162, 188, 0.25);
+    color: var(--text-muted);
+}
+
+.monitoring-indicator--live {
+    background: var(--neon-green-dim);
+    border: 1px solid rgba(56, 255, 168, 0.4);
+    color: var(--neon-green);
+}
+
+.monitoring-indicator--paused {
+    background: rgba(255, 159, 64, 0.12);
+    border: 1px solid rgba(255, 159, 64, 0.4);
+    color: var(--alert-orange);
+}
+
+.monitoring-indicator--error {
+    background: rgba(220, 60, 60, 0.12);
+    border: 1px solid rgba(220, 60, 60, 0.4);
+    color: var(--alert-red);
+}
+
+.monitoring-indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.monitoring-indicator--live .monitoring-indicator-dot {
+    animation: livePulse 1.8s ease-in-out infinite;
+}
+
+/* ── UX-8: Quick Settings Slide-over ────────────────────────────────────── */
+
+.quick-settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 3, 10, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 900;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-base);
+}
+
+.quick-settings-overlay--open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.quick-settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 360px;
+    max-width: 90vw;
+    background: var(--bg-panel);
+    border-left: 1px solid rgba(111, 61, 227, 0.3);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+    z-index: 901;
+    transform: translateX(100%);
+    transition: transform var(--transition-base);
+    display: flex;
+    flex-direction: column;
+}
+
+.quick-settings-panel--open {
+    transform: translateX(0);
+}
+
+.quick-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.2);
+}
+
+.quick-settings-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.quick-settings-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+}
+
+.quick-settings-close:hover {
+    color: var(--text-primary);
+}
+
+.quick-settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+}
+
+.quick-settings-section {
+    margin-bottom: 1.5rem;
+}
+
+.quick-settings-section-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--neon-green);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+/* ── UX-9: Inline Edit Improvements ──────────────────────────────────────── */
+
+.name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.name-cell .subject-name {
+    flex: 1;
+}
+
+/* Always show edit button at low opacity; full opacity on row hover */
+.name-cell .rz-button {
+    opacity: 0.35;
+    transition: opacity 0.15s;
+}
+
+.name-cell:hover .rz-button,
+.name-cell .rz-button:focus {
+    opacity: 1;
+}
+
+.inline-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* ── Identity Nexus: Add Known Subject bar ───────────────────────────────── */
+.identity-register-bar {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+/* ── UX-10: Smart Date Navigation ────────────────────────────────────────── */
+
+.date-nav-presets {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
+}
+
+.date-preset-btn {
+    padding: 0.3rem 0.65rem;
+    background: rgba(111, 61, 227, 0.1);
+    border: 1px solid rgba(111, 61, 227, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.date-preset-btn:hover {
+    background: rgba(111, 61, 227, 0.2);
+    color: var(--text-primary);
+}
+
+.date-preset-btn--active {
+    background: var(--neon-green-dim);
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+}
+
+/* ── Responsive Adjustments ───────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+    .command-center {
+        width: 100%;
+        max-width: none;
+    }
+    
+    .command-center-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    
+    .fab-container {
+        bottom: 1rem;
+        right: 1rem;
+    }
+    
+    .quick-settings-panel {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .command-center-metrics {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .monitoring-indicator {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.7rem;
     }
 }
 

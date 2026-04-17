@@ -12,6 +12,26 @@ internal static class IdentityEndpoints
     {
         var group = app.MapGroup("/api/identity").WithTags("Identity");
 
+        group.MapPost("/subjects", async (
+            RegisterSubjectRequestDto request,
+            IdentityService service,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.DisplayName))
+                return Results.BadRequest(new { message = "DisplayName is required." });
+
+            logger.LogInformation(
+                "Register known subject API request received. DisplayName={DisplayName} TraceId={TraceId}",
+                request.DisplayName,
+                Activity.Current?.TraceId.ToString());
+
+            var created = await service.RegisterKnownSubjectAsync(request, cancellationToken);
+            return Results.Ok(created);
+        })
+        .WithName("IdentityRegisterSubject")
+        .WithSummary("Pre-register a known subject identity without requiring an observation.");
+
         group.MapGet("/subjects", async (
             IdentityService service,
             CancellationToken cancellationToken) =>

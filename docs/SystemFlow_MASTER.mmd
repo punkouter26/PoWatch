@@ -6,14 +6,14 @@ flowchart TD
 
     subgraph Middleware["Auth and Logging Middleware"]
         SERILOG["Serilog RequestLogging\nEnriches UserId + SessionId + TraceId"]
-        FAKEAUTH["FakeAuth Handler (Dev only)\nDeveloperBypassAuth=true\nReads X-Dev-User-Id header → ClaimsPrincipal"]
-        OTEL["OpenTelemetry ActivitySource\nPoWatch.Storage spans, ASP.NET request spans"]
+        FAKEAUTH["FakeAuth Handler (Dev only)\nDeveloperBypassAuth=true\nReads X-Dev-User-Id header"]
+        OTEL["OpenTelemetry ActivitySource\nPoWatch.Storage spans"]
     end
 
     subgraph ObserverPipeline["Observation Ingestion Pipeline"]
         INGEST_EP["POST /api/observer/ingest"]
         FLAG_CHK["FeatureFlagsOptions.ObservationLoopEnabled"]
-        GATE["InMemoryObservationProcessingGate\nSemaphore(1) — single concurrent inference slot"]
+        GATE["InMemoryObservationProcessingGate\nSemaphore(1) — single concurrent slot"]
         OBS_SVC["ObservationService.IngestAsync()"]
         SUBJ_RESOLVE["ISubjectRepository.GetOrCreateAsync(hint)\nSubjectIdSlugger generates Subject-N or named slug"]
         CLINICAL["ClinicalTagParser.TryExtract(payload)\nValidates format, rejects >500 chars, nested tags"]

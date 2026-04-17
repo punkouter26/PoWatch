@@ -1,19 +1,39 @@
 flowchart TD
-    subgraph Journey["Onboarding Journey (Simple)"]
-        START(["User accesses PoWatch URL"])
-        AUTH["Authentication\nFakeAuth (dev) or anonymous (prod)"]
-        HUB["ObserverHub\nView runtime state"]
-        SENSOR["First observation received\nSubject auto-created"]
-        ARCHIVES["Archives page\nTimeline visible"]
-        AHA(["Aha! Named subject\nwith clinical timeline"])
+    subgraph Access["Access"]
+        START(["New User"])
+        AUTH["Auth Check"]
+        ANON["Anonymous"]
+        AUTHCTX["Authenticated"]
     end
 
-    START --> AUTH --> HUB --> SENSOR --> ARCHIVES --> AHA
+    subgraph Hub["ObserverHub"]
+        LOAD["Hub loads"]
+        READY["Polling started"]
+    end
 
-    style Journey fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    subgraph Events["First Event"]
+        POST["Sensor POST"]
+        CREATED["Subject created"]
+        STORED["Event stored"]
+    end
+
+    subgraph Discovery["Discovery"]
+        ARCHIVES["View Archives"]
+        RENAME["Rename subject"]
+        AHA(["Aha moment!"])
+    end
+
+    START --> AUTH -->|"Dev"| AUTHCTX
+    AUTH -->|"Prod"| ANON
+    ANON & AUTHCTX --> LOAD --> READY
+    READY --> POST --> CREATED --> STORED --> ARCHIVES --> RENAME --> AHA
+
+    style Access fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Hub fill:#16213e,stroke:#f0a500,color:#fff
+    style Events fill:#0f3460,stroke:#52b788,color:#fff
+    style Discovery fill:#1b4332,stroke:#52b788,color:#fff
+
     style START fill:#2d6a4f,stroke:#52b788,color:#fff
     style AHA fill:#2d6a4f,stroke:#52b788,color:#fff
-    style AUTH fill:#1e3a5f,stroke:#4a90d9,color:#fff
-    style HUB fill:#1e3a5f,stroke:#4a90d9,color:#fff
-    style SENSOR fill:#1a3a2a,stroke:#52b788,color:#fff
-    style ARCHIVES fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ANON fill:#3d4b5c,stroke:#7f8c8d,color:#fff
+    style AUTHCTX fill:#1e3a5f,stroke:#4a90d9,color:#fff

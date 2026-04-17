@@ -56,6 +56,30 @@ public sealed class InMemoryObservationRepository(ILogger<InMemoryObservationRep
         return Task.FromResult<IReadOnlyList<ObservationEvent>>(items);
     }
 
+    public Task<IReadOnlyList<ObservationEvent>> GetBySubjectAndDateRangeAsync(
+        string subjectId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+    {
+        var items = _events.Values
+            .Where(x =>
+                string.Equals(x.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase) &&
+                DateOnly.FromDateTime(x.ObservedAtUtc.UtcDateTime) >= from &&
+                DateOnly.FromDateTime(x.ObservedAtUtc.UtcDateTime) <= to)
+            .OrderBy(x => x.ObservedAtUtc)
+            .ToList();
+
+        logger.LogDebug(
+            "In-memory filtered observation read completed. SubjectId={SubjectId} From={From} To={To} Count={Count}",
+            subjectId,
+            from,
+            to,
+            items.Count);
+
+        return Task.FromResult<IReadOnlyList<ObservationEvent>>(items);
+    }
+
     public Task<ObservationEvent?> GetLatestForSubjectAsync(string subjectId, CancellationToken cancellationToken)
     {
         var item = _events.Values

@@ -1,18 +1,49 @@
-flowchart LR
-    subgraph Matrix["Access Control (Simple)"]
+flowchart TD
+    subgraph Roles["Roles"]
         ANON["Anonymous"]
-        DEV["Dev-Authenticated"]
-        PUBLIC["Public Endpoints\n/observer/state\n/archives/{date}\n/diagnostics/status\n/health"]
-        AUTH_EP["Auth Endpoints\n/observer/ingest\n/blobs/sas\n/identity/*"]
+        DEV["Dev Authenticated"]
     end
 
-    ANON --> PUBLIC
-    DEV --> PUBLIC
-    DEV --> AUTH_EP
-    ANON -.->|"401 if enforced"| AUTH_EP
+    subgraph Public["Public Endpoints"]
+        OBS["GET /observer/state"]
+        ARCH["GET /archives/{date}"]
+        DIAG["GET /diagnostics/status"]
+        HEALTH["GET /health"]
+    end
 
-    style Matrix fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    subgraph Private["Private Endpoints"]
+        INGEST["POST /observer/ingest"]
+        ID["GET/PATCH /identity/*"]
+    end
+
+    subgraph Modules["Modules"]
+        OBS_MOD["Observer"]
+        ARCH_MOD["Archives"]
+        ID_MOD["Identity"]
+        DIAG_MOD["Diagnostics"]
+    end
+
+    ANON --> Public
+    DEV --> Public
+    DEV --> Private
+    ANON -.-> Private
+
+    OBS --- OBS_MOD
+    INGEST --- OBS_MOD
+    ARCH --- ARCH_MOD
+    ID --- ID_MOD
+    DIAG --- DIAG_MOD
+
+    style Roles fill:#2c3e50,stroke:#7f8c8d,color:#fff
+    style Public fill:#1b4332,stroke:#52b788,color:#fff
+    style Private fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Modules fill:#16213e,stroke:#f0a500,color:#fff
+
     style ANON fill:#3d4b5c,stroke:#7f8c8d,color:#fff
     style DEV fill:#1e3a5f,stroke:#4a90d9,color:#fff
-    style PUBLIC fill:#1a3a2a,stroke:#52b788,color:#fff
-    style AUTH_EP fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style OBS fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ARCH fill:#1a3a2a,stroke:#52b788,color:#fff
+    style DIAG fill:#1a3a2a,stroke:#52b788,color:#fff
+    style HEALTH fill:#1a3a2a,stroke:#52b788,color:#fff
+    style INGEST fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style ID fill:#1e3a5f,stroke:#4a90d9,color:#fff

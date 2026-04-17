@@ -53,14 +53,7 @@ public sealed class BaselineService(
         var baselineVector = DriftMath.BuildHourlyVector(subjectHistorical, localOffset);
         var todayVector = DriftMath.BuildHourlyVector(subjectToday, localOffset);
         var driftScore = DriftMath.ComputeDriftScore(baselineVector, todayVector);
-        var driftLabel = driftScore switch
-        {
-            < 10 => "Normal",
-            < 30 => "Slight variation",
-            < 60 => "Moderate drift",
-            < 80 => "High drift",
-            _ => "Extreme deviation"
-        };
+        var driftLabel = DriftMath.ClassifyDrift(driftScore);
 
         logger.LogInformation(
             "Baseline computed. SubjectId={SubjectId} HistoricalEvents={Historical} TodayEvents={Today} DriftScore={Drift:F1} DriftLabel={Label}",
@@ -83,5 +76,4 @@ public sealed class BaselineService(
             GeneratedAtUtc = DateTimeOffset.UtcNow
         };
     }
-
 }

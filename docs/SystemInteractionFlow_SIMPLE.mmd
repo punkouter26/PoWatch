@@ -1,19 +1,29 @@
 sequenceDiagram
-    actor Sensor
-    participant API as "PoWatch.Api"
-    participant Storage as "Azure Table Storage"
+    actor Sensor as "Sensor"
+    actor Clinician as "Clinician"
     participant Client as "Blazor WASM"
+    participant API as "PoWatch.Api"
+    participant Svc as "Services"
+    participant Repo as "Repositories"
+    participant Storage as "Azure Storage"
 
-    Sensor->>API: POST /api/observer/ingest
-    API->>Storage: Write ObservationEvent
-    API-->>Sensor: accepted=true
-
-    loop Poll every N seconds
-        Client->>API: GET /api/observer/state
-        API-->>Client: ObserverRuntimeStateDto
+    par Sensor posts observation
+        Sensor->>API: POST /ingest
+        API->>Svc: IngestAsync()
+        Svc->>Repo: GetOrCreateSubject()
+        Repo->>Storage: Query/Write
+        Svc->>Repo: AddAsync()
+        Repo->>Storage: UpsertEntity()
+        API-->>Sensor: Result
+    and Client polls state
+        loop Every N seconds
+            Client->>API: GET /observer/state
+            API-->>Client: RuntimeStateDto
+        end
     end
 
-    Client->>API: GET /api/archives/{date}
-    API->>Storage: Query by partition key
-    Storage-->>API: ObservationEvent[]
+    Clinician->>Client: Navigate to Archives
+    Client->>API: GET /archives/{date}
+    API->>Repo: GetByDateAsync()
+    Repo->>Storage: QueryEntities
     API-->>Client: DailyChapterDto

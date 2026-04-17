@@ -1,0 +1,56 @@
+@using PoWatch.Shared.Models
+
+@if (Items.Count == 0)
+{
+    <div class="activity-empty">@EmptyMessage</div>
+}
+else
+{
+    <ul class="activity-list">
+        @foreach (var item in Items)
+        {
+            <li class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
+                <div class="activity-item-header">
+                    <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                    @if (ShowSubjectBadge)
+                    {
+                        <span class="activity-subject">@item.SubjectDisplayName</span>
+                    }
+                    @if (item.IsClinicalOutlier)
+                    {
+                        <span class="activity-badge activity-badge--outlier">Outlier</span>
+                    }
+                    else if (item.IsSignificant)
+                    {
+                        <span class="activity-badge activity-badge--significant">Significant</span>
+                    }
+                    <span class="activity-activity">@item.Activity</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
+                {
+                    <div class="activity-note">@item.ClinicalDescription</div>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    /// <summary>
+    /// The observation events to display in the timeline.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ObservationEventDto> Items { get; set; } = [];
+
+    /// <summary>
+    /// When true, shows the subject name badge next to each event.
+    /// </summary>
+    [Parameter]
+    public bool ShowSubjectBadge { get; set; } = true;
+
+    /// <summary>
+    /// Message shown when the timeline is empty.
+    /// </summary>
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No records to display.";
+}

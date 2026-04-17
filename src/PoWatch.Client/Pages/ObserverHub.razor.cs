@@ -321,7 +321,7 @@ public partial class ObserverHub
         var inference = await JS.InvokeAsync<InferenceBridgeResult>(
             "powatchInference.captureAndInfer",
             cancellationToken,
-            "Observe the person or room. Reply strictly as: LABEL: <5 word activity summary> | NOTE: <one clinical sentence describing what you see>",
+            "Describe what you observe. Reply in this exact format:\nLABEL: <5 word activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
             liveCameraFeed,
             Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256));
 

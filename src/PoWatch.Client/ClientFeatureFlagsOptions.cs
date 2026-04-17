@@ -13,9 +13,6 @@ public sealed class ClientFeatureFlagsOptions : SharedFeatureFlagsOptions
 
     public int DiagnosticsAutoRefreshIntervalSeconds { get; init; } = 10;
 
-    /// <summary>When true, TTS announces subject state changes.</summary>
-    public bool EnableTts { get; init; } = false;
-
     /// <summary>Max tokens generated per live inference cycle (lower is faster, higher is more detailed).</summary>
     public int MaxInferenceTokens { get; init; } = 96;
 }

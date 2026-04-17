@@ -1,16 +1,30 @@
 stateDiagram-v2
-    [*] --> GateCheck : POST /api/observer/ingest
-    GateCheck --> Dropped : Gate locked or loop disabled
-    GateCheck --> Processing : Gate available
-    Processing --> Dropped : Redundant activity
-    Processing --> Accepted : New or outlier event
-    Accepted --> [*]
-    Dropped --> [*]
+    [*] --> Received : POST /api/observer/ingest
 
-    state "Subject Identity" as SI {
-        [*] --> Generated
-        Generated --> Named : rename
-        Named --> Merged : merge
-        Generated --> Merged : merge
-        Merged --> [*]
+    state "Observation Lifecycle" as ObsLC {
+        Received --> GateCheck
+        GateCheck --> Dropped : Backpressure or disabled
+        GateCheck --> Processing : Gate available
+        Processing --> Persisting : Valid payload
+        Processing --> Outlier : Malformed payload
+        Outlier --> Persisting : Continue with outlier flag
+        Persisting --> Accepted : Event stored
+        Accepted --> [*] : Response sent
+        Dropped --> [*] : accepted=false
+    }
+
+    state "Subject Lifecycle" as SubjLC {
+        [*] --> Generated : Auto-create
+        Generated --> Named : PATCH rename
+        Named --> Renamed : Re-rename
+        Generated --> Merged : POST merge
+        Named --> Merged : merge as secondary
+        Merged --> [*] : Profile deleted
+    }
+
+    state "Gate Lifecycle" as GateLC {
+        [*] --> Gate_Open
+        Gate_Open --> Gate_Locked : TryEnter()
+        Gate_Locked --> Gate_Open : Exit()
+        Gate_Locked --> Gate_Locked : Rejected
     }

@@ -1,21 +1,42 @@
-flowchart LR
-    subgraph Pipeline["CI/CD Pipeline (Simple)"]
+flowchart TD
+    subgraph Source["Source Control"]
         FEAT["Feature Branch"]
-        BUILD["Build + Unit Tests"]
-        INT["Integration Tests\nAzurite"]
-        E2E["E2E Tests\nPlaywright"]
-        DEV["Dev"]
-        STAGING["Staging"]
-        PROD["Production"]
+        DEV["dev Branch"]
+        MAIN["main Branch"]
     end
 
-    FEAT --> BUILD --> INT --> E2E --> DEV --> STAGING --> PROD
+    subgraph Build["Build"]
+        RESTORE["NuGet Restore"]
+        COMPILE["Compile"]
+    end
 
-    style Pipeline fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    subgraph Tests["Test Gates"]
+        UNIT["Unit Tests"]
+        INTEG["Integration Tests"]
+        E2E["E2E Tests (Playwright)"]
+    end
+
+    subgraph Environments["Environments"]
+        ENV_DEV["Dev"]
+        ENV_STAGE["Staging"]
+        ENV_PROD["Production"]
+    end
+
+    FEAT --> RESTORE --> COMPILE --> UNIT --> INTEG --> E2E --> DEV --> ENV_STAGE --> MAIN --> ENV_PROD
+
+    style Source fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Build fill:#16213e,stroke:#4a90d9,color:#fff
+    style Tests fill:#0f3460,stroke:#52b788,color:#fff
+    style Environments fill:#1b4332,stroke:#52b788,color:#fff
+
     style FEAT fill:#2d3561,stroke:#4a90d9,color:#fff
-    style BUILD fill:#1e3a5f,stroke:#4a90d9,color:#fff
-    style INT fill:#1a3a2a,stroke:#52b788,color:#fff
+    style DEV fill:#2d3561,stroke:#4a90d9,color:#fff
+    style MAIN fill:#2d3561,stroke:#4a90d9,color:#fff
+    style RESTORE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style COMPILE fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style UNIT fill:#1a3a2a,stroke:#52b788,color:#fff
+    style INTEG fill:#1a3a2a,stroke:#52b788,color:#fff
     style E2E fill:#3d2163,stroke:#9b72cf,color:#fff
-    style DEV fill:#1a3a2a,stroke:#52b788,color:#fff
-    style STAGING fill:#1a3a2a,stroke:#52b788,color:#fff
-    style PROD fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ENV_DEV fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ENV_STAGE fill:#1a3a2a,stroke:#52b788,color:#fff
+    style ENV_PROD fill:#1a3a2a,stroke:#52b788,color:#fff

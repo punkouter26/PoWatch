@@ -13,8 +13,15 @@
             <p>Name subjects and rewrite history.</p>
         </header>
 
+        <div class="identity-register-bar">
+            <RadzenTextBox @bind-Value="newSubjectName" Placeholder="New subject display name…" Style="flex:1;"
+                @onkeydown="@(async e => { if (e.Key == "Enter") await RegisterSubjectAsync(); })" />
+            <RadzenButton Icon="person_add" Text="Add Known Subject" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                Click="RegisterSubjectAsync" Disabled="@(busy || string.IsNullOrWhiteSpace(newSubjectName))" />
+        </div>
+
         <h2>Subject Library</h2>
-        <p class="identity-hint">Double-click a name or use the edit button to rename it inline.</p>
+        <p class="identity-hint">Click the edit button next to any subject name to rename it inline.</p>
 
         @if (loading)
         {
@@ -26,52 +33,53 @@
                 <div class="skeleton-line skeleton-line--medium"></div>
             </div>
         }
-        else
+        else if (subjects.Count == 0)
         {
-        @if (subjects.Count == 0)
-        {
-            <div class="archive-empty">
-                <p>No subjects identified yet.</p>
-                <a href="/" class="archive-empty-cta">→ Go to Observer Hub to start detecting subjects</a>
+            <div class="archive-empty actionable-empty">
+                <div class="empty-icon">👤</div>
+                <p class="empty-title">No subjects identified yet</p>
+                <p class="empty-subtitle">Start monitoring to detect and track subjects in your space.</p>
+                <a href="/" class="archive-empty-cta primary-cta">→ Go to Observer Hub to start detecting</a>
             </div>
         }
         else
         {
-        <RadzenDataGrid Data="subjects" TItem="SubjectProfileDto" AllowPaging="true" PageSize="8" AllowColumnResize="true" class="identity-grid-table">
-            <Columns>
-                <RadzenDataGridColumn TItem="SubjectProfileDto" Property="DisplayName" Title="Name">
-                    <Template Context="item">
-                        @if (editingSubjectId == item.SubjectId)
-                        {
-                            <div class="inline-edit-row">
-                                <RadzenTextBox @bind-Value="editingName" Style="flex:1;"
-                                    @onkeydown="@(async e => { if (e.Key == "Enter") await CommitInlineRenameAsync(); else if (e.Key == "Escape") CancelInlineEdit(); })" />
-                                <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
-                                    Click="CommitInlineRenameAsync" Disabled="@(string.IsNullOrWhiteSpace(editingName))" aria-label="Save" />
-                                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                    Click="CancelInlineEdit" aria-label="Cancel" />
-                            </div>
-                        }
-                        else
-                        {
-                            <span class="subject-name" @ondblclick="@(() => BeginInlineEdit(item))" title="Double-click to rename">@item.DisplayName</span>
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                Click="@(() => BeginInlineEdit(item))" aria-label="Rename subject" title="Rename subject" />
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Known" Width="80px">
-                    <Template Context="item">@(item.IsKnownIdentity ? "Yes" : "No")</Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="First Seen" Width="160px">
-                    <Template Context="item">@item.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Last Seen" Width="160px">
-                    <Template Context="item">@item.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
-                </RadzenDataGridColumn>
-            </Columns>
-        </RadzenDataGrid>
-        }
+            <RadzenDataGrid Data="subjects" TItem="SubjectProfileDto" AllowPaging="true" PageSize="8" AllowColumnResize="true" class="identity-grid-table">
+                <Columns>
+                    <RadzenDataGridColumn TItem="SubjectProfileDto" Property="DisplayName" Title="Name">
+                        <Template Context="item">
+                            @if (editingSubjectId == item.SubjectId)
+                            {
+                                <div class="inline-edit-row">
+                                    <RadzenTextBox @bind-Value="editingName" Style="flex:1;"
+                                        @onkeydown="@(async e => { if (e.Key == "Enter") await CommitInlineRenameAsync(); else if (e.Key == "Escape") CancelInlineEdit(); })" />
+                                    <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                        Click="CommitInlineRenameAsync" Disabled="@(string.IsNullOrWhiteSpace(editingName))" aria-label="Save" />
+                                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                        Click="CancelInlineEdit" aria-label="Cancel" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="name-cell">
+                                    <span class="subject-name">@item.DisplayName</span>
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                        Click="@(() => BeginInlineEdit(item))" aria-label="@($"Rename {item.DisplayName}")" title="Click to rename" />
+                                </div>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Known" Width="80px">
+                        <Template Context="item">@(item.IsKnownIdentity ? "Yes" : "No")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SubjectProfileDto" Title="First Seen" Width="160px">
+                        <Template Context="item">@item.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Last Seen" Width="160px">
+                        <Template Context="item">@item.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
         }
     </RadzenCard>
 
@@ -117,6 +125,7 @@
     private bool mergeExpanded;
     private string? editingSubjectId;
     private string editingName = string.Empty;
+    private string newSubjectName = string.Empty;
 
     // Merge undo toast state
     private bool mergeUndoVisible;
@@ -148,6 +157,27 @@
         if (subjects.Count > 1 && (string.IsNullOrWhiteSpace(secondarySubjectId) || secondarySubjectId == primarySubjectId || subjects.All(x => x.SubjectId != secondarySubjectId)))
         {
             secondarySubjectId = subjects.First(x => x.SubjectId != primarySubjectId).SubjectId;
+        }
+    }
+
+    private async Task RegisterSubjectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newSubjectName) || busy)
+            return;
+
+        busy = true;
+        try
+        {
+            var result = await ApiClient.RegisterSubjectAsync(new RegisterSubjectRequestDto { DisplayName = newSubjectName.Trim() });
+            if (result is not null)
+            {
+                newSubjectName = string.Empty;
+                await LoadSubjectsAsync();
+            }
+        }
+        finally
+        {
+            busy = false;
         }
     }
 
@@ -275,4 +305,3 @@
         return Task.CompletedTask;
     }
 }
-

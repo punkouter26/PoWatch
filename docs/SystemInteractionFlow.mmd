@@ -15,76 +15,70 @@ sequenceDiagram
     par Sensor posts observation
         Sensor->>+API: POST /api/observer/ingest {activity, clinicalPayload, subjectHint, isSignificant}
         API->>Gate: TryEnter()
-        alt Gate available (no concurrent inference)
+        alt Gate available
             Gate-->>API: true
             API->>+ObsSvc: IngestAsync(request, ct)
             ObsSvc->>+SubjRepo: GetOrCreateAsync(hint)
-            SubjRepo->>+TableStorage: QueryEntities (PoWatchSubjects, PartitionKey='Subjects')
+            SubjRepo->>+TableStorage: QueryEntities (PoWatchSubjects)
             TableStorage-->>-SubjRepo: SubjectProfile or null
             alt Subject not found
-                SubjRepo->>TableStorage: UpsertEntityAsync (Subject-N auto-generated)
+                SubjRepo->>TableStorage: UpsertEntityAsync (Subject-N)
             end
             SubjRepo-->>-ObsSvc: SubjectProfile
             ObsSvc->>ObsSvc: ClinicalTagParser.TryExtract(payload)
-            note right of ObsSvc: Validates format, max 500 chars, no nested tags
-            ObsSvc->>ObsSvc: Check redundancy vs SubjectProfile.LastActivity
+            ObsSvc->>ObsSvc: Check redundancy vs LastActivity
             alt activity != LastActivity OR isOutlier
                 ObsSvc->>+ObsRepo: AddAsync(observationEvent)
                 ObsRepo->>+TableStorage: UpsertEntityAsync (PoWatchObservations)
-                note right of TableStorage: PartitionKey=yyyyMMdd, RowKey=SubjectId_InvTicks_EventId
                 TableStorage-->>-ObsRepo: EntityAdded
                 ObsRepo-->>-ObsSvc: void
-                alt isSignificant=true AND SaveSignificantImages=true
+                alt isSignificant AND SaveSignificantImages
                     ObsSvc->>+BlobSvc: CreateUploadAccessAsync(subjectId, date)
-                    BlobSvc->>TableStorage: EnsureCorsAsync (dev: lazy CORS config for Azurite)
                     BlobSvc-->>-ObsSvc: BlobAccessDescriptorDto {sasUrl, blobPath, expiresAt}
                 end
                 ObsSvc->>+SubjRepo: UpdateLastActivityAsync(subjectId, activity, isOutlier)
-                SubjRepo->>+TableStorage: UpsertEntityAsync (PoWatchSubjects — update LastActivity cache)
+                SubjRepo->>+TableStorage: UpsertEntityAsync (PoWatchSubjects)
                 TableStorage-->>-SubjRepo: EntityUpdated
                 SubjRepo-->>-ObsSvc: void
-            else redundant activity — skip persistence
-                note right of ObsSvc: Event silently dropped — no write to storage
+            else redundant — skip persistence
+                note right of ObsSvc: Event silently dropped
             end
-            ObsSvc-->>-API: IngestObservationResultDto {accepted, isOutlier, eventId, detail}
+            ObsSvc-->>-API: IngestObservationResultDto {accepted, isOutlier, eventId}
             API->>Gate: Exit()
             API-->>-Sensor: 200 OK IngestObservationResultDto
-        else Gate locked — inference already running
+        else Gate locked
             Gate-->>API: false
             API-->>-Sensor: 200 OK {accepted:false, reason:"backpressure"}
         end
 
     and Client polls observer state
-        loop Every PollingIntervalSeconds (default 10s)
+        loop Every PollingIntervalSeconds
             WASM->>+API: GET /api/observer/state
             API-->>-WASM: ObserverRuntimeStateDto {flags, pollingIntervalSeconds, status}
-            WASM->>WASM: ObserverHub.razor re-renders state card
+            WASM->>WASM: ObserverHub.razor re-renders
         end
     end
 
-    Clinician->>WASM: Navigate to Archives page
+    Clinician->>WASM: Navigate to Archives
     WASM->>+API: GET /api/archives/{today}
     API->>+ObsRepo: GetByDateAsync(today)
     ObsRepo->>+TableStorage: QueryEntities (PoWatchObservations, PartitionKey=yyyyMMdd)
     TableStorage-->>-ObsRepo: ObservationEvent[]
     ObsRepo-->>-API: ObservationEvent[]
-    API->>API: ArchivesService: sort timeline ASC, filter highlights top-30 DESC
-    API->>API: ArchivesService: generate narrative string
+    API->>API: ArchivesService: sort + filter + narrative
     API-->>-WASM: DailyChapterDto {narrative, timeline[], highlights[]}
-    WASM->>WASM: Archives.razor renders chapter view
+    WASM->>WASM: Archives.razor renders
 
-    Clinician->>WASM: Navigate to IdentityNexus — rename Subject-1 to "Patient A"
+    Clinician->>WASM: Rename Subject-1 to "Patient A"
     WASM->>+API: PATCH /api/identity/subjects/subject-1 {newName:"Patient A"}
     API->>+SubjRepo: RenameAsync("subject-1", "Patient A")
-    SubjRepo->>SubjRepo: SubjectIdSlugger.ResolveCanonicalSubjectId("patient-a")
     SubjRepo->>TableStorage: UpsertEntity "patient-a" in PoWatchSubjects
-    SubjRepo->>TableStorage: DeleteEntity "subject-1" from PoWatchSubjects
+    SubjRepo->>TableStorage: DeleteEntity "subject-1"
     SubjRepo-->>-API: SubjectProfile {subjectId:"patient-a"}
     API->>+ObsRepo: MergeSubjectAsync("subject-1", newProfile)
-    ObsRepo->>TableStorage: Query all rows where SubjectId="subject-1"
-    loop For each observation row
-        ObsRepo->>TableStorage: UpsertEntityAsync with new SubjectId="patient-a" and rebuilt RowKey
+    loop For each observation
+        ObsRepo->>TableStorage: UpsertEntityAsync with new SubjectId + rebuilt RowKey
         ObsRepo->>TableStorage: DeleteEntityAsync old row
     end
     ObsRepo-->>-API: eventsRewritten count
-    API-->>-WASM: IdentityRevisionResultDto {canonicalId:"patient-a", eventsRewritten:N, subjectsRemoved:1}
+    API-->>-WASM: IdentityRevisionResultDto {canonicalId:"patient-a", eventsRewritten:N}

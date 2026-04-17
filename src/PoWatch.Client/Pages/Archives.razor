@@ -32,7 +32,7 @@
 
             <button class="archive-toolbar-handoff-toggle" @onclick="@(() => _handoffExpanded = !_handoffExpanded)"
                     aria-expanded="@_handoffExpanded" aria-label="@(_handoffExpanded ? "Collapse handoff controls" : "Expand handoff controls")">
-                Handoff @(_handoffExpanded ? "▴" : "▾")
+                <span class="handoff-toggle-icon">📋</span> Generate Handoff @(_handoffExpanded ? "▴" : "▾")
             </button>
             @if (_handoffExpanded)
             {

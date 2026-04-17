@@ -39,7 +39,7 @@
                 <div><label>CPU Load</label><span>@snapshot.CpuLoadPercent.ToString("0")%</span></div>
                 <div><label>Memory</label><span>@snapshot.MemoryMb.ToString("0.0") MB</span></div>
                 <div><label>Storage</label><span>@snapshot.StorageConnectionStatus</span></div>
-                <div><label>Masked Endpoint</label><span>@snapshot.MaskedEndpoint</span></div>
+                <div><label>Masked Endpoint</label><span title="@snapshot.MaskedEndpoint" class="masked-value">@snapshot.MaskedEndpoint</span></div>
                 <div><label>Masked Key</label><span>@snapshot.MaskedApiKey</span></div>
             </div>
         }

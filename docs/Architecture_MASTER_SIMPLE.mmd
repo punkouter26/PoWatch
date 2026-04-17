@@ -1,11 +1,36 @@
 C4Context
-    title "PoWatch — System Context (Simple)"
+    title "PoWatch — Architecture Overview (Simplified)"
 
-    Person(user, "Clinician / Sensor", "Monitors patients and submits observations")
-    System(powatch, "PoWatch System", ".NET 10 Minimal API + Blazor WASM. Ingest, archive, identity, diagnostics.")
-    SystemDb(storage, "Azure Storage", "Table Storage for observations/subjects. Blob Storage for images.")
-    System_Ext(telemetry, "Application Insights", "Telemetry, structured logs, distributed tracing")
+    Enterprise_Boundary(system, "PoWatch System") {
+        Person(clinician, "Clinician", "Views observations via browser dashboard")
+        Person(sensor, "Sensor", "Posts clinical activity events via REST")
 
-    Rel(user, powatch, "Uses", "HTTPS")
-    Rel(powatch, storage, "Persists data", "Azure SDK")
-    Rel(powatch, telemetry, "Sends telemetry", "OpenTelemetry")
+        System_Boundary(edge, "Edge") {
+            System(client, "PoWatch.Client", "Blazor WASM SPA")
+        }
+
+        System_Boundary(compute, "Compute") {
+            System(api, "PoWatch.Api", ".NET 10 Minimal API")
+            System(app, "PoWatch.Application", "Business Logic")
+            System(domain, "PoWatch.Domain", "Core domain models")
+            System(infra, "PoWatch.Infrastructure", "Data Access")
+            System(shared, "PoWatch.Shared", "DTO contracts")
+        }
+
+        System_Boundary(data, "Data") {
+            SystemDb(tables, "Azure Table Storage", "Observations + Subjects")
+            SystemDb(blobs, "Azure Blob Storage", "Significant images")
+        }
+    }
+
+    System_Ext(appinsights, "Application Insights", "Telemetry")
+    System_Ext(azurite, "Azurite (Dev)", "Storage emulator")
+
+    Rel(clinician, client, "Uses")
+    Rel(sensor, api, "POST events")
+    Rel(client, api, "REST calls")
+    Rel(api, app, "Business logic")
+    Rel(app, infra, "Data access")
+    Rel(infra, tables, "Read/Write")
+    Rel(infra, blobs, "SAS URLs")
+    Rel(api, appinsights, "Telemetry")

@@ -65,7 +65,7 @@ public sealed class ObservationServiceTests
     }
 
     [Fact]
-    public async Task IngestAsync_DoesNotPersistDuplicateActivity_ForSameSubject()
+    public async Task IngestAsync_PersistsRedundantActivity_ButMarksAsRedundant()
     {
         var service = BuildService(new OpenGate(), out var observations, out _);
 
@@ -84,8 +84,9 @@ public sealed class ObservationServiceTests
         }, CancellationToken.None);
 
         Assert.True(second.Accepted);
-        Assert.Equal("No state change detected; redundant observation skipped.", second.Detail);
-        Assert.Single(observations.Items);
+        Assert.True(second.SkippedAsRedundant);
+        // Fix #7: ALL observations are persisted, even redundant ones
+        Assert.Equal(2, observations.Items.Count);
     }
 
     [Fact]
@@ -180,6 +181,14 @@ public sealed class ObservationServiceTests
 
         public Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken) =>
             Task.FromResult(0);
+
+        public Task<IReadOnlyList<ObservationEvent>> GetBySubjectAndDateRangeAsync(
+            string subjectId,
+            DateOnly from,
+            DateOnly to,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(
+                Items.Where(e => string.Equals(e.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 
     private sealed class FakeSubjectRepository : ISubjectRepository
@@ -247,6 +256,9 @@ public sealed class ObservationServiceTests
 
             return Task.CompletedTask;
         }
+
+        public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
+            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
     }
 }
 

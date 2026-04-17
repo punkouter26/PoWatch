@@ -215,6 +215,42 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         throw new InvalidOperationException("Unable to allocate a unique subject identifier after multiple retries.");
     }
 
+    public async Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken)
+    {
+        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
+
+        var trimmed = displayName.Trim();
+        var subjectId = SubjectIdSlugger.ResolveCanonicalSubjectId(string.Empty, trimmed);
+        var now = DateTimeOffset.UtcNow;
+
+        // If a subject with this canonical ID already exists, return it unchanged.
+        var existing = await GetByIdAsync(subjectId, cancellationToken);
+        if (existing is not null)
+        {
+            _logger.LogInformation(
+                "RegisterKnownAsync: subject already exists. SubjectId={SubjectId}",
+                subjectId);
+            return existing;
+        }
+
+        var profile = new SubjectProfile
+        {
+            SubjectId = subjectId,
+            DisplayName = trimmed,
+            IsKnownIdentity = true,
+            FirstSeenUtc = now,
+            LastSeenUtc = now
+        };
+
+        await UpsertAsync(profile, cancellationToken);
+        _logger.LogInformation(
+            "RegisterKnownAsync: new known subject created. SubjectId={SubjectId} DisplayName={DisplayName}",
+            subjectId,
+            trimmed);
+
+        return profile;
+    }
+
     private async Task TryDeleteAsync(string subjectId, CancellationToken cancellationToken)
     {
         try

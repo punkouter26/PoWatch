@@ -28,3 +28,8 @@ public sealed class IdentityRevisionResultDto
     public int EventsRewritten { get; init; }
     public int SubjectsRemoved { get; init; }
 }
+
+public sealed class RegisterSubjectRequestDto
+{
+    public string DisplayName { get; init; } = string.Empty;
+}

@@ -139,6 +139,14 @@ public sealed class IdentityServiceTests
 
         public Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<ObservationEvent>>(Items);
+
+        public Task<IReadOnlyList<ObservationEvent>> GetBySubjectAndDateRangeAsync(
+            string subjectId,
+            DateOnly from,
+            DateOnly to,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ObservationEvent>>(
+                Items.Where(e => string.Equals(e.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 
     private sealed class FakeSubjectRepository : ISubjectRepository
@@ -195,5 +203,8 @@ public sealed class IdentityServiceTests
 
         public Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
+            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
     }
 }

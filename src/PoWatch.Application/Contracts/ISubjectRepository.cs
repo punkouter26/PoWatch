@@ -14,6 +14,9 @@ public interface ISubjectRepository
 
     Task<SubjectProfile> MergeAsync(string primarySubjectId, string secondarySubjectId, string? explicitName, CancellationToken cancellationToken);
 
+    /// <summary>Pre-registers a known subject with a given display name without requiring an observation.</summary>
+    Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken);
+
     /// <summary>Updates the cached last-observed activity on the subject row (O(1) subject-keyed write).</summary>
     Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken);
 }

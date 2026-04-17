@@ -1,33 +1,33 @@
 flowchart TD
     subgraph Roles["User Roles — Current State"]
-        ANON["Anonymous\nNo identity headers\nor production mode"]
+        ANON["Anonymous\nNo identity headers or production mode"]
         DEV_AUTH["Dev-Authenticated\nX-Dev-User-Id + X-Dev-User-Name headers\nDeveloperBypassAuth=true only"]
-        NOTE_PROD["SECURITY NOTE: Production currently has\nno enforced authentication scheme.\nAll endpoints accessible without credentials.\nFakeAuth is dev-only via feature flag."]
+        NOTE_PROD["SECURITY NOTE: Production currently has\nno enforced authentication scheme.\nAll endpoints accessible without credentials."]
     end
 
     subgraph PublicGroup["Public Endpoints — No Auth Required"]
-        OBS_STATE["GET /api/observer/state\nObserverRuntimeStateDto\nFeature flags + poll interval + status"]
-        ARCH["GET /api/archives/{date}\nDailyChapterDto\nTimeline, highlights, narrative"]
-        DIAG["GET /api/diagnostics/status\nDiagnosticsSnapshotDto\nMasked credentials — safe for display"]
-        HEALTH["GET /health\nJSON health check\nAzure Storage ping or in-memory"]
+        OBS_STATE["GET /api/observer/state\nObserverRuntimeStateDto"]
+        ARCH["GET /api/archives/{date}\nDailyChapterDto"]
+        DIAG["GET /api/diagnostics/status\nDiagnosticsSnapshotDto"]
+        HEALTH["GET /health\nJSON health check"]
         SCALAR["GET /scalar/v1\nScalar interactive API documentation"]
         OPENAPI["GET /openapi/v1.json\nOpenAPI 3.x specification"]
     end
 
-    subgraph AuthGroup["Auth-Required Endpoints (Dev: FakeAuth / Prod: to be implemented)"]
-        INGEST["POST /api/observer/ingest\nAccepts IngestObservationRequestDto\nCore ingestion pipeline"]
-        BLOB_SAS["GET /api/blobs/sas\nQuery: subjectId+date OR blobPath\nReturns BlobAccessDescriptorDto (30-min SAS)"]
-        SUBJ_GET["GET /api/identity/subjects\nReturns SubjectProfileDto[] sorted by DisplayName"]
-        SUBJ_RENAME["PATCH /api/identity/subjects/{subjectId}\nRenameSubjectRequestDto\nRewrites all observations for subject"]
-        SUBJ_MERGE["POST /api/identity/merge\nMergeIdentityRequestDto (primary, secondary, optional name)\nDeletes merged profiles, rewrites all observations"]
+    subgraph AuthGroup["Auth-Required Endpoints"]
+        INGEST["POST /api/observer/ingest\nIngestObservationRequestDto"]
+        BLOB_SAS["GET /api/blobs/sas\nBlobAccessDescriptorDto (30-min SAS)"]
+        SUBJ_GET["GET /api/identity/subjects\nSubjectProfileDto[]"]
+        SUBJ_RENAME["PATCH /api/identity/subjects/{subjectId}\nRenameSubjectRequestDto"]
+        SUBJ_MERGE["POST /api/identity/merge\nMergeIdentityRequestDto"]
     end
 
     subgraph Modules["Controller Modules"]
-        OBS_MOD["ObserverEndpoints\n/api/observer/*"]
-        ARCH_MOD["ArchivesEndpoints\n/api/archives/*"]
-        BLOB_MOD["BlobEndpoints\n/api/blobs/*"]
-        ID_MOD["IdentityEndpoints\n/api/identity/*"]
-        DIAG_MOD["DiagnosticsEndpoints\n/api/diagnostics/*"]
+        OBS_MOD["ObserverEndpoints /api/observer/*"]
+        ARCH_MOD["ArchivesEndpoints /api/archives/*"]
+        BLOB_MOD["BlobEndpoints /api/blobs/*"]
+        ID_MOD["IdentityEndpoints /api/identity/*"]
+        DIAG_MOD["DiagnosticsEndpoints /api/diagnostics/*"]
     end
 
     ANON -->|"Full access"| PublicGroup

@@ -29,6 +29,9 @@ artifacts/
 logs/
 *.log
 
+# Build cache
+*.lscache
+
 # Test results
 TestResults/
 test-results/

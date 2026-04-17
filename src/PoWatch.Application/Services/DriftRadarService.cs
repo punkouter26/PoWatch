@@ -9,8 +9,7 @@ namespace PoWatch.Application.Services;
 
 /// <summary>
 /// Computes per-subject drift status for all known subjects using bulk event loads.
-/// Reuses the cosine-similarity drift math from <see cref="BaselineService"/> but
-/// processes all subjects in a single pass to avoid N+1 repository queries.
+/// Uses repository-level filtering to minimize memory footprint.
 /// </summary>
 public sealed class DriftRadarService(
     ISubjectRepository subjectRepository,
@@ -31,18 +30,20 @@ public sealed class DriftRadarService(
         var historyFrom = today.AddDays(-options.Value.BaselineDays);
         var historyTo = today.AddDays(-1);
 
-        // Single bulk load — avoids N repository calls for N subjects
-        var historicalEvents = await observationRepository.GetByDateRangeAsync(historyFrom, historyTo, cancellationToken);
-        var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
-
         var localOffset = TimeZoneInfo.Local.GetUtcOffset(today.ToDateTime(TimeOnly.MinValue));
         var result = new List<SubjectDriftStatusDto>(profiles.Count);
 
+        // Get today's events once (needed for all subjects)
+        var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
+
         foreach (var profile in profiles)
         {
-            var subjectHistorical = historicalEvents
-                .Where(e => string.Equals(e.SubjectId, profile.SubjectId, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            // Use optimized repository method to filter historical events per-subject
+            var historicalEvents = await observationRepository.GetBySubjectAndDateRangeAsync(
+                profile.SubjectId,
+                historyFrom,
+                historyTo,
+                cancellationToken);
 
             var subjectToday = todayEvents
                 .Where(e => string.Equals(e.SubjectId, profile.SubjectId, StringComparison.OrdinalIgnoreCase))
@@ -65,15 +66,18 @@ public sealed class DriftRadarService(
                 continue;
             }
 
-            var baselineVector = DriftMath.BuildHourlyVector(subjectHistorical, localOffset);
+            var baselineVector = DriftMath.BuildHourlyVector(historicalEvents, localOffset);
             var todayVector = DriftMath.BuildHourlyVector(subjectToday, localOffset);
             var driftScore = DriftMath.ComputeDriftScore(baselineVector, todayVector);
-            var driftLabel = ClassifyDrift(driftScore);
-            var insights = BuildInsights(baselineVector, todayVector, driftScore, subjectToday, subjectHistorical);
+            var driftLabel = DriftMath.ClassifyDrift(driftScore, 
+                options.Value.HighDriftThreshold, 
+                options.Value.ModerateDriftThreshold, 
+                options.Value.SlightDriftThreshold);
+            var insights = BuildInsights(baselineVector, todayVector, driftScore, subjectToday, historicalEvents);
 
             logger.LogDebug(
                 "Drift Radar: SubjectId={SubjectId} DriftScore={DriftScore:F1} Label={Label} TodayEvents={Today} HistoricalEvents={Historical}",
-                profile.SubjectId, driftScore, driftLabel, subjectToday.Count, subjectHistorical.Count);
+                profile.SubjectId, driftScore, driftLabel, subjectToday.Count, historicalEvents.Count);
 
             result.Add(new SubjectDriftStatusDto
             {
@@ -91,15 +95,6 @@ public sealed class DriftRadarService(
 
         return result.OrderByDescending(s => s.DriftScore).ToList();
     }
-
-    private string ClassifyDrift(double score) => score switch
-    {
-        >= 80 => "Extreme Deviation",
-        var s when s >= options.Value.HighDriftThreshold => "High Drift",
-        var s when s >= options.Value.ModerateDriftThreshold => "Moderate Drift",
-        var s when s >= options.Value.SlightDriftThreshold => "Slight Variation",
-        _ => "Normal"
-    };
 
     private IReadOnlyList<DriftInsightDto> BuildInsights(
         double[] baseline,
@@ -190,5 +185,4 @@ public sealed class DriftRadarService(
 
         return insights.Take(options.Value.MaxInsights).ToList();
     }
-
 }

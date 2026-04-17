@@ -5,14 +5,14 @@ flowchart LR
 
     subgraph Ingest["POST /api/observer/ingest — Ingest Pipeline"]
         REQ["IngestObservationRequestDto\nactivity, clinicalPayload, subjectHint\nisSignificant, outlierReason"]
-        GATE_CHECK["ProcessingGate.TryEnter()\nSemaphore backpressure — 1 concurrent inference"]
+        GATE_CHECK["ProcessingGate.TryEnter()\nSemaphore backpressure — 1 concurrent"]
         SUBJ["ISubjectRepository.GetOrCreateAsync(hint)\nResolves or auto-creates Subject-N"]
         CLIN["ClinicalTagParser.TryExtract(payload)\nValidates <S>text<E> format, max 500 chars"]
         REDUND["Redundancy Check\nCompare activity vs SubjectProfile.LastActivity"]
-        TS["Server Timestamp Applied\nClient ObservedAtUtc overwritten by server clock"]
+        TS["Server Timestamp Applied\nClient ObservedAtUtc overwritten"]
         PERSIST["IObservationRepository.AddAsync(event)\nPartition: yyyyMMdd, Row: SubjectId_InvTicks_EventId"]
-        BLOB["IBlobSasProvider.CreateUploadAccessAsync()\nif IsSignificant=true AND SaveSignificantImages=true"]
-        CACHE["ISubjectRepository.UpdateLastActivityAsync()\nO(1) cache write on SubjectProfile"]
+        BLOB["IBlobSasProvider.CreateUploadAccessAsync()\nif IsSignificant AND SaveSignificantImages"]
+        CACHE["ISubjectRepository.UpdateLastActivityAsync()\nO(1) cache write"]
         RESP["IngestObservationResultDto\naccepted=true, eventId, outlierStatus"]
     end
 
@@ -23,17 +23,17 @@ flowchart LR
     end
 
     subgraph Polling["Client Polling Loop"]
-        POLL["ObserverHub polling\nGET /api/observer/state every PollingIntervalSeconds"]
+        POLL["ObserverHub polling\nGET /api/observer/state every N seconds"]
         STATE_UPDATE["ObserverRuntimeStateDto\nUI reflects current system state"]
     end
 
     subgraph Archives["Archives Retrieval"]
-        ARCH_REQ["GET /api/archives/{today}\nDateOnly.TryParse(date)"]
-        DATE_QUERY["IObservationRepository.GetByDateAsync(today)\nQuery by partition key"]
+        ARCH_REQ["GET /api/archives/{today}"]
+        DATE_QUERY["IObservationRepository.GetByDateAsync(today)"]
         SORT["Timeline ordered by ObservedAtUtc ASC"]
         HIGHLIGHTS["IsSignificant=true filtered\nTop 30 reverse-chrono highlights"]
-        NARRATIVE["Narrative: 'Room recorded N events.\nPrimary: {name}. Dominant: {activity}. Outliers: N.'"]
-        CHAPTER["DailyChapterDto rendered\nTimeline + Highlights + Narrative"]
+        NARRATIVE["Narrative: 'Room recorded N events.\nPrimary: {name}. Dominant: {activity}."]
+        CHAPTER["DailyChapterDto rendered"]
     end
 
     CAM -->|"HTTP POST"| REQ
@@ -54,7 +54,7 @@ flowchart LR
     OBS_TABLE --> DATE_QUERY
 
     POLL --> STATE_UPDATE
-    STATE_UPDATE -->|"User navigates to Archives"| ARCH_REQ
+    STATE_UPDATE -->|"Navigate to Archives"| ARCH_REQ
     ARCH_REQ --> DATE_QUERY
     DATE_QUERY --> SORT
     SORT --> HIGHLIGHTS

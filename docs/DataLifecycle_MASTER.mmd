@@ -19,7 +19,7 @@ flowchart TD
     subgraph Persistence["Persistence — Azure Table Storage"]
         OBS_WRITE["AzureObservationRepository.AddAsync()\nTableClient.UpsertEntityAsync()\nPartition: yyyyMMdd Row: SubjectId_InvTicks_EventId"]
         SUBJ_WRITE["AzureSubjectRepository.UpdateLastActivityAsync()\nUpserts LastActivity + LastSeenUtc + IsOutlier flag"]
-        BLOB_UPLOAD["Azure Blob Storage write\nExternal client uploads via SAS URL\n(camera/sensor writes directly to blob)"]
+        BLOB_UPLOAD["Azure Blob Storage write\nExternal client uploads via SAS URL"]
         OTEL_TRACE["OpenTelemetry ActivitySource 'PoWatch.Storage'\nSpan created per repository operation"]
     end
 
@@ -27,16 +27,16 @@ flowchart TD
         DATE_QUERY["AzureObservationRepository.GetByDateAsync(date)\nQuery by partition key — O(partition size)"]
         SORT_TIMELINE["Sort by ObservedAtUtc ASC → Timeline"]
         HIGHLIGHT_FILTER["Filter IsSignificant=true\nTake top 30 DESC → Highlights"]
-        SUBJECT_STATS["Count by SubjectId → primary subject\nCount by Activity → dominant activity\nCount IsOutlier=true → outlier count"]
-        NARRATIVE_BUILD["Narrative string assembled\n'The room recorded {N} events. Primary: {name}.\nDominant: {activity}. Clinical outliers flagged: {N}.'"]
+        SUBJECT_STATS["Count by SubjectId → primary subject\nCount by Activity → dominant activity"]
+        NARRATIVE_BUILD["Narrative string assembled"]
         CHAPTER["DailyChapterDto assembled\n{ date, narrative, timeline[], highlights[] }"]
     end
 
     subgraph Egress["Egress — UI Rendering"]
-        ARCHIVES_PAGE["Archives.razor\nDate picker → timeline list + highlights grid + narrative card"]
-        OBSHUB_PAGE["ObserverHub.razor\nPoll loop → runtime state card + ingest trigger"]
+        ARCHIVES_PAGE["Archives.razor\nDate picker → timeline list + highlights grid"]
+        OBSHUB_PAGE["ObserverHub.razor\nPoll loop → runtime state card"]
         IDENTITY_PAGE["IdentityNexus.razor\nSubject list → rename inline + merge modal"]
-        DIAG_PAGE["Diagnostics.razor\nAuto-refresh every DiagnosticsAutoRefreshIntervalSeconds\nMasked health snapshot cards"]
+        DIAG_PAGE["Diagnostics.razor\nAuto-refresh every N seconds"]
     end
 
     RAW_HTTP --> TS_OVERRIDE

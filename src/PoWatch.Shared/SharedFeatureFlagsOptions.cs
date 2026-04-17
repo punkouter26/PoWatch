@@ -17,4 +17,9 @@ public abstract class SharedFeatureFlagsOptions
     public bool AlertThresholdsEnabled { get; init; } = true;
     public bool DriftRadarEnabled { get; init; } = true;
     public bool HandoffCoachEnabled { get; init; } = true;
+    /// <summary>
+    /// Minimum number of observations before the TEMP badge is shown on Live Dashboard cards.
+    /// Set to 0 (default) to always show TEMP for unknown subjects.
+    /// </summary>
+    public int TempBadgeMinObservations { get; init; } = 0;
 }

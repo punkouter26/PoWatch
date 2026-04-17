@@ -9,6 +9,12 @@ namespace PoWatch.Application.Services;
 /// </summary>
 internal static class DriftMath
 {
+    // Default threshold constants for drift classification
+    public const double SlightDriftThreshold = 10;
+    public const double ModerateDriftThreshold = 30;
+    public const double HighDriftThreshold = 60;
+    public const double ExtremeDriftThreshold = 80;
+
     /// <summary>
     /// Builds a 24-element density vector where each element is the fraction of events
     /// in that local hour relative to the total event count (0–1 per slot).
@@ -52,4 +58,29 @@ internal static class DriftMath
         var cosine = Math.Max(-1.0, Math.Min(1.0, dot / (Math.Sqrt(magA) * Math.Sqrt(magB))));
         return (1.0 - cosine) * 100.0;
     }
+
+    /// <summary>
+    /// Classifies a drift score into a human-readable label.
+    /// </summary>
+    public static string ClassifyDrift(double score) => score switch
+    {
+        >= ExtremeDriftThreshold => "Extreme Deviation",
+        >= HighDriftThreshold => "High Drift",
+        >= ModerateDriftThreshold => "Moderate Drift",
+        >= SlightDriftThreshold => "Slight Variation",
+        _ => "Normal"
+    };
+
+    /// <summary>
+    /// Classifies a drift score with custom thresholds from options.
+    /// </summary>
+    public static string ClassifyDrift(double score, double highThreshold, double moderateThreshold, double slightThreshold) =>
+        score switch
+        {
+            >= ExtremeDriftThreshold => "Extreme Deviation",
+            _ when score >= highThreshold => "High Drift",
+            _ when score >= moderateThreshold => "Moderate Drift",
+            _ when score >= slightThreshold => "Slight Variation",
+            _ => "Normal"
+        };
 }

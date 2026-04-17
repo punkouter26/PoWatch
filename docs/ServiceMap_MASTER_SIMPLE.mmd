@@ -1,30 +1,61 @@
 flowchart TD
-    subgraph Map["Service Map (Simple)"]
+    subgraph Projects["Solution Projects"]
         CLIENT["PoWatch.Client\nBlazor WASM"]
-        API["PoWatch.Api\n.NET 10"]
+        API["PoWatch.Api\nMinimal API"]
         APP["PoWatch.Application\nBusiness Logic"]
-        DOMAIN["PoWatch.Domain\nCore"]
+        DOMAIN["PoWatch.Domain\nModels"]
         INFRA["PoWatch.Infrastructure\nData Access"]
         SHARED["PoWatch.Shared\nDTOs"]
-        STORAGE["Azure Storage\nTables + Blobs"]
-        TELEMETRY["App Insights\nTelemetry"]
     end
 
-    CLIENT --> API
-    CLIENT --> SHARED
-    API --> APP
-    API --> INFRA
-    API --> SHARED
-    APP --> DOMAIN
-    INFRA --> STORAGE
-    API --> TELEMETRY
+    subgraph Contracts["Contracts"]
+        I_OBS["IObservationRepository"]
+        I_SUBJ["ISubjectRepository"]
+        I_BLOB["IBlobSasProvider"]
+    end
 
-    style Map fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    subgraph Impl["Implementations"]
+        AZ["Azure Repositories"]
+        MEM["InMemory Repositories"]
+    end
+
+    subgraph External["External"]
+        STORAGE["Azure Storage"]
+        APP_INS["App Insights"]
+    end
+
+    subgraph Tests["Tests"]
+        UNIT["Unit Tests"]
+        INT["Integration Tests"]
+        E2E["E2E Tests"]
+    end
+
+    CLIENT --> API --> APP --> DOMAIN
+    APP --> Contracts --> Impl --> INFRA --> STORAGE
+    API --> APP_INS
+    UNIT --> APP & DOMAIN
+    INT --> API
+    E2E --> CLIENT
+
+    style Projects fill:#1a1a2e,stroke:#4a90d9,color:#fff
+    style Contracts fill:#16213e,stroke:#f0a500,color:#fff
+    style Impl fill:#0f3460,stroke:#52b788,color:#fff
+    style External fill:#1b4332,stroke:#52b788,color:#fff
+    style Tests fill:#2c1654,stroke:#9b72cf,color:#fff
+
     style CLIENT fill:#1e3a5f,stroke:#4a90d9,color:#fff
     style API fill:#1e3a5f,stroke:#4a90d9,color:#fff
     style APP fill:#1e3a5f,stroke:#4a90d9,color:#fff
     style DOMAIN fill:#1e3a5f,stroke:#4a90d9,color:#fff
     style INFRA fill:#1e3a5f,stroke:#4a90d9,color:#fff
     style SHARED fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style I_OBS fill:#2a3d16,stroke:#f0a500,color:#fff
+    style I_SUBJ fill:#2a3d16,stroke:#f0a500,color:#fff
+    style I_BLOB fill:#2a3d16,stroke:#f0a500,color:#fff
+    style AZ fill:#1a3a2a,stroke:#52b788,color:#fff
+    style MEM fill:#3d4b5c,stroke:#7f8c8d,color:#fff
     style STORAGE fill:#1a3a2a,stroke:#52b788,color:#fff
-    style TELEMETRY fill:#1a3a2a,stroke:#52b788,color:#fff
+    style APP_INS fill:#1a3a2a,stroke:#52b788,color:#fff
+    style UNIT fill:#3d2163,stroke:#9b72cf,color:#fff
+    style INT fill:#3d2163,stroke:#9b72cf,color:#fff
+    style E2E fill:#3d2163,stroke:#9b72cf,color:#fff

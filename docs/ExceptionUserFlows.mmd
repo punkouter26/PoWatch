@@ -1,11 +1,11 @@
 flowchart TD
     subgraph IngestionErrors["Ingest Exception Paths — POST /api/observer/ingest"]
         IREQ["POST /api/observer/ingest"]
-        IFLAG{"ObservationLoopEnabled\n= true?"}
+        IFLAG{"ObservationLoopEnabled = true?"}
         IDROP_FLAG["200 OK — Dropped\nreason: 'observation loop disabled'\naccepted=false"]
-        IGATE{"ProcessingGate\nTryEnter() succeeds?"}
+        IGATE{"ProcessingGate TryEnter() succeeds?"}
         IDROP_GATE["200 OK — Dropped\nreason: 'backpressure — inference busy'\naccepted=false"]
-        ICLIN{"ClinicalTagParser\nTryExtract() valid?"}
+        ICLIN{"ClinicalTagParser TryExtract() valid?"}
         IOUTLIER["Outlier Flagged\nIsOutlier=true — event still persisted\nclinical review required"]
         IREDUND{"Redundancy Check\nSame as SubjectProfile.LastActivity\nand no outlier flag?"}
         IDROP_RED["200 OK — Dropped\nreason: 'redundant activity'\naccepted=false"]
@@ -13,34 +13,34 @@ flowchart TD
     end
 
     subgraph AuthErrors["Authentication Exception Paths"]
-        ABYPASS{"DeveloperBypassAuth\nFeature Flag?"}
+        ABYPASS{"DeveloperBypassAuth Feature Flag?"}
         A_PROD_ANON["All requests anonymous\nNo auth enforcement in production\nUSERID=anonymous in logs"]
-        A_DEV_HEADER{"X-Dev-User-Id header\npresent in request?"}
-        A_ANON_DEV["Dev request anonymous\nFakeAuth builds anonymous principal\nwarning logged"]
-        A_AUTH["Dev request authenticated\nClaimTypes.NameIdentifier set\nUserId enriched in Serilog context"]
+        A_DEV_HEADER{"X-Dev-User-Id header present?"}
+        A_ANON_DEV["Dev request anonymous\nFakeAuth builds anonymous principal"]
+        A_AUTH["Dev request authenticated\nClaimTypes.NameIdentifier set"]
     end
 
     subgraph IdentityErrors["Identity Exception Paths"]
         RENAME_EP["PATCH /api/identity/subjects/{subjectId}"]
         MERGE_EP["POST /api/identity/merge"]
-        INAME_EMPTY{"NewName null\nor empty?"}
-        INAME_ERR["400 Bad Request\n'Name is required'"]
-        ISUBJ_EXISTS{"SubjectId exists\nin PoWatchSubjects?"}
-        ISUBJ_404["404 Not Found\nSubject does not exist"]
-        ISAME_CHECK{"primary ==\nsecondary?"}
-        ISAME_ERR["400 Bad Request\n'Cannot merge subject with itself'"]
-        IMERGE_OK["200 OK\nIdentityRevisionResultDto\nrewritten count + removed count"]
-        IRENAME_OK["200 OK\nIdentityRevisionResultDto\ncanonicalId + rewritten count"]
+        INAME_EMPTY{"NewName null or empty?"}
+        INAME_ERR["400 Bad Request — 'Name is required'"]
+        ISUBJ_EXISTS{"SubjectId exists?"}
+        ISUBJ_404["404 Not Found"]
+        ISAME_CHECK{"primary == secondary?"}
+        ISAME_ERR["400 Bad Request — 'Cannot merge with itself'"]
+        IMERGE_OK["200 OK — IdentityRevisionResultDto"]
+        IRENAME_OK["200 OK — IdentityRevisionResultDto"]
     end
 
     subgraph DiagnosticsMasking["Diagnostics Masking — GET /api/diagnostics/status"]
         DIAG_SNAP["LocalDiagnosticsProvider.CaptureSnapshot()"]
-        MASK_CONN["MaskingUtility applied to\nConnectionString — first 3 + last 3 chars visible"]
-        MASK_AIKEY["MaskingUtility applied to\nAppInsights ConnectionString"]
-        DIAG_RESP["DiagnosticsSnapshotDto\nMasked credentials — safe for UI display"]
-        DEBUG_FLAG{"ExposeDebugDetailsInUi\n= true?"}
-        EXCEPTION_DETAIL["Full exception details\nexposed in error responses (Dev only)"]
-        NO_DETAIL["Generic error message\nno stack traces in production"]
+        MASK_CONN["MaskingUtility — ConnectionString"]
+        MASK_AIKEY["MaskingUtility — AppInsights Key"]
+        DIAG_RESP["DiagnosticsSnapshotDto — masked credentials"]
+        DEBUG_FLAG{"ExposeDebugDetailsInUi = true?"}
+        EXCEPTION_DETAIL["Full exception details (Dev only)"]
+        NO_DETAIL["Generic error message (Prod)"]
     end
 
     IREQ --> IFLAG
