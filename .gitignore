@@ -12,11 +12,6 @@ obj/
 .vscode/
 
 # VS Code extension state
-.potune-state.json
-
-# VS Code extension state
-.potune-state.json
-
 # NuGet
 *.nupkg
 *.snupkg
@@ -55,3 +50,31 @@ secrets.json
 # Rider
 .idea/
 *.sln.iml
+
+# Publish output
+publish/
+out/
+
+# Bicep compiled ARM output
+*.json.bak
+*.arm.json
+
+# Azure Functions
+local.settings.json
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Coverage reports
+*.coveragexml
+lcov.info
+
+# Azurite local storage
+__azurite_db*.json
+__blobstorage__/
+__queuestorage__/
+
+# User-specific tool state
+.potune-state.json
