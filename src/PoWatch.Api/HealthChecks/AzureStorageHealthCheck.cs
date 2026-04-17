@@ -34,12 +34,17 @@ public sealed class AzureStorageHealthCheck(IOptions<AzureStorageOptions> storag
 
         try
         {
-            await client.GetPropertiesAsync(cancellationToken);
+            // GetPropertiesAsync requires management-plane permissions (Shared Key / Storage Account Contributor).
+            // QueryAsync (list tables) is a data-plane operation supported by Storage Table Data Contributor.
+            await foreach (var _ in client.QueryAsync(maxPerPage: 1, cancellationToken: cancellationToken))
+            {
+                break; // Only need to confirm the call succeeds; no tables is fine.
+            }
             return HealthCheckResult.Healthy("Azure Table Storage is reachable.");
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy("Azure Table Storage is unreachable.", ex);
+            return HealthCheckResult.Unhealthy($"Azure Table Storage is unreachable: {ex.GetType().Name} — {ex.Message}", ex);
         }
     }
 }
