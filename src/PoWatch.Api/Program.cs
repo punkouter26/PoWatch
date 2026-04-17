@@ -191,8 +191,10 @@ var builder = WebApplication.CreateBuilder(args);
     });
 
     // T005: Serve hosted Blazor WASM from same origin — no CORS needed (T006: CORS removed)
+    // MapStaticAssets resolves .NET 10 fingerprint tokens (#[.{fingerprint}]) in index.html at serve time.
+    // UseBlazorFrameworkFiles() remains to expose _framework/* files from the WASM publish output.
     app.UseBlazorFrameworkFiles();
-    app.UseStaticFiles();
+    app.MapStaticAssets();
 
     // --- API routes ---
     app.MapObserverFeature();
