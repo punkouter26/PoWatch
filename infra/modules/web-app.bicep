@@ -10,7 +10,7 @@ param tableStorageUri string
 param blobStorageUri string
 param keyVaultUri string
 
-var webAppName = 'powatch-app-${environment}'
+var webAppName = 'app-powatch'
 
 resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   name: webAppName
@@ -22,7 +22,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: appServicePlanId
     httpsOnly: true
     siteConfig: {
-      netFrameworkVersion: 'v10.0'
+      linuxFxVersion: 'DOTNETCORE|10.0'
       http20Enabled: true
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'

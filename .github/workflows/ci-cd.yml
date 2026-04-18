@@ -13,8 +13,8 @@ permissions:
 
 env:
   DOTNET_VERSION: '10.0.x'
-  AZURE_WEBAPP_NAME: powatch-app-dev
-  AZURE_RESOURCE_GROUP: PoWatch-App-RG
+  AZURE_WEBAPP_NAME: app-powatch
+  AZURE_RESOURCE_GROUP: PoWatch
   SOLUTION_PATH: PoWatch.slnx
   API_PROJECT_PATH: src/PoWatch.Api/PoWatch.Api.csproj
   UNIT_TEST_PATH: tests/PoWatch.UnitTests
@@ -82,7 +82,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     environment:
       name: production
-      url: https://powatch-app-dev.azurewebsites.net
+      url: https://app-powatch.azurewebsites.net
 
     steps:
       - name: Download publish artifact
@@ -120,7 +120,7 @@ jobs:
           echo "Waiting for app to warm up..."
           sleep 20
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://powatch-app-dev.azurewebsites.net/health" --max-time 30 || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://app-powatch.azurewebsites.net/health" --max-time 30 || echo "000")
             echo "Health check attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "Deployment verified successfully."
