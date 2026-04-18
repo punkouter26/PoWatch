@@ -5,6 +5,14 @@
 param location string
 param environment string
 
+@description('Allowed browser origins for direct Blob SAS upload/download requests')
+param blobCorsAllowedOrigins array = [
+  'https://app-powatch.azurewebsites.net'
+  'http://localhost:5000'
+  'http://localhost:7000'
+  'http://localhost:7099'
+]
+
 var storageName = 'powatch${environment}sa'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -18,6 +26,33 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowSharedKeyAccess: false   // Managed Identity only — no storage keys
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
+  }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  name: '${storageAccount.name}/default'
+  properties: {
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: blobCorsAllowedOrigins
+          allowedMethods: [
+            'GET'
+            'PUT'
+            'HEAD'
+            'OPTIONS'
+          ]
+          allowedHeaders: [
+            '*'
+          ]
+          exposedHeaders: [
+            'ETag'
+            'x-ms-*'
+          ]
+          maxAgeInSeconds: 86400
+        }
+      ]
+    }
   }
 }
 

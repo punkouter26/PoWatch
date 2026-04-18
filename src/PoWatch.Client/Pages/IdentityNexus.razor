@@ -14,7 +14,7 @@
         </header>
 
         <div class="identity-register-bar">
-            <RadzenTextBox @bind-Value="newSubjectName" Placeholder="New subject display name…" Style="flex:1;"
+            <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput" Placeholder="New subject display name…" Style="flex:1;"
                 @onkeydown="@(async e => { if (e.Key == "Enter") await RegisterSubjectAsync(); })" />
             <RadzenButton Icon="person_add" Text="Add Known Subject" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                 Click="RegisterSubjectAsync" Disabled="@(busy || string.IsNullOrWhiteSpace(newSubjectName))" />

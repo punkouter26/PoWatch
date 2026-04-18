@@ -48,12 +48,22 @@ let _webGpuProbePromise = null;
 let _gpuAdapterVendor = null;
 let _gpuAdapterName = null;
 let _gpuPowerPreference = 'default'; // 'default' | 'high-performance' | 'low-power'
+
+function isWindowsPlatform() {
+  try {
+    return typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent || '');
+  } catch {
+    return false;
+  }
+}
+
 function probeWebGpu() {
   if (!_webGpuProbePromise) {
     _webGpuProbePromise = (async () => {
       if (typeof navigator === 'undefined' || !navigator.gpu) return false;
       try {
-        const adapterOpts = _gpuPowerPreference !== 'default' ? { powerPreference: _gpuPowerPreference } : undefined;
+        const shouldUsePowerPreference = _gpuPowerPreference !== 'default' && !isWindowsPlatform();
+        const adapterOpts = shouldUsePowerPreference ? { powerPreference: _gpuPowerPreference } : undefined;
         const adapter = await navigator.gpu.requestAdapter(adapterOpts);
         if (adapter === null) return false;
         // requestAdapterInfo() is the standard API (Chrome 113+).
@@ -200,10 +210,9 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   _lastInferenceOutput = output;
 
   // Parse structured LABEL / NOTE response.
-  // LABEL: is preferred. When absent (common with small models like 256M that don't
-  // reliably follow format instructions), fall back to extracting the first sentence
-  // of the raw output as a low-confidence activity rather than discarding the inference.
-  const labelMatch = output.match(/LABEL:\s*([^|\n]+)/i);
+  // LABEL: is preferred. Accept a few common misspellings emitted by small models.
+  // When absent, fall back to extracting the first sentence as low-confidence activity.
+  const labelMatch = output.match(/(?:^|\n)\s*(?:LABEL|LABLE|LABELL|LABERF)\s*:\s*([^|\n]+)/i);
   const noteMatch  = output.match(/NOTE:\s*([^\n]+)/i);
 
   const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
@@ -233,8 +242,11 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     // Fallback: use the first sentence of raw output as the activity summary.
     const rawTrimmed = output.replace(/\s+/g, ' ').trim();
     const firstSentence = rawTrimmed.split(/[.\n]/)[0].trim().slice(0, 80);
+    const normalizedSentence = firstSentence
+      .replace(/^(?:LABEL|LABLE|LABELL|LABERF)\s*:\s*/i, '')
+      .trim();
 
-    if (firstSentence.length < 6 || _DENY.has(firstSentence.toLowerCase()) || hasRepetition(firstSentence)) {
+    if (normalizedSentence.length < 6 || _DENY.has(normalizedSentence.toLowerCase()) || hasRepetition(normalizedSentence)) {
       return {
         isAvailable: false,
         status: 'Low-quality inference: unstructured output skipped',
@@ -248,7 +260,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
       };
     }
 
-    activity = firstSentence;
+    activity = normalizedSentence;
     clinicalNote = rawTrimmed.slice(0, 200);
     isUnstructured = true;
   } else {
@@ -375,7 +387,11 @@ self.onmessage = async (e) => {
 
     case 'SET_POWER_PREFERENCE': {
       const valid = ['default', 'high-performance', 'low-power'];
-      const pref = valid.includes(payload.preference) ? payload.preference : 'default';
+      let pref = valid.includes(payload.preference) ? payload.preference : 'default';
+      if (isWindowsPlatform()) {
+        // Current Chromium on Windows ignores powerPreference and logs a warning.
+        pref = 'default';
+      }
       if (pref !== _gpuPowerPreference) {
         _gpuPowerPreference = pref;
         // Reset GPU probe and model load state so next inference uses the new adapter

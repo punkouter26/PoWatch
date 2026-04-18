@@ -73,6 +73,12 @@ playwright/.cache/
 *.coveragexml
 lcov.info
 
+# Frontend/tooling caches
+*.tsbuildinfo
+.eslintcache
+.npm/
+.nyc_output/
+
 # Azurite local storage
 __azurite_db*.json
 __blobstorage__/

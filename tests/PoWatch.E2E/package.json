@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "test": "playwright test",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:smoke:deployed": "playwright test tests/deployed-smoke.spec.ts --reporter=list"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",
