@@ -149,12 +149,14 @@ public sealed class ObservationServiceTests
     {
         public void Exit() { }
         public bool TryEnter() => true;
+        public bool IsProcessing => false;
     }
 
     private sealed class BusyGate : IObservationProcessingGate
     {
         public void Exit() { }
         public bool TryEnter() => false;
+        public bool IsProcessing => true;
     }
 
     private sealed class FakeObservationRepository : IObservationRepository

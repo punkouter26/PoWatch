@@ -21,7 +21,6 @@
         </div>
 
         <h2>Subject Library</h2>
-        <p class="identity-hint">Click the edit button next to any subject name to rename it inline.</p>
 
         @if (loading)
         {
@@ -62,9 +61,11 @@
                             else
                             {
                                 <div class="name-cell">
-                                    <span class="subject-name">@item.DisplayName</span>
-                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                        Click="@(() => BeginInlineEdit(item))" aria-label="@($"Rename {item.DisplayName}")" title="Click to rename" />
+                                    <span class="subject-name subject-name-editable"
+                                          @onclick="@(() => BeginInlineEdit(item))"
+                                          title="Click to rename"
+                                          role="button" tabindex="0"
+                                          @onkeydown="@(e => { if (e.Key == "Enter" || e.Key == " ") BeginInlineEdit(item); })">@item.DisplayName</span>
                                 </div>
                             }
                         </Template>
@@ -93,12 +94,7 @@
     }
 
     <RadzenCard class="panel panel-merge">
-        <button class="merge-expand-toggle" @onclick="@(() => mergeExpanded = !mergeExpanded)">
-            @(mergeExpanded ? "▾" : "▸") Merge Two Identities
-        </button>
-
-        @if (mergeExpanded)
-        {
+        <CollapsibleSection Title="Merge Two Identities">
             <div class="merge-form">
                 <label>Primary Subject</label>
                 <RadzenDropDown Data="subjects" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="primarySubjectId" Style="width:100%;" />
@@ -111,7 +107,7 @@
 
                 <RadzenButton Text="Commit Merge" ButtonStyle="ButtonStyle.Danger" Click="MergeAsync" Disabled="@(busy || subjects.Count < 2)" />
             </div>
-        }
+        </CollapsibleSection>
     </RadzenCard>
 </div>
 
@@ -122,7 +118,6 @@
     private string? canonicalName;
     private bool busy;
     private bool loading;
-    private bool mergeExpanded;
     private string? editingSubjectId;
     private string editingName = string.Empty;
     private string newSubjectName = string.Empty;

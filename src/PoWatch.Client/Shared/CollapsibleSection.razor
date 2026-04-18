@@ -1,0 +1,23 @@
+<div class="collapsible-section">
+    <button class="collapsible-toggle" @onclick="Toggle" aria-expanded="@_expanded">
+        <span aria-hidden="true">@(_expanded ? "▾" : "▸")</span> @Title
+    </button>
+    @if (_expanded)
+    {
+        <div class="collapsible-content">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool InitiallyExpanded { get; set; }
+
+    private bool _expanded;
+
+    protected override void OnInitialized() => _expanded = InitiallyExpanded;
+
+    private void Toggle() => _expanded = !_expanded;
+}

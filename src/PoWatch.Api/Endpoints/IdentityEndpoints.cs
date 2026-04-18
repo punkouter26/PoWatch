@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Options;
+using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
@@ -115,7 +116,8 @@ internal static class IdentityEndpoints
         group.MapGet("/subjects/{subjectId}/baseline", async (
             string subjectId,
             int? days,
-            BaselineService baselineService,
+            IObservationRepository observationRepository,
+            ISubjectRepository subjectRepository,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -123,23 +125,44 @@ internal static class IdentityEndpoints
                 return Results.BadRequest(new { message = "subjectId is required." });
 
             var baselineDays = Math.Clamp(days ?? 7, 1, 90);
-
             logger.LogInformation(
                 "Baseline requested. SubjectId={SubjectId} Days={Days} TraceId={TraceId}",
-                subjectId,
-                baselineDays,
-                Activity.Current?.TraceId.ToString());
+                subjectId, baselineDays, Activity.Current?.TraceId.ToString());
 
-            try
+            var subject = await subjectRepository.GetByIdAsync(subjectId, cancellationToken);
+            if (subject is null)
+                return Results.NotFound(new { message = $"Subject '{subjectId}' was not found." });
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var historicalEvents = await observationRepository.GetBySubjectAndDateRangeAsync(
+                subjectId, today.AddDays(-baselineDays), today.AddDays(-1), cancellationToken);
+            var todayAll = await observationRepository.GetByDateAsync(today, cancellationToken);
+            var todayEvents = todayAll
+                .Where(e => string.Equals(e.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var localOffset = TimeZoneInfo.Local.GetUtcOffset(today.ToDateTime(TimeOnly.MinValue));
+            var baselineVector = DriftMath.BuildHourlyVector(historicalEvents, localOffset);
+            var todayVector = DriftMath.BuildHourlyVector(todayEvents, localOffset);
+            var driftScore = DriftMath.ComputeDriftScore(baselineVector, todayVector);
+            var driftLabel = DriftMath.ClassifyDrift(driftScore);
+
+            logger.LogInformation(
+                "Baseline computed. SubjectId={SubjectId} Historical={Historical} Today={Today} DriftScore={Drift:F1} Label={Label}",
+                subjectId, historicalEvents.Count, todayEvents.Count, driftScore, driftLabel);
+
+            return Results.Ok(new SubjectBaselineDto
             {
-                var baseline = await baselineService.GetBaselineAsync(subjectId, cancellationToken, baselineDays);
-                return Results.Ok(baseline);
-            }
-            catch (InvalidOperationException ex)
-            {
-                logger.LogWarning("Baseline request failed. SubjectId={SubjectId} Reason={Reason}", subjectId, ex.Message);
-                return Results.NotFound(new { message = ex.Message });
-            }
+                SubjectId = subject.SubjectId,
+                DisplayName = subject.DisplayName,
+                ComputedForDate = today,
+                BaselineDays = baselineDays,
+                HourlyBaselineVector = baselineVector,
+                HourlyTodayVector = todayVector,
+                DriftScore = Math.Round(driftScore, 1),
+                DriftLabel = driftLabel,
+                GeneratedAtUtc = DateTimeOffset.UtcNow
+            });
         })
         .WithName("IdentitySubjectBaseline")
         .WithSummary("Get the 7-day behavioral baseline and drift score for a subject.");

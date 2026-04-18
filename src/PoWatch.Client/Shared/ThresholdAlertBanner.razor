@@ -1,0 +1,25 @@
+@using PoWatch.Shared.Models
+
+@if (Alerts.Count > 0)
+{
+    <div class="threshold-alert-banner">
+        <span class="threshold-alert-icon" aria-hidden="true">⚠</span>
+        <div class="threshold-alert-list">
+            @foreach (var alert in Alerts)
+            {
+                <div class="threshold-alert-item">
+                    <strong>@alert.RuleName</strong> — @alert.Description
+                    <small class="threshold-alert-time">@alert.TriggeredAtUtc.ToLocalTime().ToString("HH:mm:ss")</small>
+                    <button class="threshold-alert-dismiss" @onclick="() => OnDismiss.InvokeAsync(alert)" aria-label="Dismiss">×</button>
+                </div>
+            }
+        </div>
+        <button class="threshold-alert-dismiss-all" @onclick="OnDismissAll">Dismiss all</button>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ThresholdAlertDto> Alerts { get; set; } = [];
+    [Parameter] public EventCallback<ThresholdAlertDto> OnDismiss { get; set; }
+    [Parameter] public EventCallback OnDismissAll { get; set; }
+}

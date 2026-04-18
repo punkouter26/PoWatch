@@ -145,12 +145,22 @@ main {
     }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 900px) {
     .sidebar {
         width: 210px;
     }
 
     .page.sidebar-collapsed .sidebar {
-        width: 28px;
+        width: 48px;
+    }
+}
+
+@media (min-width: 1280px) {
+    .sidebar {
+        width: 220px;
+    }
+
+    .page.sidebar-collapsed .sidebar {
+        width: 48px;
     }
 }

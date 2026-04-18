@@ -8,6 +8,7 @@ namespace PoWatch.Application.Services;
 public sealed class IdentityService(
     ISubjectRepository subjectRepository,
     IObservationRepository observationRepository,
+    IAcknowledgementRegistry acknowledgementRegistry,
     ILogger<IdentityService> logger)
 {
     public async Task<IReadOnlyList<SubjectProfileDto>> GetSubjectsAsync(CancellationToken cancellationToken)
@@ -183,7 +184,7 @@ public sealed class IdentityService(
                 LastSeenUtc = profile.LastSeenUtc,
                 LastActivity = profile.LastActivity ?? string.Empty,
                 LastActivityIsOutlier = profile.LastActivityIsOutlier,
-                UnacknowledgedSignificantCount = subjectEvents.Count(e => e.IsSignificant),
+                UnacknowledgedSignificantCount = subjectEvents.Count(e => e.IsSignificant && !acknowledgementRegistry.IsAcknowledged(e.Id)),
                 RecentEvents = recentEvents
             });
         }

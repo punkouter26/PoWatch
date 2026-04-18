@@ -58,8 +58,6 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
             await _retryPipeline.ExecuteAsync(async ct =>
             {
-                await _tableClient.CreateIfNotExistsAsync(ct);
-
                 var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
                 var invertedTicks = DateTime.MaxValue.Ticks - observation.ObservedAtUtc.UtcDateTime.Ticks;
                 var rowKey = $"{observation.SubjectId}_{invertedTicks:D19}_{observation.Id:N}";
@@ -106,8 +104,6 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
             var items = await _retryPipeline.ExecuteAsync(async ct =>
             {
-                await _tableClient.CreateIfNotExistsAsync(ct);
-
                 var partitionKey = date.ToString("yyyyMMdd");
                 var results = new List<ObservationEvent>();
 
@@ -163,26 +159,30 @@ public sealed class AzureObservationRepository : IObservationRepository
 
     public async Task<ObservationEvent?> GetLatestForSubjectAsync(string subjectId, CancellationToken cancellationToken)
     {
+        // Scoped partition scan (30 days, newest first) replaces the previous full cross-partition
+        // table scan which loaded ALL rows just to find one event. Stop as soon as a hit is found.
+        var safeSubjectId = subjectId.Replace("'", "''");
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
         try
         {
-            var item = await _retryPipeline.ExecuteAsync(async ct =>
+            for (var dayOffset = 0; dayOffset < 30; dayOffset++)
             {
-                await _tableClient.CreateIfNotExistsAsync(ct);
-
-                var safeSubjectId = subjectId.Replace("'", "''");
-                var items = new List<ObservationEvent>();
+                var partitionKey = today.AddDays(-dayOffset).ToString("yyyyMMdd");
+                var results = new List<ObservationEvent>();
 
                 await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
-                                   filter: $"SubjectId eq '{safeSubjectId}'",
-                                   cancellationToken: ct))
+                                   filter: $"PartitionKey eq '{partitionKey}' and SubjectId eq '{safeSubjectId}'",
+                                   cancellationToken: cancellationToken))
                 {
-                    items.Add(Map(entity));
+                    results.Add(Map(entity));
                 }
 
-                return items.OrderByDescending(x => x.ObservedAtUtc).FirstOrDefault();
-            }, cancellationToken);
+                if (results.Count > 0)
+                    return results.OrderByDescending(x => x.ObservedAtUtc).First();
+            }
 
-            return item;
+            return null;
         }
         catch (RequestFailedException ex)
         {
@@ -203,8 +203,6 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
             var items = await _retryPipeline.ExecuteAsync(async ct =>
             {
-                await _tableClient.CreateIfNotExistsAsync(ct);
-
                 var safeSubjectId = subjectId.Replace("'", "''");
                 var fromKey = from.ToString("yyyyMMdd");
                 var toKey = to.ToString("yyyyMMdd");
@@ -242,8 +240,6 @@ public sealed class AzureObservationRepository : IObservationRepository
     public async Task<int> MergeSubjectAsync(string oldSubjectId, SubjectProfile target, CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("Storage.RewriteSubjectHistory");
-
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
 
         var safeSubjectId = oldSubjectId.Replace("'", "''");
         var entities = new List<TableEntity>();

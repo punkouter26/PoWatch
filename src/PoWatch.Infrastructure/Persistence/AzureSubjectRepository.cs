@@ -24,8 +24,6 @@ public sealed class AzureSubjectRepository : ISubjectRepository
     {
         try
         {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         var items = new List<SubjectProfile>();
         await foreach (var entity in _tableClient.QueryAsync<TableEntity>(cancellationToken: cancellationToken))
         {
@@ -45,8 +43,6 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
     public async Task<SubjectProfile> GetOrCreateAsync(string? hint, CancellationToken cancellationToken)
     {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         var normalized = (hint ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(normalized))
         {
@@ -67,6 +63,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             };
 
             await UpsertAsync(created, cancellationToken);
+            SubjectIdSlugger.RegisterSlug(created.SubjectId, created.SubjectId);
             return created;
         }
 
@@ -75,8 +72,6 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
     public async Task<SubjectProfile?> GetByIdAsync(string subjectId, CancellationToken cancellationToken)
     {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         try
         {
             var entity = await _tableClient.GetEntityAsync<TableEntity>("Subjects", subjectId, cancellationToken: cancellationToken);
@@ -90,13 +85,11 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
     public async Task<SubjectProfile> RenameAsync(string subjectId, string newDisplayName, CancellationToken cancellationToken)
     {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         var existing = await GetByIdAsync(subjectId, cancellationToken)
             ?? throw new InvalidOperationException($"Subject '{subjectId}' was not found.");
 
         var trimmed = newDisplayName.Trim();
-        var canonicalId = SubjectIdSlugger.ResolveCanonicalSubjectId(subjectId, trimmed);
+        var canonicalId = await ResolveCanonicalSubjectIdAsync(subjectId, trimmed, cancellationToken, subjectId);
 
         var renamed = new SubjectProfile
         {
@@ -108,6 +101,8 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         };
 
         await UpsertAsync(renamed, cancellationToken);
+        SubjectIdSlugger.UnregisterSlug(subjectId, subjectId);
+        SubjectIdSlugger.RegisterSlug(renamed.SubjectId, renamed.SubjectId);
 
         if (!string.Equals(subjectId, canonicalId, StringComparison.OrdinalIgnoreCase))
         {
@@ -119,8 +114,6 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
     public async Task<SubjectProfile> MergeAsync(string primarySubjectId, string secondarySubjectId, string? explicitName, CancellationToken cancellationToken)
     {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         var primary = await GetByIdAsync(primarySubjectId, cancellationToken) ?? new SubjectProfile
         {
             SubjectId = primarySubjectId,
@@ -132,7 +125,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
         var secondary = await GetByIdAsync(secondarySubjectId, cancellationToken);
         var displayName = string.IsNullOrWhiteSpace(explicitName) ? primary.DisplayName : explicitName.Trim();
-        var canonicalId = SubjectIdSlugger.ResolveCanonicalSubjectId(primary.SubjectId, displayName);
+        var canonicalId = await ResolveCanonicalSubjectIdAsync(primary.SubjectId, displayName, cancellationToken, primarySubjectId, secondarySubjectId);
 
         var merged = new SubjectProfile
         {
@@ -148,6 +141,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         };
 
         await UpsertAsync(merged, cancellationToken);
+        SubjectIdSlugger.UnregisterSlug(primarySubjectId, primarySubjectId);
+        SubjectIdSlugger.UnregisterSlug(secondarySubjectId, secondarySubjectId);
+        SubjectIdSlugger.RegisterSlug(merged.SubjectId, merged.SubjectId);
 
         if (!string.Equals(primarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase))
         {
@@ -182,9 +178,13 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             .DefaultIfEmpty(0)
             .Max() + 1;
 
-        for (var attempt = 0; attempt < 25; attempt++)
+        // Jitter reduces the probability that concurrent ingest requests start at the same
+        // base number and race on the same Subject-N slot. Retry limit raised to 50.
+        var jitter = Random.Shared.Next(0, 20);
+
+        for (var attempt = 0; attempt < 50; attempt++)
         {
-            var subjectId = $"Subject-{nextNumber + attempt}";
+            var subjectId = $"Subject-{nextNumber + jitter + attempt}";
             var now = DateTimeOffset.UtcNow;
             var entity = new TableEntity("Subjects", subjectId)
             {
@@ -201,6 +201,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
                     "Created auto-numbered subject. SubjectId={SubjectId} Attempt={Attempt}",
                     subjectId,
                     attempt + 1);
+                SubjectIdSlugger.RegisterSlug(subjectId, subjectId);
                 return Map(entity);
             }
             catch (RequestFailedException ex) when (ex.Status == 409)
@@ -217,10 +218,8 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
     public async Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken)
     {
-        await _tableClient.CreateIfNotExistsAsync(cancellationToken);
-
         var trimmed = displayName.Trim();
-        var subjectId = SubjectIdSlugger.ResolveCanonicalSubjectId(string.Empty, trimmed);
+        var subjectId = await ResolveCanonicalSubjectIdAsync(string.Empty, trimmed, cancellationToken);
         var now = DateTimeOffset.UtcNow;
 
         // If a subject with this canonical ID already exists, return it unchanged.
@@ -243,12 +242,47 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         };
 
         await UpsertAsync(profile, cancellationToken);
+        SubjectIdSlugger.RegisterSlug(profile.SubjectId, profile.SubjectId);
         _logger.LogInformation(
             "RegisterKnownAsync: new known subject created. SubjectId={SubjectId} DisplayName={DisplayName}",
             subjectId,
             trimmed);
 
         return profile;
+    }
+
+    private async Task<string> ResolveCanonicalSubjectIdAsync(
+        string currentSubjectId,
+        string displayName,
+        CancellationToken cancellationToken,
+        params string[] allowedSubjectIds)
+    {
+        if (!string.IsNullOrWhiteSpace(currentSubjectId)
+            && !currentSubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase))
+        {
+            return currentSubjectId;
+        }
+
+        var baseId = SubjectIdSlugger.BuildCanonicalSubjectId(displayName);
+        var candidate = baseId;
+        var suffix = 2;
+
+        while (true)
+        {
+            if (allowedSubjectIds.Any(id => string.Equals(id, candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                return candidate;
+            }
+
+            var existing = await GetByIdAsync(candidate, cancellationToken);
+            if (existing is null)
+            {
+                return candidate;
+            }
+
+            candidate = $"{baseId}-{suffix}";
+            suffix++;
+        }
     }
 
     private async Task TryDeleteAsync(string subjectId, CancellationToken cancellationToken)

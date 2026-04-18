@@ -1,0 +1,62 @@
+@using PoWatch.Shared.Models
+
+@if (!IsMonitoring && !IsThinking)
+{
+    <div class="setup-row">
+        <label>Inference Model</label>
+        <RadzenDropDown @bind-Value="SelectedModelKey" Data="ModelOptions" TextProperty="Label" ValueProperty="Value"
+                        Change="@OnModelChanged" Style="width:100%;" />
+    </div>
+    <div class="setup-row">
+        <label>GPU Power Preference</label>
+        <select class="rz-dropdown" style="width:100%;" @onchange="OnGpuPreferenceChanged">
+            <option value="default"          selected="@(GpuPreference == "default")">Auto (browser default)</option>
+            <option value="high-performance" selected="@(GpuPreference == "high-performance")">High-performance (discrete / NVIDIA)</option>
+            <option value="low-power"        selected="@(GpuPreference == "low-power")">Low-power (integrated / Intel)</option>
+        </select>
+    </div>
+    <div class="setup-row">
+        <label>Poll Interval — <strong>@PollingSeconds s</strong></label>
+        <input type="range" style="width:100%;" min="5" max="120" step="5"
+               value="@PollingSeconds"
+               @onchange="OnPollingChanged" />
+    </div>
+
+    @if (ShowDevTools)
+    {
+        <div class="dev-tools-row">
+            <button class="dev-tools-toggle" @onclick="ToggleDevTools">
+                @(_devExpanded ? "▾" : "▸") Developer Tools
+            </button>
+            @if (_devExpanded)
+            {
+                <div class="dev-tools-actions">
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Text="Inject Significant Event" Click="OnInjectEvent" />
+                    <RadzenButton ButtonStyle="ButtonStyle.Secondary" Text="Inject Clinical Outlier" Click="OnInjectOutlier" />
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    public sealed record ModelOption(string Value, string Label);
+
+    [Parameter, EditorRequired] public bool IsMonitoring { get; set; }
+    [Parameter, EditorRequired] public bool IsThinking { get; set; }
+    [Parameter, EditorRequired] public string SelectedModelKey { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SelectedModelKeyChanged { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<ModelOption> ModelOptions { get; set; } = [];
+    [Parameter, EditorRequired] public string GpuPreference { get; set; } = "default";
+    [Parameter, EditorRequired] public int PollingSeconds { get; set; }
+    [Parameter] public bool ShowDevTools { get; set; }
+    [Parameter] public EventCallback<object> OnModelChanged { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnGpuPreferenceChanged { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnPollingChanged { get; set; }
+    [Parameter] public EventCallback OnInjectEvent { get; set; }
+    [Parameter] public EventCallback OnInjectOutlier { get; set; }
+
+    private bool _devExpanded;
+
+    private void ToggleDevTools() => _devExpanded = !_devExpanded;
+}

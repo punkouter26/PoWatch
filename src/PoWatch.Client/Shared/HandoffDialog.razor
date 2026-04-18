@@ -1,0 +1,44 @@
+@using Microsoft.AspNetCore.Components
+@inject DialogService DialogService
+
+<div class="handoff-dialog-body">
+    <label>Shift Window</label>
+    <RadzenDropDown @bind-Value="SelectedShift" Data="ShiftOptions" TextProperty="Label" ValueProperty="Value"
+                    Style="width:100%; margin-bottom:12px;" />
+
+    <RadzenButton Icon="download" Text="Download Handoff Report" ButtonStyle="ButtonStyle.Secondary"
+                  Click="DownloadAsync" Style="width:100%; margin-bottom:8px;" />
+
+    @if (HandoffCoachEnabled)
+    {
+        <RadzenButton Icon="auto_awesome" Text="@(GeneratingBrief ? "Generating..." : "Generate AI Brief")"
+                      ButtonStyle="ButtonStyle.Info" Disabled="GeneratingBrief"
+                      Click="GenerateBriefAsync" Style="width:100%;" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string SelectedShift { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SelectedShiftChanged { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<object> ShiftOptions { get; set; } = [];
+    [Parameter] public bool HandoffCoachEnabled { get; set; }
+    [Parameter] public bool GeneratingBrief { get; set; }
+    [Parameter] public Func<Task>? OnDownload { get; set; }
+    [Parameter] public Func<Task>? OnGenerateBrief { get; set; }
+
+    private async Task DownloadAsync()
+    {
+        await SelectedShiftChanged.InvokeAsync(SelectedShift);
+        DialogService.Close();
+        if (OnDownload is not null)
+            await OnDownload();
+    }
+
+    private async Task GenerateBriefAsync()
+    {
+        await SelectedShiftChanged.InvokeAsync(SelectedShift);
+        DialogService.Close();
+        if (OnGenerateBrief is not null)
+            await OnGenerateBrief();
+    }
+}

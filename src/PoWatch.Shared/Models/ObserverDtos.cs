@@ -3,7 +3,6 @@ namespace PoWatch.Shared.Models;
 public sealed class ObserverRuntimeStateDto
 {
     public bool ObservationLoopEnabled { get; init; }
-    public bool TtsAnnouncementsEnabled { get; init; }
     public bool SaveSignificantImages { get; init; }
     public bool DeveloperModeEnabled { get; init; }
     public int PollIntervalSeconds { get; init; }

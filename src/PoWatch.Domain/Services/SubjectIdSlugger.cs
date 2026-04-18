@@ -19,6 +19,11 @@ public static class SubjectIdSlugger
     /// </summary>
     public static string ResolveCanonicalSubjectId(string currentSubjectId, string displayName, string? existingSlugToPreserve = null)
     {
+        if (string.IsNullOrWhiteSpace(currentSubjectId))
+        {
+            return BuildCanonicalSubjectId(displayName);
+        }
+
         if (!currentSubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
             || string.Equals(currentSubjectId, displayName, StringComparison.OrdinalIgnoreCase))
         {
@@ -94,6 +99,17 @@ public static class SubjectIdSlugger
                     _slugRegistry.TryRemove(slug, out _);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Clears the entire slug registry. Call after a full storage reset to avoid stale collision detection.
+    /// </summary>
+    public static void Reset()
+    {
+        lock (_registrationLock)
+        {
+            _slugRegistry.Clear();
         }
     }
 

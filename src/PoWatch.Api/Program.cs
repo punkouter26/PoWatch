@@ -9,6 +9,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using PoWatch.Api.Features.Archives;
 using PoWatch.Api.Features.Diagnostics;
+using PoWatch.Api.Features.Fhir;
 using PoWatch.Api.Features.Identity;
 using PoWatch.Api.Features.Observer;
 using PoWatch.Api.Endpoints;
@@ -199,7 +200,7 @@ var builder = WebApplication.CreateBuilder(args);
     app.MapObserverFeature();
     app.MapArchivesFeature();
     app.MapIdentityFeature();
-    app.MapFhirEndpoints();
+    app.MapFhirFeature();
     app.MapDiagnosticsFeature();
 
     // T005: Fall back to the Blazor WASM entry point for all unmatched requests

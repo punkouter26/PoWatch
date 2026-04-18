@@ -231,7 +231,7 @@
     }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 900px) {
     .nav-item ::deep a {
         justify-content: flex-start;
         padding: 0 0.9rem;
@@ -250,6 +250,12 @@
 
     /* Hide tooltips when text labels are already visible */
     .nav-item::after {
+        display: none;
+    }
+
+    /* When sidebar is explicitly collapsed, hide text labels even at wide viewports */
+    .nav-collapsed .nav-text,
+    .brand-row--hidden .brand-copy {
         display: none;
     }
 }

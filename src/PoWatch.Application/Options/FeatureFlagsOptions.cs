@@ -6,7 +6,7 @@ public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
 {
     // Server-only flags below. Shared flags live in SharedFeatureFlagsOptions.
 
-    public bool ExposeDebugDetailsInUi { get; init; } = false;
+    // NOTE: ExposeDebugDetailsInUi is in SharedFeatureFlagsOptions (shared with client).
 
     // Production-safe default is false; enable only via appsettings.Development.json or an explicit override.
     public bool DeveloperBypassAuth { get; init; } = false;
@@ -25,4 +25,7 @@ public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
 
     /// <summary>When true and AzureOpenAi:Endpoint is configured, the Handoff Coach uses Azure OpenAI for brief generation.</summary>
     public bool AzureOpenAiEnabled { get; init; } = false;
+
+    /// <summary>When true, the POST /api/diagnostics/reset endpoint is active. NEVER enable in production.</summary>
+    public bool AllowDataReset { get; init; } = false;
 }

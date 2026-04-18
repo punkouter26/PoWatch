@@ -155,15 +155,20 @@ public sealed class ObservationService(
     public ObserverRuntimeStateDto GetRuntimeState() => new()
     {
         ObservationLoopEnabled = featureFlags.Value.ObservationLoopEnabled,
-        TtsAnnouncementsEnabled = featureFlags.Value.TtsAnnouncementsEnabled,
         SaveSignificantImages = featureFlags.Value.SaveSignificantImages,
         DeveloperModeEnabled = featureFlags.Value.DeveloperBypassAuth,
         PollIntervalSeconds = observerOptions.Value.PollingIntervalSeconds,
         CapturedAtUtc = DateTimeOffset.UtcNow,
-        Status = featureFlags.Value.ObservationLoopEnabled ? "Idle" : "Disabled",
-        StatusDetail = featureFlags.Value.ObservationLoopEnabled
-            ? "Observer loop ready for the next local inference poll."
-            : "Observation loop disabled by operator."
+        Status = !featureFlags.Value.ObservationLoopEnabled
+            ? "Disabled"
+            : processingGate.IsProcessing
+                ? "Active"
+                : "Idle",
+        StatusDetail = !featureFlags.Value.ObservationLoopEnabled
+            ? "Observation loop disabled by operator."
+            : processingGate.IsProcessing
+                ? "Observer loop is processing an inference cycle."
+                : "Observer loop ready for the next local inference poll."
     };
 
     /// <summary>

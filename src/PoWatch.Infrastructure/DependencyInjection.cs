@@ -35,11 +35,19 @@ public static class DependencyInjection
         services.AddSingleton<AzureObservationRepository>();
         services.AddSingleton<AzureSubjectRepository>();
         services.AddSingleton<IBlobSasProvider, AzureBlobSasProvider>();
+        services.AddSingleton<AzureStorageResetService>();
+        services.AddSingleton<IStorageResetService>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value;
+            return UseAzureStorage(options)
+                ? sp.GetRequiredService<AzureStorageResetService>()
+                : throw new InvalidOperationException("IStorageResetService is only supported with Azure Table Storage.");
+        });
 
         services.AddSingleton<IObservationRepository>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value;
-            return UseAzureTables(options.ConnectionString)
+            return UseAzureStorage(options)
                 ? sp.GetRequiredService<AzureObservationRepository>()
                 : sp.GetRequiredService<InMemoryObservationRepository>();
         });
@@ -47,7 +55,7 @@ public static class DependencyInjection
         services.AddSingleton<ISubjectRepository>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value;
-            return UseAzureTables(options.ConnectionString)
+            return UseAzureStorage(options)
                 ? sp.GetRequiredService<AzureSubjectRepository>()
                 : sp.GetRequiredService<InMemorySubjectRepository>();
         });
@@ -55,10 +63,15 @@ public static class DependencyInjection
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
         services.AddSingleton<ITelemetryContentSanitizer, TelemetryContentSanitizer>();
+        services.AddSingleton<IAcknowledgementRegistry, InMemoryAcknowledgementRegistry>();
+
+        // Runs once before the app accepts requests: creates tables/containers and seeds slug registry.
+        services.AddHostedService<AzureStorageInitializer>();
 
         return services;
     }
 
-    private static bool UseAzureTables(string? connectionString) =>
-        !string.IsNullOrWhiteSpace(connectionString);
+    private static bool UseAzureStorage(AzureStorageOptions options) =>
+        !string.IsNullOrWhiteSpace(options.ConnectionString)
+        || !string.IsNullOrWhiteSpace(options.ServiceUri);
 }

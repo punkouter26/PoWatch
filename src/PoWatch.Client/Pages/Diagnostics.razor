@@ -6,6 +6,7 @@
 @inject IJSRuntime JS
 @inject IOptions<ClientFeatureFlagsOptions> ClientFlags
 @inject NotificationService NotificationService
+@inject DialogService DialogService
 @implements IDisposable
 
 <PageTitle>PoWatch | Diagnostics</PageTitle>
@@ -98,6 +99,38 @@
     </RadzenCard>
 </div>
 
+@if (ClientFlags.Value.ExposeDebugDetailsInUi)
+{
+    <RadzenCard class="panel panel--danger">
+        <header class="panel-header">
+            <h1>Danger Zone</h1>
+            <p>Irreversible operations. Guarded by the <code>AllowDataReset</code> server feature flag.</p>
+        </header>
+
+        <div class="danger-zone-actions">
+            <RadzenButton Text="Clear All Data" ButtonStyle="ButtonStyle.Danger"
+                          Click="ResetAllDataAsync" Disabled="resetBusy" />
+            @if (resetBusy)
+            {
+                <span class="reset-status">Resetting&#8230;</span>
+            }
+            @if (resetResult is not null)
+            {
+                @if (resetResult.Success)
+                {
+                    <span class="reset-status reset-status--ok">
+                        Done &#8212; @resetResult.ObservationsDeleted observations, @resetResult.SubjectsDeleted subjects, @resetResult.BlobsDeleted blobs deleted in @resetResult.Duration.TotalSeconds.ToString("0.0")s
+                    </span>
+                }
+                else
+                {
+                    <span class="reset-status reset-status--err">Failed: @resetResult.ErrorMessage</span>
+                }
+            }
+        </div>
+    </RadzenCard>
+}
+
 @code {
     private DiagnosticsSnapshotDto? snapshot;
     private InferenceDiagnosticsDto? inferenceDiag;
@@ -105,6 +138,8 @@
     private DateTime? lastRefreshed;
     private int _autoRefreshIntervalSeconds;
     private CancellationTokenSource _cts = new();
+    private bool resetBusy;
+    private StorageResetResultDto? resetResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -169,6 +204,40 @@
         catch
         {
             inferenceDiag = null;
+        }
+    }
+
+    private async Task ResetAllDataAsync()
+    {
+        var confirmed = await DialogService.Confirm(
+            "This will permanently delete ALL observations, subjects, and blobs from storage. This cannot be undone.",
+            "Confirm Clear All Data",
+            new ConfirmOptions { OkButtonText = "Clear Everything", CancelButtonText = "Cancel", CloseDialogOnOverlayClick = true });
+
+        if (confirmed != true)
+            return;
+
+        resetBusy = true;
+        resetResult = null;
+
+        try
+        {
+            resetResult = await ApiClient.ClearAllDataAsync();
+            if (resetResult?.Success == true)
+                NotificationService.Notify(NotificationSeverity.Success, "Reset Complete",
+                    $"{resetResult.ObservationsDeleted} observations, {resetResult.SubjectsDeleted} subjects, {resetResult.BlobsDeleted} blobs deleted.",
+                    duration: 8000);
+            else
+                NotificationService.Notify(NotificationSeverity.Error, "Reset Failed",
+                    resetResult?.ErrorMessage ?? "Unknown error", duration: 6000);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Reset Failed", ex.Message, duration: 6000);
+        }
+        finally
+        {
+            resetBusy = false;
         }
     }
 

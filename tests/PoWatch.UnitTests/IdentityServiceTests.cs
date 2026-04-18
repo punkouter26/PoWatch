@@ -3,6 +3,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Shared.Models;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
+using PoWatch.Infrastructure.Runtime;
 
 namespace PoWatch.UnitTests;
 
@@ -30,7 +31,7 @@ public sealed class IdentityServiceTests
             ClinicalDescription = "Observed at desk."
         });
 
-        var service = new IdentityService(subjects, observations, NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), NullLogger<IdentityService>.Instance);
 
         var result = await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, CancellationToken.None);
 
@@ -76,7 +77,7 @@ public sealed class IdentityServiceTests
             ClinicalDescription = "Observed walking."
         });
 
-        var service = new IdentityService(subjects, observations, NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), NullLogger<IdentityService>.Instance);
 
         var result = await service.MergeAsync(new MergeIdentityRequestDto
         {

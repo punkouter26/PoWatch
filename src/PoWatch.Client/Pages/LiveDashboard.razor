@@ -94,12 +94,32 @@
 
                 @if (subject.RecentEvents.Count > 0)
                 {
-                    <div class="subject-card-sparkline">
-                        @foreach (var ev in subject.RecentEvents.Take(10).Reverse())
-                        {
-                            <span class="sparkline-dot @(ev.IsClinicalOutlier ? "sparkline-dot--outlier" : ev.IsSignificant ? "sparkline-dot--significant" : "sparkline-dot--normal")"
-                                  title="@ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm") — @ev.Activity"></span>
-                        }
+                    var events = subject.RecentEvents.Take(10).Reverse().ToList();
+                    var svgW = 72; var svgH = 22;
+                    var step = events.Count > 1 ? (double)(svgW - 4) / (events.Count - 1) : svgW - 4;
+                    var lastIsOutlier = events.LastOrDefault()?.IsClinicalOutlier == true;
+                    var lastIsSignificant = events.LastOrDefault()?.IsSignificant == true;
+                    var lineColor = lastIsOutlier ? "#ff7070" : lastIsSignificant ? "#ffa040" : "#38ffa8";
+                    var points = string.Join(" ", events.Select((ev, i) =>
+                    {
+                        var x = 2 + i * step;
+                        var y = ev.IsClinicalOutlier ? 3.0 : ev.IsSignificant ? 11.0 : 19.0;
+                        return $"{x:F1},{y:F1}";
+                    }));
+                    <div class="subject-card-sparkline" title="Recent activity trend (newest on right)">
+                        <svg width="@svgW" height="@svgH" viewBox="0 0 @svgW @svgH" aria-hidden="true" class="sparkline-svg">
+                            <polyline points="@points" fill="none" stroke="@lineColor" stroke-width="1.8"
+                                      stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+                            @{
+                                var lastEv = events.LastOrDefault();
+                                if (lastEv is not null)
+                                {
+                                    var lx = 2 + (events.Count - 1) * step;
+                                    var ly = lastEv.IsClinicalOutlier ? 3.0 : lastEv.IsSignificant ? 11.0 : 19.0;
+                                    <circle cx="@lx.ToString("F1")" cy="@ly.ToString("F1")" r="2.5" fill="@lineColor" opacity="1" />
+                                }
+                            }
+                        </svg>
                     </div>
                 }
             </div>

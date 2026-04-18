@@ -33,17 +33,22 @@ public sealed class DriftRadarService(
         var localOffset = TimeZoneInfo.Local.GetUtcOffset(today.ToDateTime(TimeOnly.MinValue));
         var result = new List<SubjectDriftStatusDto>(profiles.Count);
 
+        // Single bulk load across the history window, then group in-memory.
+        // Replaces the previous N per-subject queries (N+1 pattern against Azure Table Storage).
+        var allHistoricalEvents = await observationRepository.GetByDateRangeAsync(historyFrom, historyTo, cancellationToken);
+        var historicalBySubject = allHistoricalEvents
+            .GroupBy(e => e.SubjectId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<ObservationEvent>)g.ToList(), StringComparer.OrdinalIgnoreCase);
+
         // Get today's events once (needed for all subjects)
         var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
 
         foreach (var profile in profiles)
         {
-            // Use optimized repository method to filter historical events per-subject
-            var historicalEvents = await observationRepository.GetBySubjectAndDateRangeAsync(
-                profile.SubjectId,
-                historyFrom,
-                historyTo,
-                cancellationToken);
+            // Use pre-grouped historical events dict to avoid N per-subject storage queries.
+            var historicalEvents = historicalBySubject.TryGetValue(profile.SubjectId, out var hist)
+                ? hist
+                : [];
 
             var subjectToday = todayEvents
                 .Where(e => string.Equals(e.SubjectId, profile.SubjectId, StringComparison.OrdinalIgnoreCase))

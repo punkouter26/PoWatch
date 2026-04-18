@@ -2,14 +2,16 @@
 @using PoWatch.Shared.Models
 @using Microsoft.JSInterop
 @using Microsoft.Extensions.Options
+@using PoWatch.Client.Shared
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
 @inject IJSRuntime JS
 @inject NotificationService NotificationService
 @inject IOptions<ClientFeatureFlagsOptions> ClientFlags
+@inject DialogService DialogService
 
 <PageTitle>PoWatch | Archives</PageTitle>
 
-<div class="sector-grid archives-grid">
+<div class="sector-grid archives-grid" @onkeydown="HandlePageKeyDown" tabindex="-1" @ref="_pageRef">
     <RadzenCard class="panel panel-chapter">
         <header class="panel-header">
             <h1>Archives</h1>
@@ -19,38 +21,20 @@
         <div class="archive-toolbar">
             <RadzenButton Icon="chevron_left" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="PreviousDayAsync" Disabled="@loading" aria-label="Previous day" />
+            <span class="kbd-hint" title="Arrow Left — previous day">←</span>
             <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd"
+                Max="@DateTime.Today"
                 Change="@(async _ => await LoadChapterAsync())" aria-label="Select date" />
+            <span class="kbd-hint" title="Arrow Right — next day">→</span>
             <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="NextDayAsync" Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
             @if (loading)
             {
                 <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:100px; align-self:center;" />
             }
-
             <span class="archive-toolbar-divider"></span>
-
-            <button class="archive-toolbar-handoff-toggle" @onclick="@(() => _handoffExpanded = !_handoffExpanded)"
-                    aria-expanded="@_handoffExpanded" aria-label="@(_handoffExpanded ? "Collapse handoff controls" : "Expand handoff controls")">
-                <span class="handoff-toggle-icon">📋</span> Generate Handoff @(_handoffExpanded ? "▴" : "▾")
-            </button>
-            @if (_handoffExpanded)
-            {
-                <RadzenDropDown @bind-Value="selectedShift" Data="@shiftOptions"
-                    TextProperty="Label" ValueProperty="Value"
-                    Style="min-width:140px" />
-                <RadzenButton Icon="download" Text="Handoff Report" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
-                    Click="DownloadHandoffReportAsync" Disabled="@(selectedDate is null)" />
-                @if (ClientFlags.Value.HandoffCoachEnabled)
-                {
-                    <RadzenButton Icon="auto_awesome" Text="Generate Brief" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
-                        Click="GenerateHandoffBriefAsync" Disabled="@(selectedDate is null || generatingBrief)" />
-                    @if (generatingBrief)
-                    {
-                        <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Info" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
-                    }
-                }
-            }
+            <RadzenButton Icon="assignment" Text="Handoff" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                Click="OpenHandoffDialogAsync" Disabled="@(selectedDate is null)" aria-label="Generate handoff" />
         </div>
 
         <h3>Clinical Narrative</h3>
@@ -132,7 +116,13 @@
                 @foreach (var item in chapter.Highlights)
                 {
                     var evidenceUrl = GetEvidenceUrl(item);
-                    <div class="evidence-card">
+                    var capturedItem = item;
+                    var capturedUrl = evidenceUrl;
+                    <div class="evidence-card"
+                         @onclick="@(async () => await OpenEvidenceLightboxAsync(capturedItem, capturedUrl))"
+                         role="button" tabindex="0"
+                         aria-label="View full image for @item.SubjectDisplayName — @item.Activity"
+                         @onkeydown="@(async args => { if (args.Key == "Enter" || args.Key == " ") await OpenEvidenceLightboxAsync(capturedItem, capturedUrl); })">
                         <div class="evidence-image-wrap">
                             @if (!string.IsNullOrWhiteSpace(evidenceUrl))
                             {
@@ -211,11 +201,11 @@
     private string selectedShift = "FullDay";
     private DailyChapterDto? chapter;
     private bool loading;
-    private bool _handoffExpanded;
     private readonly Dictionary<string, string> evidenceUrls = [];
     private HandoffBriefDto? handoffBrief;
     private bool generatingBrief;
     private string briefAudience = "NurseToNurse";
+    private ElementReference _pageRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -239,8 +229,56 @@
 
     private async Task NextDayAsync()
     {
+        if ((selectedDate ?? DateTime.Today).Date >= DateTime.Today) return;
         selectedDate = (selectedDate ?? DateTime.Today).AddDays(1);
         await LoadChapterAsync();
+    }
+
+    private async Task HandlePageKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (loading) return;
+        if (e.Key == "ArrowLeft") await PreviousDayAsync();
+        else if (e.Key == "ArrowRight") await NextDayAsync();
+    }
+
+    private async Task OpenEvidenceLightboxAsync(ObservationEventDto item, string? imageUrl)
+    {
+        await DialogService.OpenAsync(
+            $"{item.SubjectDisplayName} — {item.Activity}",
+            ds => builder =>
+            {
+                builder.OpenElement(0, "div");
+                builder.AddAttribute(1, "class", "lightbox-body");
+
+                if (!string.IsNullOrWhiteSpace(imageUrl))
+                {
+                    builder.OpenElement(2, "img");
+                    builder.AddAttribute(3, "src", imageUrl);
+                    builder.AddAttribute(4, "alt", $"Evidence: {item.Activity}");
+                    builder.AddAttribute(5, "style", "max-width:100%; max-height:70vh; border-radius:8px; display:block; margin:0 auto;");
+                    builder.CloseElement();
+                }
+                else
+                {
+                    builder.OpenElement(6, "p");
+                    builder.AddAttribute(7, "style", "color:#9ea2bc; text-align:center; padding:2rem;");
+                    builder.AddContent(8, "No image available for this event.");
+                    builder.CloseElement();
+                }
+
+                builder.OpenElement(9, "div");
+                builder.AddAttribute(10, "style", "margin-top:0.75rem; font-size:0.82rem; color:#9ea2bc; text-align:center;");
+                builder.AddContent(11, $"{item.ObservedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm} · {item.SignificantReason ?? "Significant event"}");
+                builder.CloseElement();
+
+                builder.CloseElement();
+            },
+            new DialogOptions
+            {
+                Width = "740px",
+                CloseDialogOnOverlayClick = true,
+                ShowClose = true
+            });
     }
 
     private async Task LoadChapterAsync()
@@ -287,6 +325,25 @@
             return null;
 
         return evidenceUrls.TryGetValue(item.ImageReference, out var url) ? url : null;
+    }
+
+    private async Task OpenHandoffDialogAsync()
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            [nameof(HandoffDialog.SelectedShift)] = selectedShift,
+            [nameof(HandoffDialog.ShiftOptions)] = shiftOptions,
+            [nameof(HandoffDialog.HandoffCoachEnabled)] = ClientFlags.Value.HandoffCoachEnabled,
+            [nameof(HandoffDialog.GeneratingBrief)] = generatingBrief,
+            [nameof(HandoffDialog.SelectedShiftChanged)] = EventCallback.Factory.Create<string>(this, value => selectedShift = value),
+            [nameof(HandoffDialog.OnDownload)] = (Func<Task>)DownloadHandoffReportAsync,
+            [nameof(HandoffDialog.OnGenerateBrief)] = (Func<Task>)GenerateHandoffBriefAsync
+        };
+
+        await DialogService.OpenAsync<HandoffDialog>(
+            "Handoff",
+            parameters,
+            new DialogOptions { Width = "360px", CloseDialogOnEsc = true });
     }
 
     private async Task DownloadHandoffReportAsync()

@@ -7,7 +7,7 @@ namespace PoWatch.Application.Services;
 /// <see cref="DriftRadarService"/> (bulk multi-subject). Single source of truth for
 /// hourly-vector construction and cosine-similarity drift scoring.
 /// </summary>
-internal static class DriftMath
+public static class DriftMath
 {
     // Default threshold constants for drift classification
     public const double SlightDriftThreshold = 10;

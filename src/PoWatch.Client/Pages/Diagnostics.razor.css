@@ -18,8 +18,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    font-size: 0.8rem;
-    color: var(--text-muted, #9ea2bc);
+    font-size: 0.82rem;
+    color: var(--text-label, #c8cde8);
     font-family: var(--font-mono, monospace);
 }
 
@@ -100,7 +100,7 @@
 .status-label.status-ready  { color: var(--rz-success); }
 .status-label.status-loading { color: var(--rz-warning); }
 .status-label.status-error   { color: var(--rz-danger); }
-.status-label.status-idle    { color: var(--rz-text-secondary-color); }
+.status-label.status-idle    { color: #c8cde8; } /* override Radzen disabled color — too dim */
 
 /* Sub-text inside status card */
 
@@ -148,6 +148,36 @@
     font-size: 0.8rem;
     white-space: pre-wrap;
     word-break: break-word;
+}
+
+/* Danger Zone panel */
+
+.panel--danger {
+    border: 1px solid rgba(220, 60, 60, 0.4);
+}
+
+.panel--danger .panel-header h1 {
+    color: var(--rz-danger);
+}
+
+.danger-zone-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.reset-status {
+    font-size: 0.85rem;
+    color: var(--text-label, #c8cde8);
+}
+
+.reset-status--ok {
+    color: var(--neon-green, #38ffa8);
+}
+
+.reset-status--err {
+    color: var(--rz-danger);
 }
 
 @media (max-width: 760px) {

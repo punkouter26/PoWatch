@@ -1,120 +1,122 @@
+using System.Text.Json.Serialization;
 using PoWatch.Domain.Models;
 
 namespace PoWatch.Application.Services;
 
+// ---------------------------------------------------------------------------
+// Typed FHIR R4 record hierarchy — compile-time key safety, no anonymous dicts.
+// Conforms to https://hl7.org/fhir/R4/observation.html
+// ---------------------------------------------------------------------------
+
+public sealed record FhirMeta(
+    [property: JsonPropertyName("versionId")] string VersionId,
+    [property: JsonPropertyName("lastUpdated")] string LastUpdated,
+    [property: JsonPropertyName("profile")] string[] Profile);
+
+public sealed record FhirCoding(
+    [property: JsonPropertyName("system")] string System,
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("display")] string Display);
+
+public sealed record FhirCodeableConcept(
+    [property: JsonPropertyName("coding")] FhirCoding[] Coding,
+    [property: JsonPropertyName("text")] string? Text = null);
+
+public sealed record FhirReference(
+    [property: JsonPropertyName("reference")] string Reference,
+    [property: JsonPropertyName("display")] string Display);
+
+public sealed record FhirAnnotation(
+    [property: JsonPropertyName("text")] string Text);
+
+public sealed record FhirComponent(
+    [property: JsonPropertyName("code")] FhirCodeableConcept Code,
+    [property: JsonPropertyName("valueBoolean")] bool ValueBoolean);
+
+public sealed record FhirObservation(
+    [property: JsonPropertyName("resourceType")] string ResourceType,
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("meta")] FhirMeta Meta,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("category")] FhirCodeableConcept[] Category,
+    [property: JsonPropertyName("code")] FhirCodeableConcept Code,
+    [property: JsonPropertyName("subject")] FhirReference Subject,
+    [property: JsonPropertyName("effectiveDateTime")] string EffectiveDateTime,
+    [property: JsonPropertyName("note")] FhirAnnotation[]? Note,
+    [property: JsonPropertyName("component")] FhirComponent[] Component);
+
+public sealed record FhirBundleEntry(
+    [property: JsonPropertyName("fullUrl")] string FullUrl,
+    [property: JsonPropertyName("resource")] FhirObservation Resource,
+    [property: JsonPropertyName("search")] FhirBundleEntrySearch Search);
+
+public sealed record FhirBundleEntrySearch(
+    [property: JsonPropertyName("mode")] string Mode);
+
+public sealed record FhirBundle(
+    [property: JsonPropertyName("resourceType")] string ResourceType,
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("meta")] FhirMeta Meta,
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("total")] int Total,
+    [property: JsonPropertyName("link")] object[] Link,
+    [property: JsonPropertyName("entry")] FhirBundleEntry[] Entry);
+
 /// <summary>
-/// Maps internal domain models to FHIR R4-compatible JSON structures.
-/// Uses plain dictionaries serialised with System.Text.Json — no external FHIR SDK needed.
-/// The produced objects conform to the FHIR R4 Observation resource schema (https://hl7.org/fhir/R4/observation.html).
+/// Maps internal domain models to FHIR R4-compatible objects for serialisation.
+/// Uses typed records with <see cref="JsonPropertyNameAttribute"/> — no external FHIR SDK needed.
 /// </summary>
 public sealed class FhirMappingService
 {
-    private const string FhirVersion = "4.0.1";
     private const string FhirObservationUrl = "http://hl7.org/fhir/StructureDefinition/Observation";
 
-    /// <summary>Maps a single <see cref="ObservationEvent"/> to a FHIR R4 Observation resource dictionary.</summary>
-    public Dictionary<string, object?> MapToFhirObservation(ObservationEvent observation)
+    private static readonly FhirCodeableConcept ActivityCategory = new(
+        Coding: [new("http://terminology.hl7.org/CodeSystem/observation-category", "activity", "Activity")]);
+
+    private static readonly FhirCoding OutlierFlagCoding =
+        new("https://powatch.local/codesystem/flag", "outlier-flag", "Clinical Outlier Flag");
+
+    /// <summary>Maps a single <see cref="ObservationEvent"/> to a FHIR R4 Observation.</summary>
+    public FhirObservation MapToFhirObservation(ObservationEvent observation)
     {
         ArgumentNullException.ThrowIfNull(observation);
 
-        return new Dictionary<string, object?>
-        {
-            ["resourceType"] = "Observation",
-            ["id"] = observation.Id.ToString(),
-            ["meta"] = new Dictionary<string, object?>
-            {
-                ["versionId"] = "1",
-                ["lastUpdated"] = observation.ObservedAtUtc.ToString("o"),
-                ["profile"] = new[] { FhirObservationUrl }
-            },
-            ["status"] = "final",
-            ["category"] = new[]
-            {
-                new Dictionary<string, object?>
-                {
-                    ["coding"] = new[]
-                    {
-                        new Dictionary<string, object?>
-                        {
-                            ["system"] = "http://terminology.hl7.org/CodeSystem/observation-category",
-                            ["code"] = "activity",
-                            ["display"] = "Activity"
-                        }
-                    }
-                }
-            },
-            ["code"] = new Dictionary<string, object?>
-            {
-                ["coding"] = new[]
-                {
-                    new Dictionary<string, object?>
-                    {
-                        ["system"] = "https://powatch.local/codesystem/activity",
-                        ["code"] = observation.Activity.Replace(" ", "-").ToLowerInvariant(),
-                        ["display"] = observation.Activity
-                    }
-                },
-                ["text"] = observation.Activity
-            },
-            ["subject"] = new Dictionary<string, object?>
-            {
-                ["reference"] = $"Patient/{observation.SubjectId}",
-                ["display"] = observation.SubjectDisplayName
-            },
-            ["effectiveDateTime"] = observation.ObservedAtUtc.ToString("o"),
-            ["note"] = string.IsNullOrWhiteSpace(observation.SignificantReason)
+        return new FhirObservation(
+            ResourceType: "Observation",
+            Id: observation.Id.ToString(),
+            Meta: new FhirMeta("1", observation.ObservedAtUtc.ToString("o"), [FhirObservationUrl]),
+            Status: "final",
+            Category: [ActivityCategory],
+            Code: new FhirCodeableConcept(
+                Coding: [new("https://powatch.local/codesystem/activity",
+                             observation.Activity.Replace(" ", "-").ToLowerInvariant(),
+                             observation.Activity)],
+                Text: observation.Activity),
+            Subject: new FhirReference($"Patient/{observation.SubjectId}", observation.SubjectDisplayName),
+            EffectiveDateTime: observation.ObservedAtUtc.ToString("o"),
+            Note: string.IsNullOrWhiteSpace(observation.SignificantReason)
                 ? null
-                : new[]
-                {
-                    new Dictionary<string, object?>
-                    {
-                        ["text"] = observation.SignificantReason
-                    }
-                },
-            ["component"] = new[]
-            {
-                new Dictionary<string, object?>
-                {
-                    ["code"] = new Dictionary<string, object?>
-                    {
-                        ["coding"] = new[]
-                        {
-                            new Dictionary<string, object?>
-                            {
-                                ["system"] = "https://powatch.local/codesystem/flag",
-                                ["code"] = "outlier-flag",
-                                ["display"] = "Clinical Outlier Flag"
-                            }
-                        }
-                    },
-                    ["valueBoolean"] = observation.IsClinicalOutlier
-                }
-            }
-        };
+                : [new FhirAnnotation(observation.SignificantReason)],
+            Component: [new FhirComponent(new FhirCodeableConcept([OutlierFlagCoding]), observation.IsClinicalOutlier)]);
     }
 
-    /// <summary>Wraps a list of observations in a FHIR R4 Bundle resource (type = searchset).</summary>
-    public Dictionary<string, object?> MapToFhirBundle(IEnumerable<ObservationEvent> observations, string bundleId)
+    /// <summary>Wraps a list of observations in a FHIR R4 Bundle (type = searchset).</summary>
+    public FhirBundle MapToFhirBundle(IEnumerable<ObservationEvent> observations, string bundleId)
     {
-        var entries = observations.Select(o => new Dictionary<string, object?>
-        {
-            ["fullUrl"] = $"urn:uuid:{o.Id}",
-            ["resource"] = MapToFhirObservation(o),
-            ["search"] = new Dictionary<string, object?> { ["mode"] = "match" }
-        }).ToList();
+        var entries = observations
+            .Select(o => new FhirBundleEntry(
+                FullUrl: $"urn:uuid:{o.Id}",
+                Resource: MapToFhirObservation(o),
+                Search: new FhirBundleEntrySearch("match")))
+            .ToArray();
 
-        return new Dictionary<string, object?>
-        {
-            ["resourceType"] = "Bundle",
-            ["id"] = bundleId,
-            ["meta"] = new Dictionary<string, object?>
-            {
-                ["lastUpdated"] = DateTimeOffset.UtcNow.ToString("o")
-            },
-            ["type"] = "searchset",
-            ["total"] = entries.Count,
-            ["link"] = Array.Empty<object>(),
-            ["entry"] = entries
-        };
+        return new FhirBundle(
+            ResourceType: "Bundle",
+            Id: bundleId,
+            Meta: new FhirMeta("1", DateTimeOffset.UtcNow.ToString("o"), []),
+            Type: "searchset",
+            Total: entries.Length,
+            Link: [],
+            Entry: entries);
     }
 }

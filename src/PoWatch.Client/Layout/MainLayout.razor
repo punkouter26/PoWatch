@@ -44,15 +44,6 @@
     private bool _navigating = false;
     private string _pageTitle = "Observer Hub";
 
-    private static readonly Dictionary<string, string> _routeTitles = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "/", "Observer Hub" },
-        { "/archives", "Archives" },
-        { "/live-dashboard", "Live Dashboard" },
-        { "/identity", "Subjects" },
-        { "/diagnostics", "Diagnostics" },
-    };
-
     protected override void OnInitialized()
     {
         _timer = new System.Threading.Timer(_ =>
@@ -79,9 +70,16 @@
 
     private void UpdatePageTitle(string uri)
     {
-        var path = new Uri(uri).AbsolutePath.TrimEnd('/');
-        if (string.IsNullOrEmpty(path)) path = "/";
-        _pageTitle = _routeTitles.TryGetValue(path, out var title) ? title : "PoWatch";
+        var path = new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
+        _pageTitle = path switch
+        {
+            "" or "/" => "Observer Hub",
+            "/archives" => "Archives",
+            "/live-dashboard" => "Live Dashboard",
+            "/identity" => "Subjects",
+            "/diagnostics" => "Diagnostics",
+            _ => "PoWatch"
+        };
     }
 
     private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;

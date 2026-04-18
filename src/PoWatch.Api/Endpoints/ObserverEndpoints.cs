@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
+using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
 
@@ -8,15 +8,6 @@ namespace PoWatch.Api.Endpoints;
 
 internal static class ObserverEndpoints
 {
-    // Backpressure channel for SSE event distribution
-    private static readonly Channel<ObservationEventDto> _eventChannel = Channel.CreateBounded<ObservationEventDto>(
-        new BoundedChannelOptions(1000)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = true,
-            SingleWriter = false
-        });
-
     internal static IEndpointRouteBuilder MapObserverEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/observer").WithTags("Observer");
@@ -34,12 +25,6 @@ internal static class ObserverEndpoints
                 Activity.Current?.TraceId.ToString());
 
             var result = await service.IngestAsync(request, cancellationToken);
-
-            // Broadcast to SSE subscribers (non-blocking)
-            if (result.Accepted && result.EventId is not null)
-            {
-                _ = BroadcastEventAsync(result, cancellationToken);
-            }
 
             logger.LogInformation(
                 "Observer ingest API request completed. Accepted={Accepted} Dropped={Dropped} SubjectId={SubjectId} TraceId={TraceId}",
@@ -80,51 +65,29 @@ internal static class ObserverEndpoints
         // Acknowledgment endpoint for significant events
         group.MapPost("/acknowledge", (
             AcknowledgeEventsRequestDto request,
+            IAcknowledgementRegistry acknowledgementRegistry,
             ILogger<Program> logger,
             CancellationToken ct) =>
         {
+            var parsed = request.EventIds
+                .Select(id => Guid.TryParse(id, out var g) ? g : (Guid?)null)
+                .Where(g => g.HasValue)
+                .Select(g => g!.Value)
+                .ToList();
+
+            acknowledgementRegistry.Acknowledge(parsed, request.AcknowledgedBy);
+
             logger.LogInformation(
                 "Events acknowledged. EventIds={Count} AcknowledgedBy={AcknowledgedBy}",
-                request.EventIds.Count,
+                parsed.Count,
                 request.AcknowledgedBy);
-            
-            // In a production system, this would update the observation records in storage
-            // For now, we log the acknowledgment and return success
-            return Results.Ok(new { AcknowledgedCount = request.EventIds.Count, AcknowledgedAtUtc = DateTimeOffset.UtcNow });
+
+            return Results.Ok(new { AcknowledgedCount = parsed.Count, AcknowledgedAtUtc = DateTimeOffset.UtcNow });
         })
         .WithName("ObserverAcknowledge")
         .WithSummary("Acknowledge one or more significant events to mark them as reviewed.");
 
         return app;
-    }
-
-    /// <summary>
-    /// Broadcasts an event to all SSE subscribers via the backpressure channel.
-    /// Uses non-blocking write to prevent blocking the ingest path.
-    /// </summary>
-    private static async ValueTask BroadcastEventAsync(IngestObservationResultDto result, CancellationToken ct)
-    {
-        if (result.EventId is null)
-            return;
-
-        var dto = new ObservationEventDto
-        {
-            Id = Guid.Parse(result.EventId),
-            ObservedAtUtc = DateTimeOffset.UtcNow, // Would be from actual event in production
-            SubjectId = result.SubjectId ?? string.Empty,
-            SubjectDisplayName = result.SubjectDisplayName ?? string.Empty,
-            Activity = string.Empty, // Would be from actual event
-            ClinicalDescription = string.Empty,
-            IsSignificant = false,
-            IsClinicalOutlier = result.IsOutlier
-        };
-
-        // Try to write, but don't block if channel is full
-        if (!_eventChannel.Writer.TryWrite(dto))
-        {
-            // Channel is full - event will be dropped (backpressure behavior)
-            // This is acceptable as clients will catch up via polling
-        }
     }
 
     /// <summary>

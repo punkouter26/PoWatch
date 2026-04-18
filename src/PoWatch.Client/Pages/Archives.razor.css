@@ -38,24 +38,27 @@
     text-decoration: underline;
 }
 
-/* Image-first evidence cards */
+/* Image-first evidence cards — CSS columns masonry layout */
 .evidence-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.75rem;
+    columns: 3;
+    column-gap: 0.75rem;
     margin-top: 0.5rem;
 }
 
 .evidence-card {
+    break-inside: avoid;
+    margin-bottom: 0.75rem;
     border: 1px solid rgba(56, 255, 168, 0.15);
     border-radius: 10px;
     overflow: hidden;
     background: rgba(15, 11, 31, 0.86);
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
 }
 
 .evidence-card:hover {
-    border-color: rgba(56, 255, 168, 0.4);
+    border-color: rgba(56, 255, 168, 0.5);
+    box-shadow: 0 0 0 1px rgba(56, 255, 168, 0.12), 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .evidence-image-wrap {
@@ -108,7 +111,7 @@
     align-items: center;
     padding: 0.4rem 0.6rem;
     font-size: 0.75rem;
-    color: var(--text-muted, #9ea2bc);
+    color: var(--text-label, #c8cde8);
 }
 
 .evidence-time {
@@ -142,7 +145,7 @@
     }
 
     .evidence-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        columns: 2;
         gap: 0.6rem;
     }
 

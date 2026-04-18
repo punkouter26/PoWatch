@@ -8,7 +8,6 @@ public static class DependencyInjection
     public static IServiceCollection AddPoWatchApplication(this IServiceCollection services)
     {
         // Analytics
-        services.AddScoped<BaselineService>();
         services.AddScoped<DriftRadarService>();
 
         // Archives

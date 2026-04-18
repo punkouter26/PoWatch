@@ -49,7 +49,6 @@ public sealed class AzureBlobSasProvider : IBlobSasProvider
     {
         _logger.LogDebug("Generating read SAS. BlobPath={BlobPath}", blobPath);
         _clients.EnsureDevelopmentBlobCorsConfigured();
-        await _containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
         var normalized = NormalizeBlobName(blobPath);
         var blobClient = _containerClient.GetBlobClient(normalized);
@@ -65,7 +64,6 @@ public sealed class AzureBlobSasProvider : IBlobSasProvider
     private async Task<BlobAccessDescriptorDto> CreateUploadAccessCoreAsync(string blobName, CancellationToken cancellationToken)
     {
         _clients.EnsureDevelopmentBlobCorsConfigured();
-        await _containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
         var blobClient = _containerClient.GetBlobClient(blobName);
         var expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30);

@@ -77,7 +77,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 
         var trimmed = newDisplayName.Trim();
         var existingSlug = subject.SubjectId;
-        var canonicalId = SubjectIdSlugger.ResolveCanonicalSubjectId(subject.SubjectId, trimmed, existingSlug);
+    var canonicalId = ResolveCanonicalSubjectId(subject.SubjectId, trimmed, subjectId);
 
         // Create new immutable subject profile
         var renamed = CreateSubjectProfile(
@@ -130,7 +130,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 
         var displayName = string.IsNullOrWhiteSpace(explicitName) ? primary.DisplayName : explicitName.Trim();
         var existingSlug = primary.SubjectId;
-        var canonicalId = SubjectIdSlugger.ResolveCanonicalSubjectId(primary.SubjectId, displayName, existingSlug);
+    var canonicalId = ResolveCanonicalSubjectId(primary.SubjectId, displayName, primarySubjectId, secondarySubjectId);
 
         // Determine earliest firstSeen and latest lastSeen
         var firstSeen = MinDate(
@@ -177,7 +177,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
     public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken)
     {
         var trimmed = displayName.Trim();
-        var subjectId = SubjectIdSlugger.ResolveCanonicalSubjectId(string.Empty, trimmed);
+        var subjectId = ResolveCanonicalSubjectId(string.Empty, trimmed);
         var now = DateTimeOffset.UtcNow;
 
         if (_subjects.TryGetValue(subjectId, out var existing))
@@ -253,4 +253,33 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 
     private static DateTimeOffset MinDate(DateTimeOffset a, DateTimeOffset b) => a < b ? a : b;
     private static DateTimeOffset MaxDate(DateTimeOffset a, DateTimeOffset b) => a > b ? a : b;
+
+    private string ResolveCanonicalSubjectId(string currentSubjectId, string displayName, params string[] allowedSubjectIds)
+    {
+        if (!string.IsNullOrWhiteSpace(currentSubjectId)
+            && !currentSubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase))
+        {
+            return currentSubjectId;
+        }
+
+        var baseId = SubjectIdSlugger.BuildCanonicalSubjectId(displayName);
+        var candidate = baseId;
+        var suffix = 2;
+
+        while (true)
+        {
+            if (allowedSubjectIds.Any(id => string.Equals(id, candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                return candidate;
+            }
+
+            if (!_subjects.ContainsKey(candidate))
+            {
+                return candidate;
+            }
+
+            candidate = $"{baseId}-{suffix}";
+            suffix++;
+        }
+    }
 }

@@ -26,11 +26,13 @@ logs/
 
 # Build cache
 *.lscache
+*.csproj.lscache
 
 # Test results
 TestResults/
 test-results/
 coverage/
+*.trx
 
 # Node
 node_modules/

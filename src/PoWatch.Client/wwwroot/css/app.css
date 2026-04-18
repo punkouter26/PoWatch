@@ -13,21 +13,27 @@
     --alert-orange: #ff9f40;
     --alert-red: #ff7070;
     --text-primary: #ecf1ff;
-    --text-muted: #9ea2bc;
+    --text-muted: #adb2cc;        /* secondary / supporting text — WCAG AA on panel bg */
+    --text-label: #c8cde8;       /* small uppercase labels — higher contrast than muted */
     --text-bright: #ffffff;
+
+    /* ── Topbar height — adjust if Bootstrap/custom top-row changes ───────── */
+    --topbar-h: 3.5rem;
     
     /* ── Typography Scale ──────────────────────────────────────────────────── */
     --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "Consolas", "Lucida Console", monospace;
     
     /* ── Fluid Typography ──────────────────────────────────────────────────── */
-    --text-xs: clamp(0.65rem, 0.6vw + 0.45rem, 0.72rem);
-    --text-sm: clamp(0.78rem, 0.7vw + 0.55rem, 0.85rem);
+    --text-xs: clamp(0.75rem, 0.6vw + 0.55rem, 0.82rem);
+    --text-sm: clamp(0.82rem, 0.7vw + 0.6rem, 0.88rem);
     --text-base: clamp(0.88rem, 0.8vw + 0.6rem, 0.95rem);
     --text-lg: clamp(1rem, 1vw + 0.7rem, 1.1rem);
     --text-xl: clamp(1.15rem, 1.2vw + 0.8rem, 1.35rem);
     --text-2xl: clamp(1.35rem, 1.5vw + 0.9rem, 1.55rem);
     --text-3xl: clamp(1.55rem, 2vw + 1rem, 1.85rem);
+    /* Mono data readout: larger minimum ensures legibility at arm's length */
+    --text-data: clamp(0.85rem, 0.8vw + 0.6rem, 0.92rem);
     
     /* ── Spacing Scale ───────────────────────────────────────────────────── */
     --space-1: 0.25rem;
@@ -53,6 +59,11 @@
     --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
     --shadow-glow-green: 0 0 20px rgba(56, 255, 168, 0.25);
     --shadow-glow-purple: 0 0 20px rgba(111, 61, 227, 0.25);
+
+    /* ── Elevation Tiers ──────────────────────────────────────────────────── */
+    --elevation-base: 0 0 0 1px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
+    --elevation-raised: 0 0 0 1px rgba(56, 255, 168, 0.18), 0 0 24px rgba(111, 61, 227, 0.2), 0 24px 48px rgba(0, 0, 0, 0.38);
+    --elevation-float: 0 0 0 2px rgba(56, 255, 168, 0.32), 0 0 40px rgba(111, 61, 227, 0.35), 0 32px 60px rgba(0, 0, 0, 0.5);
     
     /* ── Transitions ──────────────────────────────────────────────────────── */
     --transition-fast: 150ms ease;
@@ -185,7 +196,11 @@ code,
 
 .observer-page {
     display: grid;
-    gap: 0.9rem;
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    height: calc(100svh - var(--topbar-h) - 2.8rem);
+    overflow: hidden;
 }
 
 .observer-hero {
@@ -195,6 +210,24 @@ code,
     gap: 0.85rem 1rem;
     flex-wrap: wrap;
     padding: 0.15rem 0 0;
+}
+
+/* Compact hero strip when monitoring is active — metrics shown in HUD float pill */
+.observer-hero--monitoring {
+    padding: 0.1rem 0;
+    align-items: center;
+}
+
+.observer-hero--monitoring .observer-hero-copy {
+    max-width: none;
+}
+
+.observer-hero--monitoring h1 {
+    font-size: 1.2rem;
+}
+
+.observer-hero--monitoring .observer-summary {
+    display: none;
 }
 
 .observer-hero-copy {
@@ -270,8 +303,8 @@ code,
 
 .metric-label {
     display: block;
-    color: var(--text-muted);
-    font-size: 0.67rem;
+    color: var(--text-label);
+    font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     margin-bottom: 0;
@@ -287,8 +320,8 @@ code,
 }
 
 .metric-card small {
-    color: var(--text-muted);
-    font-size: 0.72rem;
+    color: var(--text-label);
+    font-size: 0.73rem;
     line-height: 1.28;
 }
 
@@ -317,7 +350,7 @@ code,
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(111, 61, 227, 0.32) !important;
     border-radius: 18px !important;
-    box-shadow: 0 0 0 1px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--elevation-base);
     padding: 1rem 1.05rem !important;
 }
 
@@ -429,9 +462,9 @@ code,
     to { transform: translateY(8px); }
 }
 
+/* .archive-toolbar is owned by Archives.razor.css (scoped) */
 .controls-row,
-.dev-tools-actions,
-.archive-toolbar {
+.dev-tools-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
@@ -471,8 +504,8 @@ code,
 
 .hud-grid label {
     display: block;
-    color: var(--text-muted);
-    font-size: 0.8rem;
+    color: var(--text-label);
+    font-size: 0.82rem;
 }
 
 /* HUD bar — developer overlay strip (EnableHud feature flag) */
@@ -508,7 +541,7 @@ code,
     color: #9ef7d4;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    font-size: 0.62rem;
+    font-size: 0.7rem;
     margin-bottom: 0.1rem;
 }
 
@@ -523,7 +556,7 @@ code,
     border: 1px solid rgba(111, 61, 227, 0.24);
     color: #c7cae0;
     letter-spacing: 0.03em;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
 }
 
 .hud-val {
@@ -545,6 +578,15 @@ code,
     background: rgba(5, 3, 10, 0.6);
     border-radius: 10px;
     border: 1px solid rgba(111, 61, 227, 0.25);
+}
+
+/* When status-strip is inline inside controls-row, suppress its own margins/bg */
+.controls-row--primary .status-strip {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
 }
 
 .status-strip-thinking {
@@ -617,33 +659,7 @@ code,
     margin-top: 0.8rem;
 }
 
-.narrative {
-    color: var(--text-muted);
-}
-
-.evidence-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 0.7rem;
-}
-
-.evidence-item {
-    display: grid;
-    grid-template-columns: 70px auto;
-    gap: 0.65rem;
-    padding: 0.6rem;
-    border: 1px solid rgba(111, 61, 227, 0.4);
-    border-radius: 6px;
-    background: rgba(15, 11, 31, 0.86);
-}
-
-.evidence-thumb {
-    display: grid;
-    place-items: center;
-    border: 1px dashed rgba(56, 255, 168, 0.45);
-    border-radius: 4px;
-    color: var(--neon-green);
-}
+/* .narrative and .evidence-grid are scoped to Archives.razor.css */
 
 .hud-top {
     display: flex;
@@ -830,19 +846,32 @@ code,
     stroke: #6f3de3;
 }
 
+/* Camera left (7 cols), stats right (5 cols), activity full-width below */
+.observer-page > .sector-grid {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
+}
+
 .observer-grid .panel-main,
 .observer-grid--active .panel-main {
-    grid-column: span 4;
+    grid-column: span 7;
+    min-width: 0;
 }
 
 .observer-grid .panel-stats,
 .observer-grid--active .panel-stats {
-    grid-column: span 4;
+    grid-column: span 5;
+    min-width: 0;
+    overflow-y: auto;
+    max-height: calc(100svh - var(--topbar-h) - 9rem);
 }
 
 .observer-grid .panel-activity,
 .observer-grid--active .panel-activity {
-    grid-column: span 4;
+    grid-column: span 12;
+    min-width: 0;
 }
 
 .stats-section {
@@ -993,7 +1022,7 @@ code,
 
 .subject-card-label {
     font-size: 0.72rem;
-    color: var(--text-muted);
+    color: var(--text-label);
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
@@ -1010,10 +1039,15 @@ code,
     display: flex;
     gap: 3px;
     align-items: center;
-    flex-wrap: wrap;
     margin-top: 0.2rem;
 }
 
+.sparkline-svg {
+    display: block;
+    overflow: visible;
+}
+
+/* Legacy dot classes kept for fallback */
 .sparkline-dot {
     display: inline-block;
     width: 8px;
@@ -1031,10 +1065,26 @@ code,
     grid-template-columns: repeat(2, 1fr) !important;
 }
 
+@media (max-width: 820px) {
+    .observer-grid .panel-main,
+    .observer-grid .panel-stats,
+    .observer-grid .panel-activity,
+    .observer-grid--active .panel-main,
+    .observer-grid--active .panel-stats,
+    .observer-grid--active .panel-activity {
+        grid-column: span 12;
+    }
+
+    .observer-grid .panel-stats,
+    .observer-grid--active .panel-stats {
+        max-height: none;
+    }
+}
+
 @media (min-width: 1400px) {
     .observer-grid,
     .observer-grid--active {
-        grid-template-columns: minmax(320px, 1fr) minmax(520px, 1.35fr) minmax(360px, 1.15fr);
+        grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.85fr) minmax(340px, 0.9fr);
     }
 
     .observer-grid .panel-main,
@@ -1044,6 +1094,12 @@ code,
     .observer-grid--active .panel-stats,
     .observer-grid--active .panel-activity {
         grid-column: auto;
+    }
+
+    /* At wide viewports, activity goes on its own row below camera+stats */
+    .observer-grid .panel-activity,
+    .observer-grid--active .panel-activity {
+        grid-column: 1 / -1;
     }
 
     .infer-metrics-grid {
@@ -1084,8 +1140,8 @@ code,
 }
 
 .monitor-metric-label {
-    font-size: 0.68rem;
-    color: var(--text-muted);
+    font-size: 0.72rem;
+    color: var(--text-label);
     text-transform: uppercase;
     letter-spacing: 0.09em;
 }
@@ -1099,9 +1155,9 @@ code,
 }
 
 .monitor-metric-card small {
-    color: var(--text-muted);
+    color: var(--text-label);
     line-height: 1.28;
-    font-size: 0.71rem;
+    font-size: 0.75rem;
 }
 
 .archive-timeline-grid,
@@ -1118,9 +1174,12 @@ code,
 .archive-timeline-grid .rz-data-grid-header,
 .identity-grid-table .rz-datatable-thead th,
 .identity-grid-table .rz-sortable-column,
-.identity-grid-table .rz-data-grid-header {
+.identity-grid-table .rz-data-grid-header,
+.identity-grid-table .rz-data-grid-data thead th,
+.identity-grid-table .rz-grid-table thead th,
+.identity-grid-table th.rz-unselectable-text {
     background: rgba(12, 10, 24, 0.95) !important;
-    color: #bbc3df !important;
+    color: #d6def5 !important;
     border-color: rgba(111, 61, 227, 0.18) !important;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -1548,7 +1607,7 @@ h1, h2 {
 .metric-card:hover,
 .monitor-metric-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
+    box-shadow: var(--elevation-raised);
 }
 
 /* Smooth transitions for all interactive elements */
@@ -1598,6 +1657,238 @@ button:active:not(:disabled) {
 .skeleton-line--wide { width: 100%; }
 .skeleton-line--medium { width: 70%; }
 .skeleton-line--short { width: 40%; }
+
+/* ── Floating HUD Diagnostics Widget (Suggestion 6) ─────────────────────── */
+.hud-float-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: 520px;
+    pointer-events: none;
+}
+
+.hud-float-container > * {
+    pointer-events: auto;
+}
+
+.hud-float-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.38rem 0.9rem;
+    background: rgba(5, 3, 10, 0.94);
+    border: 1px solid rgba(111, 61, 227, 0.45);
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: var(--elevation-float);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    user-select: none;
+}
+
+.hud-float-pill:hover {
+    border-color: rgba(56, 255, 168, 0.55);
+    box-shadow: var(--elevation-float), 0 0 16px rgba(56, 255, 168, 0.15);
+}
+
+.hud-float-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--neon-green);
+    animation: livePulse 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.hud-float-pill-dot--idle {
+    background: rgba(158, 162, 188, 0.5);
+    animation: none;
+}
+
+.hud-float-val {
+    color: var(--neon-green);
+    font-weight: 700;
+}
+
+.hud-float-expanded {
+    width: 100%;
+    animation: fadeSlideUp 0.22s ease-out;
+}
+
+/* ── Elevated Floating Panels (Suggestion 2) ─────────────────────────────── */
+.handoff-brief-panel {
+    margin-top: 1rem;
+    padding: 1rem 1.1rem;
+    background: rgba(10, 8, 22, 0.96);
+    border: 1px solid rgba(56, 255, 168, 0.28);
+    border-radius: 14px;
+    box-shadow: var(--elevation-float);
+    animation: fadeSlideUp 0.3s ease-out;
+}
+
+.handoff-brief-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.7rem;
+}
+
+.handoff-brief-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.brief-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.brief-badge--ai {
+    background: rgba(56, 255, 168, 0.12);
+    border: 1px solid rgba(56, 255, 168, 0.3);
+    color: #38ffa8;
+}
+
+.brief-badge--template {
+    background: rgba(111, 61, 227, 0.14);
+    border: 1px solid rgba(111, 61, 227, 0.3);
+    color: #b48eff;
+}
+
+.brief-meta {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.brief-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.15s;
+}
+
+.brief-close:hover { color: var(--text-primary); }
+
+.brief-summary {
+    color: #d6def5;
+    line-height: 1.6;
+    margin: 0 0 0.75rem;
+}
+
+.brief-section {
+    margin-top: 0.65rem;
+}
+
+.brief-section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--neon-green);
+    margin: 0 0 0.4rem;
+    font-family: var(--font-mono);
+}
+
+.brief-list {
+    margin: 0;
+    padding: 0 0 0 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.brief-list li {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.brief-list--priority li::marker { color: rgba(255, 160, 60, 0.8); }
+.brief-list--followup li::marker { color: rgba(111, 61, 227, 0.8); }
+
+.brief-source-notes {
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.brief-source-notes summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+/* ── Undo Toast (Suggestion 2 — elevation-float) ────────────────────────── */
+.undo-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.1rem;
+    background: rgba(10, 8, 22, 0.96);
+    border: 1px solid rgba(56, 255, 168, 0.35);
+    border-radius: 999px;
+    box-shadow: var(--elevation-float);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    animation: fadeSlideUp 0.25s ease-out;
+}
+
+.undo-countdown {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--neon-green);
+    font-weight: 700;
+    min-width: 2ch;
+    text-align: right;
+}
+
+/* ── Editable Subject Name (Suggestion 9) ───────────────────────────────── */
+.subject-name-editable {
+    cursor: pointer;
+    border-bottom: 1px dotted rgba(111, 61, 227, 0.4);
+    padding-bottom: 1px;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.subject-name-editable:hover {
+    color: #ecf1ff;
+    border-bottom-color: var(--neon-green);
+}
+
+.name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
 
 /* ── UI-4: Enhanced Card & Panel Polish ──────────────────────────────────── */
 
@@ -2460,6 +2751,256 @@ button:active:not(:disabled) {
     .monitoring-indicator {
         padding: 0.25rem 0.6rem;
         font-size: 0.7rem;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIEWPORT-FIT LAYOUT & SIMPLIFICATION OVERHAUL (2026)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Observer grid: stretch panels to fill the 1fr row ─────────────────── */
+.observer-page > .sector-grid.observer-grid,
+.observer-page > .sector-grid.observer-grid.observer-grid--active {
+    min-height: 0; /* critical: allows grid children to shrink inside a grid row */
+    overflow: hidden;
+    align-items: stretch;
+}
+
+.observer-grid .panel-main,
+.observer-grid .panel-stats,
+.observer-grid .panel-activity,
+.observer-grid--active .panel-main,
+.observer-grid--active .panel-stats,
+.observer-grid--active .panel-activity {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
+}
+
+/* Remove fixed max-height from activity list — the panel itself scrolls */
+.observer-grid .panel-activity .activity-list,
+.observer-grid--active .panel-activity .activity-list {
+    max-height: none;
+}
+
+/* ── Page Header Strip ──────────────────────────────────────────────────── */
+.page-header-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.2rem 0.1rem;
+    flex-wrap: wrap;
+}
+
+.page-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.page-header-title h1 {
+    font-size: 1.2rem;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.page-header-time {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--neon-green);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.page-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.77rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+/* ── Help Tip (? tooltip trigger) ──────────────────────────────────────── */
+.help-tip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    background: rgba(111, 61, 227, 0.1);
+    border: 1px solid rgba(111, 61, 227, 0.28);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    cursor: help;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+}
+
+.help-tip:hover {
+    background: rgba(111, 61, 227, 0.2);
+    color: var(--text-primary);
+}
+
+/* ── Subjects Strip ─────────────────────────────────────────────────────── */
+.subjects-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.5rem 0.7rem 0.55rem;
+    background: linear-gradient(180deg, rgba(15, 11, 31, 0.94) 0%, rgba(10, 8, 23, 0.96) 100%);
+    border: 1px solid rgba(111, 61, 227, 0.32);
+    border-radius: 14px;
+    box-shadow: var(--elevation-base);
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+.subjects-strip-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: nowrap;
+}
+
+.subjects-mini-row {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
+    min-height: 90px;
+    align-items: stretch;
+}
+
+.subject-card--mini {
+    flex: 0 0 175px;
+    min-width: 0;
+    padding: 0.48rem 0.6rem !important;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.subject-card--mini:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(56, 255, 168, 0.12), var(--elevation-base);
+}
+
+.subject-card--mini .subject-card-name {
+    font-size: 0.82rem;
+}
+
+.subject-card--mini .subject-card-activity {
+    margin-top: 0.3rem;
+}
+
+.subject-card--mini .subject-card-activity strong {
+    font-size: 0.79rem;
+    line-height: 1.3;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.subject-card--mini .subject-card-meta {
+    margin-top: 0.2rem;
+    font-size: 0.69rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.subjects-empty {
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-style: italic;
+    padding: 0.3rem 0;
+    white-space: nowrap;
+}
+
+.subjects-manage-link {
+    margin-left: auto;
+    color: var(--neon-green);
+    font-size: 0.76rem;
+    text-decoration: none;
+    white-space: nowrap;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+
+.subjects-manage-link:hover {
+    opacity: 1;
+}
+
+/* ── Panel h2 compact style for simplified headers ─────────────────────── */
+.panel-header.observer-panel-header > h2 {
+    font-size: 0.98rem;
+    margin: 0;
+    cursor: default;
+}
+
+.panel-header.observer-panel-header > h2[title] {
+    cursor: help;
+    text-decoration: underline dotted rgba(111, 61, 227, 0.4);
+    text-underline-offset: 3px;
+}
+
+/* ── Compact panel padding to reclaim vertical space ───────────────────── */
+.panel,
+.rz-card.panel {
+    padding: 0.75rem 0.9rem !important;
+}
+
+/* ── Reduce nexus-frame aspect-ratio to fit without overflow ────────────── */
+.nexus-frame {
+    aspect-ratio: 16 / 9;
+    max-height: 42vh; /* never push controls off-screen */
+    margin: 0.5rem 0 0.6rem;
+}
+
+/* ── Primary controls row — always pinned above camera ──────────────────── */
+.controls-row--primary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0 0.75rem;
+    border-bottom: 1px solid rgba(111, 61, 227, 0.2);
+    margin-bottom: 0.5rem;
+}
+
+/* ── Compact stats-section spacing ─────────────────────────────────────── */
+.stats-section {
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+}
+
+.stats-section:first-of-type {
+    margin-top: 0.3rem;
+    padding-top: 0;
+    border-top: none;
+}
+
+/* ── Responsive: subjects strip stacks on very small screens ────────────── */
+@media (max-width: 640px) {
+    .subjects-strip-header {
+        flex-wrap: wrap;
+    }
+
+    .subject-card--mini {
+        flex: 0 0 155px;
+    }
+
+    .observer-page {
+        height: auto;
+        overflow: visible;
     }
 }
 

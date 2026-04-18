@@ -48,11 +48,6 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return items ?? [];
     }
 
-    public async Task<SubjectBaselineDto?> GetSubjectBaselineAsync(string subjectId, int days = 7, CancellationToken cancellationToken = default) =>
-        await httpClient.GetFromJsonAsync<SubjectBaselineDto>(
-            $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}/baseline?days={days}",
-            cancellationToken);
-
     public async Task<IdentityRevisionResultDto?> RenameSubjectAsync(string subjectId, RenameSubjectRequestDto request, CancellationToken cancellationToken = default)
     {
         using var message = new HttpRequestMessage(HttpMethod.Patch, $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}")
@@ -87,5 +82,12 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         var response = await httpClient.PostAsJsonAsync($"api/archives/{date:yyyy-MM-dd}/handoff-brief", request, cancellationToken);
         if (!response.IsSuccessStatusCode) return null;
         return await response.Content.ReadFromJsonAsync<HandoffBriefDto>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<StorageResetResultDto?> ClearAllDataAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsync("api/diagnostics/reset", null, cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<StorageResetResultDto>(cancellationToken: cancellationToken);
     }
 }

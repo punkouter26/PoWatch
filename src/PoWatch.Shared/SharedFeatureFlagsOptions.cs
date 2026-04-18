@@ -9,7 +9,6 @@ public abstract class SharedFeatureFlagsOptions
 {
     public bool ObservationLoopEnabled { get; init; } = true;
     public bool SaveSignificantImages { get; init; } = true;
-    public bool TtsAnnouncementsEnabled { get; init; } = false;
     public bool UseMockAi { get; init; } = false;
     public int PollingIntervalSeconds { get; init; } = 10;
     public int MaxHistoryRows { get; init; } = 50;
@@ -22,4 +21,6 @@ public abstract class SharedFeatureFlagsOptions
     /// Set to 0 (default) to always show TEMP for unknown subjects.
     /// </summary>
     public int TempBadgeMinObservations { get; init; } = 0;
+    /// <summary>When true, debug-only sections (e.g. Danger Zone on Diagnostics) are visible in the UI.</summary>
+    public bool ExposeDebugDetailsInUi { get; init; } = false;
 }
