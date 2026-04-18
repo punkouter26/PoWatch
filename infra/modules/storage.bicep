@@ -7,7 +7,7 @@ param environment string
 
 @description('Allowed browser origins for direct Blob SAS upload/download requests')
 param blobCorsAllowedOrigins array = [
-  'https://app-powatch.azurewebsites.net'
+  'https://powatch-app-dev.azurewebsites.net'
   'http://localhost:5000'
   'http://localhost:7000'
   'http://localhost:7099'
@@ -58,7 +58,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
 
 // Blob container for significant-event images
 resource imageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  name: '${storageAccount.name}/default/powatch-images'
+  name: '${storageAccount.name}/default/significant-images'
   properties: {
     publicAccess: 'None'
   }
