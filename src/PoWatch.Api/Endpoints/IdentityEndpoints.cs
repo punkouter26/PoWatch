@@ -35,8 +35,30 @@ internal static class IdentityEndpoints
 
         group.MapGet("/subjects", async (
             IdentityService service,
+            ILogger<Program> logger,
             CancellationToken cancellationToken) =>
-            Results.Ok(await service.GetSubjectsAsync(cancellationToken)))
+        {
+            try
+            {
+                return Results.Ok(await service.GetSubjectsAsync(cancellationToken));
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Identity subjects retrieval failed. TraceId={TraceId}",
+                    Activity.Current?.TraceId.ToString());
+
+                return Results.Problem(
+                    title: "Unable to load identity subjects.",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status500InternalServerError,
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["traceId"] = Activity.Current?.TraceId.ToString()
+                    });
+            }
+        })
             .WithName("IdentitySubjects")
             .WithSummary("List all known and temporary subject identities.");
 

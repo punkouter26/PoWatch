@@ -3,6 +3,7 @@
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@using System.Net.Http
 
 <PageTitle>PoWatch | Identity Nexus</PageTitle>
 
@@ -133,15 +134,35 @@
     protected override async Task OnInitializedAsync()
     {
         loading = true;
-        await LoadSubjectsAsync();
-        loading = false;
+
+        try
+        {
+            await LoadSubjectsAsync();
+        }
+        finally
+        {
+            loading = false;
+        }
     }
 
     private async Task LoadSubjectsAsync()
     {
-        subjects = (await ApiClient.GetSubjectsAsync())
-            .OrderByDescending(x => x.LastSeenUtc)
-            .ToList();
+        try
+        {
+            subjects = (await ApiClient.GetSubjectsAsync())
+                .OrderByDescending(x => x.LastSeenUtc)
+                .ToList();
+        }
+        catch (HttpRequestException ex)
+        {
+            subjects = [];
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Identity API",
+                $"Could not load subjects. {ex.Message}",
+                duration: 6000);
+            return;
+        }
 
         if (subjects.Count > 0 && (string.IsNullOrWhiteSpace(primarySubjectId) || subjects.All(x => x.SubjectId != primarySubjectId)))
         {

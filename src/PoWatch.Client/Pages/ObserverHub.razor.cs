@@ -3,6 +3,7 @@ using Microsoft.JSInterop;
 using PoWatch.Client.Services;
 using PoWatch.Shared.Models;
 using Radzen;
+using System.Net.Http;
 
 namespace PoWatch.Client.Pages;
 
@@ -441,7 +442,29 @@ public partial class ObserverHub
 
     private async Task RefreshStateAsync()
     {
-        observerState = await ApiClient.GetObserverStateAsync();
+        try
+        {
+            observerState = await ApiClient.GetObserverStateAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            observerState ??= new ObserverRuntimeStateDto
+            {
+                ObservationLoopEnabled = false,
+                SaveSignificantImages = false,
+                DeveloperModeEnabled = false,
+                PollIntervalSeconds = FeatureFlags.Value.PollingIntervalSeconds,
+                CapturedAtUtc = DateTimeOffset.UtcNow,
+                Status = "Unavailable",
+                StatusDetail = "Observer state endpoint is temporarily unavailable."
+            };
+
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Observer API",
+                $"Could not load observer state. {ex.Message}",
+                duration: 6000);
+        }
     }
 
     private async Task RefreshDiagnosticsAsync()

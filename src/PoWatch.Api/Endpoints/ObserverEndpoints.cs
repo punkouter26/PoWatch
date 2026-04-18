@@ -38,8 +38,31 @@ internal static class ObserverEndpoints
         .WithName("ObserverIngest")
         .WithSummary("Persist a locally inferred observation event.");
 
-        group.MapGet("/state", (ObservationService service) =>
-            Results.Ok(service.GetRuntimeState()))
+        group.MapGet("/state", (
+            ObservationService service,
+            ILogger<Program> logger) =>
+        {
+            try
+            {
+                return Results.Ok(service.GetRuntimeState());
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Observer runtime state retrieval failed. TraceId={TraceId}",
+                    Activity.Current?.TraceId.ToString());
+
+                return Results.Problem(
+                    title: "Unable to load observer runtime state.",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status500InternalServerError,
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["traceId"] = Activity.Current?.TraceId.ToString()
+                    });
+            }
+        })
             .WithName("ObserverState")
             .WithSummary("Get the live observer runtime status and feature flags.");
 
