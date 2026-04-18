@@ -194,6 +194,17 @@ var builder = WebApplication.CreateBuilder(args);
     // T005: Serve hosted Blazor WASM from same origin — no CORS needed (T006: CORS removed)
     // .NET 10: MapStaticAssets() replaces both UseBlazorFrameworkFiles() and UseStaticFiles().
     // It uses the staticwebassets.endpoints.json manifest to resolve fingerprinted file names.
+    // App wwwroot/js files are NOT fingerprinted by the framework, so force revalidation on
+    // every request to prevent stale-cache errors after deployments.
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/js") ||
+            context.Request.Path.StartsWithSegments("/css"))
+        {
+            context.Response.Headers["Cache-Control"] = "no-cache, must-revalidate";
+        }
+        await next();
+    });
     app.MapStaticAssets();
 
     // --- API routes ---
