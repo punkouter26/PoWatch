@@ -29,6 +29,22 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return access?.SasUrl;
     }
 
+    /// <summary>
+    /// Get a signed read URL for a blob directly from the /read endpoint (preferred method).
+    /// </summary>
+    public async Task<BlobAccessDescriptorDto?> GetBlobReadAccessAsync(string blobPath, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync<BlobAccessDescriptorDto>($"api/blobs/read?blobPath={Uri.EscapeDataString(blobPath)}", cancellationToken);
+
+    /// <summary>
+    /// Check integrity and viewability of multiple evidence blobs (for diagnostics/QA).
+    /// </summary>
+    public async Task<dynamic?> CheckBlobIntegrityAsync(IEnumerable<string> blobPaths, CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync("api/blobs/integrity", blobPaths, cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<dynamic>(cancellationToken: cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SubjectProfileDto>> GetSubjectsAsync(CancellationToken cancellationToken = default)
     {
         var items = await httpClient.GetFromJsonAsync<List<SubjectProfileDto>>("api/identity/subjects", cancellationToken);

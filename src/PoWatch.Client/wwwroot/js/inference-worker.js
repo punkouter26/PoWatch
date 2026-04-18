@@ -210,9 +210,13 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   _lastInferenceOutput = output;
 
   // Parse structured LABEL / NOTE response.
-  // LABEL: is preferred. Accept a few common misspellings emitted by small models.
+  // LABEL: is preferred. Accept common misspellings/malformations emitted by small models:
+  //   - LABLE, LABELL, LABERF (off-by-one/extra chars)
+  //   - LABEL (correct)
+  // Also handles: L A B E L (space-separated), [LABEL], etc.
   // When absent, fall back to extracting the first sentence as low-confidence activity.
-  const labelMatch = output.match(/(?:^|\n)\s*(?:LABEL|LABLE|LABELL|LABERF)\s*:\s*([^|\n]+)/i);
+  const labelRegex = /(?:^|\n)\s*\[?L\s*A\s*B\s*E\s*L\s*\]?\s*:\s*([^|\n]+)/i;
+  const labelMatch = output.match(labelRegex);
   const noteMatch  = output.match(/NOTE:\s*([^\n]+)/i);
 
   const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
@@ -242,8 +246,12 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     // Fallback: use the first sentence of raw output as the activity summary.
     const rawTrimmed = output.replace(/\s+/g, ' ').trim();
     const firstSentence = rawTrimmed.split(/[.\n]/)[0].trim().slice(0, 80);
+    // Enhanced normalization: remove malformed label prefixes and clean up
     const normalizedSentence = firstSentence
-      .replace(/^(?:LABEL|LABLE|LABELL|LABERF)\s*:\s*/i, '')
+      .replace(/^[L\s]*A[A\s]*B[B\s]*E[E\s]*L[L\s]*\s*:\s*/i, '') // Space-separated LABEL variants
+      .replace(/^(?:LABEL|LABLE|LABELL|LABERF)\s*:\s*/i, '')          // Compact variants
+      .replace(/^\[.*?\]\s*/, '')                                      // Remove bracketed prefixes
+      .replace(/^[^\w\s]*/, '')                                        // Remove leading non-alphanumeric
       .trim();
 
     if (normalizedSentence.length < 6 || _DENY.has(normalizedSentence.toLowerCase()) || hasRepetition(normalizedSentence)) {

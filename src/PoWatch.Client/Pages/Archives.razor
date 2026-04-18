@@ -28,6 +28,8 @@
             <span class="kbd-hint" title="Arrow Right — next day">→</span>
             <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="NextDayAsync" Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
+            <RadzenButton Icon="today" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                Click="GoToTodayAsync" Disabled="@loading" aria-label="Go to today" title="Jump to today" />
             @if (loading)
             {
                 <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:100px; align-self:center;" />
@@ -118,6 +120,7 @@
                     var evidenceUrl = GetEvidenceUrl(item);
                     var capturedItem = item;
                     var capturedUrl = evidenceUrl;
+                    var imageStatus = GetImageLoadStatus(item);
                     <div class="evidence-card"
                          @onclick="@(async () => await OpenEvidenceLightboxAsync(capturedItem, capturedUrl))"
                          role="button" tabindex="0"
@@ -132,12 +135,18 @@
                             }
                             else
                             {
-                                <div class="evidence-full-img evidence-placeholder">No image</div>
+                                <div class="evidence-full-img evidence-placeholder">@(imageStatus ?? "No image")</div>
                             }
                             <div class="evidence-overlay">
                                 <span class="evidence-subject">@item.SubjectDisplayName</span>
                                 <span class="evidence-activity">@item.Activity</span>
                             </div>
+                            @if (!string.IsNullOrWhiteSpace(imageStatus) && imageStatus != "Loaded")
+                            {
+                                <div class="evidence-status-chip evidence-status-chip--@imageStatus.ToLower().Replace(" ", "-")">
+                                    @imageStatus
+                                </div>
+                            }
                         </div>
                         <div class="evidence-caption">
                             <small>@(item.SignificantReason ?? "Significant event")</small>
@@ -197,11 +206,12 @@
     ];
 
     // Use local time so the default chapter matches the clinician's calendar day.
-    private DateTime? selectedDate = DateTime.Today;
+    private DateTime? selectedDate;
     private string selectedShift = "FullDay";
     private DailyChapterDto? chapter;
     private bool loading;
     private readonly Dictionary<string, string> evidenceUrls = [];
+    private readonly Dictionary<string, string> imageLoadStatus = []; // Track image loading state per blob path
     private HandoffBriefDto? handoffBrief;
     private bool generatingBrief;
     private string briefAudience = "NurseToNurse";
@@ -209,14 +219,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Restore last-visited date from localStorage
+        // Restore last-visited date from localStorage, or default to today
         try
         {
             var stored = await JS.InvokeAsync<string?>("localStorage.getItem", "powatch:archivesDate");
             if (!string.IsNullOrWhiteSpace(stored) && DateTime.TryParse(stored, out var restored))
                 selectedDate = restored;
+            else
+                selectedDate = DateTime.Today; // Default to today if no stored value
         }
-        catch { /* localStorage may be unavailable */ }
+        catch 
+        { 
+            // localStorage may be unavailable; default to today
+            selectedDate = DateTime.Today;
+        }
 
         await LoadChapterAsync();
     }
@@ -231,6 +247,12 @@
     {
         if ((selectedDate ?? DateTime.Today).Date >= DateTime.Today) return;
         selectedDate = (selectedDate ?? DateTime.Today).AddDays(1);
+        await LoadChapterAsync();
+    }
+
+    private async Task GoToTodayAsync()
+    {
+        selectedDate = DateTime.Today;
         await LoadChapterAsync();
     }
 
@@ -293,23 +315,54 @@
             // Persist selected date for session continuity
             await JS.InvokeVoidAsync("localStorage.setItem", "powatch:archivesDate", selectedDate?.ToString("O") ?? string.Empty);
             evidenceUrls.Clear();
+            imageLoadStatus.Clear();
+            
             var itemsWithImages = chapter?.Highlights?
                 .Where(x => !string.IsNullOrWhiteSpace(x.ImageReference))
                 .ToList() ?? [];
 
+            if (itemsWithImages.Count == 0)
+            {
+                loading = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Use the new direct read endpoint for better error handling
             var sasResults = await Task.WhenAll(
-                itemsWithImages.Select(item => ApiClient.GetBlobReadUrlAsync(item.ImageReference!)));
+                itemsWithImages.Select(async item => 
+                {
+                    try
+                    {
+                        var access = await ApiClient.GetBlobReadAccessAsync(item.ImageReference!);
+                        return access?.SasUrl;
+                    }
+                    catch (Exception)
+                    {
+                        imageLoadStatus[item.ImageReference!] = "Failed";
+                        return null;
+                    }
+                }));
 
             for (var i = 0; i < itemsWithImages.Count; i++)
             {
+                var blobPath = itemsWithImages[i].ImageReference!;
                 if (!string.IsNullOrWhiteSpace(sasResults[i]))
-                    evidenceUrls[itemsWithImages[i].ImageReference!] = sasResults[i]!;
+                {
+                    evidenceUrls[blobPath] = sasResults[i]!;
+                    imageLoadStatus[blobPath] = "Loaded";
+                }
+                else if (!imageLoadStatus.ContainsKey(blobPath))
+                {
+                    imageLoadStatus[blobPath] = "Missing";
+                }
             }
         }
         catch (Exception ex)
         {
             chapter = null;
             evidenceUrls.Clear();
+            imageLoadStatus.Clear();
             NotificationService.Notify(NotificationSeverity.Error, "Archives", ex.Message, duration: 6000);
         }
         finally
@@ -325,6 +378,14 @@
             return null;
 
         return evidenceUrls.TryGetValue(item.ImageReference, out var url) ? url : null;
+    }
+
+    private string? GetImageLoadStatus(ObservationEventDto item)
+    {
+        if (string.IsNullOrWhiteSpace(item.ImageReference))
+            return null;
+
+        return imageLoadStatus.TryGetValue(item.ImageReference, out var status) ? status : null;
     }
 
     private async Task OpenHandoffDialogAsync()

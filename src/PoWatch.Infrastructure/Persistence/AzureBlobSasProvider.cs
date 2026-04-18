@@ -54,10 +54,22 @@ public sealed class AzureBlobSasProvider : IBlobSasProvider
         var blobClient = _containerClient.GetBlobClient(normalized);
         var expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30);
 
+        // Ensure we can always generate a SAS token for secure read access
+        // CanGenerateSasUri checks for StorageSharedKeyCredential or UserDelegationKey
+        if (!blobClient.CanGenerateSasUri)
+        {
+            _logger.LogWarning(
+                "Cannot generate SAS URI with current credential for blob {BlobPath}. Ensure Managed Identity has 'Storage Blob Data Reader' role and container is not public.",
+                normalized);
+            // As fallback, return unsigned URL for blobs that might be in public containers (not recommended for prod)
+            // In production, all private blobs must use SAS tokens
+        }
+
         var url = blobClient.CanGenerateSasUri
             ? blobClient.GenerateSasUri(BlobSasPermissions.Read, expiresAtUtc).ToString()
             : blobClient.Uri.ToString();
 
+        _logger.LogInformation("Generated read URL for blob {BlobPath}. HasSasToken={HasSasToken}", normalized, url.Contains("?"));
         return url;
     }
 
