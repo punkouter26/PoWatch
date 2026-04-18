@@ -4,8 +4,12 @@
 {
     <div class="setup-row">
         <label>Inference Model</label>
-        <RadzenDropDown @bind-Value="SelectedModelKey" Data="ModelOptions" TextProperty="Label" ValueProperty="Value"
-                        Change="@OnModelChanged" Style="width:100%;" />
+        <select class="rz-dropdown" style="width:100%;" @onchange="OnNativeModelChanged">
+            @foreach (var opt in ModelOptions)
+            {
+                <option value="@opt.Value" selected="@(opt.Value == SelectedModelKey)">@opt.Label</option>
+            }
+        </select>
     </div>
     <div class="setup-row">
         <label>GPU Power Preference</label>
@@ -57,6 +61,13 @@
     [Parameter] public EventCallback OnInjectOutlier { get; set; }
 
     private bool _devExpanded;
+
+    private async Task OnNativeModelChanged(ChangeEventArgs e)
+    {
+        var newKey = e.Value?.ToString() ?? string.Empty;
+        await SelectedModelKeyChanged.InvokeAsync(newKey);
+        await OnModelChanged.InvokeAsync(newKey);
+    }
 
     private void ToggleDevTools() => _devExpanded = !_devExpanded;
 }

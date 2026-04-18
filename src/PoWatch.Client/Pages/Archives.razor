@@ -219,17 +219,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Restore last-visited date from localStorage, or default to today
+        // Always default to today — this is a monitoring app and users primarily want current data.
+        // localStorage is only used to restore the date if it IS today (same-day session continuity).
         try
         {
             var stored = await JS.InvokeAsync<string?>("localStorage.getItem", "powatch:archivesDate");
-            if (!string.IsNullOrWhiteSpace(stored) && DateTime.TryParse(stored, out var restored))
+            if (!string.IsNullOrWhiteSpace(stored)
+                && DateTime.TryParse(stored, out var restored)
+                && restored.Date == DateTime.Today)
+            {
                 selectedDate = restored;
+            }
             else
-                selectedDate = DateTime.Today; // Default to today if no stored value
+            {
+                selectedDate = DateTime.Today;
+            }
         }
-        catch 
-        { 
+        catch
+        {
             // localStorage may be unavailable; default to today
             selectedDate = DateTime.Today;
         }

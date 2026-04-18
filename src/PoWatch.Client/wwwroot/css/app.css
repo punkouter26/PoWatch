@@ -196,10 +196,10 @@ code,
 
 .observer-page {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: 1fr;
     grid-template-columns: 1fr;
     gap: 0.55rem;
-    height: calc(100svh - var(--topbar-h) - 2.8rem);
+    height: calc(100svh - var(--topbar-h) - 2rem);
     overflow: hidden;
 }
 
@@ -854,24 +854,28 @@ code,
     scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
 }
 
+/* 3-column compact layout: camera (5) | activity+subjects (4) | stats (3) — all in one row */
 .observer-grid .panel-main,
 .observer-grid--active .panel-main {
-    grid-column: span 7;
-    min-width: 0;
-}
-
-.observer-grid .panel-stats,
-.observer-grid--active .panel-stats {
     grid-column: span 5;
     min-width: 0;
-    overflow-y: auto;
-    max-height: calc(100svh - var(--topbar-h) - 9rem);
 }
 
 .observer-grid .panel-activity,
 .observer-grid--active .panel-activity {
-    grid-column: span 12;
+    grid-column: span 4;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
+
+.observer-grid .panel-stats,
+.observer-grid--active .panel-stats {
+    grid-column: span 3;
+    min-width: 0;
+    overflow-y: auto;
+    max-height: calc(100svh - var(--topbar-h) - 4rem);
 }
 
 .stats-section {
@@ -1084,7 +1088,7 @@ code,
 @media (min-width: 1400px) {
     .observer-grid,
     .observer-grid--active {
-        grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.85fr) minmax(340px, 0.9fr);
+        grid-template-columns: minmax(340px, 1.1fr) minmax(280px, 0.9fr) minmax(300px, 0.85fr);
     }
 
     .observer-grid .panel-main,
@@ -1094,12 +1098,6 @@ code,
     .observer-grid--active .panel-stats,
     .observer-grid--active .panel-activity {
         grid-column: auto;
-    }
-
-    /* At wide viewports, activity goes on its own row below camera+stats */
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-activity {
-        grid-column: 1 / -1;
     }
 
     .infer-metrics-grid {
@@ -1244,21 +1242,22 @@ code,
     }
 }
 
-/* Mid-range: camera + stats side by side, activity below */
+/* Mid-range: camera + activity side by side, stats below */
 @media (min-width: 768px) and (max-width: 1100px) {
     .observer-grid .panel-main,
     .observer-grid--active .panel-main {
         grid-column: span 5;
     }
 
-    .observer-grid .panel-stats,
-    .observer-grid--active .panel-stats {
+    .observer-grid .panel-activity,
+    .observer-grid--active .panel-activity {
         grid-column: span 7;
     }
 
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-activity {
+    .observer-grid .panel-stats,
+    .observer-grid--active .panel-stats {
         grid-column: span 12;
+        max-height: none;
     }
 
     .infer-metrics-grid {
@@ -2777,20 +2776,40 @@ button:active:not(:disabled) {
     scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
 }
 
-/* Remove fixed max-height from activity list — the panel itself scrolls */
+/* Activity panel uses flex-column; its inner regions scroll individually */
+.observer-grid .panel-activity,
+.observer-grid--active .panel-activity {
+    overflow-y: hidden;
+}
+
+/* Activity scroll region grows to fill available space */
+.observer-grid .panel-activity .activity-scroll-region,
+.observer-grid--active .panel-activity .activity-scroll-region {
+    flex: 1 1 0;
+    min-height: 80px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
+}
+
+/* Remove fixed max-height from activity list — scroll region handles it */
 .observer-grid .panel-activity .activity-list,
 .observer-grid--active .panel-activity .activity-list {
     max-height: none;
 }
 
-/* ── Page Header Strip ──────────────────────────────────────────────────── */
-.page-header-strip {
+/* ── Panel header left group (title + badge + session time) ─────────────── */
+.panel-header-left {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.2rem 0.1rem;
+    gap: 0.5rem;
     flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* ── Page Header Strip (removed from layout; styles kept for reference) ─── */
+.page-header-strip {
+    display: none; /* eliminated — info now lives in camera panel header */
 }
 
 .page-header-title {
@@ -2859,6 +2878,14 @@ button:active:not(:disabled) {
     flex-shrink: 0;
 }
 
+/* ── Subjects In Panel (embedded inside activity panel) ─────────────────── */
+.subjects-in-panel {
+    flex-shrink: 0;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(111, 61, 227, 0.22);
+}
+
 .subjects-strip-header {
     display: flex;
     align-items: center;
@@ -2873,7 +2900,7 @@ button:active:not(:disabled) {
     padding-bottom: 0.2rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
-    min-height: 90px;
+    min-height: 74px;
     align-items: stretch;
 }
 
@@ -2952,6 +2979,94 @@ button:active:not(:disabled) {
     text-underline-offset: 3px;
 }
 
+/* ── Live Quick Stats (fills blank space below video during monitoring) ─── */
+.live-quick-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+    margin-top: 0.7rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid rgba(111, 61, 227, 0.2);
+    flex: 1 1 0; /* absorb remaining space when panel-main is flex */
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
+}
+
+.lqs-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.42rem 0.56rem;
+    border-radius: 9px;
+    border: 1px solid rgba(111, 61, 227, 0.26);
+    background: linear-gradient(175deg, rgba(10, 8, 22, 0.9), rgba(8, 6, 18, 0.84));
+    min-width: 0;
+    transition: border-color 0.15s;
+}
+
+.lqs-card:hover {
+    border-color: rgba(111, 61, 227, 0.5);
+}
+
+/* Reuse alert state classes from monitor-metric-card */
+.lqs-card.monitor-metric-card--alert {
+    border-color: rgba(255, 110, 110, 0.5);
+    box-shadow: inset 0 0 0 1px rgba(255, 110, 110, 0.12);
+}
+
+.lqs-card.monitor-metric-card--watch {
+    border-color: rgba(255, 198, 92, 0.4);
+}
+
+.lqs-label {
+    font-size: 0.68rem;
+    color: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+
+.lqs-value {
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lqs-value--wrap {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.lqs-sub {
+    font-size: 0.71rem;
+    color: var(--text-label);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Make panel-main a flex column so quick-stats stretches to fill remaining height */
+.panel-main {
+    display: flex !important;
+    flex-direction: column;
+}
+
+.panel-main .nexus-frame {
+    flex-shrink: 0;
+}
+
+.panel-main .controls-row--primary {
+    flex-shrink: 0;
+}
+
 /* ── Compact panel padding to reclaim vertical space ───────────────────── */
 .panel,
 .rz-card.panel {
@@ -3001,6 +3116,7 @@ button:active:not(:disabled) {
     .observer-page {
         height: auto;
         overflow: visible;
+        grid-template-rows: auto;
     }
 }
 

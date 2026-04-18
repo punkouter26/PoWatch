@@ -218,6 +218,7 @@
         ...res.result,
         motionScore,
         motionLevel,
+        capturedImageDataUrl: base64Frame,
       };
     },
 

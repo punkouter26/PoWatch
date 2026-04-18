@@ -272,8 +272,10 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     clinicalNote = rawTrimmed.slice(0, 200);
     isUnstructured = true;
   } else {
-    activity     = labelMatch[1].trim().slice(0, 80);
-    clinicalNote = (noteMatch?.[1] ?? output).trim();
+    activity = labelMatch[1].trim().slice(0, 80);
+    // When NOTE is absent, fall back to the activity text to avoid storing the raw
+    // "LABEL: <text>" prefix in the clinical description field.
+    clinicalNote = noteMatch?.[1]?.trim() ?? activity;
   }
 
   // Guard: reject any output that echoes prompt placeholder tokens (e.g. "<5 word activity>")
@@ -302,6 +304,39 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0.24,
+      confidenceLabel: 'Low',
+    };
+  }
+
+  // Guard: reject activities that echo prompt format hints, e.g. "5 words: 1", "word count:", etc.
+  // These occur when small models repeat instructions rather than describing the scene.
+  if (/^\d+\s+words?/i.test(activity) || /^word\s+count/i.test(activity) || /^(?:short\s+)?activity\s+phrase/i.test(activity)) {
+    return {
+      isAvailable: false,
+      status: 'Low-quality inference: prompt format echo detected',
+      subjectHint: null,
+      activity: 'Unavailable',
+      clinicalPayload: '',
+      isSignificant: false,
+      significantReason: null,
+      confidenceScore: 0,
+      confidenceLabel: 'Low',
+    };
+  }
+
+  // Guard: reject obviously incomplete sentences that indicate the model did not finish its output.
+  // e.g. "The scene is a bit", "Person is a", "Room has a"
+  // An activity ending with a bare article or preposition is structurally unfinished.
+  if (/\b(?:is\s+a|is\s+an|is\s+the|has\s+a|has\s+an|a\s+bit|in\s+a|in\s+the|at\s+a|at\s+the|of\s+a|on\s+a)\s*\.?\s*$/i.test(activity)) {
+    return {
+      isAvailable: false,
+      status: 'Low-quality inference: incomplete sentence',
+      subjectHint: null,
+      activity: 'Unavailable',
+      clinicalPayload: '',
+      isSignificant: false,
+      significantReason: null,
+      confidenceScore: 0,
       confidenceLabel: 'Low',
     };
   }

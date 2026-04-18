@@ -18,21 +18,6 @@
 }
 
 <div class="observer-page">
-    <div class="page-header-strip">
-        <div class="page-header-title">
-            <h1>Observer Hub</h1>
-            <span class="panel-badge @(monitoring ? "panel-badge--live" : string.Empty)">@MonitoringStateLabel</span>
-            @if (monitoring) { <span class="page-header-time">@SessionDurationText</span> }
-        </div>
-        <div class="page-header-meta">
-            <span title="Model loaded for local AI inference">@SelectedModelLabel &middot; @DtypeDisplay</span>
-            @if (!monitoring && !thinking)
-            {
-                <span class="help-tip" title="1. Select your AI model and GPU preference below. 2. Click Start to begin webcam capture and inference. 3. Each cycle captures a frame, runs local AI, and logs the detected activity. Significant events are flagged automatically.">? How to use</span>
-            }
-        </div>
-    </div>
-
     @if (FeatureFlags.Value.EnableHud)
     {
         <div class="hud-float-container">
@@ -88,8 +73,18 @@
     <div class="sector-grid observer-grid @(monitoring ? "observer-grid--active" : string.Empty)">
         <RadzenCard class="@("panel panel-main" + (monitoring ? " panel--active" : string.Empty))">
             <header class="panel-header observer-panel-header">
-                <h2 title="Webcam feed and AI inference controls. Click Start to begin capturing frames and logging activity.">Room Feed</h2>
-                <span class="panel-badge @(monitoring ? "panel-badge--live" : string.Empty)">@MonitoringStateLabel</span>
+                <div class="panel-header-left">
+                    <h2 title="Webcam feed and AI inference controls. Click Start to begin capturing frames and logging activity.">Room Feed</h2>
+                    <span class="panel-badge @(monitoring ? "panel-badge--live" : string.Empty)">@MonitoringStateLabel</span>
+                    @if (monitoring) { <span class="page-header-time">@SessionDurationText</span> }
+                </div>
+                <div class="page-header-meta">
+                    <span title="Model loaded for local AI inference">@SelectedModelLabel &middot; @DtypeDisplay</span>
+                    @if (!monitoring && !thinking)
+                    {
+                        <span class="help-tip" title="1. Select your AI model and GPU preference below. 2. Click Start to begin webcam capture and inference. 3. Each cycle captures a frame, runs local AI, and logs the detected activity. Significant events are flagged automatically.">? How to use</span>
+                    }
+                </div>
             </header>
 
             <div class="controls-row controls-row--primary">
@@ -135,6 +130,119 @@
                                     OnInjectOutlier="InjectOutlierAsync" />
             }
 
+            @if (monitoring || thinking)
+            {
+                <div class="live-quick-stats" aria-label="Live session quick stats">
+                    <div class="@($"lqs-card {AlertLevelClass}")">
+                        <span class="lqs-label">Alert Level</span>
+                        <strong class="lqs-value">@AlertLevelLabel</strong>
+                        <small class="lqs-sub">@(string.IsNullOrWhiteSpace(lastAlertReason) ? "No alerts" : lastAlertReason)</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Person</span>
+                        <strong class="lqs-value">@PersonDetectedLabel</strong>
+                        <small class="lqs-sub">@SelectedModelLabel</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Confidence</span>
+                        <strong class="lqs-value">@ConfidenceDisplayLabel</strong>
+                        <small class="lqs-sub">@(inferenceDiagnostics?.LastInferenceMs is int ms2 ? $"{ms2} ms" : "Pending")</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Motion</span>
+                        <strong class="lqs-value">@MotionDisplayLabel</strong>
+                        <small class="lqs-sub">@lastInferenceStatus</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Last Event</span>
+                        <strong class="lqs-value lqs-value--wrap">@LatestActivityLabel</strong>
+                        <small class="lqs-sub">@LatestTimestampLabel</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Inference</span>
+                        <strong class="lqs-value">@LastMsDisplay</strong>
+                        <small class="lqs-sub">Skip @SkipRateDisplay</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Frames</span>
+                        <strong class="lqs-value">@_frameCount</strong>
+                        <small class="lqs-sub">EMA @_emaInferenceMs.ToString("F0") ms</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Events Today</span>
+                        <strong class="lqs-value">@SessionEventCount</strong>
+                        <small class="lqs-sub">@streamItems.Count total</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Camera</span>
+                        <strong class="lqs-value">@CameraHealthLabel</strong>
+                        <small class="lqs-sub">@(inferenceDiagnostics?.Device?.ToUpperInvariant() ?? "pending")</small>
+                    </div>
+                    <div class="lqs-card">
+                        <span class="lqs-label">Privacy</span>
+                        <strong class="lqs-value">@PrivacyStatusLabel</strong>
+                        <small class="lqs-sub">Images: @(observerState?.SaveSignificantImages == true ? "saved" : "not saved")</small>
+                    </div>
+                </div>
+            }
+
+        </RadzenCard>
+
+        <RadzenCard class="panel panel-activity">
+            <header class="panel-header compact observer-panel-header">
+                <h2 title="Chronological log of all AI-detected activities today. Green = normal, orange = significant, red = outlier.">Room Activity</h2>
+                <span class="activity-count">@streamItems.Count today</span>
+            </header>
+
+            <div class="activity-scroll-region">
+                <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
+            </div>
+
+            <div class="subjects-in-panel" aria-label="All detected subjects">
+                <div class="subjects-strip-header">
+                    <span class="stats-section-label" title="All subjects detected across all monitoring sessions. TEMP = unidentified subject awaiting a name. Click a card to manage identities.">Subjects</span>
+                    @if (_subjectsLoading) { <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:3px; width:50px; align-self:center;" /> }
+                    <RadzenTextBox Placeholder="Filter…" @bind-Value="_subjectFilter" @oninput="OnSubjectFilterInput" Style="width:120px;" aria-label="Filter subjects" />
+                    <a href="/identity" class="subjects-manage-link" title="Add known subjects, rename TEMP subjects, or merge duplicate identities">Manage identities →</a>
+                </div>
+                <div class="subjects-mini-row">
+                    @if (_liveSubjects.Count == 0 && !_subjectsLoading)
+                    {
+                        <div class="subjects-empty">No subjects detected yet — start monitoring to begin tracking.</div>
+                    }
+                    @foreach (var subject in FilteredLiveSubjects)
+                    {
+                        var subCardClass = GetSubjectCardClass(subject);
+                        <div class="subject-card subject-card--mini @subCardClass"
+                             @onclick="NavigateToIdentityPage"
+                             role="button" tabindex="0"
+                             @onkeydown="@((e) => { if (e.Key == "Enter" || e.Key == " ") NavigateToIdentityPage(); })"
+                             title="@subject.DisplayName — @(subject.LastActivity ?? "No activity") — last seen @subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")">
+                            <div class="subject-card-header">
+                                <span class="subject-card-name">@subject.DisplayName</span>
+                                @if (subject.UnacknowledgedSignificantCount > 0)
+                                {
+                                    <span class="subject-card-badge subject-card-badge--alert">@subject.UnacknowledgedSignificantCount</span>
+                                }
+                                @if (subject.LastActivityIsOutlier)
+                                {
+                                    <span class="subject-card-badge subject-card-badge--outlier">!</span>
+                                }
+                                @if (!subject.IsKnownIdentity && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations)
+                                {
+                                    <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
+                                }
+                            </div>
+                            <div class="subject-card-activity">
+                                <strong>@(string.IsNullOrWhiteSpace(subject.LastActivity) ? "No data" : subject.LastActivity)</strong>
+                            </div>
+                            <div class="subject-card-meta">
+                                <span>@subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
         </RadzenCard>
 
         <RadzenCard class="panel panel-stats">
@@ -259,61 +367,6 @@
                 </div>
             </section>
         </RadzenCard>
-
-        <RadzenCard class="panel panel-activity">
-            <header class="panel-header compact observer-panel-header">
-                <h2 title="Chronological log of all AI-detected activities today. Green = normal, orange = significant, red = outlier.">Room Activity</h2>
-                <span class="activity-count">@streamItems.Count today</span>
-            </header>
-
-            <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
-        </RadzenCard>
     </div>
-
-    <section class="subjects-strip" aria-label="All detected subjects">
-        <div class="subjects-strip-header">
-            <span class="stats-section-label" title="All subjects detected across all monitoring sessions. TEMP = unidentified subject awaiting a name. Click a card to manage identities.">Subjects</span>
-            @if (_subjectsLoading) { <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:3px; width:50px; align-self:center;" /> }
-            <RadzenTextBox Placeholder="Filter…" @bind-Value="_subjectFilter" @oninput="OnSubjectFilterInput" Style="width:120px;" aria-label="Filter subjects" />
-            <a href="/identity" class="subjects-manage-link" title="Add known subjects, rename TEMP subjects, or merge duplicate identities">Manage identities →</a>
-        </div>
-        <div class="subjects-mini-row">
-            @if (_liveSubjects.Count == 0 && !_subjectsLoading)
-            {
-                <div class="subjects-empty">No subjects detected yet — start monitoring to begin tracking.</div>
-            }
-            @foreach (var subject in FilteredLiveSubjects)
-            {
-                var subCardClass = GetSubjectCardClass(subject);
-                <div class="subject-card subject-card--mini @subCardClass"
-                     @onclick="NavigateToIdentityPage"
-                     role="button" tabindex="0"
-                     @onkeydown="@((e) => { if (e.Key == "Enter" || e.Key == " ") NavigateToIdentityPage(); })"
-                     title="@subject.DisplayName — @(subject.LastActivity ?? "No activity") — last seen @subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")">
-                    <div class="subject-card-header">
-                        <span class="subject-card-name">@subject.DisplayName</span>
-                        @if (subject.UnacknowledgedSignificantCount > 0)
-                        {
-                            <span class="subject-card-badge subject-card-badge--alert">@subject.UnacknowledgedSignificantCount</span>
-                        }
-                        @if (subject.LastActivityIsOutlier)
-                        {
-                            <span class="subject-card-badge subject-card-badge--outlier">!</span>
-                        }
-                        @if (!subject.IsKnownIdentity && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations)
-                        {
-                            <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
-                        }
-                    </div>
-                    <div class="subject-card-activity">
-                        <strong>@(string.IsNullOrWhiteSpace(subject.LastActivity) ? "No data" : subject.LastActivity)</strong>
-                    </div>
-                    <div class="subject-card-meta">
-                        <span>@subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")</span>
-                    </div>
-                </div>
-            }
-        </div>
-    </section>
 </div>
 

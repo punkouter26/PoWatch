@@ -208,7 +208,7 @@ public partial class ObserverHub
         var inference = await JS.InvokeAsync<InferenceBridgeResult>(
             "powatchInference.captureAndInfer",
             cancellationToken,
-            "Describe what you observe. Reply in this exact format:\nLABEL: <5 word activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
+            "Describe what you observe. Reply in this exact format:\nLABEL: <activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
             liveCameraFeed,
             Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256));
 
@@ -319,7 +319,7 @@ public partial class ObserverHub
 
         if (result is not null && !result.Dropped && !result.SkippedAsRedundant && inference.IsSignificant)
         {
-            await TryUploadEvidenceAsync(result.ImageReference, $"{result.SubjectDisplayName}: {inference.Activity}");
+            await TryUploadEvidenceAsync(result.ImageReference, inference.CapturedImageDataUrl, $"{result.SubjectDisplayName}: {inference.Activity}");
         }
 
         if (result is not null && !muted && !result.SkippedAsRedundant)
@@ -366,7 +366,7 @@ public partial class ObserverHub
 
         if (result is not null && !result.Dropped && !result.SkippedAsRedundant)
         {
-            await TryUploadEvidenceAsync(result.ImageReference, $"{result.SubjectDisplayName}: Desk Work");
+            await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Desk Work");
         }
 
         if (result is not null && !muted && !result.SkippedAsRedundant)
@@ -394,7 +394,7 @@ public partial class ObserverHub
 
         if (result is not null && !result.Dropped)
         {
-            await TryUploadEvidenceAsync(result.ImageReference, $"{result.SubjectDisplayName}: Clinical outlier");
+            await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Clinical outlier");
         }
 
         if (result is not null && !muted)
@@ -419,7 +419,7 @@ public partial class ObserverHub
         await JS.InvokeVoidAsync("powatchAudio.announce", message);
     }
 
-    private async Task TryUploadEvidenceAsync(string? imageReference, string label)
+    private async Task TryUploadEvidenceAsync(string? imageReference, string? capturedImageDataUrl, string label)
     {
         if (string.IsNullOrWhiteSpace(imageReference))
         {
@@ -431,7 +431,16 @@ public partial class ObserverHub
             var access = await ApiClient.GetBlobUploadAccessForPathAsync(imageReference);
             if (access is not null && !string.IsNullOrWhiteSpace(access.SasUrl))
             {
-                await JS.InvokeVoidAsync("powatchBlobUpload.uploadSvgPlaceholder", access.SasUrl, label);
+                if (!string.IsNullOrWhiteSpace(capturedImageDataUrl))
+                {
+                    // Upload the actual webcam frame captured at inference time
+                    await JS.InvokeVoidAsync("powatchBlobUpload.uploadFrame", access.SasUrl, capturedImageDataUrl);
+                }
+                else
+                {
+                    // Fallback for dev-tool injected events that have no real frame
+                    await JS.InvokeVoidAsync("powatchBlobUpload.uploadSvgPlaceholder", access.SasUrl, label);
+                }
             }
         }
         catch
@@ -532,6 +541,7 @@ public partial class ObserverHub
         public string ConfidenceLabel { get; init; } = string.Empty;
         public double? MotionScore { get; init; }
         public string MotionLevel { get; init; } = string.Empty;
+        public string? CapturedImageDataUrl { get; init; }
     }
 
 }

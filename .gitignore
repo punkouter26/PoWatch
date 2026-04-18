@@ -79,6 +79,16 @@ lcov.info
 .npm/
 .nyc_output/
 
+# Blazor WASM published framework (generated at build — not source)
+**/wwwroot/_framework/
+
+# Bicep compiled ARM output
+*.bicepparam.json
+*.compiled.json
+
+# Azure deployment package
+webapp.zip
+
 # Azurite local storage
 __azurite_db*.json
 __blobstorage__/

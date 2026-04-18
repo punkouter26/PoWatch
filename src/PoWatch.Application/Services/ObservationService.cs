@@ -101,7 +101,7 @@ public sealed class ObservationService(
                 SignificantReason = request.SignificantReason,
                 IsClinicalOutlier = isOutlier,
                 ImageReference = request.IsSignificant && featureFlags.Value.SaveSignificantImages
-                    ? $"significant-images/{DateOnly.FromDateTime(observedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.svg"
+                    ? $"significant-images/{DateOnly.FromDateTime(observedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.jpg"
                     : null
             };
 
