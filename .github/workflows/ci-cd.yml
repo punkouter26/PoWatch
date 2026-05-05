@@ -20,6 +20,10 @@ env:
   UNIT_TEST_PATH: tests/PoWatch.UnitTests
   INTEGRATION_TEST_PATH: tests/PoWatch.IntegrationTests
 
+concurrency:
+  group: deploy-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ──────────────────────────────────────────────
   # Build & Test
@@ -52,7 +56,6 @@ jobs:
 
       - name: Run unit tests
         run: dotnet test ${{ env.UNIT_TEST_PATH }} -c Release --no-build --logger trx --results-directory TestResults
-        continue-on-error: true
 
       - name: Upload test results
         if: always()
@@ -94,9 +97,9 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Debug — list publish directory
         run: |
