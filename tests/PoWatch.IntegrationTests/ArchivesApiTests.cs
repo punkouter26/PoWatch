@@ -44,7 +44,7 @@ public sealed class ArchivesApiTests : IClassFixture<AzuriteWebApplicationFactor
         // First, get an upload access to create a blob path
         var uploadResponse = await _client.GetAsync("/api/blobs/sas?subjectId=Subject-5&date=20260415");
         Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
-        
+
         var uploadDescriptor = await uploadResponse.Content.ReadFromJsonAsync<BlobSasResponse>();
         Assert.NotNull(uploadDescriptor);
 

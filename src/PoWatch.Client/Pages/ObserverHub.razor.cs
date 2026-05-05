@@ -484,8 +484,8 @@ public partial class ObserverHub
             if (inferenceDiagnostics is not null)
             {
                 _gpuAdapterVendor = inferenceDiagnostics.GpuAdapterVendor ?? string.Empty;
-                _gpuAdapterName   = inferenceDiagnostics.GpuAdapterName   ?? "--";
-                _hudMemory        = inferenceDiagnostics.JsHeapMb          ?? "--";
+                _gpuAdapterName = inferenceDiagnostics.GpuAdapterName ?? "--";
+                _hudMemory = inferenceDiagnostics.JsHeapMb ?? "--";
             }
         }
         catch

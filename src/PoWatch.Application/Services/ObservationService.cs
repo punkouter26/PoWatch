@@ -140,8 +140,8 @@ public sealed class ObservationService(
                 SubjectDisplayName = observation.SubjectDisplayName,
                 ImageReference = observation.ImageReference,
                 SkippedAsRedundant = isRedundant,
-                Detail = isRedundant 
-                    ? "Observation recorded with stable-state flag." 
+                Detail = isRedundant
+                    ? "Observation recorded with stable-state flag."
                     : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."),
                 TriggeredAlerts = triggeredAlerts
             };

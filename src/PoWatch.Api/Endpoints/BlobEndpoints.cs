@@ -83,7 +83,7 @@ internal static class BlobEndpoints
                 {
                     var readUrl = await provider.CreateReadAccessUrlAsync(blobPath, cancellationToken);
                     var hasSasToken = readUrl.Contains("?") && readUrl.Contains("sig=");
-                    
+
                     results.Add(new BlobIntegrityCheckDto
                     {
                         BlobPath = blobPath,

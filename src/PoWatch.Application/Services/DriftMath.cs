@@ -47,9 +47,9 @@ public static class DriftMath
         double dot = 0, magA = 0, magB = 0;
         for (var i = 0; i < 24; i++)
         {
-            dot  += baseline[i] * today[i];
+            dot += baseline[i] * today[i];
             magA += baseline[i] * baseline[i];
-            magB += today[i]    * today[i];
+            magB += today[i] * today[i];
         }
 
         if (magA == 0 || magB == 0)

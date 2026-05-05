@@ -106,7 +106,7 @@ public sealed class ReportService(
         {
             // Calculate local hour from UTC timestamp
             var localHour = (int)((e.ObservedAtUtc + localOffset).TimeOfDay.TotalHours);
-            
+
             // Use half-open intervals [start, end) for Morning/Afternoon
             // and compound condition for Night [22,24) ∪ [0,6)
             return window switch
@@ -114,11 +114,11 @@ public sealed class ReportService(
                 // Half-open interval: includes start hour, excludes end hour
                 ShiftWindow.Morning => localHour >= 6 && localHour < 14,     // [06:00, 14:00)
                 ShiftWindow.Afternoon => localHour >= 14 && localHour < 22,  // [14:00, 22:00)
-                
+
                 // Night uses union of two ranges: [22:00-23:59] OR [00:00-05:59]
                 // Equivalent to: localHour >= 22 OR localHour < 6
                 ShiftWindow.Night => localHour >= 22 || localHour < 6,
-                
+
                 _ => true
             };
         });

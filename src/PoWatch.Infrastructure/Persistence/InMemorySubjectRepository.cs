@@ -77,7 +77,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 
         var trimmed = newDisplayName.Trim();
         var existingSlug = subject.SubjectId;
-    var canonicalId = ResolveCanonicalSubjectId(subject.SubjectId, trimmed, subjectId);
+        var canonicalId = ResolveCanonicalSubjectId(subject.SubjectId, trimmed, subjectId);
 
         // Create new immutable subject profile
         var renamed = CreateSubjectProfile(
@@ -130,7 +130,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 
         var displayName = string.IsNullOrWhiteSpace(explicitName) ? primary.DisplayName : explicitName.Trim();
         var existingSlug = primary.SubjectId;
-    var canonicalId = ResolveCanonicalSubjectId(primary.SubjectId, displayName, primarySubjectId, secondarySubjectId);
+        var canonicalId = ResolveCanonicalSubjectId(primary.SubjectId, displayName, primarySubjectId, secondarySubjectId);
 
         // Determine earliest firstSeen and latest lastSeen
         var firstSeen = MinDate(

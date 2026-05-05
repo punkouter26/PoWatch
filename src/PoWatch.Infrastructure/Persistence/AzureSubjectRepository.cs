@@ -24,13 +24,13 @@ public sealed class AzureSubjectRepository : ISubjectRepository
     {
         try
         {
-        var items = new List<SubjectProfile>();
-        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(cancellationToken: cancellationToken))
-        {
-            items.Add(Map(entity));
-        }
+            var items = new List<SubjectProfile>();
+            await foreach (var entity in _tableClient.QueryAsync<TableEntity>(cancellationToken: cancellationToken))
+            {
+                items.Add(Map(entity));
+            }
 
-        return items.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+            return items.OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
         }
         catch (RequestFailedException ex)
         {

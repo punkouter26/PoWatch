@@ -74,9 +74,9 @@ public sealed class DriftRadarService(
             var baselineVector = DriftMath.BuildHourlyVector(historicalEvents, localOffset);
             var todayVector = DriftMath.BuildHourlyVector(subjectToday, localOffset);
             var driftScore = DriftMath.ComputeDriftScore(baselineVector, todayVector);
-            var driftLabel = DriftMath.ClassifyDrift(driftScore, 
-                options.Value.HighDriftThreshold, 
-                options.Value.ModerateDriftThreshold, 
+            var driftLabel = DriftMath.ClassifyDrift(driftScore,
+                options.Value.HighDriftThreshold,
+                options.Value.ModerateDriftThreshold,
                 options.Value.SlightDriftThreshold);
             var insights = BuildInsights(baselineVector, todayVector, driftScore, subjectToday, historicalEvents);
 

@@ -52,7 +52,7 @@ public sealed class DriftRadarServiceTests
 
     // ── Drift classification ─────────────────────────────────────────────────
 
-[Fact]
+    [Fact]
     public async Task GetDriftStatusAsync_ReturnsNormalLabel_WhenVectorsAreIdentical_DirectClassification()
     {
         // Identical baseline and today → cosine = 1 → drift = 0 → "Normal"

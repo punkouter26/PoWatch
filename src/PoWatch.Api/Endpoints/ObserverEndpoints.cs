@@ -77,9 +77,9 @@ internal static class ObserverEndpoints
             var logger = loggerFactory.CreateLogger("PoWatch.ObserverEventStream");
             var cursor = since ?? DateTimeOffset.UtcNow.AddMinutes(-5);
             var maxBatchSize = Math.Min(batchSize ?? 50, 500); // Cap at 500 events per batch
-            
+
             logger.LogDebug("SSE stream opened. Cursor={Cursor} BatchSize={BatchSize}", cursor, maxBatchSize);
-            
+
             return TypedResults.ServerSentEvents(PsePollAsync(archivesService, cursor, maxBatchSize, logger, ct));
         })
         .WithName("ObserverEventStream")
@@ -136,7 +136,7 @@ internal static class ObserverEndpoints
             {
                 var date = DateOnly.FromDateTime(cursor.UtcDateTime);
                 var chapter = await archivesService.GetChapterAsync(date, ct).ConfigureAwait(false);
-                
+
                 entries = chapter.Timeline
                     .Where(e => e.ObservedAtUtc > cursor)
                     .OrderBy(e => e.ObservedAtUtc)

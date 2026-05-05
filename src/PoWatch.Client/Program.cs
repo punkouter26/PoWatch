@@ -12,9 +12,9 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"];
 builder.Services.AddScoped(sp => new HttpClient
 {
-	BaseAddress = new Uri(string.IsNullOrWhiteSpace(apiBaseUrl)
-		? builder.HostEnvironment.BaseAddress
-		: apiBaseUrl)
+    BaseAddress = new Uri(string.IsNullOrWhiteSpace(apiBaseUrl)
+        ? builder.HostEnvironment.BaseAddress
+        : apiBaseUrl)
 });
 builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddScoped<PoWatchApiClient>();
