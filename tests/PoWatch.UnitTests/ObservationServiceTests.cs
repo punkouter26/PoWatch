@@ -61,7 +61,7 @@ public sealed class ObservationServiceTests
         Assert.Single(observations.Items);
         Assert.False(string.IsNullOrWhiteSpace(result.ImageReference));
         Assert.Equal(observations.Items[0].ImageReference, result.ImageReference);
-        Assert.EndsWith(".svg", observations.Items[0].ImageReference, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(".jpg", observations.Items[0].ImageReference, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
