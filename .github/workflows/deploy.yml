@@ -13,6 +13,7 @@ permissions:
 
 env:
   DOTNET_VERSION: '10.0.x'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   AZURE_WEBAPP_NAME: app-powatch
   AZURE_RESOURCE_GROUP: PoWatch
   SOLUTION_PATH: PoWatch.slnx
