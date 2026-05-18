@@ -41,7 +41,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(TelemetrySetup.ConfigureSerilog);
 
 // Key Vault: add secrets as a config source before binding feature flags
-var rawKvUri = builder.Configuration["KeyVaultUri"];
+var rawKvUri = builder.Configuration["KeyVault:Uri"] ?? builder.Configuration["KeyVaultUri"];
 var tempFlags = builder.Configuration.GetSection("FeatureFlags").Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
 if (tempFlags.EnableKeyVault && !string.IsNullOrWhiteSpace(rawKvUri) && Uri.TryCreate(rawKvUri, UriKind.Absolute, out var kvUri))
     KeyVaultConfiguration.AddPoWatchKeyVault(builder.Configuration, kvUri, Log.Logger);

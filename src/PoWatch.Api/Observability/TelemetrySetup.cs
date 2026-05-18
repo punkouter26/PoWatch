@@ -1,5 +1,4 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
-using Microsoft.ApplicationInsights.Extensibility;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -19,8 +18,6 @@ public static class TelemetrySetup
         IServiceProvider services,
         LoggerConfiguration cfg)
     {
-        var aiConnectionString = ctx.Configuration["ApplicationInsights:ConnectionString"];
-
         cfg.ReadFrom.Configuration(ctx.Configuration)
            .ReadFrom.Services(services)
            .Enrich.FromLogContext()
@@ -33,14 +30,7 @@ public static class TelemetrySetup
                rollingInterval: RollingInterval.Day,
                retainedFileCountLimit: 30,
                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{UserId}] [{SessionId}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
-
-        if (!string.IsNullOrWhiteSpace(aiConnectionString))
-        {
-            cfg.WriteTo.ApplicationInsights(
-                new TelemetryConfiguration { ConnectionString = aiConnectionString },
-                TelemetryConverter.Traces,
-                restrictedToMinimumLevel: LogEventLevel.Information);
-        }
+        // AppInsights telemetry handled by AddAzureMonitorTraceExporter() in OTel pipeline.
     }
 
     /// <summary>
