@@ -4,23 +4,20 @@
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<div class="page @(_sidebarCollapsed ? "sidebar-collapsed" : "")">
-    <aside class="sidebar" role="complementary">
-        <NavMenu SidebarCollapsed="_sidebarCollapsed" OnToggleCollapse="ToggleSidebar" />
-    </aside>
+<div class="page">
+    <header class="app-header">
+        <NavMenu />
+    </header>
 
     <main>
-        <div class="top-row hud-top">
-            <div class="shell-title">
-                <div>
-                    <strong>@_pageTitle</strong>
-                    <div class="shell-subtitle">Local-only ambient monitoring</div>
-                </div>
+        <div class="page-hud">
+            <div class="page-hud-title">
+                <strong>@_pageTitle</strong>
+                <span class="page-hud-subtitle">Local-only ambient monitoring</span>
             </div>
-
-            <div class="shell-meta">
-                <span class="shell-badge">Inference ready</span>
-                <span class="clock" aria-live="polite">@_clock</span>
+            <div class="page-hud-meta">
+                <span class="hud-badge">Inference ready</span>
+                <span class="hud-clock" aria-live="polite">@_clock</span>
             </div>
         </div>
 
@@ -40,7 +37,6 @@
 @code {
     private string _clock = DateTime.Now.ToString("HH:mm:ss");
     private System.Threading.Timer? _timer;
-    private bool _sidebarCollapsed = false;
     private bool _navigating = false;
     private string _pageTitle = "Observer Hub";
 
@@ -81,8 +77,6 @@
             _ => "PoWatch"
         };
     }
-
-    private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
 
     public void Dispose()
     {

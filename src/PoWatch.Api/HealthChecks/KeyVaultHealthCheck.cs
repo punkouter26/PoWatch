@@ -24,7 +24,7 @@ public sealed class KeyVaultHealthCheck : IHealthCheck
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        var rawUri = _configuration["KeyVaultUri"];
+        var rawUri = _configuration["KeyVault:Uri"];
         if (string.IsNullOrWhiteSpace(rawUri))
             return HealthCheckResult.Healthy("Key Vault not configured — check skipped");
 

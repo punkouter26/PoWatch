@@ -1,39 +1,25 @@
-@inject NavigationManager Navigation
+﻿<nav class="navbar app-navbar" role="navigation" aria-label="Main navigation">
+    <a class="navbar-brand" href="" aria-label="PoWatch home">
+        <span class="brand-mark">PW</span>
+        <span class="brand-copy">PoWatch</span>
+    </a>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top border-bottom">
-    <div class="container-fluid">
-        <!-- Brand/Logo (left) -->
-        <a class="navbar-brand fw-bold" href="/">
-            <span class="bi bi-app"></span> PoWatch
-        </a>
+    <button class="navbar-toggler" @onclick="ToggleNavMenu"
+            aria-expanded="@(!collapseNavMenu)" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
 
-        <!-- Toggler for mobile -->
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" 
-                data-bs-target="#navbarNav" aria-controls="navbarNav" 
-                aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <!-- Navigation Links (right) -->
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="/" @onclick="HandleNavigation">Home</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/about" @onclick="HandleNavigation">About</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/diag" @onclick="HandleNavigation">Diagnostics</a>
-                </li>
-            </ul>
+    <div class="navbar-collapse @(collapseNavMenu ? "" : "show")">
+        <div class="navbar-nav">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Observer Hub</NavLink>
+            <NavLink class="nav-link" href="archives">Archives</NavLink>
+            <NavLink class="nav-link" href="identity">Identity</NavLink>
         </div>
     </div>
 </nav>
 
 @code {
-    private async Task HandleNavigation()
-    {
-        await Task.Delay(100);
-    }
+    private bool collapseNavMenu = true;
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 }
