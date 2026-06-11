@@ -9,8 +9,8 @@ public sealed class AzureOpenAiOptions
     /// <summary>Azure OpenAI API key. In production, supply via Azure Key Vault.</summary>
     public string ApiKey { get; init; } = string.Empty;
 
-    /// <summary>Name of the deployed chat model, e.g. gpt-4o.</summary>
-    public string DeploymentName { get; init; } = "gpt-4o";
+    /// <summary>Name of the deployed chat model, e.g. gpt-5.4-nano.</summary>
+    public string DeploymentName { get; init; } = "gpt-5.4-nano";
 
     /// <summary>Azure OpenAI API version used in REST calls.</summary>
     public string ApiVersion { get; init; } = "2024-02-01";
