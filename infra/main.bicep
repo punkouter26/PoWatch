@@ -2,30 +2,30 @@
 // Subscription: Punkouter26 (bbb8dfbe-9169-432f-9b7a-fbf861b51037)
 //
 // Resource layout:
-//   PoWatch-Shared-RG — App Service Plan (free), Log Analytics, App Insights
-//   PoWatch-App-RG    — App Service (Web App), Table Storage, Blob Storage, Key Vault
+//   rg-platform-shared-prod-eus2 — Shared platform services
+//   rg-powatch-prod-wus2         — App Service, Table Storage, Blob Storage, Key Vault
 //
 // All secrets accessed via Managed Identity — no connection strings in app config.
-// Run: az deployment sub create --location eastus --template-file infra/main.bicep
+// Run: az deployment sub create --location westus2 --template-file infra/main.bicep
 
 targetScope = 'subscription'
 
 @description('Environment name (dev, staging, prod)')
-param environment string = 'dev'
+param environment string = 'prod'
 
 @description('Azure region for all resources')
-param location string = 'eastus'
+param location string = 'westus2'
 
 // -------------------------------------------------------
 // Resource Groups
 // -------------------------------------------------------
 resource poSharedRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: 'PoWatch-Shared-RG'
-  location: location
+  name: 'rg-platform-shared-prod-eus2'
+  location: 'eastus2'
 }
 
 resource poWatchRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: 'PoWatch-App-RG'
+  name: 'rg-powatch-prod-wus2'
   location: location
 }
 

@@ -7,13 +7,13 @@ param environment string
 
 @description('Allowed browser origins for direct Blob SAS upload/download requests')
 param blobCorsAllowedOrigins array = [
-  'https://powatch-app-dev.azurewebsites.net'
+  'https://app-powatch-web-prod-wus2-001.azurewebsites.net'
   'http://localhost:5000'
   'http://localhost:7000'
   'http://localhost:7099'
 ]
 
-var storageName = 'powatch${environment}sa'
+var storageName = 'stpowatch${environment}wus2001'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageName

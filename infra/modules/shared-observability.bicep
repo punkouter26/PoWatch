@@ -4,8 +4,8 @@
 param location string
 param environment string
 
-var workspaceName = 'powatch-logs-${environment}'
-var appInsightsName = 'powatch-ai-${environment}'
+var workspaceName = 'log-powatch-ops-${environment}-eus2-001'
+var appInsightsName = 'appi-powatch-${environment}-eus2-001'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: workspaceName

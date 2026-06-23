@@ -10,7 +10,7 @@ param tableStorageUri string
 param blobStorageUri string
 param keyVaultUri string
 
-var webAppName = 'app-powatch'
+var webAppName = 'app-powatch-web-prod-wus2-001'
 
 resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   name: webAppName

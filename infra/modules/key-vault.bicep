@@ -6,7 +6,7 @@
 param location string
 param environment string
 
-var kvName = 'powatch-kv-${environment}'
+var kvName = 'kv-powatch-${environment}-wus2'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: kvName
