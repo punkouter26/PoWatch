@@ -1,3 +1,21 @@
+/* ── "USING MOCK DATA" banner (rule 6.5) ── */
+.mock-data-banner {
+    background: repeating-linear-gradient(45deg, #b45309, #b45309 12px, #92400e 12px, #92400e 24px);
+    color: #fff;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-align: center;
+    padding: 0.3rem 1rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    animation: mock-flash 1.2s ease-in-out infinite;
+}
+
+@keyframes mock-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+}
+
 /* ── PoWatch top navbar (Phase 4 standardization) ── */
 
 .app-navbar {

@@ -4,11 +4,11 @@ using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
 using Microsoft.Extensions.Options;
 
-namespace PoWatch.Api.Endpoints;
+namespace PoWatch.Api.Features.Archives;
 
 internal static class ArchivesEndpoints
 {
-    internal static IEndpointRouteBuilder MapArchivesEndpoints(this IEndpointRouteBuilder app)
+    internal static IEndpointRouteBuilder MapArchivesFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/archives").WithTags("Archives");
 
@@ -105,6 +105,9 @@ internal static class ArchivesEndpoints
         })
         .WithName("ArchivesHandoffBrief")
         .WithSummary("Generate a Handoff Coach brief (AI-assisted or template) for a given date.");
+
+        // Blob (significant-image SAS) routes belong to the Archives slice.
+        app.MapBlobEndpoints();
 
         return app;
     }

@@ -2,7 +2,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Shared.Models;
 using System.Collections.Generic;
 
-namespace PoWatch.Api.Endpoints;
+namespace PoWatch.Api.Features.Archives;
 
 internal static class BlobEndpoints
 {

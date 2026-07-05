@@ -3,11 +3,11 @@ using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 
-namespace PoWatch.Api.Endpoints;
+namespace PoWatch.Api.Features.Diagnostics;
 
 internal static class DiagnosticsEndpoints
 {
-    internal static IEndpointRouteBuilder MapDiagnosticsEndpoints(this IEndpointRouteBuilder app)
+    internal static IEndpointRouteBuilder MapDiagnosticsFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/diagnostics").WithTags("Diagnostics");
 

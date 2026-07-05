@@ -17,7 +17,7 @@ namespace PoWatch.Infrastructure.Runtime;
 /// </summary>
 public sealed class AzureOpenAiHandoffSummarizer(
     TemplateHandoffSummarizer templateFallback,
-    IHttpClientFactory httpClientFactory,
+    HttpClient http,
     IOptions<AzureOpenAiOptions> openAiOptions,
     ILogger<AzureOpenAiHandoffSummarizer> logger) : IHandoffSummarizer
 {
@@ -63,7 +63,6 @@ public sealed class AzureOpenAiHandoffSummarizer(
 
             logger.LogDebug("Azure OpenAI handoff brief request. Deployment={Deployment} Tokens={Tokens}", opts.DeploymentName, opts.MaxCompletionTokens);
 
-            var http = httpClientFactory.CreateClient("AzureOpenAi");
             using var response = await http.SendAsync(httpRequest, cancellationToken);
 
             if (!response.IsSuccessStatusCode)

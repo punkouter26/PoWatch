@@ -4,14 +4,14 @@ using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 
-namespace PoWatch.Api.Endpoints;
+namespace PoWatch.Api.Features.Fhir;
 
 internal static class FhirEndpoints
 {
     /// <summary>
     /// Maps all FHIR R4 endpoints. Conditionally enabled via <see cref="FeatureFlagsOptions.FhirExportEnabled"/>.
     /// </summary>
-    internal static IEndpointRouteBuilder MapFhirEndpoints(this IEndpointRouteBuilder app)
+    internal static IEndpointRouteBuilder MapFhirFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/fhir").WithTags("FHIR")
             // Single feature-flag gate for all FHIR endpoints — no per-handler repetition

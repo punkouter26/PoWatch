@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Options;
@@ -19,6 +20,11 @@ builder.Services.AddScoped(sp => new HttpClient
 builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddScoped<PoWatchApiClient>();
 builder.Services.AddRadzenComponents();
+
+// BFF auth: server cookie holds the session; client derives state from /auth/me (rule 4).
+builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<BffAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<BffAuthenticationStateProvider>());
 
 // Inference service: mock for dev/testing, WebGPU for production
 var flags = builder.Configuration.GetSection("FeatureFlags").Get<ClientFeatureFlagsOptions>() ?? new ClientFeatureFlagsOptions();

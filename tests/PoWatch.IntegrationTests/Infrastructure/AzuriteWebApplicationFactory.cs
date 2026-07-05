@@ -25,11 +25,15 @@ public sealed class AzuriteWebApplicationFactory : WebApplicationFactory<Program
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Integration suite is the Test environment: guest/dev bypass on, Key Vault off.
+        builder.UseEnvironment("Test");
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["AzureStorage:ConnectionString"] = _azurite.GetConnectionString()
+                ["AzureStorage:ConnectionString"] = _azurite.GetConnectionString(),
+                ["FeatureFlags:DeveloperBypassAuth"] = "true",
+                ["FeatureFlags:EnableKeyVault"] = "false"
             });
         });
     }

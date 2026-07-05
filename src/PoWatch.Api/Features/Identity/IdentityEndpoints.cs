@@ -5,11 +5,11 @@ using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.Api.Endpoints;
+namespace PoWatch.Api.Features.Identity;
 
 internal static class IdentityEndpoints
 {
-    internal static IEndpointRouteBuilder MapIdentityEndpoints(this IEndpointRouteBuilder app)
+    internal static IEndpointRouteBuilder MapIdentityFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/identity").WithTags("Identity");
 

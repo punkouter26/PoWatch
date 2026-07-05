@@ -1,4 +1,14 @@
-﻿<nav class="navbar app-navbar" role="navigation" aria-label="Main navigation">
+﻿@using PoWatch.Client.Services
+@inject IInferenceService InferenceService
+
+@if (MockLabel is not null)
+{
+    <div class="mock-data-banner" role="status" aria-live="polite">
+        ⚠ USING MOCK DATA — @MockLabel
+    </div>
+}
+
+<nav class="navbar app-navbar" role="navigation" aria-label="Main navigation">
     <a class="navbar-brand" href="" aria-label="PoWatch home">
         <span class="brand-mark">PW</span>
         <span class="brand-copy">PoWatch</span>
@@ -22,4 +32,6 @@
     private bool collapseNavMenu = true;
 
     private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    private string? MockLabel => InferenceService is IMockable mockable ? mockable.MockLabel : null;
 }

@@ -1,5 +1,5 @@
 @page "/diagnostics"
-@page "/diag"
+@attribute [Authorize]
 @using PoWatch.Shared.Models
 @using Microsoft.Extensions.Options
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient

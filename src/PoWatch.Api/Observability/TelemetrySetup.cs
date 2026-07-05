@@ -41,8 +41,13 @@ public static class TelemetrySetup
     {
         var aiConnectionString = configuration["ApplicationInsights:ConnectionString"];
 
+        // Rule 6.2: map cloud_RoleName to the execution assembly via reflection (API host only),
+        // so Azure Monitor never records "unknown_service:dotnet". In OpenTelemetry the
+        // service.name resource attribute is projected onto cloud_RoleName by the Azure exporter.
+        var roleName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "PoWatch";
+
         services.AddOpenTelemetry()
-            .ConfigureResource(r => r.AddService("PoWatch"))
+            .ConfigureResource(r => r.AddService(roleName))
             .WithTracing(tracing =>
             {
                 tracing

@@ -1,4 +1,5 @@
 @page "/identity"
+@attribute [Authorize]
 @using PoWatch.Shared.Models
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
 @inject DialogService DialogService

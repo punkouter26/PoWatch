@@ -7,8 +7,10 @@ namespace PoWatch.Client.Services;
 /// Active when <c>FeatureFlags.UseMockAi = true</c> (set in wwwroot/appsettings.json).
 /// Used for UI testing and E2E tests — avoids real WebGPU dependency.
 /// </summary>
-internal sealed class MockInferenceService : IInferenceService
+internal sealed class MockInferenceService : IInferenceService, IMockable
 {
+    public string MockLabel => "AI inference";
+
     private static readonly string[] MockDescriptions =
     [
         "<SUBJECT:subject-001> One person seated at a desk working on a laptop. Good lighting from the window.",

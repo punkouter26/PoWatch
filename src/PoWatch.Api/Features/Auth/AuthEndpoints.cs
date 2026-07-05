@@ -1,0 +1,102 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.Options;
+using PoWatch.Api.Security;
+using PoWatch.Application.Options;
+
+namespace PoWatch.Api.Features.Auth;
+
+/// <summary>
+/// BFF auth surface (rule 4.4). Environment behaviour:
+/// Prod → Microsoft only. Dev → Microsoft + guest. Test → guest bypass.
+/// </summary>
+internal static class AuthEndpoints
+{
+    internal static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/auth").WithTags("Auth");
+
+        group.MapGet("/me", (ClaimsPrincipal user, string? returnUrl) => Results.Ok(new
+        {
+            isAuthenticated = user.Identity?.IsAuthenticated ?? false,
+            name = user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name),
+            roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray(),
+            returnUrl = SafeLocalUrl(returnUrl)
+        }))
+        .WithName("AuthMe")
+        .WithSummary("Server-side authentication state for the client.");
+
+        group.MapGet("/config", (
+            IOptions<FeatureFlagsOptions> flags,
+            IConfiguration config,
+            IWebHostEnvironment env) => Results.Ok(new
+            {
+                microsoftEnabled = !string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]),
+                guestEnabled = flags.Value.DeveloperBypassAuth && !env.IsProduction(),
+                environment = env.EnvironmentName
+            }))
+        .WithName("AuthConfig")
+        .WithSummary("Which sign-in methods are available in this environment.");
+
+        group.MapGet("/login/microsoft", (string? returnUrl, IConfiguration config) =>
+        {
+            if (string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]))
+                return Results.NotFound(new { message = "Microsoft sign-in is not configured." });
+
+            var props = new AuthenticationProperties { RedirectUri = SafeLocalUrl(returnUrl) };
+            return Results.Challenge(props, [OpenIdConnectDefaults.AuthenticationScheme]);
+        })
+        .WithName("AuthLoginMicrosoft")
+        .WithSummary("Begin Microsoft Entra sign-in.");
+
+        group.MapGet("/login/fake", async (
+            string? returnUrl,
+            string? user,
+            string? roles,
+            HttpContext http,
+            IOptions<FeatureFlagsOptions> flags,
+            IWebHostEnvironment env) =>
+        {
+            if (!flags.Value.DeveloperBypassAuth || env.IsProduction())
+                return Results.NotFound(new { message = "Guest sign-in is not available in this environment." });
+
+            var name = string.IsNullOrWhiteSpace(user) ? "Guest" : user;
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, name),
+                new(ClaimTypes.Name, name)
+            };
+            if (!string.IsNullOrWhiteSpace(roles))
+                claims.AddRange(roles
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(r => new Claim(ClaimTypes.Role, r)));
+
+            var identity = new ClaimsIdentity(claims, AuthenticationSetup.CookieScheme);
+            await http.SignInAsync(AuthenticationSetup.CookieScheme, new ClaimsPrincipal(identity));
+            return Results.Redirect(SafeLocalUrl(returnUrl));
+        })
+        .WithName("AuthLoginFake")
+        .WithSummary("Continue as Guest (dev/test only).");
+
+        group.MapPost("/logout", async (HttpContext http, IConfiguration config) =>
+        {
+            await http.SignOutAsync(AuthenticationSetup.CookieScheme);
+            if (!string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]))
+                await http.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+            return Results.Ok(new { signedOut = true });
+        })
+        .WithName("AuthLogout")
+        .WithSummary("Sign out and clear the session cookie.");
+
+        return app;
+    }
+
+    // Prevent open-redirect: only same-site absolute paths are honoured.
+    private static string SafeLocalUrl(string? returnUrl) =>
+        !string.IsNullOrWhiteSpace(returnUrl)
+        && returnUrl.StartsWith('/')
+        && !returnUrl.StartsWith("//", StringComparison.Ordinal)
+            ? returnUrl
+            : "/";
+}

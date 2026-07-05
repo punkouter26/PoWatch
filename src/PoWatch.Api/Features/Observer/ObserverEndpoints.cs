@@ -4,11 +4,11 @@ using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.Api.Endpoints;
+namespace PoWatch.Api.Features.Observer;
 
 internal static class ObserverEndpoints
 {
-    internal static IEndpointRouteBuilder MapObserverEndpoints(this IEndpointRouteBuilder app)
+    internal static IEndpointRouteBuilder MapObserverFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/observer").WithTags("Observer");
 

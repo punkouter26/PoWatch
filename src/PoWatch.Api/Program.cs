@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +11,7 @@ using PoWatch.Api.Features.Diagnostics;
 using PoWatch.Api.Features.Fhir;
 using PoWatch.Api.Features.Identity;
 using PoWatch.Api.Features.Observer;
-using PoWatch.Api.Endpoints;
+using PoWatch.Api.Features.Auth;
 using PoWatch.Api.HealthChecks;
 using PoWatch.Api.Infrastructure.KeyVault;
 using PoWatch.Api.Middleware;
@@ -95,13 +94,8 @@ builder.Services.AddPoWatchInfrastructure();
 // T012: Global ProblemDetails middleware
 builder.Services.AddProblemDetails();
 
-// T008: FakeAuth — development identity bypass (never registered when DeveloperBypassAuth is false)
-if (featureFlags.DeveloperBypassAuth)
-{
-    builder.Services.AddAuthentication("FakeAuth")
-        .AddScheme<AuthenticationSchemeOptions, FakeAuthHandler>("FakeAuth", null);
-    builder.Services.AddAuthorization();
-}
+// Auth (rule 4): BFF cookie session + Microsoft Entra OIDC (when configured) + dev/test guest bypass.
+builder.AddPoWatchAuthentication(featureFlags);
 
 var app = builder.Build();
 
@@ -153,12 +147,9 @@ if (!app.Environment.IsDevelopment())
 app.UseRateLimiter();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
-// T008: Auth middleware — only active when FakeAuth is registered
-if (featureFlags.DeveloperBypassAuth)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+// Auth middleware — always active (BFF cookie session + OIDC/guest schemes)
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Enrich every request log with UserId and SessionId from the current principal / trace identifier
 app.Use(async (ctx, next) =>
@@ -191,6 +182,12 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     }
 });
 
+// UI-less diagnostics: masked environment keys + integration statuses (active in Dev/Prod)
+app.MapGet("/diag", (PoWatch.Application.Contracts.IDiagnosticsProvider provider) =>
+        Results.Ok(provider.CaptureSnapshot()))
+    .WithName("Diag")
+    .WithSummary("Masked environment keys and integration statuses.");
+
 // T005: Serve hosted Blazor WASM from same origin — no CORS needed (T006: CORS removed)
 // .NET 10: MapStaticAssets() replaces both UseBlazorFrameworkFiles() and UseStaticFiles().
 // It uses the staticwebassets.endpoints.json manifest to resolve fingerprinted file names.
@@ -208,6 +205,7 @@ app.Use(async (context, next) =>
 app.MapStaticAssets();
 
 // --- API routes ---
+app.MapAuthEndpoints();
 app.MapObserverFeature();
 app.MapArchivesFeature();
 app.MapIdentityFeature();

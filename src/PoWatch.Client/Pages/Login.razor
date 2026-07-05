@@ -1,0 +1,58 @@
+@page "/login"
+@layout PoWatch.Client.Layout.MainLayout
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>Sign in · PoWatch</PageTitle>
+
+<div class="login-shell">
+    <div class="login-card">
+        <h1>Sign in to PoWatch</h1>
+
+        @if (_config is null)
+        {
+            <p class="login-status">Loading sign-in options…</p>
+        }
+        else
+        {
+            @if (_config.MicrosoftEnabled)
+            {
+                <a class="login-btn login-btn-ms" href="@LoginUrl("auth/login/microsoft")">
+                    Sign in with Microsoft
+                </a>
+            }
+            @if (_config.GuestEnabled)
+            {
+                <a class="login-btn login-btn-guest" href="@LoginUrl("auth/login/fake")">
+                    Continue as Guest
+                </a>
+            }
+            @if (!_config.MicrosoftEnabled && !_config.GuestEnabled)
+            {
+                <p class="login-status">No sign-in method is configured for the <b>@_config.Environment</b> environment.</p>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private ConfigResponse? _config;
+    private string _returnUrl = "/";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv.Length == 2 && kv[0] == "returnUrl" && !string.IsNullOrWhiteSpace(kv[1]))
+                _returnUrl = Uri.UnescapeDataString(kv[1]);
+        }
+
+        _config = await Http.GetFromJsonAsync<ConfigResponse>("auth/config");
+    }
+
+    private string LoginUrl(string endpoint) => $"{endpoint}?returnUrl={Uri.EscapeDataString(_returnUrl)}";
+
+    private sealed record ConfigResponse(bool MicrosoftEnabled, bool GuestEnabled, string Environment);
+}

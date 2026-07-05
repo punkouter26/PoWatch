@@ -20,15 +20,11 @@ public sealed class ObservationService(
 {
     public async Task<IngestObservationResultDto> IngestAsync(IngestObservationRequestDto request, CancellationToken cancellationToken)
     {
-        logger.LogDebug(
-            "Observation poll start. ObservedAtUtc={ObservedAtUtc} SubjectHint={SubjectHint} Activity={Activity}",
-            request.ObservedAtUtc,
-            request.SubjectHint,
-            request.Activity);
+        logger.PollStart(request.ObservedAtUtc, request.SubjectHint, request.Activity);
 
         if (!featureFlags.Value.ObservationLoopEnabled)
         {
-            logger.LogInformation("Observation ingest ignored because observation loop is disabled by feature flag.");
+            logger.IngestIgnoredLoopDisabled();
             return new IngestObservationResultDto
             {
                 Accepted = false,
@@ -39,11 +35,7 @@ public sealed class ObservationService(
 
         if (!processingGate.TryEnter())
         {
-            logger.LogDebug(
-                "Poll dropped to avoid backlog. ObservedAtUtc={ObservedAtUtc}, SubjectHint={SubjectHint}, Activity={Activity}",
-                request.ObservedAtUtc,
-                request.SubjectHint,
-                request.Activity);
+            logger.PollDropped(request.ObservedAtUtc, request.SubjectHint, request.Activity);
 
             return new IngestObservationResultDto
             {
@@ -59,11 +51,7 @@ public sealed class ObservationService(
             {
                 if (!telemetryContentSanitizer.TrySanitize(request, out var sanitizedRequest, out var sanitizationReason))
                 {
-                    logger.LogWarning(
-                        "Observation rejected by telemetry sanitizer. Reason={Reason} Activity={Activity} SubjectHint={SubjectHint}",
-                        sanitizationReason,
-                        request.Activity,
-                        request.SubjectHint);
+                    logger.RejectedBySanitizer(sanitizationReason, request.Activity, request.SubjectHint);
 
                     return new IngestObservationResultDto
                     {
@@ -82,10 +70,7 @@ public sealed class ObservationService(
 
             if (isOutlier)
             {
-                logger.LogWarning(
-                    "Clinical outlier captured. SubjectId={SubjectId}, Payload={Payload}",
-                    subject.SubjectId,
-                    request.ClinicalPayload);
+                logger.ClinicalOutlier(subject.SubjectId, request.ClinicalPayload);
             }
 
             var observedAtUtc = DateTimeOffset.UtcNow;
@@ -120,8 +105,7 @@ public sealed class ObservationService(
 
             var triggeredAlerts = thresholdEvaluator.Evaluate(observation);
 
-            logger.LogInformation(
-                "Observation persisted. EventId={EventId}, SubjectId={SubjectId}, Significant={Significant}, Outlier={Outlier}, ImageReference={ImageReference}, ObservedAtUtc={ObservedAtUtc}, TriggeredAlerts={TriggeredAlertCount}",
+            logger.ObservationPersisted(
                 observation.Id,
                 observation.SubjectId,
                 observation.IsSignificant,
