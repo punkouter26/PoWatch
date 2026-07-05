@@ -3,6 +3,12 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <!-- Trim-safe options/config binding (clears IL2026 on Configure/Get). -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <!-- IL2111: emitted by the framework Router source generator for NotFoundPage; not user-addressable. -->
+    <NoWarn>$(NoWarn);IL2111</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

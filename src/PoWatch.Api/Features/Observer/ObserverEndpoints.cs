@@ -70,7 +70,7 @@ internal static class ObserverEndpoints
         group.MapGet("/events", (
             [Microsoft.AspNetCore.Mvc.FromQuery] DateTimeOffset? since,
             [Microsoft.AspNetCore.Mvc.FromQuery] int? batchSize,
-            ArchivesService archivesService,
+            IObservationRepository observationRepository,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -80,7 +80,7 @@ internal static class ObserverEndpoints
 
             logger.LogDebug("SSE stream opened. Cursor={Cursor} BatchSize={BatchSize}", cursor, maxBatchSize);
 
-            return TypedResults.ServerSentEvents(PsePollAsync(archivesService, cursor, maxBatchSize, logger, ct));
+            return TypedResults.ServerSentEvents(PsePollAsync(observationRepository, cursor, maxBatchSize, logger, ct));
         })
         .WithName("ObserverEventStream")
         .WithSummary("Subscribe to a real-time SSE stream of observation events with backpressure support.");
@@ -119,7 +119,7 @@ internal static class ObserverEndpoints
     /// Automatically adjusts poll interval based on client consumption rate.
     /// </summary>
     private static async IAsyncEnumerable<ObservationEventDto> PsePollAsync(
-        ArchivesService archivesService,
+        IObservationRepository observationRepository,
         DateTimeOffset cursor,
         int maxBatchSize,
         ILogger logger,
@@ -135,9 +135,9 @@ internal static class ObserverEndpoints
             try
             {
                 var date = DateOnly.FromDateTime(cursor.UtcDateTime);
-                var chapter = await archivesService.GetChapterAsync(date, ct).ConfigureAwait(false);
+                var events = await observationRepository.GetByDateAsync(date, ct).ConfigureAwait(false);
 
-                entries = chapter.Timeline
+                entries = events
                     .Where(e => e.ObservedAtUtc > cursor)
                     .OrderBy(e => e.ObservedAtUtc)
                     .Take(maxBatchSize) // Respect batch size limit

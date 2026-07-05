@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace PoWatch.E2EApi;
+namespace PoWatch.Tests.E2E;
 
 /// <summary>
 /// BFF auth flow (Test environment → guest bypass enabled, Microsoft disabled).

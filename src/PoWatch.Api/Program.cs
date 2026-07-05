@@ -61,6 +61,16 @@ builder.Services.Configure<PoWatch.Application.Options.AzureOpenAiOptions>(build
 // T009: OpenAPI document at /openapi/v1.json
 builder.Services.AddOpenApi();
 
+// HybridCache for hot, frequently-polled read paths (live dashboard / drift status).
+builder.Services.AddHybridCache(o =>
+{
+    o.DefaultEntryOptions = new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions
+    {
+        Expiration = TimeSpan.FromSeconds(10),
+        LocalCacheExpiration = TimeSpan.FromSeconds(10)
+    };
+});
+
 // T010: OpenTelemetry tracing (passes config so Azure Monitor exporter can be gated on connection string)
 builder.Services.AddPoWatchTelemetry(builder.Configuration);
 

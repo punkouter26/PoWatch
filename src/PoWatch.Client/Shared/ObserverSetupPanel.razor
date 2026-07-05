@@ -4,7 +4,7 @@
 {
     <div class="setup-row">
         <label>Inference Model</label>
-        <select class="rz-dropdown" style="width:100%;" @onchange="OnNativeModelChanged">
+        <select class="rz-dropdown" @onchange="OnNativeModelChanged">
             @foreach (var opt in ModelOptions)
             {
                 <option value="@opt.Value" selected="@(opt.Value == SelectedModelKey)">@opt.Label</option>
@@ -13,7 +13,7 @@
     </div>
     <div class="setup-row">
         <label>GPU Power Preference</label>
-        <select class="rz-dropdown" style="width:100%;" @onchange="OnGpuPreferenceChanged">
+        <select class="rz-dropdown" @onchange="OnGpuPreferenceChanged">
             <option value="default"          selected="@(GpuPreference == "default")">Auto (browser default)</option>
             <option value="high-performance" selected="@(GpuPreference == "high-performance")">High-performance (discrete / NVIDIA)</option>
             <option value="low-power"        selected="@(GpuPreference == "low-power")">Low-power (integrated / Intel)</option>
@@ -21,7 +21,7 @@
     </div>
     <div class="setup-row">
         <label>Poll Interval — <strong>@PollingSeconds s</strong></label>
-        <input type="range" style="width:100%;" min="5" max="120" step="5"
+        <input type="range" min="5" max="120" step="5"
                value="@PollingSeconds"
                @onchange="OnPollingChanged" />
     </div>

@@ -153,3 +153,8 @@
         height: 122px;
     }
 }
+
+/* Initial hidden state for the image-failure placeholder (shown via onerror inline style). */
+.is-hidden {
+    display: none;
+}

@@ -131,61 +131,7 @@
                                     OnInjectOutlier="InjectOutlierAsync" />
             }
 
-            @if (monitoring || thinking)
-            {
-                <div class="live-quick-stats" aria-label="Live session quick stats">
-                    <div class="@($"lqs-card {AlertLevelClass}")">
-                        <span class="lqs-label">Alert Level</span>
-                        <strong class="lqs-value">@AlertLevelLabel</strong>
-                        <small class="lqs-sub">@(string.IsNullOrWhiteSpace(lastAlertReason) ? "No alerts" : lastAlertReason)</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Person</span>
-                        <strong class="lqs-value">@PersonDetectedLabel</strong>
-                        <small class="lqs-sub">@SelectedModelLabel</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Confidence</span>
-                        <strong class="lqs-value">@ConfidenceDisplayLabel</strong>
-                        <small class="lqs-sub">@(inferenceDiagnostics?.LastInferenceMs is int ms2 ? $"{ms2} ms" : "Pending")</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Motion</span>
-                        <strong class="lqs-value">@MotionDisplayLabel</strong>
-                        <small class="lqs-sub">@lastInferenceStatus</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Last Event</span>
-                        <strong class="lqs-value lqs-value--wrap">@LatestActivityLabel</strong>
-                        <small class="lqs-sub">@LatestTimestampLabel</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Inference</span>
-                        <strong class="lqs-value">@LastMsDisplay</strong>
-                        <small class="lqs-sub">Skip @SkipRateDisplay</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Frames</span>
-                        <strong class="lqs-value">@_frameCount</strong>
-                        <small class="lqs-sub">EMA @_emaInferenceMs.ToString("F0") ms</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Events Today</span>
-                        <strong class="lqs-value">@SessionEventCount</strong>
-                        <small class="lqs-sub">@streamItems.Count total</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Camera</span>
-                        <strong class="lqs-value">@CameraHealthLabel</strong>
-                        <small class="lqs-sub">@(inferenceDiagnostics?.Device?.ToUpperInvariant() ?? "pending")</small>
-                    </div>
-                    <div class="lqs-card">
-                        <span class="lqs-label">Privacy</span>
-                        <strong class="lqs-value">@PrivacyStatusLabel</strong>
-                        <small class="lqs-sub">Images: @(observerState?.SaveSignificantImages == true ? "saved" : "not saved")</small>
-                    </div>
-                </div>
-            }
+            @* Live session metrics are owned solely by the "Live Monitor" panel to avoid duplication. *@
 
         </RadzenCard>
 

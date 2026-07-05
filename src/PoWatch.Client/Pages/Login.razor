@@ -36,7 +36,7 @@
 </div>
 
 @code {
-    private ConfigResponse? _config;
+    private PoWatch.Client.Services.AuthConfigResponse? _config;
     private string _returnUrl = "/";
 
     protected override async Task OnInitializedAsync()
@@ -49,10 +49,8 @@
                 _returnUrl = Uri.UnescapeDataString(kv[1]);
         }
 
-        _config = await Http.GetFromJsonAsync<ConfigResponse>("auth/config");
+        _config = await Http.GetFromJsonAsync("auth/config", PoWatch.Client.Services.PoWatchJsonContext.Default.AuthConfigResponse);
     }
 
     private string LoginUrl(string endpoint) => $"{endpoint}?returnUrl={Uri.EscapeDataString(_returnUrl)}";
-
-    private sealed record ConfigResponse(bool MicrosoftEnabled, bool GuestEnabled, string Environment);
 }

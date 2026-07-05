@@ -5,7 +5,7 @@ using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Tests;
 
 public sealed class DriftRadarServiceTests
 {

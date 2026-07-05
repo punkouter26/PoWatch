@@ -1,7 +1,7 @@
 using PoWatch.Infrastructure.Runtime;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Tests;
 
 public sealed class TelemetryContentSanitizerTests
 {

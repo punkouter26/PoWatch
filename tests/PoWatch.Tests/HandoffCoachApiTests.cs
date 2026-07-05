@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.IntegrationTests;
+namespace PoWatch.Tests;
 
 /// <summary>
 /// Integration tests for the Handoff Coach endpoint.

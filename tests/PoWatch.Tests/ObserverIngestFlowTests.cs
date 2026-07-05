@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.IntegrationTests;
+namespace PoWatch.Tests;
 
 public sealed class ObserverIngestFlowTests : IClassFixture<AzuriteWebApplicationFactory>
 {

@@ -16,7 +16,7 @@ internal sealed class BffAuthenticationStateProvider(HttpClient http) : Authenti
     {
         try
         {
-            var me = await http.GetFromJsonAsync<MeResponse>("auth/me");
+            var me = await http.GetFromJsonAsync("auth/me", PoWatchJsonContext.Default.AuthMeResponse);
             if (me is null || !me.IsAuthenticated)
                 return Anonymous;
 
@@ -33,6 +33,4 @@ internal sealed class BffAuthenticationStateProvider(HttpClient http) : Authenti
 
     public void NotifyStateChanged() =>
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-
-    private sealed record MeResponse(bool IsAuthenticated, string? Name, string[]? Roles);
 }

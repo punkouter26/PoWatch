@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
@@ -111,10 +112,14 @@ internal static class IdentityEndpoints
 
         group.MapGet("/subjects/live-status", async (
             IdentityService service,
+            HybridCache cache,
             CancellationToken cancellationToken) =>
-            Results.Ok(await service.GetLiveDashboardStatusAsync(cancellationToken)))
+            Results.Ok(await cache.GetOrCreateAsync(
+                "identity:live-status",
+                async ct => await service.GetLiveDashboardStatusAsync(ct),
+                cancellationToken: cancellationToken)))
             .WithName("IdentityLiveDashboard")
-            .WithSummary("Get live status snapshot for all subjects including today's recent events.");
+            .WithSummary("Get live status snapshot for all subjects including today's recent events (cached ~10s).");
 
         group.MapGet("/subjects/live-risk", async (
             DriftRadarService driftRadarService,

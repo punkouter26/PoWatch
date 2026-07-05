@@ -1,6 +1,6 @@
 using Microsoft.Playwright;
 
-namespace PoWatch.E2EUI;
+namespace PoWatch.Tests.E2E;
 
 /// <summary>
 /// C# Playwright UI smoke tests. Point these at a running instance via the E2E_BASE_URL

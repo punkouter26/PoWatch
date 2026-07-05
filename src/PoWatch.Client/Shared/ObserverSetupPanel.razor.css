@@ -1,0 +1,4 @@
+.setup-row select,
+.setup-row input[type="range"] {
+    width: 100%;
+}

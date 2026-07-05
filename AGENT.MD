@@ -4,50 +4,40 @@ Authoritative map of architectural boundaries and project configuration. Update 
 
 ## Solution
 - Prefix `Po`. Solution `PoWatch.slnx`. Target **.NET 10** via `global.json` (`10.0.301`, `rollForward: latestFeature`).
-- CPM via root `Directory.Packages.props`; shared build config in `Directory.Build.props` (`Nullable`, `ImplicitUsings`, `TreatWarningsAsErrors`).
-- Line endings normalized to LF via `.gitattributes` (matches `.editorconfig`; keeps `dotnet format` identical on Windows and CI).
+- CPM via root `Directory.Packages.props`; shared build config in `Directory.Build.props` (`Nullable`, `ImplicitUsings`, `TreatWarningsAsErrors` — all global).
+- LF line endings enforced via `.gitattributes` (matches `.editorconfig`).
+
+## Retained root layout (rule 7)
+`/src`, `/tests`, `/infra` (Bicep IaC — App Service Plan, Key Vault, storage, observability), `/SCRIPTS/setup.ps1`, `.vscode/{launch,tasks,settings}.json`, `docker-compose.yml` (local Azurite), the CPM/build props, `global.json`, and `AGENT.MD`. Stale docs, Mermaid diagrams, README, `azure.yaml`, and Copilot configs were removed.
 
 ## Projects (`/src`)
-- `PoWatch.Api` — host; serves the Blazor WASM client from the same origin (no CORS). **Vertical feature slices** live under `Features/<Feature>/` (Auth, Observer, Archives, Identity, Fhir, Diagnostics) — each slice owns its `Map<Feature>Feature` endpoints directly (the old `Endpoints/` + `*FeatureRoutes` indirection was removed). Also: BFF auth, Key Vault, health checks, telemetry, rate limiting, global ProblemDetails.
-- `PoWatch.Client` — Blazor WASM UI (Radzen). WebGPU/mock inference; BFF auth (forced login).
-- `PoWatch.Shared` — shared DTOs + shared feature flags.
-- `PoWatch.Application` — service/contract layer. `PoWatch.Domain` — domain models. `PoWatch.Infrastructure` — Azure Table/Blob, Key Vault, typed Azure OpenAI HttpClient.
+- `PoWatch.Api` — host; serves the Blazor WASM client same-origin (no CORS). **Vertical feature slices** under `Features/<Feature>/` (Auth, Observer, Archives, Identity, Fhir, Diagnostics), each owning its `Map<Feature>Feature` endpoints. BFF auth, Key Vault, health checks, telemetry, rate limiting, ProblemDetails, HybridCache.
+- `PoWatch.Client` — Blazor WASM (Radzen). Trim-safe: `IsTrimmable` + `EnableTrimAnalyzer` pass clean via a source-generated `PoWatchJsonContext` (all BFF DTOs) and `EnableConfigurationBindingGenerator`. Forced-login BFF auth.
+- `PoWatch.Shared` — DTOs + shared flags; `IsTrimmable` + `EnableTrimAnalyzer`.
+- `PoWatch.Application` / `PoWatch.Domain` / `PoWatch.Infrastructure` — service/contract, domain, and Azure/Key-Vault layers.
 
-> NOTE: cross-project layout is still Clean-style (Domain/Application/Infrastructure). The API layer is VSA-aligned; a full cross-project slice collapse remains an open item.
+> Slices depend only on shared Application contracts (e.g. `IObservationRepository`), not on each other's services. The Observer SSE stream reads the repository directly rather than `ArchivesService`.
 
 ## Authentication (BFF — rule 4)
-- Server-managed session in an encrypted **HttpOnly, SameSite=Strict, Secure** cookie (`PoWatch.Auth`). The WASM client never holds tokens; it derives state from `/auth/me` (`BffAuthenticationStateProvider`).
-- Interactive sign-in via **Microsoft Entra OIDC** on `/common` (`AzureAd` config section), wired only when `AzureAd:ClientId` is set; shape-based issuer validation against `AzureAd:AllowedTenants`.
-- Guest/dev bypass: cookie sign-in via `/auth/login/fake` + header-based `FakeAuthHandler` (`X-Fake-User` / `X-Fake-Roles`) for automated tests. Throws if enabled in Production.
-- Routes: `/auth/me`, `/auth/config`, `/auth/login/microsoft`, `/auth/login/fake`, `/auth/logout`.
-- Client forces login: `App.razor` uses `CascadingAuthenticationState` + `AuthorizeRouteView`; protected pages carry `@attribute [Authorize]`; `/login` is anonymous and renders env-appropriate buttons from `/auth/config`.
-- **Env matrix**: Prod → Microsoft only. Dev → Microsoft + guest. Test → guest bypass (`ASPNETCORE_ENVIRONMENT=Test`, `appsettings.Test.json`).
+- Server-managed encrypted **HttpOnly, SameSite=Strict, Secure** cookie (`PoWatch.Auth`); WASM never holds tokens, derives state from `/auth/me` (`BffAuthenticationStateProvider`).
+- Microsoft Entra OIDC on `/common` (`AzureAd` config), wired only when `AzureAd:ClientId` is set; issuer validated against `AzureAd:AllowedTenants`.
+- Guest bypass: cookie sign-in via `/auth/login/fake` + header `FakeAuthHandler` (`X-Fake-User`/`X-Fake-Roles`) for tests; throws in Production.
+- Routes: `/auth/me,config,login/microsoft,login/fake,logout`. Client: `AuthorizeRouteView` + `[Authorize]` pages; `/login` anonymous, env-aware from `/auth/config`.
+- Env matrix: Prod → Microsoft only; Dev → Microsoft + guest; Test → guest bypass.
 
-## Observability
-- OpenTelemetry → Azure Monitor; `cloud_RoleName` mapped to the entry assembly via reflection (rule 6.2). Serilog to console/file.
-- Hot-path ingest logging uses source-generated `[LoggerMessage]` (`ObservationServiceLog`).
-- "USING MOCK DATA" banner shows in the navbar when any `IMockable` service is active (rule 6.5).
+## Observability & performance
+- OpenTelemetry → Azure Monitor; `cloud_RoleName` mapped to the entry assembly via reflection. Hot-path ingest uses source-generated `[LoggerMessage]`.
+- **HybridCache** (~10s) fronts the frequently-polled `/api/identity/subjects/live-status`.
+- Azure OpenAI: typed HttpClient + `AddStandardResilienceHandler`.
+- "USING MOCK DATA" banner shows when any `IMockable` service is active.
 
 ## Diagnostics
-- `/health` (JSON health checks) and `/diag` (masked env keys + integration statuses) — both UI-less server routes.
+- `/health` (JSON checks) and `/diag` (masked env + integration statuses) — server-owned; the client Diagnostics page is `/diagnostics` only.
 
-## Resilience
-- Azure OpenAI uses a **typed HttpClient** with `AddStandardResilienceHandler` (retry + circuit breaker + timeout + rate limiter).
+## Tests (`/tests`) — two tiers (rule 6)
+- `PoWatch.Tests` — unit + integration (xUnit + Testcontainers Azurite), 81 tests, integration runs under `Test` env.
+- `PoWatch.Tests.E2E` — API client→server flows (Azurite, incl. BFF auth) + C# Playwright UI (`E2E_BASE_URL`, skips when unset).
 
-## Tests (`/tests`) — four C# projects (rule 2.2)
-- `PoWatch.UnitTests` — xUnit, isolated (57).
-- `PoWatch.IntegrationTests` — xUnit + Testcontainers Azurite; runs under `Test` env (24).
-- `PoWatch.E2EApi` — pure API client→server flows over Azurite, incl. BFF auth flow (4).
-- `PoWatch.E2EUI` — C# Playwright; drives a live instance via `E2E_BASE_URL` (skips when unset).
-- `PoWatch.E2E` (TypeScript Playwright) remains as an auxiliary suite; not in `PoWatch.slnx`.
-
-## CI/CD
-- `.github/workflows/deploy.yml` → restore, build, `dotnet format --verify`, publish, deploy to Azure App Service `app-powatch` (RG `PoWatch`). **Tests are not run in the pipeline (rule 6.4)** — run locally/pre-merge.
-
-## Local run
-- Ports HTTP `5000` / HTTPS `5001` (`launchSettings.json`).
-
-## Notable config changes (this pass)
-- `global.json` SDK `10.0.202`→`10.0.301` / `latestFeature` (installed-band mismatch broke first-run build).
-- Pinned `Microsoft.OpenApi` `2.7.5` (GHSA-v5pm-xwqc-g5wc). Bumped `Microsoft.Extensions.*` to `10.0.9` (required by `Microsoft.Extensions.Http.Resilience 10.7.0`).
-- Added packages: `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.Authentication.OpenIdConnect`, `Microsoft.AspNetCore.Components.Authorization`, `Microsoft.Playwright`.
+## CI/CD & local
+- `.github/workflows/deploy.yml` — only workflow: restore, build, format-verify, publish, deploy to App Service `app-powatch` (RG `PoWatch`). **No tests in the pipeline (rule 6.4).**
+- Local: HTTP `5000` / HTTPS `5001`; Azurite container `PoWatch` (docker-compose); `SCRIPTS/setup.ps1` cold-starts toolchain + Azurite + az login.
