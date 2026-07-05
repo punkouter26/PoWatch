@@ -1,8 +1,0 @@
-name: powatch
-metadata:
-  template: powatch-appservice
-services:
-  web:
-    project: ./src/PoWatch.Api
-    language: dotnet
-    host: appservice
