@@ -12,6 +12,7 @@ namespace PoWatch.Client.Services;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = true,
     NumberHandling = JsonNumberHandling.AllowReadingFromString)]
+[JsonSerializable(typeof(ModelRegistryEntry[]))]
 [JsonSerializable(typeof(ObserverRuntimeStateDto))]
 [JsonSerializable(typeof(IngestObservationRequestDto))]
 [JsonSerializable(typeof(IngestObservationResultDto))]

@@ -3,45 +3,25 @@
 // keeping the browser's main thread free so the UI stays responsive.
 // The main thread (inference-bridge.js) handles all DOM access (video/canvas).
 
-const _CDN_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js';
+// Pinned, self-hosted transformers.js supply chain (rule §7): the library AND its ONNX Runtime wasm are
+// vendored under wwwroot/lib/transformers/<version>/ and loaded from our own origin — no live third-party
+// CDN import() at runtime, and the version cannot silently drift (@3 previously floated). To upgrade:
+// vendor a new dist folder (transformers.min.js + ort-wasm-simd-threaded.jsep.{mjs,wasm}) and bump this line.
+const _TRANSFORMERS_VERSION = '3.8.1';
+const _TRANSFORMERS_BASE = new URL(`../lib/transformers/${_TRANSFORMERS_VERSION}/`, import.meta.url);
+const _TRANSFORMERS_URL = new URL('transformers.min.js', _TRANSFORMERS_BASE).href;
 
-const _MODELS = {
-  'smolvlm-256m': {
-    id: 'HuggingFaceTB/SmolVLM-256M-Instruct',
-    label: 'SmolVLM 256M',
-    webgpuDtype: 'fp16',
-    webgpuDtypeFallback: 'fp32',
-    wasmDtype: 'q8',
-  },
-  'smolvlm-500m': {
-    id: 'HuggingFaceTB/SmolVLM-500M-Instruct',
-    label: 'SmolVLM 500M',
-    webgpuDtype: 'fp16',
-    webgpuDtypeFallback: 'fp32',
-    wasmDtype: 'q8',
-  },
-
-  // FastVLM (Apple, llava_qwen2) — real-time-oriented VLM. Exposes a causal-LM head, so it uses the
-  // AutoModelForCausalLM loader. The fp32 decoder is ~2 GB, so default to q4f16 on WebGPU for a kiosk.
-  'fastvlm-0.5b': {
-    id: 'onnx-community/FastVLM-0.5B-ONNX',
-    label: 'FastVLM 0.5B',
-    modelClass: 'causal-lm',
-    webgpuDtype: 'q4f16',
-    webgpuDtypeFallback: 'fp16',
-    wasmDtype: 'q4',
-  },
-
-  // LFM2-VL (Liquid AI) — edge-optimized ~450M VLM. Standard image-text-to-text auto class.
-  'lfm2-vl-450m': {
-    id: 'onnx-community/LFM2-VL-450M-ONNX',
-    label: 'LFM2-VL 450M',
-    webgpuDtype: 'fp16',
-    webgpuDtypeFallback: 'q4f16',
-    wasmDtype: 'q4',
-  },
-
-};
+// Single source of truth for the model registry (rule 1.5): /model-registry.json, shared verbatim with
+// the C# model picker. modelClass drives the loader (causal-lm vs image-text-to-text); the webgpu/wasm
+// dtype fields drive the fallback chain (§7). To add a model, edit ONLY the JSON — no code in three places.
+// This is a module worker, so top-level await guarantees _MODELS is populated before any message is
+// processed (message events are queued until module evaluation, including this await, completes).
+const _MODELS = await (async () => {
+  const res = await fetch(new URL('../model-registry.json', import.meta.url));
+  if (!res.ok) throw new Error(`model-registry.json failed to load (${res.status})`);
+  const list = await res.json();
+  return Object.fromEntries(list.map((m) => [m.key, m]));
+})();
 
 // Model state
 let _processor = null;
@@ -119,8 +99,11 @@ async function ensureModelLoaded() {
   self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
 
   _loadPromise = (async () => {
-    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, RawImage, env } = await import(_CDN_URL);
+    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, RawImage, env } = await import(_TRANSFORMERS_URL);
     env.useFSCache = false;
+    // Load the ONNX Runtime wasm from the same vendored, pinned directory (offline supply chain, §7)
+    // instead of letting transformers.js fetch it from its default CDN.
+    env.backends.onnx.wasm.wasmPaths = _TRANSFORMERS_BASE.href;
 
     const hasWebGpu = await probeWebGpu();
     const cfg = _MODELS[_activeModelKey];

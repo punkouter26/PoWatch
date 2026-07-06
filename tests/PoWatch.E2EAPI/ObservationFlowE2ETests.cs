@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.Tests.E2E;
+namespace PoWatch.E2EAPI;
 
 /// <summary>
 /// Pure API-call E2E scenarios emulating client → server system functionality.

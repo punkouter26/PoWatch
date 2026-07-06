@@ -170,7 +170,7 @@
             @* Virtualized (audit #3): a full day's timeline can be hundreds of events; only the visible
                rows are materialized so the archive scrolls without frame drops. *@
             <div class="activity-list activity-list--archives">
-                <Virtualize Items="@(chapter.Timeline as ICollection<PoWatch.Shared.Models.ObservationEventDto> ?? chapter.Timeline.ToList())" Context="item" ItemSize="54" OverscanCount="6">
+                <Virtualize Items="AsRows(chapter.Timeline)" Context="item" ItemSize="54" OverscanCount="6">
                     <div class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
                         <div class="activity-item-header">
                             <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
@@ -197,6 +197,11 @@
 </div>
 
 @code {
+    // Virtualize needs an ICollection; the DTO list is a List at runtime so this cast avoids a copy.
+    // Mirrors ActivityTimeline's pattern rather than inlining the cast in markup.
+    private static ICollection<ObservationEventDto> AsRows(IReadOnlyList<ObservationEventDto> timeline) =>
+        timeline as ICollection<ObservationEventDto> ?? timeline.ToList();
+
     private sealed record ShiftOption(string Value, string Label);
 
     private static readonly IReadOnlyList<ShiftOption> shiftOptions =

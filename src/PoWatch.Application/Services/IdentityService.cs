@@ -96,7 +96,11 @@ public sealed class IdentityService(
             cancellationToken);
 
         var rewritten = 0;
+        // A source row is deleted only if it is NOT the surviving canonical id. Guarding BOTH sides means
+        // that whichever id MergeAsync canonicalizes to (primary OR secondary) is never itself deleted — no
+        // path can drop the profile that history was just rewritten onto.
         var primaryChanged = !string.Equals(request.PrimarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase);
+        var secondaryChanged = !string.Equals(request.SecondarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase);
 
         if (primaryChanged)
         {
@@ -105,14 +109,17 @@ public sealed class IdentityService(
 
         rewritten += await observationRepository.MergeSubjectAsync(request.SecondarySubjectId, merged, cancellationToken);
 
-        // History is now safely under the canonical id — delete the source profile rows.
+        // History is now safely under the canonical id — delete the (non-canonical) source profile rows.
         if (primaryChanged)
         {
             await subjectRepository.DeleteAsync(request.PrimarySubjectId, cancellationToken);
         }
-        await subjectRepository.DeleteAsync(request.SecondarySubjectId, cancellationToken);
+        if (secondaryChanged)
+        {
+            await subjectRepository.DeleteAsync(request.SecondarySubjectId, cancellationToken);
+        }
 
-        var removed = primaryChanged ? 2 : 1;
+        var removed = (primaryChanged ? 1 : 0) + (secondaryChanged ? 1 : 0);
 
         logger.LogInformation(
             "Merge completed. CanonicalSubjectId={CanonicalSubjectId}, CanonicalName={CanonicalName}, EventsRewritten={EventsRewritten}, SubjectsRemoved={SubjectsRemoved}",

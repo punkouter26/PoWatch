@@ -190,13 +190,14 @@ app.MapHealthChecks("/health", new HealthCheckOptions
             })
         });
     }
-});
+}).AllowAnonymous();
 
 // UI-less diagnostics: masked environment keys + integration statuses (active in Dev/Prod)
 app.MapGet("/diag", (PoWatch.Application.Contracts.IDiagnosticsProvider provider) =>
         Results.Ok(provider.CaptureSnapshot()))
     .WithName("Diag")
-    .WithSummary("Masked environment keys and integration statuses.");
+    .WithSummary("Masked environment keys and integration statuses.")
+    .AllowAnonymous();
 
 // T005: Serve hosted Blazor WASM from same origin — no CORS needed (T006: CORS removed)
 // .NET 10: MapStaticAssets() replaces both UseBlazorFrameworkFiles() and UseStaticFiles().
@@ -212,7 +213,8 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-app.MapStaticAssets();
+// Static assets (WASM framework files, JS, CSS) must stay anonymous so the client can load and reach /login.
+app.MapStaticAssets().AllowAnonymous();
 
 // --- API routes ---
 app.MapAuthEndpoints();
@@ -222,8 +224,10 @@ app.MapIdentityFeature();
 app.MapFhirFeature();
 app.MapDiagnosticsFeature();
 
-// T005: Fall back to the Blazor WASM entry point for all unmatched requests
-app.MapFallbackToFile("index.html");
+// T005: Fall back to the Blazor WASM entry point for all unmatched requests. Anonymous: the SPA host page
+// must load for unauthenticated users so the client can render /login (the fallback authz policy would
+// otherwise 401 the host page itself and make the app unreachable).
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 await app.RunAsync();
 

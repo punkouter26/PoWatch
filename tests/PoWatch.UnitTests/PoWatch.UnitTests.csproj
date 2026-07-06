@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- §2.2 UnitTests: isolated, pure unit testing — no external infrastructure. -->
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PoWatch.Domain\PoWatch.Domain.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Application\PoWatch.Application.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Infrastructure\PoWatch.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Api\PoWatch.Api.csproj" />
+  </ItemGroup>
+
+</Project>

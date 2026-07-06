@@ -4,6 +4,7 @@ using PoWatch.Client.Services;
 using PoWatch.Shared.Models;
 using Radzen;
 using System.Net.Http;
+using System.Net.Http.Json;
 
 namespace PoWatch.Client.Pages;
 
@@ -19,14 +20,15 @@ public partial class ObserverHub
             _subjectFilter = SubjectFilterQuery;
         }
 
-        // TTV: these four loads are independent (state, timeline, local JS diagnostics, subjects).
+        // TTV: these loads are independent (state, timeline, local JS diagnostics, subjects, model list).
         // Fetch them concurrently instead of serially so the first paint lands after the slowest
-        // round-trip, not the sum of all four.
+        // round-trip, not the sum of all of them.
         await Task.WhenAll(
             RefreshStateAsync(),
             RefreshTimelineAsync(),
             RefreshDiagnosticsAsync(),
-            LoadSubjectsAsync());
+            LoadSubjectsAsync(),
+            LoadModelRegistryAsync());
 
         // Restore persisted polling interval; fall back to appSettings default
         try
@@ -46,6 +48,28 @@ public partial class ObserverHub
         // this low-frequency ping keeps the sliding session warm so the wall display never lapses.
         _keepAliveCts = new CancellationTokenSource();
         _ = Task.Run(() => RunSessionKeepAliveAsync(_keepAliveCts.Token));
+    }
+
+    // Load the model list from the shared /model-registry.json (single source of truth shared with the
+    // inference worker, rule 1.5). Trim-safe via the source-generated context. On failure the picker is
+    // simply empty — inference still runs on the default selectedModelKey, which the worker resolves from
+    // the same file.
+    private async Task LoadModelRegistryAsync()
+    {
+        try
+        {
+            var entries = await Http.GetFromJsonAsync("model-registry.json", PoWatchJsonContext.Default.ModelRegistryEntryArray);
+            if (entries is { Length: > 0 })
+            {
+                ModelOptions = entries.Select(e => new ModelOption(e.Key, e.Label)).ToList();
+                if (!ModelOptions.Any(o => o.Value == selectedModelKey))
+                    selectedModelKey = ModelOptions[0].Value;
+            }
+        }
+        catch
+        {
+            // Registry unreachable — leave the picker empty; the worker keeps its own copy from the same file.
+        }
     }
 
     private async Task StartMonitoringAsync()

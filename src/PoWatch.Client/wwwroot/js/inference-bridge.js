@@ -8,13 +8,8 @@
   // Frame-diff state (DOM access stays on the main thread)
   let _lastFramePixels = null;
 
-  // Model labels for getAvailableModels() — mirrors the worker's _MODELS list.
-  const _MODEL_LABELS = {
-    'smolvlm-256m': 'SmolVLM 256M',
-    'smolvlm-500m': 'SmolVLM 500M',
-    'fastvlm-0.5b': 'FastVLM 0.5B',
-    'lfm2-vl-450m': 'LFM2-VL 450M',
-  };
+  // The model list is owned by the shared /model-registry.json (rule 1.5): the worker reads it for
+  // inference config and the C# UI reads it for the picker. The bridge no longer keeps its own copy.
 
   // ---------------------------------------------------------------------------
   // Web Worker message bus
@@ -260,10 +255,6 @@
       if (!valid.includes(preference)) return;
       _cachedLoadState = 'idle';
       postToWorker('SET_POWER_PREFERENCE', { preference });
-    },
-
-    getAvailableModels() {
-      return Object.entries(_MODEL_LABELS).map(([key, label]) => ({ key, label }));
     },
 
     stopMonitor() {

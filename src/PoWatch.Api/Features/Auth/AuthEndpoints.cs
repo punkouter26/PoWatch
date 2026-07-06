@@ -15,7 +15,10 @@ internal static class AuthEndpoints
 {
     internal static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/auth").WithTags("Auth");
+        // Anonymous group: sign-in and state routes must be reachable without an existing session (login
+        // can't require prior auth, and /auth/me must report the anonymous state). Authenticated callers
+        // still carry their principal — AllowAnonymous only removes the requirement, it doesn't strip claims.
+        var group = app.MapGroup("/auth").WithTags("Auth").AllowAnonymous();
 
         group.MapGet("/me", (ClaimsPrincipal user, string? returnUrl) => Results.Ok(new
         {

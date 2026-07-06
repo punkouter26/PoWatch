@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.Tests;
+namespace PoWatch.IntegrationTests;
 
 public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicationFactory>
 {

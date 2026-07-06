@@ -5,7 +5,7 @@ using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Infrastructure.Runtime;
 
-namespace PoWatch.Tests;
+namespace PoWatch.UnitTests;
 
 public sealed class IdentityServiceTests
 {

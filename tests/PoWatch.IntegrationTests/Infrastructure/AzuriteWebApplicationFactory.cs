@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Testcontainers.Azurite;
 
-namespace PoWatch.Tests;
+namespace PoWatch.IntegrationTests;
 
 /// <summary>
 /// WebApplicationFactory that starts a real Azurite container via Docker before tests run,

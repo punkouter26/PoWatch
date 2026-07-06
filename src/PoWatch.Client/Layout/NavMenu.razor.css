@@ -119,6 +119,20 @@
     gap: 0.6rem;
 }
 
+/* Sign-out affordance — scoped to the nav (rule 6.11). Cross-cutting :active tap motion is a global token. */
+.nav-logout {
+    background: none;
+    border: 1px solid rgba(158, 162, 188, 0.35);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--text-primary); }
+.nav-logout:disabled { opacity: 0.6; cursor: default; }
+
 .nav-link {
     color: rgba(255,255,255,0.7) !important;
     padding: 0.45rem 0.8rem;

@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.Tests;
+namespace PoWatch.IntegrationTests;
 
 public sealed class ArchivesApiTests : IClassFixture<AzuriteWebApplicationFactory>
 {

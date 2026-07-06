@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 using PoWatch.Application.Options;
 using PoWatch.Infrastructure.Runtime;
 
-namespace PoWatch.Tests;
+namespace PoWatch.UnitTests;
 
 public sealed class DiagnosticsMaskingTests
 {

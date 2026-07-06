@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Testcontainers.Azurite;
 
-namespace PoWatch.Tests.E2E;
+namespace PoWatch.E2EAPI;
 
 /// <summary>
 /// Boots the full API host in the Test environment against a real Azurite storage container

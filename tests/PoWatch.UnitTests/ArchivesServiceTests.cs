@@ -2,7 +2,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.Tests;
+namespace PoWatch.UnitTests;
 
 public sealed class ArchivesServiceTests
 {

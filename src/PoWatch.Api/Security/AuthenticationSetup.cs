@@ -97,14 +97,29 @@ public static class AuthenticationSetup
         // accepts only the BFF cookie (OIDC signs into the cookie). When the dev/test guest bypass is
         // enabled, the FakeAuth scheme is added so the header/guest handler can satisfy the policy —
         // this keeps the integration suite green without weakening the Production surface.
-        var authSchemes = flags.DeveloperBypassAuth
+        // The default policy backs every explicit .RequireAuthorization() call. In Dev/Test it also accepts
+        // the FakeAuth guest scheme so automated suites skip interactive login (rule 4.4 Test bypass).
+        var defaultSchemes = flags.DeveloperBypassAuth
             ? new[] { CookieScheme, FakeAuthHandler.SchemeName }
             : new[] { CookieScheme };
 
+        var defaultPolicy = new AuthorizationPolicyBuilder(defaultSchemes)
+            .RequireAuthenticatedUser()
+            .Build();
+
+        // Rule 4.5 default-deny: the fallback policy protects any endpoint that never opts into a policy, so a
+        // future slice that forgets .RequireAuthorization() is secure-by-default rather than silently anonymous.
+        // It is deliberately COOKIE-ONLY — it must NOT include the always-succeeds FakeAuth scheme, or the
+        // authorization middleware would auto-authenticate a guest on AllowAnonymous endpoints (e.g. /auth/me),
+        // making them report an authenticated session before the user has actually signed in. The public surface
+        // (SPA host page, static assets, /health, /diag, /auth sign-in routes) opts out via .AllowAnonymous().
+        var fallbackPolicy = new AuthorizationPolicyBuilder(CookieScheme)
+            .RequireAuthenticatedUser()
+            .Build();
+
         builder.Services.AddAuthorizationBuilder()
-            .SetDefaultPolicy(new AuthorizationPolicyBuilder(authSchemes)
-                .RequireAuthenticatedUser()
-                .Build());
+            .SetDefaultPolicy(defaultPolicy)
+            .SetFallbackPolicy(fallbackPolicy);
 
         return oidcConfigured;
     }

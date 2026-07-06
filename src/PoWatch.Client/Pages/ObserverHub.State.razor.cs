@@ -20,15 +20,12 @@ public enum AlertLevel
 public partial class ObserverHub
 {
     [Inject] private IOptions<ClientFeatureFlagsOptions> FeatureFlags { get; set; } = default!;
+    [Inject] private HttpClient Http { get; set; } = default!;
 
     private sealed record ModelOption(string Value, string Label);
-    private static readonly IReadOnlyList<ModelOption> ModelOptions =
-    [
-        new("smolvlm-256m", "SmolVLM 256M"),
-        new("smolvlm-500m", "SmolVLM 500M"),
-        new("fastvlm-0.5b", "FastVLM 0.5B"),
-        new("lfm2-vl-450m", "LFM2-VL 450M")
-    ];
+    // Populated in OnInitializedAsync from the shared /model-registry.json (single source of truth shared
+    // with the inference worker, rule 1.5) — no longer a hardcoded copy of the worker's list.
+    private IReadOnlyList<ModelOption> ModelOptions = [];
 
     private List<ObservationEventDto> streamItems = [];
     private ObserverRuntimeStateDto? observerState;

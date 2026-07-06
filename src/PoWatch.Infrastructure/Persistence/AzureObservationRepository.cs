@@ -59,8 +59,15 @@ public sealed class AzureObservationRepository : IObservationRepository
             await _retryPipeline.ExecuteAsync(async ct =>
             {
                 var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
-                var invertedTicks = DateTime.MaxValue.Ticks - observation.ObservedAtUtc.UtcDateTime.Ticks;
-                var rowKey = $"{observation.SubjectId}_{invertedTicks:D19}_{observation.Id:N}";
+                // RowKey is derived from the stable observation Id ONLY — never the server timestamp. A client
+                // resubmit carrying the same IdempotencyKey therefore maps to the identical (PartitionKey, RowKey),
+                // so AddEntityAsync returns 409 (caught below as an idempotent no-op) instead of writing a
+                // duplicate row. Previously the key embedded an inverted-ticks timestamp regenerated per request,
+                // which defeated the whole idempotency guarantee. Readers already sort by ObservedAtUtc in code,
+                // so RowKey no longer needs to carry sort order. (Edge: a resubmit that crosses a UTC-midnight
+                // boundary lands in a different PartitionKey; idempotency-key retries happen within seconds, so
+                // this is acceptable and vastly better than the previous never-dedupes behaviour.)
+                var rowKey = $"{observation.SubjectId}_{observation.Id:N}";
 
                 activity?.SetTag("powatch.subject_id", observation.SubjectId);
                 activity?.SetTag("powatch.partition_key", partitionKey);

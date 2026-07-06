@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.Tests;
+namespace PoWatch.IntegrationTests;
 
 /// <summary>
 /// Integration tests for the Drift Radar endpoint.

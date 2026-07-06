@@ -1,6 +1,6 @@
 using PoWatch.Domain.Services;
 
-namespace PoWatch.Tests;
+namespace PoWatch.UnitTests;
 
 public sealed class ClinicalTagParserTests
 {

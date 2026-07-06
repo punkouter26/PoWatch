@@ -6,7 +6,7 @@ using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.Tests;
+namespace PoWatch.UnitTests;
 
 public sealed class HandoffCoachServiceTests
 {

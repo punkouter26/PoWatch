@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.Tests;
+namespace PoWatch.IntegrationTests;
 
 public sealed class FhirApiTests : IClassFixture<AzuriteWebApplicationFactory>
 {

@@ -3331,26 +3331,9 @@ button:active:not(:disabled) {
     opacity: 0.7;
 }
 
-/* ── Nav right region + sign-out (audit #6): completes the Left-Center-Right nav
-   and gives the authenticated BFF app a reachable logout affordance. */
-.navbar-account {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-}
-
-.nav-logout {
-    background: none;
-    border: 1px solid rgba(158, 162, 188, 0.35);
-    border-radius: 8px;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    padding: 0.35rem 0.85rem;
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
-}
-.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--text-primary); }
-.nav-logout:disabled { opacity: 0.6; cursor: default; }
+/* Nav right region + sign-out styling lives in the scoped NavMenu.razor.css (rule 6.11); the global
+   copies were removed to eliminate a conflicting duplicate .navbar-account selector. The .nav-logout
+   :active tap-feedback transform stays in the global motion block above as a cross-cutting design token. */
 
 /* ── Setup "Advanced" disclosure (idea 8) ─────────────────────────────────── */
 .setup-advanced { margin-top: 0.4rem; }

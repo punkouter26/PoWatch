@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- §2.2 IntegrationTests: infrastructure testing against ephemeral Azurite via Testcontainers. -->
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.Azurite" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PoWatch.Domain\PoWatch.Domain.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Application\PoWatch.Application.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Infrastructure\PoWatch.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Api\PoWatch.Api.csproj" />
+  </ItemGroup>
+
+</Project>
