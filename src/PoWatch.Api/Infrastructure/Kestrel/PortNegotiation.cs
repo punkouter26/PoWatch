@@ -37,6 +37,23 @@ public static class PortNegotiation
             return;
         }
 
+        // Outside Development, DO NOT touch the listener configuration. On Azure App Service the
+        // ASP.NET Core Module hosts the process and dictates the bind address via ASPNETCORE_URLS
+        // (in-process) / ASPNETCORE_PORT (out-of-process). Two things here would break that and
+        // surface as HTTP 500.30 — ASP.NET Core app failed to start:
+        //   1. options.Listen(127.0.0.1:5000) overrides the ANCM-assigned port, so the reverse
+        //      proxy can never reach the app.
+        //   2. GetActiveTcpListeners() hits Win32 networking APIs that are blocked in the App
+        //      Service sandbox and can throw during host construction.
+        // Let the host's default ASPNETCORE_URLS binding stand.
+        if (!env.IsDevelopment())
+        {
+            logger.Information(
+                "Kestrel using host-provided endpoints (ASPNETCORE_URLS); port negotiation is Development-only. Environment={Environment}",
+                env.EnvironmentName);
+            return;
+        }
+
         // Default candidate list for development runs without explicit Kestrel config.
         var http = ReadPort(configuration, "PoWatch:Ports:Http", fallback: 5000);
         var https = ReadPort(configuration, "PoWatch:Ports:Https", fallback: 5001);
