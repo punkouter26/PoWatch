@@ -212,6 +212,18 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
         return Task.CompletedTask;
     }
 
+    public Task DeleteAsync(string subjectId, CancellationToken cancellationToken)
+    {
+        // Idempotent: Rename/Merge already swap entries atomically in-process, so by the time the
+        // service calls this the row is usually already gone — removing again is a harmless no-op.
+        if (_subjects.TryRemove(subjectId, out var removed))
+        {
+            _byDisplayName.TryRemove(removed.DisplayName, out _);
+        }
+
+        return Task.CompletedTask;
+    }
+
     private static SubjectProfile UpdateSubjectTimestamps(SubjectProfile subject, DateTimeOffset now)
     {
         if (subject.LastSeenUtc >= now.AddSeconds(-1))

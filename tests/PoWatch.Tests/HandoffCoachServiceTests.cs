@@ -320,6 +320,8 @@ public sealed class HandoffCoachServiceTests
         public Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
+
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
             Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
     }

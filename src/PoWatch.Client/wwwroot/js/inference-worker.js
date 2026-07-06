@@ -21,6 +21,26 @@ const _MODELS = {
     wasmDtype: 'q8',
   },
 
+  // FastVLM (Apple, llava_qwen2) — real-time-oriented VLM. Exposes a causal-LM head, so it uses the
+  // AutoModelForCausalLM loader. The fp32 decoder is ~2 GB, so default to q4f16 on WebGPU for a kiosk.
+  'fastvlm-0.5b': {
+    id: 'onnx-community/FastVLM-0.5B-ONNX',
+    label: 'FastVLM 0.5B',
+    modelClass: 'causal-lm',
+    webgpuDtype: 'q4f16',
+    webgpuDtypeFallback: 'fp16',
+    wasmDtype: 'q4',
+  },
+
+  // LFM2-VL (Liquid AI) — edge-optimized ~450M VLM. Standard image-text-to-text auto class.
+  'lfm2-vl-450m': {
+    id: 'onnx-community/LFM2-VL-450M-ONNX',
+    label: 'LFM2-VL 450M',
+    webgpuDtype: 'fp16',
+    webgpuDtypeFallback: 'q4f16',
+    wasmDtype: 'q4',
+  },
+
 };
 
 // Model state
@@ -99,34 +119,37 @@ async function ensureModelLoaded() {
   self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
 
   _loadPromise = (async () => {
-    const { AutoProcessor, AutoModelForImageTextToText, RawImage, env } = await import(_CDN_URL);
+    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, RawImage, env } = await import(_CDN_URL);
     env.useFSCache = false;
 
     const hasWebGpu = await probeWebGpu();
     const cfg = _MODELS[_activeModelKey];
+    // Some VLM architectures (e.g. FastVLM / llava_qwen2) expose themselves as causal-LM heads rather
+    // than the image-text-to-text auto class. Pick the loader per model so new families drop in cleanly.
+    const ModelClass = cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM : AutoModelForImageTextToText;
     _processor = await AutoProcessor.from_pretrained(cfg.id);
 
     if (hasWebGpu) {
       try {
-        _model = await AutoModelForImageTextToText.from_pretrained(cfg.id, { device: 'webgpu', dtype: cfg.webgpuDtype });
+        _model = await ModelClass.from_pretrained(cfg.id, { device: 'webgpu', dtype: cfg.webgpuDtype });
         _device = 'webgpu';
         _dtype = typeof cfg.webgpuDtype === 'string' ? cfg.webgpuDtype : 'mixed';
         _fp16FallbackUsed = false;
       } catch {
         if (cfg.webgpuDtypeFallback !== null) {
-          _model = await AutoModelForImageTextToText.from_pretrained(cfg.id, { device: 'webgpu', dtype: cfg.webgpuDtypeFallback });
+          _model = await ModelClass.from_pretrained(cfg.id, { device: 'webgpu', dtype: cfg.webgpuDtypeFallback });
           _device = 'webgpu';
           _dtype = cfg.webgpuDtypeFallback;
           _fp16FallbackUsed = true;
         } else {
-          _model = await AutoModelForImageTextToText.from_pretrained(cfg.id, { device: 'wasm', dtype: cfg.wasmDtype });
+          _model = await ModelClass.from_pretrained(cfg.id, { device: 'wasm', dtype: cfg.wasmDtype });
           _device = 'wasm';
           _dtype = typeof cfg.wasmDtype === 'string' ? cfg.wasmDtype : 'mixed';
           _fp16FallbackUsed = false;
         }
       }
     } else {
-      _model = await AutoModelForImageTextToText.from_pretrained(cfg.id, { device: 'wasm', dtype: cfg.wasmDtype });
+      _model = await ModelClass.from_pretrained(cfg.id, { device: 'wasm', dtype: cfg.wasmDtype });
       _device = 'wasm';
       _dtype = typeof cfg.wasmDtype === 'string' ? cfg.wasmDtype : 'mixed';
     }

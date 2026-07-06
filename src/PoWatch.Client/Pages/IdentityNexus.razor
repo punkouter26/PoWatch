@@ -132,6 +132,11 @@
     private string? lastMergedSecondaryId;
     private CancellationTokenSource? _undoCts;
 
+    // One-tap deep-link (audit #7): a subject card elsewhere links to /identity?focus=<id>.
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "focus")]
+    public string? Focus { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         loading = true;
@@ -139,6 +144,18 @@
         try
         {
             await LoadSubjectsAsync();
+
+            // Open the rename inline for the focused subject so a detected subject can be named
+            // in a single tap from the Observer Hub, with no scrolling/searching.
+            if (!string.IsNullOrWhiteSpace(Focus))
+            {
+                var target = subjects.FirstOrDefault(s => string.Equals(s.SubjectId, Focus, StringComparison.OrdinalIgnoreCase));
+                if (target is not null)
+                {
+                    editingSubjectId = target.SubjectId;
+                    editingName = target.DisplayName;
+                }
+            }
         }
         finally
         {

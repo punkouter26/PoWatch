@@ -70,6 +70,88 @@
     --transition-base: 250ms ease;
     --transition-slow: 400ms ease;
     --transition-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* ── Motion system (audit #4) — a single vocabulary for hardware-accelerated
+       micro-interactions. Animate ONLY transform/opacity with these tokens. ──── */
+    --motion-instant: 90ms cubic-bezier(0.4, 0, 0.2, 1);   /* tap feedback */
+    --motion-quick: 160ms cubic-bezier(0.4, 0, 0.2, 1);    /* hovers, toggles */
+    --motion-enter: 320ms cubic-bezier(0.16, 1, 0.3, 1);   /* page/panel entry */
+    --motion-spring: var(--transition-spring);
+
+    /* ── Glassmorphism (audit #5) — tokenized so every frosted surface matches ── */
+    --glass-bg: rgba(15, 11, 31, 0.62);
+    --glass-bg-strong: rgba(5, 3, 10, 0.9);
+    --glass-border: rgba(56, 255, 168, 0.14);
+    --glass-blur: blur(14px) saturate(140%);
+
+    /* ── Semantic alert aliases (audit #2) — one name per intent ─────────────── */
+    --alert-amber: #ff9f40;
+    --alert-amber-dim: rgba(255, 159, 64, 0.14);
+    --alert-red-dim: rgba(255, 112, 112, 0.14);
+}
+
+/* ═══ Reusable frosted-glass surface (audit #5) ═══════════════════════════════ */
+.glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* ═══ GPU compositing + motion (audit #4) ═════════════════════════════════════
+   Promote animated layers to their own compositor layer so transitions run on the
+   GPU thread, off the main thread — critical for a low-power always-on kiosk. ─── */
+.hud-float-pill,
+.hud-float-pill-dot,
+.status-dot-live,
+.subject-card,
+.monitor-metric-card,
+.nexus-frame,
+.scanlines {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+}
+
+/* Reduced-motion users get instant, non-animated feedback. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Instant tap feedback (audit #4/#7) — a sub-100ms transform-only press response so every
+   interaction feels immediate. Applies to Radzen buttons and our interactive cards/links. */
+.rz-button,
+.subject-card,
+.nav-logout,
+.archive-empty-cta,
+.hud-float-pill {
+    transition: transform var(--motion-instant), border-color var(--motion-quick), box-shadow var(--motion-quick);
+}
+.rz-button:active:not(:disabled),
+.subject-card:active,
+.nav-logout:active:not(:disabled),
+.hud-float-pill:active {
+    transform: scale(0.97) translateZ(0);
+}
+.subject-card:hover {
+    transform: translate3d(0, -2px, 0);
+}
+
+/* Page-entry transition — panels rise + fade using transform/opacity only. */
+@keyframes pageEnter {
+    from { opacity: 0; transform: translate3d(0, 10px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.observer-page > .sector-grid,
+.live-dashboard-page,
+.sector-grid.identity-grid,
+.archive-page,
+.diagnostics-page {
+    animation: pageEnter var(--motion-enter) both;
 }
 
 html,
@@ -1680,17 +1762,17 @@ button:active:not(:disabled) {
     align-items: center;
     gap: 0.55rem;
     padding: 0.38rem 0.9rem;
-    background: rgba(5, 3, 10, 0.94);
-    border: 1px solid rgba(111, 61, 227, 0.45);
-    border-radius: 999px;
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--accent-purple-glow);
+    border-radius: var(--radius-full);
     cursor: pointer;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     box-shadow: var(--elevation-float);
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--text-muted);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color var(--motion-quick), box-shadow var(--motion-quick);
     user-select: none;
 }
 
@@ -3189,5 +3271,151 @@ button:active:not(:disabled) {
 .evidence-time {
     color: var(--text-muted);
     font-size: 0.7rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UX AUDIT — DATA-TO-PIXEL / ZERO-WASTE PASS (2026)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Pipeline-health latch banner (idea 7): the one failure class that matters
+   on an unattended kiosk, made impossible to miss and persistent until dismissed. */
+.pipeline-health-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+    margin: 0 0 0.75rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    border: 1px solid transparent;
+    animation: livePulse 2.4s ease-in-out infinite;
+}
+
+.pipeline-health-banner--warn {
+    background: var(--alert-amber-dim);
+    border-color: var(--alert-amber);
+    color: var(--alert-amber);
+}
+
+.pipeline-health-banner--error {
+    background: var(--alert-red-dim);
+    border-color: var(--alert-red);
+    color: var(--alert-red);
+    animation: none; /* a hard error should read as steady/critical, not pulsing */
+}
+
+.pipeline-health-icon { font-size: 1.1rem; flex-shrink: 0; }
+.pipeline-health-text { flex: 1; }
+
+.pipeline-health-dismiss {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.75;
+    padding: 0 0.25rem;
+}
+.pipeline-health-dismiss:hover { opacity: 1; }
+
+/* ── HUD de-dup note (idea 2) ─────────────────────────────────────────────── */
+.hud-note {
+    display: block;
+    width: 100%;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* ── Nav right region + sign-out (audit #6): completes the Left-Center-Right nav
+   and gives the authenticated BFF app a reachable logout affordance. */
+.navbar-account {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.nav-logout {
+    background: none;
+    border: 1px solid rgba(158, 162, 188, 0.35);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--text-primary); }
+.nav-logout:disabled { opacity: 0.6; cursor: default; }
+
+/* ── Setup "Advanced" disclosure (idea 8) ─────────────────────────────────── */
+.setup-advanced { margin-top: 0.4rem; }
+
+.setup-advanced-toggle {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.3rem 0;
+}
+.setup-advanced-toggle:hover { color: var(--text-primary); }
+
+/* ── Mobile-portrait density audit (audit #6): tighten padding/gaps on small screens using the
+   spacing tokens so panels stop wasting vertical space, and neutralize a doubled inner separator
+   line under panel headers (the header border + the grid's own top edge read as two rules). */
+@media (max-width: 430px) {
+    .observer-page,
+    .live-dashboard-page,
+    .sector-grid,
+    .observer-grid {
+        gap: var(--space-2);
+    }
+
+    .monitor-metrics-grid,
+    .subject-card-grid,
+    .subjects-mini-row {
+        gap: var(--space-2);
+    }
+
+    .panel-header,
+    .observer-panel-header {
+        margin-bottom: var(--space-2);
+        padding-bottom: var(--space-1);
+    }
+
+    /* Collapse doubled borders: when a bordered panel already frames the content, drop the
+       redundant inner separator so small screens show a single clean edge. */
+    .stats-section + .stats-section {
+        border-top: none;
+        padding-top: var(--space-2);
+    }
+}
+
+/* ── Idea 9: on small screens dock the floating HUD as a full-width bottom sheet
+   so it never overlaps the live subject feed, and keep its expanded body scrollable. */
+@media (max-width: 640px) {
+    .hud-float-container {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        max-width: none;
+        align-items: stretch;
+        padding: 0 0.5rem 0.5rem;
+    }
+
+    .hud-float-pill {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .hud-float-expanded {
+        max-height: 45vh;
+        overflow-y: auto;
+    }
 }
 

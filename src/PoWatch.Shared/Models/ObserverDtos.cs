@@ -21,6 +21,11 @@ public sealed class IngestObservationRequestDto
     public string ClinicalPayload { get; init; } = string.Empty;
     public bool IsSignificant { get; init; }
     public string? SignificantReason { get; init; }
+    /// <summary>
+    /// Optional client-supplied idempotency token. When set it becomes the observation's stable Id, so a
+    /// retried/duplicated submission of the same capture collapses to one row instead of creating duplicates.
+    /// </summary>
+    public Guid? IdempotencyKey { get; init; }
 }
 
 public sealed class IngestObservationResultDto
@@ -44,4 +49,20 @@ public sealed class ThresholdAlertDto
     public string Description { get; init; } = string.Empty;
     public string SubjectId { get; init; } = string.Empty;
     public DateTimeOffset TriggeredAtUtc { get; init; }
+}
+
+/// <summary>
+/// Request DTO for acknowledging significant events. Lives in PoWatch.Shared (not the API slice) so it
+/// is a first-class cross-boundary contract available to the client and the source-gen JSON context.
+/// </summary>
+public sealed class AcknowledgeEventsRequestDto
+{
+    /// <summary>Event IDs to acknowledge.</summary>
+    public required IReadOnlyList<string> EventIds { get; init; }
+
+    /// <summary>Identifier of the person acknowledging (e.g., nurse ID, username).</summary>
+    public required string AcknowledgedBy { get; init; }
+
+    /// <summary>Optional note explaining the acknowledgment.</summary>
+    public string? Note { get; init; }
 }

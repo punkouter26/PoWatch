@@ -12,7 +12,7 @@ internal static class IdentityEndpoints
 {
     internal static IEndpointRouteBuilder MapIdentityFeature(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/identity").WithTags("Identity");
+        var group = app.MapGroup("/api/identity").WithTags("Identity").RequireAuthorization();
 
         group.MapPost("/subjects", async (
             RegisterSubjectRequestDto request,

@@ -12,8 +12,8 @@
   const _MODEL_LABELS = {
     'smolvlm-256m': 'SmolVLM 256M',
     'smolvlm-500m': 'SmolVLM 500M',
-    'lfm2-vl-450m': 'LFM2.5-VL 450M',
-    'qwen2.5-vl-2b': 'Qwen2.5-VL 2B',
+    'fastvlm-0.5b': 'FastVLM 0.5B',
+    'lfm2-vl-450m': 'LFM2-VL 450M',
   };
 
   // ---------------------------------------------------------------------------

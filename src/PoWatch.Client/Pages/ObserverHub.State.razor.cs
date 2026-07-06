@@ -5,6 +5,18 @@ using PoWatch.Shared.Models;
 
 namespace PoWatch.Client.Pages;
 
+/// <summary>
+/// Current alert level for the observer session. Replaces the previous raw "Urgent"/"Watch"/"Normal"
+/// strings that were set in one file and switch-matched in another (a typo silently fell through to
+/// the "good" style). The compiler now enforces every case.
+/// </summary>
+public enum AlertLevel
+{
+    Normal,
+    Watch,
+    Urgent
+}
+
 public partial class ObserverHub
 {
     [Inject] private IOptions<ClientFeatureFlagsOptions> FeatureFlags { get; set; } = default!;
@@ -13,7 +25,9 @@ public partial class ObserverHub
     private static readonly IReadOnlyList<ModelOption> ModelOptions =
     [
         new("smolvlm-256m", "SmolVLM 256M"),
-        new("smolvlm-500m", "SmolVLM 500M")
+        new("smolvlm-500m", "SmolVLM 500M"),
+        new("fastvlm-0.5b", "FastVLM 0.5B"),
+        new("lfm2-vl-450m", "LFM2-VL 450M")
     ];
 
     private List<ObservationEventDto> streamItems = [];
@@ -31,7 +45,7 @@ public partial class ObserverHub
     private DateTimeOffset? lastSyncAtUtc;
     private string lastSyncStatus = "Standby";
     private string lastInferenceStatus = "Idle";
-    private string lastAlertLevel = "Normal";
+    private AlertLevel lastAlertLevel = AlertLevel.Normal;
     private string lastAlertReason = "No alerts detected";
     private string lastDetectedSubject = "No person detected";
     private double lastConfidencePercent;
@@ -43,6 +57,24 @@ public partial class ObserverHub
     private bool HasActiveThresholdAlerts => _activeThresholdAlerts.Count > 0;
     private bool ObservationLoopEnabled => observerState?.ObservationLoopEnabled ?? FeatureFlags.Value.ObservationLoopEnabled;
 
+    // ── Pipeline-health latch (idea 7): the one failure class that matters on a kiosk — GPU /
+    // inference / server dropout — surfaced as a persistent banner that stays until dismissed,
+    // rather than a toast nobody is watching.
+    private CancellationTokenSource? _keepAliveCts;
+    private bool _pipelineHealthLatched;
+    private string _pipelineHealthLevel = "warn"; // "warn" | "error"
+    private string _pipelineHealthMessage = string.Empty;
+    private bool _fp16WarningLatched;
+
+    private void LatchPipelineHealth(string level, string message)
+    {
+        // Errors win over warnings; a latched error is not downgraded by a later warning.
+        if (_pipelineHealthLatched && _pipelineHealthLevel == "error" && level != "error") return;
+        _pipelineHealthLevel = level;
+        _pipelineHealthMessage = message;
+        _pipelineHealthLatched = true;
+    }
+
     private string MonitoringStateLabel => thinking ? "Analysing" : monitoring ? "Live" : "Standby";
     private string SelectedModelLabel => ModelOptions.FirstOrDefault(option => option.Value == selectedModelKey)?.Label ?? selectedModelKey;
     private string LatestActivityLabel => streamItems.FirstOrDefault()?.Activity ?? "Waiting for first event";
@@ -52,15 +84,12 @@ public partial class ObserverHub
     private int SessionEventCount => monitoringStartedAtUtc is { } startedAt
         ? streamItems.Count(item => item.ObservedAtUtc >= startedAt)
         : 0;
-    private string RecordingDurationLabel => monitoringStartedAtUtc is { } startedAt
-        ? FormatElapsed(DateTimeOffset.UtcNow - startedAt)
-        : "00:00:00";
     private string PersonDetectedLabel => lastDetectedSubject;
-    private string AlertLevelLabel => lastAlertLevel;
+    private string AlertLevelLabel => lastAlertLevel.ToString();
     private string AlertLevelClass => lastAlertLevel switch
     {
-        "Urgent" => "monitor-metric-card--alert",
-        "Watch" => "monitor-metric-card--watch",
+        AlertLevel.Urgent => "monitor-metric-card--alert",
+        AlertLevel.Watch => "monitor-metric-card--watch",
         _ => "monitor-metric-card--good"
     };
     private string ConfidenceDisplayLabel => lastConfidencePercent > 0
@@ -74,9 +103,6 @@ public partial class ObserverHub
     private string ConnectionStatusLabel => monitoring ? lastSyncStatus : "Standby";
     private string MotionDisplayLabel => $"{lastMotionLabel} · {lastMotionPercent:0}%";
     private string PrivacyStatusLabel => muted ? "Video only · Muted" : "Video only · Voice on";
-    private string SessionDurationText => monitoringStartedAtUtc is { } startedAt
-        ? FormatElapsed(DateTimeOffset.UtcNow - startedAt)
-        : "--:--:--";
 
     private const string PollingStorageKey = "pw_polling_interval";
     private long _hudCycleMs = 0;
@@ -92,6 +118,7 @@ public partial class ObserverHub
     private int _livePollingSeconds;
     private string _selectedGpuPreference = "default";
     private readonly Queue<long> _latencyHistory = new();
+    private readonly long[] _p95Buffer = new long[100]; // reused each cycle; matches _latencyHistory cap
     private long _p95LatencyMs;
     private int _totalCycles;
     private int _skippedCycles;

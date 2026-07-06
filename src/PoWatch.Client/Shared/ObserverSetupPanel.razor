@@ -11,19 +11,31 @@
             }
         </select>
     </div>
-    <div class="setup-row">
-        <label>GPU Power Preference</label>
-        <select class="rz-dropdown" @onchange="OnGpuPreferenceChanged">
-            <option value="default"          selected="@(GpuPreference == "default")">Auto (browser default)</option>
-            <option value="high-performance" selected="@(GpuPreference == "high-performance")">High-performance (discrete / NVIDIA)</option>
-            <option value="low-power"        selected="@(GpuPreference == "low-power")">Low-power (integrated / Intel)</option>
-        </select>
-    </div>
-    <div class="setup-row">
-        <label>Poll Interval — <strong>@PollingSeconds s</strong></label>
-        <input type="range" min="5" max="120" step="5"
-               value="@PollingSeconds"
-               @onchange="OnPollingChanged" />
+
+    @* Declutter (idea 8): GPU + poll interval are set-once on a kiosk — tuck them behind an
+       "Advanced" disclosure so the Start button stays the unmistakable primary action. *@
+    <div class="setup-advanced">
+        <button type="button" class="setup-advanced-toggle" @onclick="ToggleAdvanced"
+                aria-expanded="@_advExpanded">
+            @(_advExpanded ? "▾" : "▸") Advanced (GPU &amp; poll interval)
+        </button>
+        @if (_advExpanded)
+        {
+            <div class="setup-row">
+                <label>GPU Power Preference</label>
+                <select class="rz-dropdown" @onchange="OnGpuPreferenceChanged">
+                    <option value="default"          selected="@(GpuPreference == "default")">Auto (browser default)</option>
+                    <option value="high-performance" selected="@(GpuPreference == "high-performance")">High-performance (discrete / NVIDIA)</option>
+                    <option value="low-power"        selected="@(GpuPreference == "low-power")">Low-power (integrated / Intel)</option>
+                </select>
+            </div>
+            <div class="setup-row">
+                <label>Poll Interval — <strong>@PollingSeconds s</strong></label>
+                <input type="range" min="5" max="120" step="5"
+                       value="@PollingSeconds"
+                       @onchange="OnPollingChanged" />
+            </div>
+        }
     </div>
 
     @if (ShowDevTools)
@@ -61,6 +73,9 @@
     [Parameter] public EventCallback OnInjectOutlier { get; set; }
 
     private bool _devExpanded;
+    private bool _advExpanded;
+
+    private void ToggleAdvanced() => _advExpanded = !_advExpanded;
 
     private async Task OnNativeModelChanged(ChangeEventArgs e)
     {

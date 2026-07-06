@@ -1,19 +1,24 @@
-/* ── "USING MOCK DATA" banner (rule 6.5) ── */
-.mock-data-banner {
-    background: repeating-linear-gradient(45deg, #b45309, #b45309 12px, #92400e 12px, #92400e 24px);
+/* ── "USING MOCK DATA" guard chip (rule 6.5 / audit #9) — embedded in the topbar's right
+   region so it warns without a full-width bar that shifts the page layout. ── */
+.mock-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: repeating-linear-gradient(45deg, #b45309, #b45309 8px, #92400e 8px, #92400e 16px);
     color: #fff;
     font-weight: 800;
-    letter-spacing: 0.06em;
-    text-align: center;
-    padding: 0.3rem 1rem;
-    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    padding: 0.28rem 0.6rem;
+    border-radius: var(--radius-full, 9999px);
+    font-size: 0.7rem;
     text-transform: uppercase;
+    white-space: nowrap;
     animation: mock-flash 1.2s ease-in-out infinite;
 }
 
 @keyframes mock-flash {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.65; }
+    50% { opacity: 0.7; }
 }
 
 /* ── PoWatch top navbar (Phase 4 standardization) ── */
@@ -97,12 +102,21 @@
     display: flex;
     flex: 1;
     align-items: center;
+    justify-content: center; /* CENTER region: nav actions */
 }
 
 .navbar-nav {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+}
+
+/* RIGHT region: mock guard + session/logout, pinned to the far edge */
+.navbar-account {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
 }
 
 .nav-link {

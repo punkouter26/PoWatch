@@ -11,6 +11,15 @@
 
 <PageTitle>PoWatch | Observer Hub</PageTitle>
 
+@if (_pipelineHealthLatched)
+{
+    <div class="pipeline-health-banner pipeline-health-banner--@_pipelineHealthLevel" role="alert" aria-live="assertive">
+        <span class="pipeline-health-icon" aria-hidden="true">@(_pipelineHealthLevel == "error" ? "⛔" : "⚠")</span>
+        <span class="pipeline-health-text">@_pipelineHealthMessage</span>
+        <button class="pipeline-health-dismiss" @onclick="@(() => _pipelineHealthLatched = false)" aria-label="Dismiss pipeline health alert">×</button>
+    </div>
+}
+
 @if (HasActiveThresholdAlerts && FeatureFlags.Value.AlertThresholdsEnabled)
 {
     <ThresholdAlertBanner Alerts="_activeThresholdAlerts"
@@ -36,6 +45,9 @@
             @if (_hudExpanded)
             {
                 <div class="hud-float-expanded">
+                    @* HUD owns the live hardware + throughput glance only. Detailed inference
+                       analytics (COUNT/SKIP/STRUCT/FP16/LOAD/DTYPE/EMA/DRIFT/P95/DUTY) are owned
+                       solely by the "Live Monitor" panel below — no duplication. *@
                     <div class="hud-bar hud-bar--detail">
                         <div class="hud-group hud-group--key">
                             <span class="hud-group-label">Live</span>
@@ -44,27 +56,17 @@
                         </div>
                         <div class="hud-group">
                             <span class="hud-group-label">Runtime</span>
-                            <span class="hud-item">SESSION <span class="hud-val">@SessionDurationText</span></span>
+                            <span class="hud-item">SESSION <span class="hud-val"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" IdleText="--:--:--" /></span></span>
                             <span class="hud-item">FRAMES <span class="hud-val">@_frameCount</span></span>
                             <span class="hud-item">CYCLE <span class="hud-val">@_hudCycleMs ms</span></span>
-                            <span class="hud-item">EMA <span class="hud-val">@_emaInferenceMs.ToString("F0") ms</span></span>
-                            <span class="hud-item">DRIFT <span class="hud-val">@DriftDisplay</span></span>
-                        </div>
-                        <div class="hud-group">
-                            <span class="hud-group-label">Inference</span>
-                            <span class="hud-item">COUNT <span class="hud-val">@InferCountDisplay</span></span>
-                            <span class="hud-item">SKIP <span class="hud-val">@SkipRateDisplay</span></span>
-                            <span class="hud-item">STRUCT <span class="hud-val">@StructRateDisplay</span></span>
-                            <span class="hud-item">FP16 <span class="hud-val">@(inferenceDiagnostics?.Fp16FallbackUsed == true ? "FALLBACK" : "OK")</span></span>
-                            <span class="hud-item">LOAD <span class="hud-val">@LoadTimeDisplay</span></span>
                         </div>
                         <div class="hud-group">
                             <span class="hud-group-label">Engine</span>
                             <span class="hud-item">MODEL <span class="hud-val">@_hudModel</span></span>
-                            <span class="hud-item">DTYPE <span class="hud-val">@DtypeDisplay</span></span>
                             <span class="hud-item">TOKENS <span class="hud-val">@_hudTokenCount</span></span>
                             <span class="hud-item">MEM <span class="hud-val">@_hudMemory</span></span>
                         </div>
+                        <span class="hud-note">Full inference analytics → Live Monitor panel</span>
                     </div>
                 </div>
             }
@@ -77,7 +79,7 @@
                 <div class="panel-header-left">
                     <h2 title="Webcam feed and AI inference controls. Click Start to begin capturing frames and logging activity.">Room Feed</h2>
                     <span class="panel-badge @(monitoring ? "panel-badge--live" : string.Empty)">@MonitoringStateLabel</span>
-                    @if (monitoring) { <span class="page-header-time">@SessionDurationText</span> }
+                    @if (monitoring) { <span class="page-header-time"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" IdleText="--:--:--" /></span> }
                 </div>
                 <div class="page-header-meta">
                     <span title="Model loaded for local AI inference">@SelectedModelLabel &middot; @DtypeDisplay</span>
@@ -160,10 +162,10 @@
                     @foreach (var subject in FilteredLiveSubjects)
                     {
                         var subCardClass = GetSubjectCardClass(subject);
-                        <div class="subject-card subject-card--mini @subCardClass"
-                             @onclick="NavigateToIdentityPage"
+                        <div @key="subject.SubjectId" class="subject-card subject-card--mini @subCardClass"
+                             @onclick="() => NavigateToManageSubject(subject.SubjectId)"
                              role="button" tabindex="0"
-                             @onkeydown="@((e) => { if (e.Key == "Enter" || e.Key == " ") NavigateToIdentityPage(); })"
+                             @onkeydown="@((e) => { if (e.Key == "Enter" || e.Key == " ") NavigateToManageSubject(subject.SubjectId); })"
                              title="@subject.DisplayName — @(subject.LastActivity ?? "No activity") — last seen @subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")">
                             <div class="subject-card-header">
                                 <span class="subject-card-name">@subject.DisplayName</span>
@@ -202,7 +204,7 @@
                 <div class="monitor-metrics-grid" aria-label="Live monitor telemetry">
                     <div class="monitor-metric-card">
                         <span class="monitor-metric-label">Recording duration</span>
-                        <strong class="monitor-metric-value">@RecordingDurationLabel</strong>
+                        <strong class="monitor-metric-value"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" /></strong>
                         <small>State: @MonitoringStateLabel</small>
                     </div>
                     <div class="monitor-metric-card">
@@ -253,8 +255,9 @@
                 </div>
             </section>
 
-            <section class="stats-section">
-                <p class="stats-section-label">Inference analytics</p>
+            @* Tiering (idea 1): the 11 deep-diagnostic cards are collapsed by default so the glance
+               view stays dense with operational state, not telemetry. One click reveals the debug tier. *@
+            <CollapsibleSection Title="Inference analytics" InitiallyExpanded="false">
                 <div class="monitor-metrics-grid infer-metrics-grid" aria-label="LLM inference diagnostics">
                     <div class="monitor-metric-card">
                         <span class="monitor-metric-label">Quantization (DTYPE)</span>
@@ -312,7 +315,7 @@
                         <small>Active inference / session time</small>
                     </div>
                 </div>
-            </section>
+            </CollapsibleSection>
         </RadzenCard>
     </div>
 </div>

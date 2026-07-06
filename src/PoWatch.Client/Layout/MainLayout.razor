@@ -33,6 +33,10 @@
 </div>
 
 <RadzenNotification />
+@* Advanced Radzen hosts (audit #10): enable app-wide tooltips and contextual menus.
+   TooltipService gives touch-usable tooltips that native title="" cannot. *@
+<RadzenTooltip />
+<RadzenContextMenu />
 
 @code {
     private string _clock = DateTime.Now.ToString("HH:mm:ss");

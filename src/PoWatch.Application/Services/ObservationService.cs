@@ -76,6 +76,9 @@ public sealed class ObservationService(
             var observedAtUtc = DateTimeOffset.UtcNow;
             var observation = new ObservationEvent
             {
+                // Idempotency: a client-supplied key gives the row a stable identity so a retried submit
+                // maps to the same Id; the repository treats the resulting 409 as success (no duplicate).
+                Id = request.IdempotencyKey ?? Guid.NewGuid(),
                 // Server-authoritative timestamp; client-supplied ObservedAtUtc is not trusted to prevent backdating.
                 ObservedAtUtc = observedAtUtc,
                 SubjectId = subject.SubjectId,

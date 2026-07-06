@@ -10,7 +10,7 @@ internal static class ArchivesEndpoints
 {
     internal static IEndpointRouteBuilder MapArchivesFeature(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/archives").WithTags("Archives");
+        var group = app.MapGroup("/api/archives").WithTags("Archives").RequireAuthorization();
 
         group.MapGet("/{date}", async (
             string date,

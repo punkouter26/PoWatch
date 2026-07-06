@@ -14,6 +14,7 @@ internal static class FhirEndpoints
     internal static IEndpointRouteBuilder MapFhirFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/fhir").WithTags("FHIR")
+            .RequireAuthorization()
             // Single feature-flag gate for all FHIR endpoints — no per-handler repetition
             .AddEndpointFilter(async (ctx, next) =>
             {

@@ -8,7 +8,7 @@ internal static class BlobEndpoints
 {
     internal static IEndpointRouteBuilder MapBlobEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/blobs").WithTags("Blobs");
+        var group = app.MapGroup("/api/blobs").WithTags("Blobs").RequireAuthorization();
 
         group.MapGet("/sas", async (
             string? subjectId,

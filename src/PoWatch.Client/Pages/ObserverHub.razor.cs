@@ -11,11 +11,22 @@ public partial class ObserverHub
 {
     protected override async Task OnInitializedAsync()
     {
-        await RefreshStateAsync();
-        await RefreshTimelineAsync();
-        await RefreshDiagnosticsAsync();
-        await LoadSubjectsAsync();
         muted = true;
+
+        // Honour a ?subjectFilter= drill-down from the Live Dashboard subject cards.
+        if (!string.IsNullOrWhiteSpace(SubjectFilterQuery))
+        {
+            _subjectFilter = SubjectFilterQuery;
+        }
+
+        // TTV: these four loads are independent (state, timeline, local JS diagnostics, subjects).
+        // Fetch them concurrently instead of serially so the first paint lands after the slowest
+        // round-trip, not the sum of all four.
+        await Task.WhenAll(
+            RefreshStateAsync(),
+            RefreshTimelineAsync(),
+            RefreshDiagnosticsAsync(),
+            LoadSubjectsAsync());
 
         // Restore persisted polling interval; fall back to appSettings default
         try
@@ -29,12 +40,19 @@ public partial class ObserverHub
         {
             _livePollingSeconds = FeatureFlags.Value.PollingIntervalSeconds;
         }
+
+        // Kiosk keep-alive: an unattended-but-powered display slides its auth cookie only when it
+        // talks to the API. While monitoring, the per-cycle ingest already does that; when idle,
+        // this low-frequency ping keeps the sliding session warm so the wall display never lapses.
+        _keepAliveCts = new CancellationTokenSource();
+        _ = Task.Run(() => RunSessionKeepAliveAsync(_keepAliveCts.Token));
     }
 
     private async Task StartMonitoringAsync()
     {
+        // TTV: re-verify only the operator disable flag before starting — a cheap guardrail.
+        // The timeline no longer needs a pre-start round-trip; it refreshes after the first cycle.
         await RefreshStateAsync();
-        await RefreshTimelineAsync();
 
         if (!ObservationLoopEnabled)
         {
@@ -56,7 +74,7 @@ public partial class ObserverHub
         lastSyncAtUtc = null;
         lastSyncStatus = "Connecting...";
         lastInferenceStatus = "Starting preview...";
-        lastAlertLevel = "Normal";
+        lastAlertLevel = AlertLevel.Normal;
         lastAlertReason = "No alerts detected";
         lastDetectedSubject = "Awaiting first detection";
         lastConfidencePercent = 0;
@@ -75,6 +93,10 @@ public partial class ObserverHub
         _p95LatencyMs = 0;
         _activeThresholdAlerts = [];
 
+        // Fresh session — clear any latched pipeline-degradation warning from a prior run.
+        _pipelineHealthLatched = false;
+        _fp16WarningLatched = false;
+
         monitoring = true;
         await InvokeAsync(StateHasChanged);
 
@@ -92,13 +114,16 @@ public partial class ObserverHub
 
         hasCameraFeed = true;
         await RefreshDiagnosticsAsync();
+        await PlayCueAsync("start");
 
         _ = Task.Run(() => RunMonitorLoopAsync(monitorCts.Token));
-        _ = Task.Run(() => RunMonitorHeartbeatAsync(monitorCts.Token));
+        // No per-second heartbeat here: the running clock is owned by the isolated
+        // <LiveDurationTimer> component, so the whole telemetry grid no longer re-renders every second.
     }
 
     private async Task StopMonitoringAsync()
     {
+        await PlayCueAsync("stop");
         monitoring = false;
         thinking = false;
         hasCameraFeed = false;
@@ -151,6 +176,7 @@ public partial class ObserverHub
             {
                 // Ensure 'thinking' is never permanently stuck true after an unexpected exception.
                 thinking = false;
+                LatchPipelineHealth("error", $"Inference pipeline error — {ex.Message}");
                 NotificationService.Notify(NotificationSeverity.Error, "Inference Error", ex.Message, duration: 6000);
                 await InvokeAsync(StateHasChanged);
             }
@@ -192,8 +218,12 @@ public partial class ObserverHub
                     if (inferMs > _maxInferenceMs) _maxInferenceMs = inferMs;
                     _latencyHistory.Enqueue(inferMs);
                     if (_latencyHistory.Count > 100) _latencyHistory.Dequeue();
-                    var sorted = _latencyHistory.OrderBy(x => x).ToArray();
-                    _p95LatencyMs = sorted[(int)Math.Floor((sorted.Length - 1) * 0.95)];
+                    // Reuse a fixed buffer + in-place sort instead of allocating a LINQ
+                    // OrderBy().ToArray() every cycle just to read one percentile.
+                    var n = _latencyHistory.Count;
+                    _latencyHistory.CopyTo(_p95Buffer, 0);
+                    Array.Sort(_p95Buffer, 0, n);
+                    _p95LatencyMs = _p95Buffer[(int)Math.Floor((n - 1) * 0.95)];
                 }
             }
         }
@@ -283,17 +313,17 @@ public partial class ObserverHub
 
             if (result.IsOutlier)
             {
-                lastAlertLevel = "Urgent";
+                lastAlertLevel = AlertLevel.Urgent;
                 lastAlertReason = result.Detail;
             }
             else if (inference.IsSignificant)
             {
-                lastAlertLevel = "Watch";
+                lastAlertLevel = AlertLevel.Watch;
                 lastAlertReason = result.Detail;
             }
             else
             {
-                lastAlertLevel = "Normal";
+                lastAlertLevel = AlertLevel.Normal;
                 lastAlertReason = "No active alert";
             }
 
@@ -315,6 +345,8 @@ public partial class ObserverHub
         else
         {
             lastSyncStatus = "API unavailable";
+            // Reconnect state: surface a server/auth dropout on the kiosk instead of failing silently.
+            LatchPipelineHealth("warn", "Reconnecting to server — last sync did not complete.");
         }
 
         if (result is not null && !result.Dropped && !result.SkippedAsRedundant && inference.IsSignificant)
@@ -330,16 +362,28 @@ public partial class ObserverHub
         // Accumulate threshold alerts for the banner
         if (result is not null && result.TriggeredAlerts.Count > 0 && FeatureFlags.Value.AlertThresholdsEnabled)
         {
+            var hadAlerts = _activeThresholdAlerts.Count;
             foreach (var alert in result.TriggeredAlerts)
             {
                 if (!_activeThresholdAlerts.Any(a => a.RuleName == alert.RuleName && a.SubjectId == alert.SubjectId))
                     _activeThresholdAlerts.Add(alert);
             }
+            // Micro-cue on a newly-raised threshold alert (audit #8).
+            if (_activeThresholdAlerts.Count > hadAlerts) await PlayCueAsync("alert");
         }
 
-        await RefreshTimelineAsync();
+        // Diagnostics is a cheap local JS call — always refresh it for the HUD.
         await RefreshDiagnosticsAsync();
-        await LoadSubjectsAsync();
+
+        // Only pay for the timeline + subjects round-trips when this cycle actually persisted
+        // something new. Redundant/dropped cycles change nothing on the server, so re-fetching
+        // is pure waste — especially on a kiosk polling every few seconds.
+        if (result is not null && !result.Dropped && !result.SkippedAsRedundant)
+        {
+            await RefreshTimelineAsync();
+            await LoadSubjectsAsync();
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -405,6 +449,14 @@ public partial class ObserverHub
         await RefreshTimelineAsync();
     }
 
+    // Lightweight, oscillator-synthesized interaction cue (audit #8). Best-effort: audio must never
+    // break the monitoring flow, and it only works after a user gesture has unlocked the AudioContext.
+    private async Task PlayCueAsync(string kind)
+    {
+        try { await JS.InvokeVoidAsync("powatchAudio.cue", kind); }
+        catch { /* audio unavailable — ignore */ }
+    }
+
     private async Task AnnounceAsync(string subjectDisplayName, bool isUnknown)
     {
         if (isUnknown)
@@ -468,6 +520,8 @@ public partial class ObserverHub
                 StatusDetail = "Observer state endpoint is temporarily unavailable."
             };
 
+            LatchPipelineHealth("warn", "Reconnecting to server — the API is temporarily unreachable.");
+
             NotificationService.Notify(
                 NotificationSeverity.Warning,
                 "Observer API",
@@ -486,6 +540,14 @@ public partial class ObserverHub
                 _gpuAdapterVendor = inferenceDiagnostics.GpuAdapterVendor ?? string.Empty;
                 _gpuAdapterName = inferenceDiagnostics.GpuAdapterName ?? "--";
                 _hudMemory = inferenceDiagnostics.JsHeapMb ?? "--";
+
+                // GPU degraded to fp32 — not fatal, but the operator should know throughput will drop.
+                // Latch once so it doesn't re-fire every cycle.
+                if (inferenceDiagnostics.Fp16FallbackUsed && !_fp16WarningLatched)
+                {
+                    _fp16WarningLatched = true;
+                    LatchPipelineHealth("warn", "GPU running fp32 fallback — fp16 unsupported on this adapter (slower).");
+                }
             }
         }
         catch
@@ -502,13 +564,16 @@ public partial class ObserverHub
             : [];
     }
 
-    private async Task RunMonitorHeartbeatAsync(CancellationToken cancellationToken)
+    private async Task RunSessionKeepAliveAsync(CancellationToken cancellationToken)
     {
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
+                // A lightweight authenticated GET slides the BFF cookie so an idle kiosk
+                // session never lapses. Failures latch the reconnect banner (see RefreshStateAsync).
+                await RefreshStateAsync();
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -518,12 +583,10 @@ public partial class ObserverHub
         }
     }
 
-    private static string FormatElapsed(TimeSpan elapsed) =>
-        $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
-
     public async ValueTask DisposeAsync()
     {
         monitorCts?.Cancel();
+        _keepAliveCts?.Cancel();
 
         await JS.InvokeVoidAsync("powatchInference.stopMonitor");
     }

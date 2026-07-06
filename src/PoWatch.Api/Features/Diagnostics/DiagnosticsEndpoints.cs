@@ -9,7 +9,7 @@ internal static class DiagnosticsEndpoints
 {
     internal static IEndpointRouteBuilder MapDiagnosticsFeature(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/diagnostics").WithTags("Diagnostics");
+        var group = app.MapGroup("/api/diagnostics").WithTags("Diagnostics").RequireAuthorization();
 
         group.MapGet("/status", (IDiagnosticsProvider provider, ILogger<Program> logger) =>
         {

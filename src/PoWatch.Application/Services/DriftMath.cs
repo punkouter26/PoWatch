@@ -1,4 +1,5 @@
 using PoWatch.Domain.Models;
+using PoWatch.Shared.Models;
 
 namespace PoWatch.Application.Services;
 
@@ -64,11 +65,11 @@ public static class DriftMath
     /// </summary>
     public static string ClassifyDrift(double score) => score switch
     {
-        >= ExtremeDriftThreshold => "Extreme Deviation",
-        >= HighDriftThreshold => "High Drift",
-        >= ModerateDriftThreshold => "Moderate Drift",
-        >= SlightDriftThreshold => "Slight Variation",
-        _ => "Normal"
+        >= ExtremeDriftThreshold => DriftLabels.Extreme,
+        >= HighDriftThreshold => DriftLabels.High,
+        >= ModerateDriftThreshold => DriftLabels.Moderate,
+        >= SlightDriftThreshold => DriftLabels.Slight,
+        _ => DriftLabels.Normal
     };
 
     /// <summary>
@@ -77,10 +78,10 @@ public static class DriftMath
     public static string ClassifyDrift(double score, double highThreshold, double moderateThreshold, double slightThreshold) =>
         score switch
         {
-            >= ExtremeDriftThreshold => "Extreme Deviation",
-            _ when score >= highThreshold => "High Drift",
-            _ when score >= moderateThreshold => "Moderate Drift",
-            _ when score >= slightThreshold => "Slight Variation",
-            _ => "Normal"
+            >= ExtremeDriftThreshold => DriftLabels.Extreme,
+            _ when score >= highThreshold => DriftLabels.High,
+            _ when score >= moderateThreshold => DriftLabels.Moderate,
+            _ when score >= slightThreshold => DriftLabels.Slight,
+            _ => DriftLabels.Normal
         };
 }

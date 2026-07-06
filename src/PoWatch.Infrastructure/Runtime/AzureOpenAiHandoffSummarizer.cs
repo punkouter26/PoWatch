@@ -144,7 +144,7 @@ public sealed class AzureOpenAiHandoffSummarizer(
 
         if (context.DriftStatus.Count > 0)
         {
-            var notable = context.DriftStatus.Where(d => d.DriftLabel is not "Normal" and not "Insufficient Data").Take(3).ToList();
+            var notable = context.DriftStatus.Where(d => d.DriftLabel is not DriftLabels.Normal and not DriftLabels.InsufficientData).Take(3).ToList();
             if (notable.Count > 0)
             {
                 sb.AppendLine();

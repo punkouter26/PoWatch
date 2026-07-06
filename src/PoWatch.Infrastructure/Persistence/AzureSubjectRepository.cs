@@ -2,6 +2,8 @@ using Azure;
 using Azure.Data.Tables;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Retry;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
@@ -13,11 +15,34 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 {
     private readonly TableClient _tableClient;
     private readonly ILogger<AzureSubjectRepository> _logger;
+    private readonly ResiliencePipeline _retryPipeline;
 
     public AzureSubjectRepository(AzureStorageClients clients, IOptions<AzureStorageOptions> options, ILogger<AzureSubjectRepository> logger)
     {
         _tableClient = clients.TableService.GetTableClient(options.Value.SubjectsTable);
         _logger = logger;
+
+        // Same transient-fault resilience the observation repository uses. Previously this repo had
+        // NO retry, so a single storage blip on the ingest path (GetOrCreate / UpdateLastActivity) threw.
+        _retryPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(200),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(ex =>
+                    ex.Status is 408 or 429 or 500 or 502 or 503 or 504),
+                OnRetry = args =>
+                {
+                    _logger.LogWarning(
+                        "Subject storage operation retrying. Attempt={Attempt} Delay={Delay}ms Status={Status}",
+                        args.AttemptNumber,
+                        args.RetryDelay.TotalMilliseconds,
+                        args.Outcome.Exception is RequestFailedException rfe ? rfe.Status : 0);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     public async Task<IReadOnlyList<SubjectProfile>> GetAllAsync(CancellationToken cancellationToken)
@@ -104,11 +129,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         SubjectIdSlugger.UnregisterSlug(subjectId, subjectId);
         SubjectIdSlugger.RegisterSlug(renamed.SubjectId, renamed.SubjectId);
 
-        if (!string.Equals(subjectId, canonicalId, StringComparison.OrdinalIgnoreCase))
-        {
-            await TryDeleteAsync(subjectId, cancellationToken);
-        }
-
+        // NOTE: the old profile row is intentionally NOT deleted here. IdentityService deletes it only
+        // AFTER the observation history has been rewritten to the canonical id, so a transient failure
+        // can never leave observations pointing at a deleted subject (orphaned history).
         return renamed;
     }
 
@@ -145,13 +168,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         SubjectIdSlugger.UnregisterSlug(secondarySubjectId, secondarySubjectId);
         SubjectIdSlugger.RegisterSlug(merged.SubjectId, merged.SubjectId);
 
-        if (!string.Equals(primarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase))
-        {
-            await TryDeleteAsync(primarySubjectId, cancellationToken);
-        }
-
-        await TryDeleteAsync(secondarySubjectId, cancellationToken);
-
+        // NOTE: source profile rows are intentionally NOT deleted here. IdentityService deletes them
+        // only AFTER observation history has been rewritten to the canonical id (rewrite-then-delete),
+        // eliminating the orphaned-history window if a transient fault interrupts the operation.
         return merged;
     }
 
@@ -165,7 +184,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             ["LastSeenUtc"] = profile.LastSeenUtc
         };
 
-        await _tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace, cancellationToken);
+        await _retryPipeline.ExecuteAsync(
+            async ct => await _tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace, ct),
+            cancellationToken);
     }
 
     private async Task<SubjectProfile> CreateAutoNumberedSubjectAsync(CancellationToken cancellationToken)
@@ -285,7 +306,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         }
     }
 
-    private async Task TryDeleteAsync(string subjectId, CancellationToken cancellationToken)
+    public async Task DeleteAsync(string subjectId, CancellationToken cancellationToken)
     {
         try
         {
@@ -293,7 +314,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
-            // Already removed — safe to ignore.
+            // Already removed — safe to ignore (idempotent delete).
         }
     }
 
@@ -306,7 +327,11 @@ public sealed class AzureSubjectRepository : ISubjectRepository
                 ["LastActivity"] = activity,
                 ["LastActivityIsOutlier"] = isOutlier
             };
-            await _tableClient.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, cancellationToken);
+            // Merge (not Replace) so a concurrent profile rename/merge writing DisplayName/FirstSeen is not
+            // clobbered by this activity ping — the two touch disjoint columns. Wrapped for transient faults.
+            await _retryPipeline.ExecuteAsync(
+                async ct => await _tableClient.UpdateEntityAsync(entity, ETag.All, TableUpdateMode.Merge, ct),
+                cancellationToken);
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {

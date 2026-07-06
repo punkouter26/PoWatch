@@ -41,9 +41,15 @@ public sealed class IdentityService(
             subjectId,
             request.NewName);
 
+        // Order matters: upsert the canonical profile, rewrite the observation history to it, and only
+        // THEN delete the old profile row. If any step faults, observations are never left orphaned.
         var canonical = await subjectRepository.RenameAsync(subjectId, request.NewName, cancellationToken);
         var subjectIdChanged = !string.Equals(subjectId, canonical.SubjectId, StringComparison.OrdinalIgnoreCase);
         var rewritten = await observationRepository.MergeSubjectAsync(subjectId, canonical, cancellationToken);
+        if (subjectIdChanged)
+        {
+            await subjectRepository.DeleteAsync(subjectId, cancellationToken);
+        }
         var removed = subjectIdChanged ? 1 : 0;
 
         logger.LogInformation(
@@ -80,6 +86,9 @@ public sealed class IdentityService(
             request.SecondarySubjectId,
             request.NewDisplayName);
 
+        // Rewrite-then-delete ordering: MergeAsync upserts the canonical profile but no longer deletes
+        // the source rows. We rewrite both subjects' observation history to the canonical id first, then
+        // delete the now-empty source profiles — so an interrupted merge never orphans history.
         var merged = await subjectRepository.MergeAsync(
             request.PrimarySubjectId,
             request.SecondarySubjectId,
@@ -87,15 +96,23 @@ public sealed class IdentityService(
             cancellationToken);
 
         var rewritten = 0;
+        var primaryChanged = !string.Equals(request.PrimarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase);
 
-        if (!string.Equals(request.PrimarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase))
+        if (primaryChanged)
         {
             rewritten += await observationRepository.MergeSubjectAsync(request.PrimarySubjectId, merged, cancellationToken);
         }
 
         rewritten += await observationRepository.MergeSubjectAsync(request.SecondarySubjectId, merged, cancellationToken);
 
-        var removed = string.Equals(request.PrimarySubjectId, merged.SubjectId, StringComparison.OrdinalIgnoreCase) ? 1 : 2;
+        // History is now safely under the canonical id — delete the source profile rows.
+        if (primaryChanged)
+        {
+            await subjectRepository.DeleteAsync(request.PrimarySubjectId, cancellationToken);
+        }
+        await subjectRepository.DeleteAsync(request.SecondarySubjectId, cancellationToken);
+
+        var removed = primaryChanged ? 2 : 1;
 
         logger.LogInformation(
             "Merge completed. CanonicalSubjectId={CanonicalSubjectId}, CanonicalName={CanonicalName}, EventsRewritten={EventsRewritten}, SubjectsRemoved={SubjectsRemoved}",

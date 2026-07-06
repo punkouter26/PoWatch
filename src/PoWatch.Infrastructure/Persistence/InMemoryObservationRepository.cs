@@ -18,10 +18,8 @@ public sealed class InMemoryObservationRepository(ILogger<InMemoryObservationRep
 
         _events[observation.Id] = observation;
 
-        logger.LogInformation(
-            "In-memory observation storage write completed. SubjectId={SubjectId} TraceId={TraceId}",
-            observation.SubjectId,
-            Activity.Current?.TraceId.ToString());
+        // TraceId is already on the Activity/Serilog context — don't eagerly ToString() it every write.
+        logger.LogDebug("In-memory observation storage write completed. SubjectId={SubjectId}", observation.SubjectId);
 
         return Task.CompletedTask;
     }

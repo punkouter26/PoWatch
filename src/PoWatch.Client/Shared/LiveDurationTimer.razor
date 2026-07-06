@@ -1,0 +1,37 @@
+@implements IDisposable
+
+<span class="live-duration">@Display</span>
+
+@code {
+    // Self-updating elapsed clock. Isolates the 1 Hz re-render to this tiny component
+    // (one text node) instead of re-diffing the whole ObserverHub telemetry grid every second.
+    [Parameter, EditorRequired] public DateTimeOffset? StartedAtUtc { get; set; }
+    [Parameter] public string IdleText { get; set; } = "00:00:00";
+
+    private Timer? _timer;
+
+    private string Display => StartedAtUtc is { } startedAt
+        ? Format(DateTimeOffset.UtcNow - startedAt)
+        : IdleText;
+
+    protected override void OnParametersSet()
+    {
+        // Only tick while a session is actually running; stop the timer when idle
+        // so an always-on kiosk isn't re-rendering "00:00:00" once a second forever.
+        if (StartedAtUtc is not null && _timer is null)
+        {
+            _timer = new Timer(_ => InvokeAsync(StateHasChanged), null,
+                TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+        else if (StartedAtUtc is null && _timer is not null)
+        {
+            _timer.Dispose();
+            _timer = null;
+        }
+    }
+
+    private static string Format(TimeSpan elapsed) =>
+        $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
+
+    public void Dispose() => _timer?.Dispose();
+}

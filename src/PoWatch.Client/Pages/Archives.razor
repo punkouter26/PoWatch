@@ -167,10 +167,11 @@
         }
         else
         {
-            <ul class="activity-list activity-list--archives">
-                @foreach (var item in chapter.Timeline)
-                {
-                    <li class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
+            @* Virtualized (audit #3): a full day's timeline can be hundreds of events; only the visible
+               rows are materialized so the archive scrolls without frame drops. *@
+            <div class="activity-list activity-list--archives">
+                <Virtualize Items="@(chapter.Timeline as ICollection<PoWatch.Shared.Models.ObservationEventDto> ?? chapter.Timeline.ToList())" Context="item" ItemSize="54" OverscanCount="6">
+                    <div class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
                         <div class="activity-item-header">
                             <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
                             <span class="activity-subject">@item.SubjectDisplayName</span>
@@ -188,9 +189,9 @@
                         {
                             <div class="activity-note">@item.ClinicalDescription</div>
                         }
-                    </li>
-                }
-            </ul>
+                    </div>
+                </Virtualize>
+            </div>
         }
     </RadzenCard>
 </div>

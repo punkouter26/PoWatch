@@ -11,7 +11,10 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"];
-builder.Services.AddScoped(sp => new HttpClient
+// One stable session id per app load, threaded onto every BFF call by CorrelationHandler so the
+// server can correlate an entire monitoring session instead of seeing N unrelated requests.
+var sessionId = Guid.NewGuid().ToString("N");
+builder.Services.AddScoped(sp => new HttpClient(new CorrelationHandler(sessionId) { InnerHandler = new HttpClientHandler() })
 {
     BaseAddress = new Uri(string.IsNullOrWhiteSpace(apiBaseUrl)
         ? builder.HostEnvironment.BaseAddress

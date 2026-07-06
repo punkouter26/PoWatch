@@ -1,13 +1,12 @@
 ﻿@using PoWatch.Client.Services
+@using System.Net.Http
 @inject IInferenceService InferenceService
+@inject HttpClient Http
+@inject NavigationManager Navigation
 
-@if (MockLabel is not null)
-{
-    <div class="mock-data-banner" role="status" aria-live="polite">
-        ⚠ USING MOCK DATA — @MockLabel
-    </div>
-}
-
+@* Spatial contract (audit #9): LEFT = branding, CENTER = navigation actions, RIGHT = mock-data guard
+   + session/logout. The "USING MOCK DATA" warning is now a topbar chip rather than a stacked
+   full-width bar, so toggling it no longer shifts the whole page layout down. *@
 <nav class="navbar app-navbar" role="navigation" aria-label="Main navigation">
     <a class="navbar-brand" href="" aria-label="PoWatch home">
         <span class="brand-mark">PW</span>
@@ -22,16 +21,49 @@
     <div class="navbar-collapse @(collapseNavMenu ? "" : "show")">
         <div class="navbar-nav">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Observer Hub</NavLink>
+            <NavLink class="nav-link" href="live-dashboard">Live Dashboard</NavLink>
             <NavLink class="nav-link" href="archives">Archives</NavLink>
             <NavLink class="nav-link" href="identity">Identity</NavLink>
+            <NavLink class="nav-link" href="diagnostics">Diagnostics</NavLink>
+        </div>
+        <div class="navbar-account">
+            @if (MockLabel is not null)
+            {
+                <span class="mock-chip" role="status" aria-live="polite" title="Mock data active — @MockLabel">
+                    ⚠ MOCK DATA
+                </span>
+            }
+            <button class="nav-logout" @onclick="LogoutAsync" disabled="@_loggingOut" aria-label="Sign out">
+                @(_loggingOut ? "Signing out…" : "Sign out")
+            </button>
         </div>
     </div>
 </nav>
 
 @code {
     private bool collapseNavMenu = true;
+    private bool _loggingOut;
 
     private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 
     private string? MockLabel => InferenceService is IMockable mockable ? mockable.MockLabel : null;
+
+    private async Task LogoutAsync()
+    {
+        _loggingOut = true;
+        try
+        {
+            // POST clears the BFF cookie server-side; force a full reload so AuthorizeRouteView
+            // re-evaluates against the now-anonymous /auth/me and lands on /login.
+            using var response = await Http.PostAsync("auth/logout", content: null);
+        }
+        catch
+        {
+            // Even if the call fails, fall through to a reload — the cookie may already be gone.
+        }
+        finally
+        {
+            Navigation.NavigateTo("login", forceLoad: true);
+        }
+    }
 }

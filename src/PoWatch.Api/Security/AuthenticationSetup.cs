@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using PoWatch.Application.Options;
@@ -36,7 +37,10 @@ public static class AuthenticationSetup
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Strict;
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            options.ExpireTimeSpan = TimeSpan.FromHours(8);
+            // Kiosk-durable session: an always-on wall display should survive a full unattended
+            // day and slide forward on each authenticated poll, so it never blanks to /login
+            // mid-shift. Still HttpOnly + SameSite=Strict + Secure — no guardrail relaxed.
+            options.ExpireTimeSpan = TimeSpan.FromHours(24);
             options.SlidingExpiration = true;
             // BFF proxies XHR: answer with status codes rather than HTML redirects.
             options.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
@@ -89,7 +93,19 @@ public static class AuthenticationSetup
             auth.AddScheme<AuthenticationSchemeOptions, FakeAuthHandler>(FakeAuthHandler.SchemeName, null);
         }
 
-        builder.Services.AddAuthorization();
+        // Default authorization policy used by every .RequireAuthorization() call. In Production it
+        // accepts only the BFF cookie (OIDC signs into the cookie). When the dev/test guest bypass is
+        // enabled, the FakeAuth scheme is added so the header/guest handler can satisfy the policy —
+        // this keeps the integration suite green without weakening the Production surface.
+        var authSchemes = flags.DeveloperBypassAuth
+            ? new[] { CookieScheme, FakeAuthHandler.SchemeName }
+            : new[] { CookieScheme };
+
+        builder.Services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder(authSchemes)
+                .RequireAuthenticatedUser()
+                .Build());
+
         return oidcConfigured;
     }
 }

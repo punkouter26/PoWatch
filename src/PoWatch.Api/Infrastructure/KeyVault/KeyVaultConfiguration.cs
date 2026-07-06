@@ -1,5 +1,7 @@
+using Azure.Core;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using ILogger = Serilog.ILogger;
 
 namespace PoWatch.Api.Infrastructure.KeyVault;
@@ -26,26 +28,33 @@ public sealed class KeyVaultConfiguration
 
         try
         {
+            // Transient-fault resilience: a bounded exponential retry rides out a KV/network blip at boot
+            // instead of the previous no-retry, fail-silent behaviour that let the app start with secrets
+            // quietly absent. A genuine, sustained failure now propagates so startup fails fast and loud.
+            var clientOptions = new SecretClientOptions();
+            clientOptions.Retry.MaxRetries = 5;
+            clientOptions.Retry.Mode = RetryMode.Exponential;
+            clientOptions.Retry.Delay = TimeSpan.FromMilliseconds(500);
+            clientOptions.Retry.MaxDelay = TimeSpan.FromSeconds(10);
+
             var credential = new DefaultAzureCredential();
-            builder.AddAzureKeyVault(keyVaultUri, credential);
+            var secretClient = new SecretClient(keyVaultUri, credential, clientOptions);
+            builder.AddAzureKeyVault(secretClient, new KeyVaultSecretManager());
             logger.Information("Key Vault configuration source added successfully");
-        }
-        catch (Azure.RequestFailedException ex)
-        {
-            // Log and continue — app will fail later if a required secret is missing.
-            logger.Warning(ex,
-                "Failed to load Key Vault secrets (Azure API error). Uri={KeyVaultUri} Status={StatusCode}",
-                keyVaultUri, ex.Status);
-        }
-        catch (AggregateException ex)
-        {
-            logger.Warning(ex,
-                "Failed to load Key Vault secrets (network error). Uri={KeyVaultUri} — running without KV secrets.",
-                keyVaultUri);
         }
         catch (UriFormatException ex)
         {
             logger.Error(ex, "Invalid Key Vault URI format. Uri={KeyVaultUri}", keyVaultUri);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Fail fast: Key Vault was explicitly enabled and configured, so booting without its secrets
+            // is a misconfiguration, not a soft-degrade. Surface it rather than 500-ing every later request.
+            logger.Fatal(ex,
+                "Key Vault secrets could not be loaded after retries. Uri={KeyVaultUri} — aborting startup.",
+                keyVaultUri);
+            throw;
         }
 
         return builder;

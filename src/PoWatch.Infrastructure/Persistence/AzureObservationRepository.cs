@@ -80,7 +80,19 @@ public sealed class AzureObservationRepository : IObservationRepository
                     ["ImageReference"] = observation.ImageReference
                 };
 
-                await _tableClient.AddEntityAsync(entity, ct);
+                try
+                {
+                    await _tableClient.AddEntityAsync(entity, ct);
+                }
+                catch (RequestFailedException conflict) when (conflict.Status == 409)
+                {
+                    // Idempotent no-op: the row already exists (a Polly retry after a write that actually
+                    // landed, or a client resubmit of the same idempotency key). Treat as success rather
+                    // than surfacing a 409 for a write that is, in effect, already durable.
+                    _logger.LogInformation(
+                        "Observation already persisted — idempotent duplicate ignored. SubjectId={SubjectId} RowKey={RowKey}",
+                        observation.SubjectId, rowKey);
+                }
             }, cancellationToken);
 
             _logger.LogInformation(
@@ -138,15 +150,23 @@ public sealed class AzureObservationRepository : IObservationRepository
     {
         var fromKey = from.ToString("yyyyMMdd");
         var toKey = to.ToString("yyyyMMdd");
-        var items = new List<ObservationEvent>();
 
-        // PartitionKey is yyyyMMdd — range filter uses string comparison which matches lexicographic ordering
-        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
-                           filter: $"PartitionKey ge '{fromKey}' and PartitionKey le '{toKey}'",
-                           cancellationToken: cancellationToken))
+        // Wrapped in the retry pipeline (previously bypassed it) — this feeds the Drift Radar bulk load,
+        // so a transient storage blip here would otherwise fail the whole multi-subject drift computation.
+        var items = await _retryPipeline.ExecuteAsync(async ct =>
         {
-            items.Add(Map(entity));
-        }
+            var results = new List<ObservationEvent>();
+
+            // PartitionKey is yyyyMMdd — range filter uses string comparison which matches lexicographic ordering
+            await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                               filter: $"PartitionKey ge '{fromKey}' and PartitionKey le '{toKey}'",
+                               cancellationToken: ct))
+            {
+                results.Add(Map(entity));
+            }
+
+            return results.OrderBy(x => x.ObservedAtUtc).ToList();
+        }, cancellationToken);
 
         _logger.LogDebug(
             "Date range read completed. From={From} To={To} Count={Count}",
@@ -154,7 +174,7 @@ public sealed class AzureObservationRepository : IObservationRepository
             to,
             items.Count);
 
-        return items.OrderBy(x => x.ObservedAtUtc).ToList();
+        return items;
     }
 
     public async Task<ObservationEvent?> GetLatestForSubjectAsync(string subjectId, CancellationToken cancellationToken)
@@ -242,35 +262,43 @@ public sealed class AzureObservationRepository : IObservationRepository
         using var activity = ActivitySource.StartActivity("Storage.RewriteSubjectHistory");
 
         var safeSubjectId = oldSubjectId.Replace("'", "''");
-        var entities = new List<TableEntity>();
 
-        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
-                           filter: $"SubjectId eq '{safeSubjectId}'",
-                           cancellationToken: cancellationToken))
+        // Wrapped in the retry pipeline and made resumable: upsert-Replace is idempotent and the query
+        // re-reads only rows still under the old id, so a transient fault mid-rewrite retries cleanly
+        // and converges rather than aborting the identity operation halfway.
+        var count = await _retryPipeline.ExecuteAsync(async ct =>
         {
-            entities.Add(entity);
-        }
-
-        foreach (var entity in entities)
-        {
-            var updated = RewriteEntity(entity, target);
-
-            await _tableClient.UpsertEntityAsync(updated, TableUpdateMode.Replace, cancellationToken);
-
-            if (!string.Equals(entity.RowKey, updated.RowKey, StringComparison.OrdinalIgnoreCase))
+            var entities = new List<TableEntity>();
+            await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                               filter: $"SubjectId eq '{safeSubjectId}'",
+                               cancellationToken: ct))
             {
-                await _tableClient.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, entity.ETag, cancellationToken: cancellationToken);
+                entities.Add(entity);
             }
-        }
+
+            foreach (var entity in entities)
+            {
+                var updated = RewriteEntity(entity, target);
+
+                await _tableClient.UpsertEntityAsync(updated, TableUpdateMode.Replace, ct);
+
+                if (!string.Equals(entity.RowKey, updated.RowKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    await _tableClient.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, entity.ETag, cancellationToken: ct);
+                }
+            }
+
+            return entities.Count;
+        }, cancellationToken);
 
         _logger.LogInformation(
             "Subject history rewrite completed. OldSubjectId={OldSubjectId} CanonicalSubjectId={CanonicalSubjectId} EventsRewritten={EventsRewritten} TraceId={TraceId}",
             oldSubjectId,
             target.SubjectId,
-            entities.Count,
+            count,
             Activity.Current?.TraceId.ToString());
 
-        return entities.Count;
+        return count;
     }
 
     private static TableEntity RewriteEntity(TableEntity source, SubjectProfile target)

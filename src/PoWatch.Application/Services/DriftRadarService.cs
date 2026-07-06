@@ -61,7 +61,7 @@ public sealed class DriftRadarService(
                     SubjectId = profile.SubjectId,
                     DisplayName = profile.DisplayName,
                     DriftScore = 0,
-                    DriftLabel = "Insufficient Data",
+                    DriftLabel = DriftLabels.InsufficientData,
                     TodayEventCount = subjectToday.Count,
                     HourlyBaselineVector = new double[24],
                     HourlyTodayVector = new double[24],

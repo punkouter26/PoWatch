@@ -1,15 +1,18 @@
 @using PoWatch.Shared.Models
 
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+
 @if (Items.Count == 0)
 {
     <div class="activity-empty">@EmptyMessage</div>
 }
 else
 {
-    <ul class="activity-list">
-        @foreach (var item in Items)
-        {
-            <li class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
+    @* Virtualized (audit #3): only the rows in view are in the DOM, so the feed stays cheap as
+       history grows and re-renders no longer allocate every node each inference cycle. *@
+    <div class="activity-list">
+        <Virtualize Items="_virtualItems" Context="item" ItemSize="54" OverscanCount="6">
+            <div class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
                 <div class="activity-item-header">
                     <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
                     @if (ShowSubjectBadge)
@@ -30,9 +33,9 @@ else
                 {
                     <div class="activity-note">@item.ClinicalDescription</div>
                 }
-            </li>
-        }
-    </ul>
+            </div>
+        </Virtualize>
+    </div>
 }
 
 @code {
@@ -41,6 +44,13 @@ else
     /// </summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<ObservationEventDto> Items { get; set; } = [];
+
+    // Virtualize needs an ICollection. The list is a List at runtime, so this cast avoids allocation;
+    // only an exotic IReadOnlyList would fall back to a copy.
+    private ICollection<ObservationEventDto> _virtualItems = [];
+
+    protected override void OnParametersSet() =>
+        _virtualItems = Items as ICollection<ObservationEventDto> ?? Items.ToList();
 
     /// <summary>
     /// When true, shows the subject name badge next to each event.

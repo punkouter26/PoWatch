@@ -10,7 +10,7 @@ internal static class ObserverEndpoints
 {
     internal static IEndpointRouteBuilder MapObserverFeature(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/observer").WithTags("Observer");
+        var group = app.MapGroup("/api/observer").WithTags("Observer").RequireAuthorization();
 
         group.MapPost("/ingest", async (
             IngestObservationRequestDto request,
@@ -18,20 +18,11 @@ internal static class ObserverEndpoints
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
-            logger.LogInformation(
-                "Observer ingest API request received. Activity={Activity} SubjectHint={SubjectHint} TraceId={TraceId}",
-                request.Activity,
-                request.SubjectHint,
-                Activity.Current?.TraceId.ToString());
+            ObserverLog.IngestReceived(logger, request.Activity, request.SubjectHint);
 
             var result = await service.IngestAsync(request, cancellationToken);
 
-            logger.LogInformation(
-                "Observer ingest API request completed. Accepted={Accepted} Dropped={Dropped} SubjectId={SubjectId} TraceId={TraceId}",
-                result.Accepted,
-                result.Dropped,
-                result.SubjectId,
-                Activity.Current?.TraceId.ToString());
+            ObserverLog.IngestCompleted(logger, result.Accepted, result.Dropped, result.SubjectId);
 
             return result.Dropped ? Results.Accepted(value: result) : Results.Ok(result);
         })
@@ -137,9 +128,11 @@ internal static class ObserverEndpoints
                 var date = DateOnly.FromDateTime(cursor.UtcDateTime);
                 var events = await observationRepository.GetByDateAsync(date, ct).ConfigureAwait(false);
 
+                // GetByDateAsync already returns events sorted ascending by ObservedAtUtc (both the Azure
+                // and in-memory repos), so the previous second .OrderBy here was redundant work repeated
+                // every 3s per connected client. Filter by cursor and cap only.
                 entries = events
                     .Where(e => e.ObservedAtUtc > cursor)
-                    .OrderBy(e => e.ObservedAtUtc)
                     .Take(maxBatchSize) // Respect batch size limit
                     .Select(e => new ObservationEventDto
                     {
@@ -185,25 +178,4 @@ internal static class ObserverEndpoints
             }
         }
     }
-}
-
-/// <summary>
-/// Request DTO for acknowledging significant events.
-/// </summary>
-public sealed class AcknowledgeEventsRequestDto
-{
-    /// <summary>
-    /// List of event IDs to acknowledge.
-    /// </summary>
-    public required IReadOnlyList<string> EventIds { get; init; }
-
-    /// <summary>
-    /// Identifier of the person acknowledging (e.g., nurse ID, username).
-    /// </summary>
-    public required string AcknowledgedBy { get; init; }
-
-    /// <summary>
-    /// Optional note explaining the acknowledgment.
-    /// </summary>
-    public string? Note { get; init; }
 }

@@ -19,4 +19,10 @@ public interface ISubjectRepository
 
     /// <summary>Updates the cached last-observed activity on the subject row (O(1) subject-keyed write).</summary>
     Task UpdateLastActivityAsync(string subjectId, string activity, bool isOutlier, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Idempotently removes a subject profile row. Callers rewrite that subject's observations to the
+    /// canonical id BEFORE deleting, so a mid-operation failure can never orphan history.
+    /// </summary>
+    Task DeleteAsync(string subjectId, CancellationToken cancellationToken);
 }

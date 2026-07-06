@@ -65,19 +65,19 @@ public sealed class AzureStorageInitializer(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex,
-                "Azure Storage initialization failed — app will continue without persistent storage. " +
-                "Verify Azurite/Docker is running or set FeatureFlags:SkipStorageInit=true to suppress this. " +
-                "ConnectionString={ConnectionString} ServiceUri={ServiceUri} ErrorType={ErrorType} Detail={Detail}",
-                options.Value.ConnectionString?.Length > 20
-                    ? options.Value.ConnectionString[..20] + "..."
-                    : options.Value.ConnectionString,
+            logger.LogCritical(ex,
+                "Azure Storage initialization failed. Storage is configured, so there is NO in-memory fallback — " +
+                "the app would otherwise report a healthy start and then 500 on every read/write. Failing fast. " +
+                "Verify Azurite/Docker is running, or set FeatureFlags:SkipStorageInit=true to intentionally skip. " +
+                "ServiceUri={ServiceUri} ErrorType={ErrorType} Detail={Detail}",
                 options.Value.ServiceUri,
                 ex.GetType().Name,
                 ex.Message);
 
-            // Non-fatal: the app can still serve requests using in-memory fallbacks.
-            // Storage-backed endpoints will fail individually rather than crashing startup.
+            // Fail fast: when storage IS configured, the DI container bound the Azure repositories (not the
+            // in-memory ones). A silent "continue" produced a server that looked healthy but was 500-ing every
+            // request. Abort startup so orchestrators restart/alert instead of serving a broken instance.
+            throw;
         }
     }
 

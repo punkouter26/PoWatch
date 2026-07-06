@@ -9,6 +9,14 @@ public partial class ObserverHub
     private bool _subjectsLoading;
     private string _subjectFilter = string.Empty;
 
+    /// <summary>
+    /// Drill-down from Live Dashboard: navigating to <c>/?subjectFilter=&lt;id&gt;</c> now actually filters the
+    /// subjects strip. Previously the query param was supplied but never bound, so the link was a dead no-op.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "subjectFilter")]
+    public string? SubjectFilterQuery { get; set; }
+
     private IReadOnlyList<SubjectLiveStatusDto> FilteredLiveSubjects =>
         string.IsNullOrWhiteSpace(_subjectFilter)
             ? _liveSubjects
@@ -28,7 +36,12 @@ public partial class ObserverHub
         return string.Empty;
     }
 
+    // One-tap (audit #7): carry the subject id so Identity opens with this subject's rename ready,
+    // instead of landing on the full list and forcing the user to hunt for it again.
     private void NavigateToIdentityPage() => Navigation.NavigateTo("/identity");
+
+    private void NavigateToManageSubject(string subjectId) =>
+        Navigation.NavigateTo($"/identity?focus={Uri.EscapeDataString(subjectId)}");
 
     private async Task LoadSubjectsAsync()
     {

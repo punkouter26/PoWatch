@@ -259,6 +259,8 @@ public sealed class ObservationServiceTests
             return Task.CompletedTask;
         }
 
+        public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
+
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
             Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
     }

@@ -108,7 +108,7 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
 
         // High-drift subjects
         var highDrift = driftStatus
-            .Where(d => d.DriftLabel is "High Drift" or "Extreme Deviation")
+            .Where(d => d.DriftLabel is DriftLabels.High or DriftLabels.Extreme)
             .Take(3);
         foreach (var d in highDrift)
             items.Add($"DRIFT ALERT — {d.DisplayName}: {d.DriftLabel} (score {d.DriftScore:F0}/100)");
@@ -129,7 +129,7 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
             items.Add($"High significant event count ({report.SignificantCount}) — consider threshold review.");
 
         var moderateDrift = driftStatus
-            .Where(d => d.DriftLabel is "Moderate Drift")
+            .Where(d => d.DriftLabel is DriftLabels.Moderate)
             .Take(2);
         foreach (var d in moderateDrift)
             items.Add($"Monitor {d.DisplayName} — Moderate Drift detected (score {d.DriftScore:F0}/100).");
