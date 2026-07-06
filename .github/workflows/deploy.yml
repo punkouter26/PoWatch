@@ -13,7 +13,7 @@ permissions:
 
 env:
   DOTNET_VERSION: '10.0.x'
-  AZURE_WEBAPP_NAME: app-powatch
+  AZURE_WEBAPP_NAME: app-powatch-win
   AZURE_RESOURCE_GROUP: PoWatch
   SOLUTION_PATH: PoWatch.slnx
   API_PROJECT_PATH: src/PoWatch.Api/PoWatch.Api.csproj
@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 20
     environment:
       name: production
-      url: https://app-powatch.azurewebsites.net
+      url: https://app-powatch-win.azurewebsites.net
     steps:
       - uses: actions/download-artifact@v4
         with:

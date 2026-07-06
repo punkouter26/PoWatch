@@ -16,20 +16,11 @@
     "wasmDtype": "q8"
   },
   {
-    "key": "fastvlm-0.5b",
-    "id": "onnx-community/FastVLM-0.5B-ONNX",
-    "label": "FastVLM 0.5B",
-    "modelClass": "causal-lm",
+    "key": "qwen2-vl-2b",
+    "id": "onnx-community/Qwen2-VL-2B-Instruct",
+    "label": "Qwen2-VL 2B",
     "webgpuDtype": "q4f16",
-    "webgpuDtypeFallback": "fp16",
-    "wasmDtype": "q4"
-  },
-  {
-    "key": "lfm2-vl-450m",
-    "id": "onnx-community/LFM2-VL-450M-ONNX",
-    "label": "LFM2-VL 450M",
-    "webgpuDtype": "fp16",
-    "webgpuDtypeFallback": "q4f16",
+    "webgpuDtypeFallback": "q4",
     "wasmDtype": "q4"
   }
 ]
