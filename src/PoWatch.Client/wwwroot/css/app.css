@@ -2768,8 +2768,10 @@ button:active:not(:disabled) {
     display: flex;
     gap: 0.6rem;
     align-items: center;
+    flex-wrap: wrap;               /* NET_RUN_10: let the Add button drop below the field on narrow screens instead of clipping */
     margin-bottom: 1rem;
 }
+.identity-register-bar .rz-button { flex: 0 0 auto; white-space: nowrap; }
 
 /* ── UX-10: Smart Date Navigation ────────────────────────────────────────── */
 
@@ -3402,3 +3404,156 @@ button:active:not(:disabled) {
     }
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NET_RUN_10 — UI consolidation & dark-theme normalization
+   Fixes wasted blank space and contrast/theming defects found by driving the
+   running app with Playwright (mobile-portrait + desktop). Appended last so
+   these rules win by source order over the base cascade above.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── #1 + #7  Radzen dark-theme normalization ──────────────────────────────
+   material-base.css ships light form controls + a near-white "Light" button.
+   On our dark shell those render as glaring white boxes / near-invisible icons
+   (Archives prev/next/today, Live Dashboard "Refresh"). Re-skin every shared
+   Radzen surface so it belongs to the dark theme and its icon glyph is legible. */
+.rz-button.rz-light,
+.rz-button.rz-secondary.rz-light {
+    background: var(--bg-panel-soft) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid rgba(200, 205, 232, 0.20) !important;
+}
+.rz-button.rz-light:hover:not(:disabled),
+.rz-button.rz-light:focus-visible {
+    background: #201a3a !important;
+    border-color: var(--accent-purple) !important;
+}
+.rz-button.rz-light .rzi,
+.rz-button.rz-light .rz-button-text { color: var(--text-primary) !important; }
+.rz-button.rz-light:disabled { opacity: 0.45; }
+
+/* Text inputs, date pickers, dropdowns & textareas → dark surfaces with light text */
+.rz-textbox,
+.rz-textarea,
+.rz-datepicker,
+.rz-datepicker .rz-inputtext,
+.rz-datepicker input,
+.rz-dropdown,
+.rz-numeric .rz-inputtext {
+    background-color: var(--bg-panel-soft) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid rgba(200, 205, 232, 0.20) !important;
+}
+.rz-textbox::placeholder,
+.rz-datepicker input::placeholder { color: var(--text-muted) !important; opacity: 1; }
+.rz-textbox:focus,
+.rz-datepicker input:focus,
+.rz-dropdown:focus,
+.rz-dropdown.rz-state-focused { border-color: var(--accent-purple) !important; outline: none; }
+.rz-datepicker .rz-datepicker-trigger,
+.rz-datepicker .rz-datepicker-trigger .rzi,
+.rz-dropdown .rz-dropdown-trigger,
+.rz-dropdown .rz-dropdown-trigger .rzi { color: var(--text-muted) !important; }
+
+/* ── #3  Diagnostics: 2-up panels on desktop so the page fills its width and
+   stops leaving ~40% of the viewport empty below two thin stacked cards. ──── */
+@media (min-width: 960px) {
+    .sector-grid.diagnostics-page { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sector-grid.diagnostics-page > .panel { grid-column: span 1; }
+    /* keep the six metric tiles readable inside the now-narrower cards */
+    .diagnostics-page .diagnostics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── #4  Identity: the collapsed "Merge" panel used to leave the entire right
+   column empty. Go single-column: the library uses the full width (more room
+   for the table) and Merge becomes a full-width accordion strip below it. ─── */
+.identity-grid .panel-library { grid-column: span 12; }
+.identity-grid .panel-merge { grid-column: span 12; }
+
+/* ── #5  Observer Hub: let the stats (Live Monitor) column stretch to the full
+   grid-row height instead of being capped shorter, which left a black void
+   under the card. align-items:stretch already exists; drop the max-height cap. */
+.observer-grid .panel-stats,
+.observer-grid--active .panel-stats { max-height: none; }
+
+/* ── #6  Observer Hub subject mini-cards: wrap instead of clipping the 3rd card
+   off the right edge of a fixed-height horizontal strip. ─────────────────── */
+.subjects-mini-row {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    overflow-y: auto;
+    max-height: 230px;      /* wrap into rows but stay compact & scroll — no clipping, no runaway height */
+    min-height: 0;
+}
+.subject-card--mini { flex: 1 1 150px; max-width: 260px; }
+
+/* ── #8  Live Dashboard cards: denser grid, tighter internal gaps, and a full-
+   width sparkline so each card carries signal instead of a lone dot in a tall
+   empty body. ────────────────────────────────────────────────────────────── */
+.subject-card-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); align-content: start; }
+.subject-card-grid .subject-card { gap: 0.4rem; }
+.subject-card-grid .subject-card-sparkline { margin-top: auto; }
+.subject-card-grid .subject-card-sparkline .sparkline-svg { width: 100%; height: 26px; }
+
+/* ── #9  CollapsibleSection: was a bare "▸ Title" that read as a stray checkbox.
+   Style it as a real full-width accordion header with border, hover & padding. */
+.collapsible-section { border-top: 1px solid rgba(111, 61, 227, 0.20); margin-top: 0.6rem; }
+.collapsible-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.6rem 0.15rem;
+    background: transparent;
+    border: none;
+    color: var(--text-label);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+.collapsible-toggle:hover { color: var(--neon-green); }
+.collapsible-toggle > span[aria-hidden] {
+    display: inline-flex;
+    width: 1.1em;
+    color: var(--accent-purple);
+    font-size: 0.9rem;
+}
+.collapsible-content { padding-top: 0.35rem; }
+
+/* ── #2  Archives evidence header row + compact "no saved image" note ─────── */
+.evidence-header-row { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.evidence-missing-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    padding: 0.15rem 0.5rem;
+    border: 1px solid rgba(200, 205, 232, 0.18);
+    border-radius: 6px;
+}
+
+/* ── #10  Live inference badge in the page HUD (replaces static "Inference
+   ready"). State-coloured dot + label reflecting the real engine status. ──── */
+.hud-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(200, 205, 232, 0.22);
+    color: var(--text-label);
+    white-space: nowrap;
+}
+.hud-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.hud-badge--ready { color: var(--neon-green); border-color: var(--neon-green-glow); background: var(--neon-green-dim); }
+.hud-badge--loading { color: var(--alert-orange); border-color: rgba(255, 159, 64, 0.5); background: rgba(255, 159, 64, 0.12); }
+.hud-badge--error { color: var(--alert-red); border-color: rgba(255, 112, 112, 0.5); background: rgba(255, 112, 112, 0.12); }
+.hud-badge--idle { color: var(--text-muted); }
+.hud-badge--loading .hud-badge-dot { animation: hudPulse 1.1s ease-in-out infinite; }
+@keyframes hudPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .hud-badge--loading .hud-badge-dot { animation: none; } }

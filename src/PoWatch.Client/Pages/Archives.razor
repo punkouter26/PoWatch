@@ -114,9 +114,28 @@
 
         @if (chapter?.Highlights?.Any() == true)
         {
-            <h3>Evidence Highlights</h3>
+            @* Consolidation (NET_RUN_10 #2): only render cards whose image actually resolved.
+               Events flagged significant but without a saved image no longer produce a wall of
+               empty "No image" tiles — they collapse into a single compact count. *@
+            var highlightsWithImages = chapter.Highlights
+                .Where(h => !string.IsNullOrWhiteSpace(GetEvidenceUrl(h)))
+                .ToList();
+            var missingImageCount = chapter.Highlights.Count - highlightsWithImages.Count;
+
+            <div class="evidence-header-row">
+                <h3>Evidence Highlights</h3>
+                @if (missingImageCount > 0)
+                {
+                    <span class="evidence-missing-note" title="@missingImageCount flagged event@(missingImageCount == 1 ? "" : "s") had no image saved to storage">
+                        @missingImageCount flagged · no saved image
+                    </span>
+                }
+            </div>
+
+            @if (highlightsWithImages.Count > 0)
+            {
             <div class="evidence-grid">
-                @foreach (var item in chapter.Highlights)
+                @foreach (var item in highlightsWithImages)
                 {
                     var evidenceUrl = GetEvidenceUrl(item);
                     var capturedItem = item;
@@ -156,6 +175,7 @@
                     </div>
                 }
             </div>
+            }
         }
     </RadzenCard>
 
@@ -369,6 +389,34 @@
                 else if (!imageLoadStatus.ContainsKey(blobPath))
                 {
                     imageLoadStatus[blobPath] = "Missing";
+                }
+            }
+
+            // NET_RUN_10 #2: a SAS URL is issued even for a missing blob, so verify each
+            // image actually decodes in the browser and drop the ones that don't. This
+            // stops the Evidence Highlights grid from rendering a wall of broken tiles;
+            // dropped events are counted in the "N flagged · no saved image" note.
+            if (evidenceUrls.Count > 0)
+            {
+                try
+                {
+                    var candidates = evidenceUrls.ToList();
+                    var loadable = await JS.InvokeAsync<string[]>(
+                        "PoWatchImages.filterLoadable",
+                        candidates.Select(kv => kv.Value).ToArray());
+                    var loadableSet = new HashSet<string>(loadable, StringComparer.Ordinal);
+                    foreach (var kv in candidates)
+                    {
+                        if (!loadableSet.Contains(kv.Value))
+                        {
+                            evidenceUrls.Remove(kv.Key);
+                            imageLoadStatus[kv.Key] = "Missing";
+                        }
+                    }
+                }
+                catch
+                {
+                    // If validation interop fails, fall back to showing whatever SAS URLs we have.
                 }
             }
         }
