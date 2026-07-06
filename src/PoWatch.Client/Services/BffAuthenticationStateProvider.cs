@@ -21,6 +21,8 @@ internal sealed class BffAuthenticationStateProvider(HttpClient http) : Authenti
                 return Anonymous;
 
             var claims = new List<Claim> { new(ClaimTypes.Name, me.Name ?? "user") };
+            if (!string.IsNullOrWhiteSpace(me.Email))
+                claims.Add(new Claim(ClaimTypes.Email, me.Email));
             claims.AddRange((me.Roles ?? []).Select(r => new Claim(ClaimTypes.Role, r)));
             var identity = new ClaimsIdentity(claims, authenticationType: "bff");
             return new AuthenticationState(new ClaimsPrincipal(identity));

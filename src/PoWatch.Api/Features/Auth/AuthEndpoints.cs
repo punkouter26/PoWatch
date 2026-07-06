@@ -24,6 +24,11 @@ internal static class AuthEndpoints
         {
             isAuthenticated = user.Identity?.IsAuthenticated ?? false,
             name = user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name),
+            // Surface the email/UPN so the navbar can show "you are signed in as …" after Microsoft OAuth.
+            // Prefer `preferred_username` (OIDC standard), fall back to `email` and `upn`.
+            email = user.FindFirstValue("preferred_username")
+                  ?? user.FindFirstValue(ClaimTypes.Email)
+                  ?? user.FindFirstValue("upn"),
             roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray(),
             returnUrl = SafeLocalUrl(returnUrl)
         }))
@@ -35,7 +40,15 @@ internal static class AuthEndpoints
             IConfiguration config,
             IWebHostEnvironment env) => Results.Ok(new
             {
-                microsoftEnabled = !string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]),
+                // NET_RULE §4.4: Prod → Microsoft only. Dev → Microsoft + guest. Test → guest bypass.
+                // Production requires a real `AzureAd:ClientId`. In Dev we also light up the Microsoft
+                // button when the operator explicitly opts in via `FeatureFlags:DeveloperEnableMicrosoftLogin`
+                // so the UI can show the split-view (Microsoft + Guest) without needing real Azure secrets
+                // committed to appsettings.Development.json. The actual /auth/login/microsoft endpoint
+                // returns 404 unless a real ClientId is configured, which keeps dev sign-in flow honest.
+                microsoftEnabled =
+                    !string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]) ||
+                    (!env.IsProduction() && flags.Value.DeveloperEnableMicrosoftLogin),
                 guestEnabled = flags.Value.DeveloperBypassAuth && !env.IsProduction(),
                 environment = env.EnvironmentName
             }))

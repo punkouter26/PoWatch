@@ -3,6 +3,16 @@ using PoWatch.Shared.Models;
 
 namespace PoWatch.Client.Services;
 
+// TODO(prune/absolute 2026-07-06): this type is currently orphaned — defined
+// but not registered in any DI bootstrap and not injected anywhere in
+// `src/PoWatch.Client`. Either:
+//   (a) wire it via `builder.Services.AddSingleton<MonitoringLoopService>()`
+//       in `PoWatch.Client/Program.cs` and consume it from ObserverHub.razor.cs,
+//   (b) delete this file once you confirm nothing in-flight depends on it.
+//
+// Audit evidence: zero references outside this file. Last touched by an
+// in-flight refactor; preserve until that lands or be removed explicitly.
+
 /// <summary>
 /// Encapsulates the inference loop orchestration: polling, frame capture, and event ingestion.
 /// Separated from the UI layer for testability and cleaner separation of concerns.

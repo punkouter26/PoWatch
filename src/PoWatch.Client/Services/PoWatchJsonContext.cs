@@ -40,7 +40,7 @@ namespace PoWatch.Client.Services;
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;
 
 /// <summary>Server auth state from <c>/auth/me</c>.</summary>
-internal sealed record AuthMeResponse(bool IsAuthenticated, string? Name, string[]? Roles);
+internal sealed record AuthMeResponse(bool IsAuthenticated, string? Name, string? Email, string[]? Roles);
 
 /// <summary>Available sign-in methods from <c>/auth/config</c>.</summary>
 internal sealed record AuthConfigResponse(bool MicrosoftEnabled, bool GuestEnabled, string Environment);

@@ -28,4 +28,14 @@ public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
 
     /// <summary>When true, the POST /api/diagnostics/reset endpoint is active. NEVER enable in production.</summary>
     public bool AllowDataReset { get; init; } = false;
+
+    /// <summary>
+    /// When true (Dev/Test only — never honoured in Production even if set), the login page renders the
+    /// "Sign in with Microsoft" button. In Dev, this lets the operator see the split-view UI per
+    /// NET_RULE §4.4 without committing a real AzureAd:ClientId to source. The actual
+    /// /auth/login/microsoft endpoint still requires a configured ClientId and returns 404 otherwise,
+    /// so dev sign-in remains honest: clicking Microsoft without a real Azure AD app registration
+    /// surfaces a clear "Microsoft sign-in is not configured" message from the API.
+    /// </summary>
+    public bool DeveloperEnableMicrosoftLogin { get; init; } = false;
 }

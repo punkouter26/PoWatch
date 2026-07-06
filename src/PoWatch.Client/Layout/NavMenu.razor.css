@@ -130,6 +130,18 @@
     cursor: pointer;
     transition: border-color 0.2s, color 0.2s;
 }
+
+/* Signed-in user chip — shows email / UPN to the left of Sign out, surfaced from /auth/me
+   after Microsoft OAuth login. Truncates with an ellipsis on long addresses. */
+.user-email {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.2rem 0.4rem;
+}
 .nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--text-primary); }
 .nav-logout:disabled { opacity: 0.6; cursor: default; }
 
