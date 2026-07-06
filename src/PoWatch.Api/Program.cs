@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics;
@@ -13,6 +14,7 @@ using PoWatch.Api.Features.Identity;
 using PoWatch.Api.Features.Observer;
 using PoWatch.Api.Features.Auth;
 using PoWatch.Api.HealthChecks;
+using PoWatch.Api.Infrastructure.Kestrel;
 using PoWatch.Api.Infrastructure.KeyVault;
 using PoWatch.Api.Middleware;
 using PoWatch.Api.Observability;
@@ -34,7 +36,21 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateLogger();
 
+var bootSw = Stopwatch.StartNew();
+
+// Create the builder FIRST so we can install the Kestrel hooks on it.
 var builder = WebApplication.CreateBuilder(args);
+
+// Self-healing Kestrel binding: negotiate a free port if the configured one is held
+// by a stale process, instead of failing the host with HTTP 500.30 on App Service.
+builder.WebHost.ConfigureKestrel((ctx, opts) =>
+{
+    var logger = Log.Logger.ForContext(typeof(PortNegotiation));
+    PortNegotiation.Configure(opts, ctx.Configuration, ctx.HostingEnvironment, logger);
+});
+
+HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
+    HostStartupLog.Stage.BuilderCreated, bootSw);
 
 // T010: Two-stage Serilog initialisation — reads config from appsettings after host is built
 builder.Host.UseSerilog(TelemetrySetup.ConfigureSerilog);
@@ -43,7 +59,11 @@ builder.Host.UseSerilog(TelemetrySetup.ConfigureSerilog);
 var rawKvUri = builder.Configuration["KeyVault:Uri"];
 var tempFlags = builder.Configuration.GetSection("FeatureFlags").Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
 if (tempFlags.EnableKeyVault && !string.IsNullOrWhiteSpace(rawKvUri) && Uri.TryCreate(rawKvUri, UriKind.Absolute, out var kvUri))
+{
     KeyVaultConfiguration.AddPoWatchKeyVault(builder.Configuration, kvUri, Log.Logger);
+    HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
+        HostStartupLog.Stage.KeyVaultLoaded, bootSw);
+}
 
 // T013: Bind feature flags early so conditional registrations below can read them
 var featureFlags = builder.Configuration
@@ -106,12 +126,25 @@ builder.Services.AddProblemDetails();
 
 // Auth (rule 4): BFF cookie session + Microsoft Entra OIDC (when configured) + dev/test guest bypass.
 builder.AddPoWatchAuthentication(featureFlags);
+HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
+    HostStartupLog.Stage.AuthWired, bootSw);
+
+HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
+    HostStartupLog.Stage.ServicesConfigured, bootSw);
 
 var app = builder.Build();
+HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
+    HostStartupLog.Stage.PipelineBuilt, bootSw);
 
 // T009: OpenAPI + Scalar API reference UI
 app.MapOpenApi("/openapi/v1.json");
 app.MapScalarApiReference("/scalar/v1");
+
+// Capture the actual bind address(es) so the operator gets a single log line
+// pinpointing where Kestrel is listening, with a structural link to the
+// Listening milestone emitted by PortNegotiation.
+HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
+    HostStartupLog.Stage.Listening, bootSw);
 
 // T012: Global exception handler — exposes detail only when ExposeDebugDetailsInUi is true
 app.UseExceptionHandler(errorApp =>
