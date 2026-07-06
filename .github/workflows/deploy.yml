@@ -65,9 +65,11 @@ jobs:
           path: publish
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          # These are stored as repository SECRETS (not variables), so reference secrets.* —
+          # vars.* resolved to empty and azure/login failed with "not all values are present".
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - run: cd publish && zip -r ../webapp.zip . && cd ..
       - uses: azure/webapps-deploy@v3
         with:
