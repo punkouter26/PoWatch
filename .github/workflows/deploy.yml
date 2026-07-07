@@ -71,18 +71,31 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - run: cd publish && zip -r ../webapp.zip . && cd ..
+      - name: Assert .NET runtime stack (catch a missing net10.0 before it becomes a 500.30)
+        run: |
+          STACK=$(az webapp config show -n "${{ env.AZURE_WEBAPP_NAME }}" -g "${{ env.AZURE_RESOURCE_GROUP }}" --query "netFrameworkVersion" -o tsv || echo "unknown")
+          echo "Configured netFrameworkVersion: $STACK"
+          case "$STACK" in
+            v10.*) echo "Runtime stack OK for net10.0." ;;
+            *) echo "::error::App Service .NET stack is '$STACK' but the app targets net10.0. A framework-dependent deploy will fail with HTTP 500.30 until the stack is v10.x."; exit 1 ;;
+          esac
       - uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           resource-group-name: ${{ env.AZURE_RESOURCE_GROUP }}
           package: webapp.zip
-      - name: Verify deployment (health check)
+      - name: Verify deployment (health + boot readiness gate)
         run: |
+          BASE="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
           sleep 20
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health" --max-time 30 || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health" --max-time 30 || echo "000")
             echo "Health check attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then echo "Deployment verified."; exit 0; fi
             sleep 15
           done
-          echo "WARNING: Health check did not return 200 after 5 attempts."
+          echo "::error::Health check did not return 200 after 5 attempts — the deployment is NOT healthy."
+          echo "----- /diag/boot (last startup milestone + dependency readiness) -----"
+          curl -s "$BASE/diag/boot" --max-time 30 || echo "(/diag/boot unreachable — the host likely failed to start; check Log Stream for the startup exception)"
+          echo ""
+          exit 1

@@ -10,8 +10,11 @@ public static class TelemetrySetup
 {
     /// <summary>
     /// Serilog two-stage initialisation delegate — reads config from appsettings after host is built.
-    /// Writes structured logs to Console, a rolling File (logs/powatch-.log), and App Insights when
-    /// the ApplicationInsights:ConnectionString setting is present.
+    /// Always writes structured logs to Console (captured by App Service Log Stream) and to App Insights
+    /// when the ApplicationInsights:ConnectionString setting is present. A rolling File sink is added ONLY
+    /// in Development: on App Service the filesystem is ephemeral, the relative "logs/" path has no durable
+    /// value, and a read-only CWD under ANCM could turn sink initialisation into a boot-time throw — one
+    /// more 500.30 surface. Prod observability rides on stdout + App Insights instead.
     /// </summary>
     public static void ConfigureSerilog(
         HostBuilderContext ctx,
@@ -24,12 +27,16 @@ public static class TelemetrySetup
            .Enrich.WithProperty("Application", "PoWatch")
            .Enrich.WithProperty("Environment", ctx.HostingEnvironment.EnvironmentName)
            .WriteTo.Console(
-               outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{UserId}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
-           .WriteTo.File(
-               path: "logs/powatch-.log",
-               rollingInterval: RollingInterval.Day,
-               retainedFileCountLimit: 30,
-               outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{UserId}] [{SessionId}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+               outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{UserId}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+
+        if (ctx.HostingEnvironment.IsDevelopment())
+        {
+            cfg.WriteTo.File(
+                path: "logs/powatch-.log",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 30,
+                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{UserId}] [{SessionId}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+        }
         // AppInsights telemetry handled by AddAzureMonitorTraceExporter() in OTel pipeline.
     }
 

@@ -64,12 +64,28 @@ public partial class ObserverHub
                 ModelOptions = entries.Select(e => new ModelOption(e.Key, e.Label)).ToList();
                 if (!ModelOptions.Any(o => o.Value == selectedModelKey))
                     selectedModelKey = ModelOptions[0].Value;
+                return;
             }
+
+            // 200 but empty/malformed — surface it rather than silently blanking the picker.
+            Console.Error.WriteLine("[PoWatch] model-registry.json loaded but contained no entries.");
         }
-        catch
+        catch (Exception ex)
         {
-            // Registry unreachable — leave the picker empty; the worker keeps its own copy from the same file.
+            // A swallowed failure here is exactly why the model picker can render blank with no clue why.
+            // Log the real cause to the browser console and tell the operator, instead of failing silently.
+            Console.Error.WriteLine($"[PoWatch] Failed to load model-registry.json: {ex.GetType().Name}: {ex.Message}");
+            NotificationService.Notify(
+                NotificationSeverity.Warning,
+                "Model list",
+                "Could not load the model registry; falling back to the default model. See the browser console for details.",
+                duration: 6000);
         }
+
+        // Fail safe: never leave the picker empty. The inference worker resolves the full model set from the
+        // same file, so a single fallback option keyed on the current selection keeps the UI usable.
+        if (ModelOptions.Count == 0)
+            ModelOptions = [new ModelOption(selectedModelKey, selectedModelKey)];
     }
 
     private async Task StartMonitoringAsync()

@@ -30,6 +30,10 @@ public static class DependencyInjection
                 : sp.GetRequiredService<TemplateHandoffSummarizer>();
         });
 
+        // Boot-time readiness snapshot: lets the app start and report unhealthy on a dependency failure
+        // instead of aborting host construction with an opaque 500.30 (see AzureStorageInitializer).
+        services.AddSingleton<StartupReadiness>();
+
         services.AddSingleton<AzureStorageClients>();
 
         services.AddSingleton<InMemoryObservationRepository>();

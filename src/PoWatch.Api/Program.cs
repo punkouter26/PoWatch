@@ -232,6 +232,43 @@ app.MapGet("/diag", (PoWatch.Application.Contracts.IDiagnosticsProvider provider
     .WithSummary("Masked environment keys and integration statuses.")
     .AllowAnonymous();
 
+// Boot readiness: the fastest answer to "why did the app 500.30 / not come ready?". Reports the last
+// startup milestone reached and per-dependency readiness WITHOUT secrets. Anonymous and dependency-light
+// so it stays reachable even when a downstream dependency is degraded.
+app.MapGet("/diag/boot", (
+        PoWatch.Infrastructure.StartupReadiness readiness,
+        IOptions<FeatureFlagsOptions> flags,
+        IConfiguration config,
+        IWebHostEnvironment env) =>
+    {
+        var storageConfigured = !string.IsNullOrWhiteSpace(config["AzureStorage:ConnectionString"])
+                             || !string.IsNullOrWhiteSpace(config["AzureStorage:ServiceUri"]);
+        var ready = readiness.StorageReady;
+        var payload = new
+        {
+            environment = env.EnvironmentName,
+            lastBootStage = HostStartupLog.LastStage,
+            lastBootStageElapsedMs = HostStartupLog.LastStageElapsedMs,
+            ready,
+            storage = new
+            {
+                configured = storageConfigured,
+                ready = readiness.StorageReady,
+                detail = readiness.StorageDetail
+            },
+            keyVault = new
+            {
+                enabled = flags.Value.EnableKeyVault,
+                uriConfigured = !string.IsNullOrWhiteSpace(config["KeyVault:Uri"])
+            }
+        };
+        // 200 when ready, 503 when a dependency is not ready — so orchestrators/probes can act on it.
+        return ready ? Results.Ok(payload) : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
+    })
+    .WithName("DiagBoot")
+    .WithSummary("Startup milestone reached and per-dependency readiness (no secrets).")
+    .AllowAnonymous();
+
 // T005: Serve hosted Blazor WASM from same origin — no CORS needed (T006: CORS removed)
 // .NET 10: MapStaticAssets() replaces both UseBlazorFrameworkFiles() and UseStaticFiles().
 // It uses the staticwebassets.endpoints.json manifest to resolve fingerprinted file names.

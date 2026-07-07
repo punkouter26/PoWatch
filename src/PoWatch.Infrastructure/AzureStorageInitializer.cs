@@ -19,6 +19,8 @@ public sealed class AzureStorageInitializer(
     AzureStorageClients clients,
     IOptions<AzureStorageOptions> options,
     AzureSubjectRepository subjectRepository,
+    IHostEnvironment environment,
+    StartupReadiness readiness,
     ILogger<AzureStorageInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -26,12 +28,14 @@ public sealed class AzureStorageInitializer(
         if (!IsAzureStorageConfigured(options.Value))
         {
             logger.LogDebug("Azure Storage not configured — using in-memory storage, skipping table initialization.");
+            readiness.MarkStorageReady("In-memory storage (Azure Storage not configured).");
             return;
         }
 
         if (options.Value.SkipStorageInit)
         {
             logger.LogWarning("FeatureFlags:SkipStorageInit=true — skipping Azure Storage initialization. App will use in-memory fallbacks.");
+            readiness.MarkStorageReady("Storage initialisation skipped (SkipStorageInit=true).");
             return;
         }
 
@@ -62,22 +66,30 @@ public sealed class AzureStorageInitializer(
                 options.Value.ObservationsTable,
                 options.Value.SubjectsTable,
                 subjects.Count);
+
+            readiness.MarkStorageReady($"Azure Storage reachable; {subjects.Count} subject slug(s) seeded.");
         }
         catch (Exception ex)
         {
             logger.LogCritical(ex,
                 "Azure Storage initialization failed. Storage is configured, so there is NO in-memory fallback — " +
-                "the app would otherwise report a healthy start and then 500 on every read/write. Failing fast. " +
-                "Verify Azurite/Docker is running, or set FeatureFlags:SkipStorageInit=true to intentionally skip. " +
+                "reads/writes will fail until the dependency recovers. " +
+                "Verify Azurite/Docker is running, or that the Managed Identity holds Storage Table/Blob Data " +
+                "Contributor, or set FeatureFlags:SkipStorageInit=true to intentionally skip. " +
                 "ServiceUri={ServiceUri} ErrorType={ErrorType} Detail={Detail}",
                 options.Value.ServiceUri,
                 ex.GetType().Name,
                 ex.Message);
 
-            // Fail fast: when storage IS configured, the DI container bound the Azure repositories (not the
-            // in-memory ones). A silent "continue" produced a server that looked healthy but was 500-ing every
-            // request. Abort startup so orchestrators restart/alert instead of serving a broken instance.
-            throw;
+            readiness.MarkStorageFailed($"Storage init failed: {ex.GetType().Name} — {ex.Message}");
+
+            // In Development, fail fast and loud so a local misconfiguration (Azurite not running) is
+            // impossible to miss. In hosted environments, DO NOT abort host construction: a throw here
+            // surfaces on App Service as an opaque HTTP 500.30 that also takes /health, /diag and the log
+            // endpoints offline. Instead let the app boot and report NOT-READY (see /health + /diag/boot),
+            // so operators get an actionable signal and can fix RBAC without a black-box crash loop.
+            if (environment.IsDevelopment())
+                throw;
         }
     }
 

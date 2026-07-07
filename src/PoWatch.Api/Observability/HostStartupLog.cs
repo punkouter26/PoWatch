@@ -17,6 +17,18 @@ public static class HostStartupLog
 {
     private static readonly ActivitySource PoWatchStartupActivitySource = new("PoWatch.Startup");
 
+    // Last milestone reached, captured so the /diag/boot readiness endpoint can report exactly how far a
+    // cold start progressed before a failure. Single writer during host construction; plain volatile reads
+    // are sufficient (no lock needed for a diagnostic snapshot).
+    private static volatile string _lastStage = nameof(Stage.BuilderCreated);
+    private static long _lastStageElapsedMs;
+
+    /// <summary>Name of the most recent startup milestone reached (for readiness diagnostics).</summary>
+    public static string LastStage => _lastStage;
+
+    /// <summary>Elapsed milliseconds recorded at the most recent milestone.</summary>
+    public static long LastStageElapsedMs => System.Threading.Interlocked.Read(ref _lastStageElapsedMs);
+
     // EventIds 5001-5010 are reserved for host-startup milestones. They are
     // emitted in order so a dashboard can render a horizontal "boot timeline".
     public enum Stage
@@ -41,6 +53,8 @@ public static class HostStartupLog
     public static void Milestone(Serilog.ILogger logger, Stage stage, Stopwatch sw)
     {
         sw.Stop();
+        _lastStage = stage.ToString();
+        System.Threading.Interlocked.Exchange(ref _lastStageElapsedMs, sw.ElapsedMilliseconds);
         var traceId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? string.Empty;
         logger
             .ForContext("EventId", (int)stage)
