@@ -1,0 +1,27 @@
+#!/bin/sh
+# Formats staged C# files with dotnet format before committing, so the CI
+# 'dotnet format --verify-no-changes' gate can never fail on whitespace.
+# Enable once per clone:  git config core.hooksPath .githooks
+
+STAGED_CS=$(git diff --cached --name-only --diff-filter=ACM -- '*.cs')
+[ -z "$STAGED_CS" ] && exit 0
+
+INCLUDE_ARGS=""
+for f in $STAGED_CS; do
+  INCLUDE_ARGS="$INCLUDE_ARGS --include $f"
+done
+
+echo "pre-commit: dotnet format on staged .cs files..."
+# shellcheck disable=SC2086
+dotnet format PoWatch.slnx $INCLUDE_ARGS --verbosity quiet
+STATUS=$?
+if [ $STATUS -ne 0 ]; then
+  echo "pre-commit: dotnet format failed (exit $STATUS) — fix the errors and retry." >&2
+  exit $STATUS
+fi
+
+# Re-stage anything format just fixed.
+for f in $STAGED_CS; do
+  git add -- "$f"
+done
+exit 0

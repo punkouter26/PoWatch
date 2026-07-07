@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      emergency:
+        description: 'Emergency deploy: skip the formatting gate (use only when production is down and the fix must ship now)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,7 +44,10 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - run: dotnet restore ${{ env.SOLUTION_PATH }}
       - run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release
-      - run: dotnet format ${{ env.SOLUTION_PATH }} --verify-no-changes --verbosity minimal
+      # Skippable via workflow_dispatch 'emergency' input so a whitespace error in a test file
+      # can never block a hotfix while production is down (2026-07-06: FINALNEWLINE blocked recovery).
+      - if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
+        run: dotnet format ${{ env.SOLUTION_PATH }} --verify-no-changes --verbosity minimal
       # Rule 6.4: tests are NOT run in the CI/CD pipeline — they run locally / pre-merge
       # (unit + integration via Testcontainers, E2E via Playwright).
       - run: dotnet publish ${{ env.API_PROJECT_PATH }} -c Release --no-restore -o publish
@@ -53,7 +61,7 @@ jobs:
     name: Deploy to Azure
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     timeout-minutes: 20
     environment:
       name: production
@@ -71,13 +79,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - run: cd publish && zip -r ../webapp.zip . && cd ..
-      - name: Assert .NET runtime stack (catch a missing net10.0 before it becomes a 500.30)
+      # WARNING ONLY — do not make this fail the deploy. netFrameworkVersion reads 'v4.0' on
+      # Windows App Service even for healthy .NET Core/5+ apps (verified 2026-07-06: two healthy
+      # deploys ran with v4.0 configured, then this check as a hard gate blocked all deploys
+      # during a production outage whose actual cause was a missing managed identity).
+      - name: Check .NET runtime stack (informational)
         run: |
           STACK=$(az webapp config show -n "${{ env.AZURE_WEBAPP_NAME }}" -g "${{ env.AZURE_RESOURCE_GROUP }}" --query "netFrameworkVersion" -o tsv || echo "unknown")
           echo "Configured netFrameworkVersion: $STACK"
           case "$STACK" in
-            v10.*) echo "Runtime stack OK for net10.0." ;;
-            *) echo "::error::App Service .NET stack is '$STACK' but the app targets net10.0. A framework-dependent deploy will fail with HTTP 500.30 until the stack is v10.x."; exit 1 ;;
+            v10.*) echo "Runtime stack explicitly set for net10.0." ;;
+            *) echo "::warning::netFrameworkVersion is '$STACK' (not v10.x). This is often fine on Windows App Service — v4.0 is a common default reading for .NET Core/5+ apps — but if the app 500.30s with a missing-runtime error, check the stack setting." ;;
           esac
       - uses: azure/webapps-deploy@v3
         with:
@@ -96,6 +108,9 @@ jobs:
           done
           echo "::error::Health check did not return 200 after 5 attempts — the deployment is NOT healthy."
           echo "----- /diag/boot (last startup milestone + dependency readiness) -----"
-          curl -s "$BASE/diag/boot" --max-time 30 || echo "(/diag/boot unreachable — the host likely failed to start; check Log Stream for the startup exception)"
+          curl -s "$BASE/diag/boot" --max-time 30 || echo "(/diag/boot unreachable — the host failed to start; NO in-app endpoint can answer a 500.30)"
           echo ""
+          echo "To find the real startup exception (see docs/technical/deployment-guidelines.md):"
+          echo "  az webapp log download -n ${{ env.AZURE_WEBAPP_NAME }} -g ${{ env.AZURE_RESOURCE_GROUP }} --log-file logs.zip"
+          echo "  then read LogFiles/eventlog.xml — the '.NET Runtime' entries contain the full stack trace."
           exit 1
