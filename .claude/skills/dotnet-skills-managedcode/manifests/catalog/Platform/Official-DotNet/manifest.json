@@ -1,0 +1,9 @@
+{
+  "name": "dotnet",
+  "title": "Official .NET skills: dotnet",
+  "description": "C# language server (LSP) integration for coding agents and high-level .NET development skills.",
+  "links": {
+    "repository": "https://github.com/dotnet/skills",
+    "docs": "https://github.com/dotnet/skills/tree/main/plugins/dotnet"
+  }
+}

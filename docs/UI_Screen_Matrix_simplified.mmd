@@ -1,0 +1,11 @@
+stateDiagram-v2
+    [*] --> AuthCheck
+    AuthCheck --> Login: anonymous
+    AuthCheck --> Shell: authenticated
+    Login --> Shell: cookie issued
+    Shell --> ObserverHub: /
+    Shell --> LiveDashboard: /live
+    Shell --> IdentityNexus: /identity
+    Shell --> Archives: /archives
+    Shell --> Diagnostics: /diagnostics
+    Shell --> Login: logout

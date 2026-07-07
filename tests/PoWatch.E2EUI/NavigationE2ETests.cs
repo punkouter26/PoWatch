@@ -8,34 +8,25 @@ namespace PoWatch.E2EUI;
 /// it never fails in environments without a live server or installed browsers.
 /// Prepare browsers once with: pwsh bin/Debug/net10.0/playwright.ps1 install
 /// </summary>
-public sealed class NavigationE2ETests : IAsyncLifetime
+[Collection(nameof(PlaywrightCollection))]
+public sealed class NavigationE2ETests
 {
-    private static string? BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL");
+    private readonly PlaywrightFixture _fixture;
 
-    private IPlaywright? _playwright;
-    private IBrowser? _browser;
-
-    public async Task InitializeAsync()
-    {
-        if (BaseUrl is null) return;
-        _playwright = await Playwright.CreateAsync();
-        _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_browser is not null) await _browser.DisposeAsync();
-        _playwright?.Dispose();
-    }
+    public NavigationE2ETests(PlaywrightFixture fixture) => _fixture = fixture;
 
     [Fact]
     public async Task Home_page_loads_and_shows_the_navbar()
     {
-        if (BaseUrl is null) return; // no live server configured — nothing to exercise
+        if (PlaywrightFixture.BaseUrl is null) return; // no live server configured — nothing to exercise
 
-        var page = await _browser!.NewPageAsync(new() { IgnoreHTTPSErrors = true });
-        await page.GotoAsync(BaseUrl!, new() { WaitUntil = WaitUntilState.NetworkIdle });
+        var page = await _fixture.Browser.NewPageAsync(new() { IgnoreHTTPSErrors = true });
+        await page.GotoAsync(PlaywrightFixture.BaseUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
 
-        await Assertions.Expect(page.Locator("nav.app-navbar")).ToBeVisibleAsync();
+        // Stable selectors — see data-test attributes on MainLayout / NavMenu.
+        await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("page-hud")).ToBeVisibleAsync();
+
+        await page.AssertNoBlazorErrorAsync();
     }
 }

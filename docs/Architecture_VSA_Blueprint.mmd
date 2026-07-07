@@ -1,0 +1,33 @@
+graph TD
+    A["PoWatch.slnx"] --> B["PoWatch.Api host"]
+    A --> C["PoWatch.Client Blazor WASM"]
+    A --> D["PoWatch.Shared DTOs"]
+    A --> E["PoWatch.Application"]
+    A --> F["PoWatch.Domain"]
+    A --> G["PoWatch.Infrastructure"]
+    B --> H["Auth slice"]
+    B --> I["Observer slice"]
+    B --> J["Identity slice"]
+    B --> K["Archives slice"]
+    B --> L["Diagnostics slice"]
+    B --> M["FHIR slice"]
+    C --> N["Pages and Radzen components"]
+    C --> O["BffAuthenticationStateProvider"]
+    C --> P["PoWatchApiClient typed boundary"]
+    C --> Q["Inference worker and model registry"]
+    H --> E
+    I --> E
+    J --> E
+    K --> E
+    L --> E
+    M --> E
+    E --> F
+    E --> G
+    G --> R["Azure Table Storage or Azurite"]
+    G --> S["Blob Storage"]
+    G --> T["Key Vault"]
+    G --> U["Azure OpenAI"]
+    B --> V["OpenTelemetry and Azure Monitor"]
+    D -. "DTOs only" .-> B
+    D -. "DTOs only" .-> C
+    D -. "no service dependencies" .-> E

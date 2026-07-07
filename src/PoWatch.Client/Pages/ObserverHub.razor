@@ -91,8 +91,8 @@
             </header>
 
             <div class="controls-row controls-row--primary">
-                <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Text="▶ Start Monitoring" Click="StartMonitoringAsync" Disabled="@(monitoring || thinking || !ObservationLoopEnabled)" />
-                <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Large" Text="■ Stop" Click="StopMonitoringAsync" Disabled="@(!monitoring && !thinking)" />
+                <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Text="▶ Start Monitoring" Click="StartMonitoringAsync" Disabled="@(monitoring || thinking || !ObservationLoopEnabled)" data-test="observer-start" />
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Large" Text="■ Stop" Click="StopMonitoringAsync" Disabled="@(!monitoring && !thinking)" data-test="observer-stop" />
                 <div class="status-strip">
                     <span class="status-dot-live @(monitoring ? "status-dot-live--on" : string.Empty)" aria-hidden="true"></span>
                     <span class="status-strip-label">@(monitoring ? "RUNNING" : "IDLE")</span>

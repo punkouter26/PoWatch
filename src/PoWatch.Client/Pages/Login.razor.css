@@ -1,0 +1,91 @@
+/* ── Login surface polish (appended 2026-07-06) ────────────────────────────
+   Scoped to Login.razor per project convention (see app.css L3335). Uses the
+   same design tokens as the global sheet so login feels like part of the app.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.login-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100svh - var(--topbar-h) - 2rem);
+    padding: var(--space-8) var(--space-4);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: var(--space-10) var(--space-8);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+}
+
+.login-card h1 {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-6);
+}
+
+.login-status {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: var(--space-4) 0 0;
+}
+
+.login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: 48px;                      /* WCAG touch target */
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    font-weight: 600;
+    text-decoration: none;
+    margin-bottom: var(--space-3);
+    transition: transform var(--motion-instant), border-color var(--motion-quick),
+                background var(--motion-quick), box-shadow var(--motion-quick);
+}
+
+.login-btn:last-of-type { margin-bottom: 0; }
+
+.login-btn:focus-visible {
+    outline: 2px solid var(--neon-green);
+    outline-offset: 3px;
+}
+
+.login-btn:active {
+    transform: scale(0.98) translateZ(0);
+}
+
+/* Microsoft — primary brand action */
+.login-btn-ms {
+    background: #2f2f2f;
+    color: #ffffff;
+    border: 1px solid #4a4a4a;
+}
+.login-btn-ms:hover {
+    background: #3a3a3a;
+    border-color: var(--neon-green);
+    box-shadow: var(--shadow-glow-green);
+}
+
+/* Guest — secondary, quieter */
+.login-btn-guest {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+}
+.login-btn-guest:hover {
+    background: rgba(56, 255, 168, 0.06);
+    border-color: rgba(56, 255, 168, 0.4);
+    color: var(--neon-green);
+}

@@ -1,0 +1,19 @@
+graph TD
+    A["Mobile client requests protected route"] --> B["AuthorizeRouteView asks AuthenticationStateProvider"]
+    B --> C["GET /auth/me with same-origin credentials"]
+    C --> D{"PoWatch.Auth cookie valid"}
+    D -- "yes" --> E["Return authenticated user, email, roles, safe returnUrl"]
+    E --> F["Render protected Blazor page"]
+    D -- "no" --> G["RedirectToLogin sends user to /login"]
+    G --> H{"Available sign-in method"}
+    H -- "Production Microsoft" --> I["GET /auth/login/microsoft?returnUrl=/local"]
+    I --> J["Entra ID /common OIDC challenge"]
+    J --> K["Validate issuer against AllowedTenants"]
+    K --> L["Issue encrypted HttpOnly SameSite Strict Secure cookie"]
+    H -- "Dev or Test guest" --> M["GET /auth/login/fake"]
+    M --> N["FakeAuthHandler guarded outside Production"]
+    N --> L
+    L --> C
+    C --> O{"returnUrl is local path"}
+    O -- "yes" --> F
+    O -- "no" --> P["Redirect to /"]

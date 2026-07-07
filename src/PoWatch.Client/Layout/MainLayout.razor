@@ -11,16 +11,16 @@
     </header>
 
     <main>
-        <div class="page-hud">
+        <div class="page-hud" data-test="page-hud">
             <div class="page-hud-title">
-                <strong>@_pageTitle</strong>
+                <strong data-test="page-hud-title">@_pageTitle</strong>
                 <span class="page-hud-subtitle">@_pageSubtitle</span>
             </div>
             <div class="page-hud-meta">
-                <span class="hud-badge hud-badge--@_inferenceLevel" title="Local inference engine state">
+                <span class="hud-badge hud-badge--@_inferenceLevel" title="Local inference engine state" data-test="inference-badge">
                     <span class="hud-badge-dot" aria-hidden="true"></span>@_inferenceLabel
                 </span>
-                <span class="hud-clock" aria-live="polite">@_clock</span>
+                <span class="hud-clock" aria-live="polite" data-test="page-clock">@_clock</span>
             </div>
         </div>
 

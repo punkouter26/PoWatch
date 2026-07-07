@@ -5,8 +5,8 @@
 
 <PageTitle>Sign in · PoWatch</PageTitle>
 
-<div class="login-shell">
-    <div class="login-card">
+<div class="login-shell" data-test="login-shell">
+    <div class="login-card" data-test="login-card">
         <h1>Sign in to PoWatch</h1>
 
         @if (_config is null)
@@ -17,13 +17,13 @@
         {
             @if (_config.MicrosoftEnabled)
             {
-                <a class="login-btn login-btn-ms" href="@LoginUrl("auth/login/microsoft")">
+                <a class="login-btn login-btn-ms" href="@LoginUrl("auth/login/microsoft")" data-test="login-microsoft">
                     Sign in with Microsoft
                 </a>
             }
             @if (_config.GuestEnabled)
             {
-                <a class="login-btn login-btn-guest" href="@LoginUrl("auth/login/fake")">
+                <a class="login-btn login-btn-guest" href="@LoginUrl("auth/login/fake")" data-test="login-guest">
                     Continue as Guest
                 </a>
             }

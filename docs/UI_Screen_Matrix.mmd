@@ -1,0 +1,24 @@
+stateDiagram-v2
+    [*] --> AppBoot
+    AppBoot --> AuthStateResolving: CascadingAuthenticationState
+    AuthStateResolving --> Login: anonymous route /login
+    AuthStateResolving --> AuthorizedShell: authenticated
+    AuthStateResolving --> RedirectGate: protected route anonymous
+    RedirectGate --> Login: RedirectToLogin preserves local returnUrl
+    Login --> MicrosoftChallenge: click Microsoft
+    Login --> GuestCookie: click Guest in Dev or Test
+    MicrosoftChallenge --> AuthorizedShell: OIDC callback creates cookie
+    GuestCookie --> AuthorizedShell: fake login creates cookie
+    AuthorizedShell --> ObserverHub: /
+    AuthorizedShell --> LiveDashboard: /live
+    AuthorizedShell --> IdentityNexus: /identity
+    AuthorizedShell --> Archives: /archives
+    AuthorizedShell --> Diagnostics: /diagnostics
+    AuthorizedShell --> NotFound: unmatched client route
+    AuthorizedShell --> Login: logout clears cookie
+    state AuthorizedShell {
+        [*] --> MainLayout
+        MainLayout --> AuthorizeRouteView
+        AuthorizeRouteView --> FlashMitigation: Authorizing text only
+        FlashMitigation --> PageContent
+    }

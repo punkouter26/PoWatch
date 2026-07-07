@@ -1,0 +1,5 @@
+{
+  "version": "2.2.0",
+  "category": "Distributed",
+  "package_prefix": "Microsoft.Orleans"
+}

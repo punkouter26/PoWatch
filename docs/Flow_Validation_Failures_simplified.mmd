@@ -1,0 +1,9 @@
+graph TD
+    A["Input"] --> B{"Client valid"}
+    B -- "no" --> C["Show local validation"]
+    B -- "yes" --> D["Submit DTO"]
+    D --> E{"Endpoint guard"}
+    E -- "bad request" --> F["Return 400"]
+    E -- "feature off" --> G["Return gated status"]
+    E -- "ok" --> H["Service and storage"]
+    H --> I["Update UI"]

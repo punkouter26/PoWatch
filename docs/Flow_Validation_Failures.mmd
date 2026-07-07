@@ -1,0 +1,23 @@
+graph TD
+    A["User edits Blazor input"] --> B["Native component binding and local checks"]
+    B --> C{"Client value valid enough to submit"}
+    C -- "no" --> D["Inline UI validation message or disabled command"]
+    C -- "yes" --> E["PoWatchApiClient serializes source-generated DTO"]
+    E --> F["Minimal API feature endpoint"]
+    F --> G{"Endpoint guard"}
+    G -- "missing display name" --> H["400 BadRequest with message"]
+    G -- "bad date format" --> I["400 BadRequest date contract"]
+    G -- "feature disabled" --> J["503 or 404 feature gate"]
+    G -- "authorized and valid" --> K["Application service"]
+    K --> L{"Domain or infrastructure exception"}
+    L -- "business invalid" --> M["ProblemDetails or typed bad request"]
+    L -- "storage failure" --> N["Global exception handler logs traceId"]
+    N --> O["ProblemDetails with safe detail"]
+    L -- "success" --> P["Typed DTO response"]
+    P --> Q["UI updates state and notifications"]
+    D --> Q
+    H --> Q
+    I --> Q
+    J --> Q
+    M --> Q
+    O --> Q

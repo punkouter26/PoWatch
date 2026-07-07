@@ -9,31 +9,31 @@
 @* Spatial contract (audit #9): LEFT = branding, CENTER = navigation actions, RIGHT = mock-data guard
    + signed-in user chip + sign-out. The "USING MOCK DATA" warning is now a topbar chip rather than a
    stacked full-width bar, so toggling it no longer shifts the whole page layout down. *@
-<nav class="navbar app-navbar" role="navigation" aria-label="Main navigation">
-    <a class="navbar-brand" href="" aria-label="PoWatch home">
+<nav class="navbar app-navbar" role="navigation" aria-label="Main navigation" data-test="app-navbar">
+    <a class="navbar-brand" href="" aria-label="PoWatch home" data-test="navbar-brand">
         <span class="brand-mark">PW</span>
         <span class="brand-copy">PoWatch</span>
     </a>
 
     <button class="navbar-toggler" @onclick="ToggleNavMenu"
-            aria-expanded="@(!collapseNavMenu)" aria-label="Toggle navigation">
+            aria-expanded="@(!collapseNavMenu)" aria-label="Toggle navigation" data-test="navbar-toggler">
         <span class="navbar-toggler-icon"></span>
     </button>
 
     <div class="navbar-collapse @(collapseNavMenu ? "" : "show")">
         <div class="navbar-nav">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Observer Hub</NavLink>
-            <NavLink class="nav-link" href="live-dashboard">Live Dashboard</NavLink>
-            <NavLink class="nav-link" href="archives">Archives</NavLink>
-            <NavLink class="nav-link" href="identity">Identity</NavLink>
-            <NavLink class="nav-link" href="diagnostics">Diagnostics</NavLink>
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" data-test="nav-link-observer-hub">Observer Hub</NavLink>
+            <NavLink class="nav-link" href="live-dashboard" data-test="nav-link-live-dashboard">Live Dashboard</NavLink>
+            <NavLink class="nav-link" href="archives" data-test="nav-link-archives">Archives</NavLink>
+            <NavLink class="nav-link" href="identity" data-test="nav-link-identity">Identity</NavLink>
+            <NavLink class="nav-link" href="diagnostics" data-test="nav-link-diagnostics">Diagnostics</NavLink>
         </div>
         <AuthorizeView>
             <Authorized>
                 <div class="navbar-account">
                     @if (MockLabel is not null)
                     {
-                        <span class="mock-chip" role="status" aria-live="polite" title="Mock data active — @MockLabel">
+                        <span class="mock-chip" role="status" aria-live="polite" title="Mock data active — @MockLabel" data-test="mock-chip">
                             ⚠ MOCK DATA
                         </span>
                     }
@@ -42,11 +42,11 @@
                        (kiosk-friendly audit trail). Falls back to the display name if no email claim. *@
                     @if (!string.IsNullOrWhiteSpace(_signedInEmail))
                     {
-                        <span class="user-email" title="Signed in as @_signedInEmail" aria-label="Signed in as @_signedInEmail">
+                        <span class="user-email" title="Signed in as @_signedInEmail" aria-label="Signed in as @_signedInEmail" data-test="navbar-user-email">
                             @_signedInEmail
                         </span>
                     }
-                    <button class="nav-logout" @onclick="LogoutAsync" disabled="@_loggingOut" aria-label="Sign out">
+                    <button class="nav-logout" @onclick="LogoutAsync" disabled="@_loggingOut" aria-label="Sign out" data-test="navbar-sign-out">
                         @(_loggingOut ? "Signing out…" : "Sign out")
                     </button>
                 </div>

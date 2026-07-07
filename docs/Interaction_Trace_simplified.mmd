@@ -1,0 +1,14 @@
+sequenceDiagram
+    actor User
+    participant UI as Blazor UI
+    participant API as BFF API
+    participant Slice as Feature Handler
+    participant Store as Table Storage
+    User->>UI: Submit action
+    UI->>API: Same-origin request
+    API->>API: Verify cookie
+    API->>Slice: Run endpoint
+    Slice->>Store: Read or write
+    Store-->>Slice: Result
+    Slice-->>UI: DTO
+    UI-->>User: Updated screen

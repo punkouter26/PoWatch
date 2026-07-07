@@ -1,0 +1,9 @@
+graph TD
+    A["Client route"] --> B["GET /auth/me"]
+    B --> C{"Cookie authenticated"}
+    C -- "yes" --> D["Render protected page"]
+    C -- "no" --> E["Login"]
+    E --> F{"Microsoft or guest"}
+    F --> G["Server sign-in"]
+    G --> H["HttpOnly cookie"]
+    H --> B
