@@ -1,0 +1,20 @@
+graph LR
+    A["Browser camera and inference worker"] --> B["Client monitoring loop"]
+    B --> C["POST /api/observer/ingest"]
+    C --> D["BFF cookie and authorization"]
+    D --> E["Observer slice validates request"]
+    E --> F["ObservationService resolves subject and significance"]
+    F --> G["Azure Table observations and subjects"]
+    G --> H["GET /api/observer/events SSE stream"]
+    H --> I["Client timeline receives server events"]
+    I --> J["Acknowledgement POST /api/observer/acknowledge"]
+    J --> K["Server registry marks reviewed events"]
+    B --> L["Polling /api/identity/subjects/live-status"]
+    L --> M["HybridCache ten second snapshot"]
+    M --> N["Dashboard and subject cards"]
+    subgraph "Connectivity Lifecycle"
+        P["Idle"] --> Q["Monitoring"]
+        Q --> R["Disconnected or stopped"]
+        R --> S["Reconnect and resume from cursor"]
+        S --> Q
+    end

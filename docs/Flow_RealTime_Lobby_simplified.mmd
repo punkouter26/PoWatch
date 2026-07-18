@@ -1,8 +1,0 @@
-graph LR
-    A["Start monitoring"] --> B["Local inference"]
-    B --> C["Ingest observation"]
-    C --> D["Server validates and stores"]
-    D --> E["SSE pushes new events"]
-    E --> F["Timeline updates"]
-    D --> G["Live status cache"]
-    G --> H["Dashboard updates"]
