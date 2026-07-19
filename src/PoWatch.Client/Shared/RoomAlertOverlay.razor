@@ -1,0 +1,59 @@
+@* Full-screen alert takeover (UX Win #4). The one moment that matters — an unusual event —
+   takes over the whole screen with the frame, a plain-language reason, and ONE primary action.
+   Rendered as an alertdialog so assistive tech announces and traps it like the interruption it is. *@
+@if (Visible)
+{
+    <div class="alert-takeover" role="alertdialog" aria-modal="true"
+         aria-labelledby="alert-takeover-title" aria-describedby="alert-takeover-reason">
+        <div class="alert-takeover-card">
+            <div class="alert-takeover-pulse" aria-hidden="true"></div>
+
+            <p class="alert-takeover-eyebrow">Needs attention</p>
+            <h2 id="alert-takeover-title" class="alert-takeover-title">
+                @(string.IsNullOrWhiteSpace(SubjectName) ? "Someone in the room" : SubjectName)
+            </h2>
+
+            @if (!string.IsNullOrWhiteSpace(ImageDataUrl))
+            {
+                <div class="alert-takeover-frame">
+                    <img src="@ImageDataUrl" alt="Captured frame of the unusual moment" />
+                </div>
+            }
+
+            <p id="alert-takeover-reason" class="alert-takeover-reason">@Reason</p>
+
+            <div class="alert-takeover-meta">
+                @if (!string.IsNullOrWhiteSpace(ActivityLabel))
+                {
+                    <span class="alert-takeover-chip">@ActivityLabel</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(TimeLabel))
+                {
+                    <span class="alert-takeover-chip alert-takeover-chip--time">@TimeLabel</span>
+                }
+            </div>
+
+            <div class="alert-takeover-actions">
+                <button class="alert-takeover-btn alert-takeover-btn--primary"
+                        @onclick="OnAcknowledge" data-test="alert-acknowledge" autofocus>
+                    I’ve got it
+                </button>
+                <button class="alert-takeover-btn alert-takeover-btn--ghost"
+                        @onclick="OnViewSubject" data-test="alert-view-subject">
+                    See this person
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public bool Visible { get; set; }
+    [Parameter] public string SubjectName { get; set; } = string.Empty;
+    [Parameter] public string Reason { get; set; } = string.Empty;
+    [Parameter] public string ActivityLabel { get; set; } = string.Empty;
+    [Parameter] public string TimeLabel { get; set; } = string.Empty;
+    [Parameter] public string? ImageDataUrl { get; set; }
+    [Parameter] public EventCallback OnAcknowledge { get; set; }
+    [Parameter] public EventCallback OnViewSubject { get; set; }
+}

@@ -38,7 +38,10 @@ internal static class ArchivesEndpoints
             }
         })
         .WithName("ArchivesGetChapter")
-        .WithSummary("Get the daily chapter narrative, timeline, and highlights for a date.");
+        .WithSummary("Get the daily chapter narrative, timeline, and highlights for a date.")
+        .Produces<DailyChapterDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         group.MapGet("/{date}/handoff-report", async (
             string date,
@@ -77,7 +80,9 @@ internal static class ArchivesEndpoints
                 fileDownloadName: $"PoWatch-Handoff-{parsedDate:yyyy-MM-dd}-{shift}.pdf");
         })
         .WithName("ArchivesHandoffReport")
-        .WithSummary("Generate a PDF shift handoff report for a given date and shift window.");
+        .WithSummary("Generate a PDF shift handoff report for a given date and shift window.")
+        .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+        .Produces(StatusCodes.Status400BadRequest);
 
         group.MapPost("/{date}/handoff-brief", async (
             string date,
@@ -104,7 +109,10 @@ internal static class ArchivesEndpoints
             return Results.Ok(brief);
         })
         .WithName("ArchivesHandoffBrief")
-        .WithSummary("Generate a Handoff Coach brief (AI-assisted or template) for a given date.");
+        .WithSummary("Generate a Handoff Coach brief (AI-assisted or template) for a given date.")
+        .Produces<HandoffBriefDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status503ServiceUnavailable);
 
         // Blob (significant-image SAS) routes belong to the Archives slice.
         app.MapBlobEndpoints();

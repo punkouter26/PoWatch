@@ -1,0 +1,35 @@
+@* PoPanel — single source of truth for the .panel + RadzenCard surface used by
+   every page (audit #7). Previous copy: 5+ page files were hand-rolling the same
+   .rz-card.panel block. Now consumers render this instead. *@
+
+<div class="po-panel @(Active ? "po-panel--active" : null) @(Glass ? "po-panel--glass" : null)" data-test="po-panel">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <header class="po-panel-header">
+            <div class="po-panel-header-left">
+                <h2 class="po-panel-title" title="@Title">@Title</h2>
+                @if (Badge is not null)
+                {
+                    <span class="po-panel-badge @(BadgeClass ?? string.Empty)">@Badge</span>
+                }
+            </div>
+            @if (HeaderSlot is not null)
+            {
+                <div class="po-panel-header-right">@HeaderSlot</div>
+            }
+        </header>
+    }
+    <div class="po-panel-body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Badge { get; set; }
+    [Parameter] public string? BadgeClass { get; set; }
+    [Parameter] public RenderFragment? HeaderSlot { get; set; }
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public bool Glass { get; set; }
+}

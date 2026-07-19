@@ -1,0 +1,158 @@
+/* tokens.css — design tokens only (~3 KB).
+   Loaded as the FIRST stylesheet so every other file reads the resolved
+   variables. Both dark and light themes are declared here; the body uses
+   var(--color-surface-0) instead of hard-coded hexes. */
+:root {
+    color-scheme: dark light;
+
+    --palette-ink-900: #05030a;
+    --palette-ink-800: #0f0b1f;
+    --palette-ink-700: #15112c;
+    --palette-ink-600: #1e1a3b;
+    --palette-ink-100: #ecf1ff;
+    --palette-ink-050: #ffffff;
+    --palette-ink-300: #c8cde8;
+    --palette-ink-400: #adb2cc;
+    --palette-violet-500: #6f3de3;
+    --palette-violet-400: #8b5cf6;
+    --palette-mint-500: #38ffa8;
+    --palette-amber-500: #ff9f40;
+    --palette-rose-500: #ff7070;
+
+    --color-surface-0: var(--palette-ink-900);
+    --color-surface-1: var(--palette-ink-800);
+    --color-surface-2: var(--palette-ink-700);
+    --color-surface-3: var(--palette-ink-600);
+    --color-surface-overlay: rgba(15, 11, 31, 0.62);
+    --color-surface-strong: rgba(5, 3, 10, 0.9);
+
+    --color-text-primary: var(--palette-ink-100);
+    --color-text-muted: var(--palette-ink-400);
+    --color-text-label: var(--palette-ink-300);
+    --color-text-bright: var(--palette-ink-050);
+
+    --color-border-subtle: rgba(111, 61, 227, 0.18);
+    --color-border-strong: rgba(56, 255, 168, 0.6);
+    --color-border-focus: var(--palette-mint-500);
+
+    --color-accent: var(--palette-violet-500);
+    --color-accent-soft: rgba(111, 61, 227, 0.2);
+    --color-accent-glow: rgba(111, 61, 227, 0.5);
+
+    --state-success-fg: var(--palette-mint-500);
+    --state-success-bg: rgba(56, 255, 168, 0.12);
+    --state-success-border: rgba(56, 255, 168, 0.4);
+    --state-warning-fg: var(--palette-amber-500);
+    --state-warning-bg: rgba(255, 159, 64, 0.14);
+    --state-warning-border: rgba(255, 159, 64, 0.5);
+    --state-danger-fg: var(--palette-rose-500);
+    --state-danger-bg: rgba(255, 112, 112, 0.14);
+    --state-danger-border: rgba(255, 112, 112, 0.5);
+
+    --focus-ring: var(--color-border-focus);
+    --focus-ring-offset: 2px;
+    --focus-ring-width: 2px;
+
+    /* Legacy aliases — keep so existing global rules continue to work. */
+    --bg-main: var(--color-surface-0);
+    --bg-panel: var(--color-surface-1);
+    --bg-panel-soft: var(--color-surface-2);
+    --line: var(--color-accent);
+    --neon-green: var(--state-success-fg);
+    --neon-green-dim: var(--state-success-bg);
+    --neon-green-glow: var(--state-success-border);
+    --accent-purple: var(--color-accent);
+    --accent-purple-dim: var(--color-accent-soft);
+    --accent-purple-glow: var(--color-accent-glow);
+    --alert-orange: var(--state-warning-fg);
+    --alert-red: var(--state-danger-fg);
+    --text-primary: var(--color-text-primary);
+    --text-muted: var(--color-text-muted);
+    --text-label: var(--color-text-label);
+    --text-bright: var(--color-text-bright);
+    --alert-amber: var(--state-warning-fg);
+    --alert-amber-dim: var(--state-warning-bg);
+    --alert-red-dim: var(--state-danger-bg);
+
+    --topbar-h: 3.5rem;
+    --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "Consolas", "Lucida Console", monospace;
+
+    --text-xs: clamp(0.75rem, 0.6vw + 0.55rem, 0.82rem);
+    --text-sm: clamp(0.82rem, 0.7vw + 0.6rem, 0.88rem);
+    --text-base: clamp(0.88rem, 0.8vw + 0.6rem, 0.95rem);
+    --text-lg: clamp(1rem, 1vw + 0.7rem, 1.1rem);
+    --text-xl: clamp(1.15rem, 1.2vw + 0.8rem, 1.35rem);
+    --text-2xl: clamp(1.35rem, 1.5vw + 0.9rem, 1.55rem);
+    --text-3xl: clamp(1.55rem, 2vw + 1rem, 1.85rem);
+    --text-data: clamp(0.85rem, 0.8vw + 0.6rem, 0.92rem);
+
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+    --radius-full: 9999px;
+
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-glow-green: 0 0 20px rgba(56, 255, 168, 0.25);
+    --shadow-glow-purple: 0 0 20px rgba(111, 61, 227, 0.25);
+
+    --elevation-base: 0 0 0 1px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
+    --elevation-raised: 0 0 0 1px rgba(56, 255, 168, 0.18), 0 0 24px rgba(111, 61, 227, 0.2), 0 24px 48px rgba(0, 0, 0, 0.38);
+    --elevation-float: 0 0 0 2px rgba(56, 255, 168, 0.32), 0 0 40px rgba(111, 61, 227, 0.35), 0 32px 60px rgba(0, 0, 0, 0.5);
+
+    --transition-fast: 150ms ease;
+    --transition-base: 250ms ease;
+    --transition-slow: 400ms ease;
+    --transition-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --motion-instant: 90ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-quick: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-enter: 320ms cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-spring: var(--transition-spring);
+
+    --glass-bg: rgba(15, 11, 31, 0.62);
+    --glass-bg-strong: rgba(5, 3, 10, 0.9);
+    --glass-border: rgba(56, 255, 168, 0.14);
+    --glass-blur: blur(14px) saturate(140%);
+}
+
+:root[data-theme="light"] {
+    color-scheme: light dark;
+    --color-surface-0: #f7f7fb;
+    --color-surface-1: #ffffff;
+    --color-surface-2: #f1eefb;
+    --color-surface-3: #e7e1f5;
+    --color-surface-overlay: rgba(255, 255, 255, 0.78);
+    --color-surface-strong: rgba(255, 255, 255, 0.96);
+    --color-text-primary: #1a1530;
+    --color-text-muted: #4a4566;
+    --color-text-label: #353050;
+    --color-text-bright: #05030a;
+    --color-border-subtle: rgba(111, 61, 227, 0.18);
+    --color-border-strong: rgba(56, 130, 92, 0.55);
+    --color-accent: #5b2bd9;
+    --color-accent-soft: rgba(111, 61, 227, 0.12);
+    --color-accent-glow: rgba(111, 61, 227, 0.3);
+    --state-success-fg: #2c7a52;
+    --state-success-bg: rgba(44, 122, 82, 0.12);
+    --state-success-border: rgba(44, 122, 82, 0.45);
+    --state-warning-fg: #b56300;
+    --state-warning-bg: rgba(181, 99, 0, 0.12);
+    --state-warning-border: rgba(181, 99, 0, 0.45);
+    --state-danger-fg: #b32525;
+    --state-danger-bg: rgba(179, 37, 37, 0.10);
+    --state-danger-border: rgba(179, 37, 37, 0.45);
+}

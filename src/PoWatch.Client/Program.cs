@@ -39,4 +39,7 @@ else
 // Singleton monitor state shared between NavMenu and ObserverHub
 builder.Services.AddSingleton<MonitorStateService>();
 
+// Persists per-operator preferences (model, polling, theme override) to localStorage.
+builder.Services.AddScoped<UserPreferencesService>();
+
 await builder.Build().RunAsync();

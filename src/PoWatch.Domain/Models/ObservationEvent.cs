@@ -6,7 +6,7 @@ public sealed class ObservationEvent
 
     public DateTimeOffset ObservedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 
-    public string SubjectId { get; init; } = string.Empty;
+    public SubjectId SubjectId { get; init; } = SubjectId.None;
 
     public string SubjectDisplayName { get; init; } = string.Empty;
 

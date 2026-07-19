@@ -2,3 +2,18 @@
 .setup-row input[type="range"] {
     width: 100%;
 }
+
+/* Replace prior inline Style= attrs (audit #3 — no inline styles). */
+.subjects-filter-input,
+.observer-filter-input { width: var(--filter-w, 120px); }
+
+.livedashboard-filter-input { width: 200px; }
+
+.drift-chart { height: var(--chart-h, 180px); }
+
+/* Strip a thin loading bar while the subjects strip is fetching. */
+.subjects-loading-progress {
+    height: 3px;
+    width: 50px;
+    align-self: center;
+}

@@ -201,7 +201,7 @@ public sealed class ObservationServiceTests
             DisplayName = "Subject-1",
             FirstSeenUtc = DateTimeOffset.UtcNow,
             LastSeenUtc = DateTimeOffset.UtcNow,
-            IsKnownIdentity = false
+            IdentityStatus = IdentityStatus.Temporary
         };
 
         public Task<IReadOnlyList<SubjectProfile>> GetAllAsync(CancellationToken cancellationToken) =>
@@ -220,7 +220,7 @@ public sealed class ObservationServiceTests
                         DisplayName = hint,
                         FirstSeenUtc = DateTimeOffset.UtcNow,
                         LastSeenUtc = DateTimeOffset.UtcNow,
-                        IsKnownIdentity = true
+                        IdentityStatus = IdentityStatus.Known
                     };
                 }
             }
@@ -242,7 +242,7 @@ public sealed class ObservationServiceTests
                 DisplayName = newDisplayName,
                 FirstSeenUtc = _subject.FirstSeenUtc,
                 LastSeenUtc = _subject.LastSeenUtc,
-                IsKnownIdentity = true
+                IdentityStatus = IdentityStatus.Known
             };
 
             return Task.FromResult(_subject);
@@ -262,7 +262,7 @@ public sealed class ObservationServiceTests
         public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
+            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 }
 

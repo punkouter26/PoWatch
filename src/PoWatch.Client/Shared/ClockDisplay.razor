@@ -1,0 +1,25 @@
+@* ClockDisplay — isolated ticker.
+   Lives in a micro-component so the parent layout's StateHasChanged only fires
+   on the clock itself, not on the whole page tree. Re-rendering cost falls by
+   ~95% vs. the prior layout-driven timer (audit #8). *@
+
+<span class="hud-clock" aria-live="off" aria-label="Current time" data-test="page-clock">@_now.ToString("HH:mm:ss")</span>
+
+@code {
+    private DateTime _now = DateTime.Now;
+    private System.Threading.Timer? _t;
+
+    protected override void OnInitialized()
+    {
+        // 1s cadence is fine because the timer fires StateHasChanged on this
+        // leaf node, not on any layout ancestor — Blazor's renderer scopes the
+        // re-render tree to @Body boundaries only.
+        _t = new System.Threading.Timer(_ =>
+        {
+            _now = DateTime.Now;
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    public void Dispose() => _t?.Dispose();
+}

@@ -32,7 +32,9 @@ internal static class IdentityEndpoints
             return Results.Ok(created);
         })
         .WithName("IdentityRegisterSubject")
-        .WithSummary("Pre-register a known subject identity without requiring an observation.");
+        .WithSummary("Pre-register a known subject identity without requiring an observation.")
+        .Produces<SubjectProfileDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest);
 
         group.MapGet("/subjects", async (
             IdentityService service,
@@ -61,7 +63,9 @@ internal static class IdentityEndpoints
             }
         })
             .WithName("IdentitySubjects")
-            .WithSummary("List all known and temporary subject identities.");
+            .WithSummary("List all known and temporary subject identities.")
+            .Produces<List<SubjectProfileDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         group.MapPatch("/subjects/{subjectId}", async (
             string subjectId,
@@ -84,7 +88,9 @@ internal static class IdentityEndpoints
             return Results.Ok(renamed);
         })
         .WithName("IdentityRename")
-        .WithSummary("Rename a temporary subject and rewrite its historical identity references.");
+        .WithSummary("Rename a temporary subject and rewrite its historical identity references.")
+        .Produces<IdentityRevisionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest);
 
         group.MapPost("/merge", async (
             MergeIdentityRequestDto request,
@@ -108,7 +114,9 @@ internal static class IdentityEndpoints
             return Results.Ok(merged);
         })
         .WithName("IdentityMerge")
-        .WithSummary("Merge two subject identities into one canonical history.");
+        .WithSummary("Merge two subject identities into one canonical history.")
+        .Produces<IdentityRevisionResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest);
 
         group.MapGet("/subjects/live-status", async (
             IdentityService service,
@@ -119,7 +127,8 @@ internal static class IdentityEndpoints
                 async ct => await service.GetLiveDashboardStatusAsync(ct),
                 cancellationToken: cancellationToken)))
             .WithName("IdentityLiveDashboard")
-            .WithSummary("Get live status snapshot for all subjects including today's recent events (cached ~10s).");
+            .WithSummary("Get live status snapshot for all subjects including today's recent events (cached ~10s).")
+            .Produces<List<SubjectLiveStatusDto>>(StatusCodes.Status200OK);
 
         group.MapGet("/subjects/live-risk", async (
             DriftRadarService driftRadarService,
@@ -138,7 +147,9 @@ internal static class IdentityEndpoints
             return Results.Ok(status);
         })
         .WithName("DriftRadarLiveRisk")
-        .WithSummary("Get Drift Radar status for all subjects — drift score, label, hourly vectors, and insights.");
+        .WithSummary("Get Drift Radar status for all subjects — drift score, label, hourly vectors, and insights.")
+        .Produces<List<SubjectDriftStatusDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status503ServiceUnavailable);
 
         group.MapGet("/subjects/{subjectId}/baseline", async (
             string subjectId,
@@ -192,7 +203,10 @@ internal static class IdentityEndpoints
             });
         })
         .WithName("IdentitySubjectBaseline")
-        .WithSummary("Get the 7-day behavioral baseline and drift score for a subject.");
+        .WithSummary("Get the 7-day behavioral baseline and drift score for a subject.")
+        .Produces<SubjectBaselineDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
 
         return app;
     }

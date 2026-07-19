@@ -9,14 +9,15 @@
 @inject NotificationService NotificationService
 @inject IOptions<ClientFeatureFlagsOptions> ClientFlags
 @inject DialogService DialogService
+@inject NavigationManager Nav
 
-<PageTitle>PoWatch | Archives</PageTitle>
+<PageTitle>PoWatch | History</PageTitle>
 
 <div class="sector-grid archives-grid" @onkeydown="HandlePageKeyDown" tabindex="-1" @ref="_pageRef">
     <RadzenCard class="panel panel-chapter">
         <header class="panel-header">
-            <h1>Archives</h1>
-            <p>Daily chapters, narratives, and evidence highlights.</p>
+            <h1>History</h1>
+            <p>Each day's story, in plain language, with the moments that mattered.</p>
         </header>
 
         <div class="archive-toolbar">
@@ -33,14 +34,14 @@
                 Click="GoToTodayAsync" Disabled="@loading" aria-label="Go to today" title="Jump to today" />
             @if (loading)
             {
-                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:100px; align-self:center;" />
+                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Class="archive-progress" />
             }
             <span class="archive-toolbar-divider"></span>
             <RadzenButton Icon="assignment" Text="Handoff" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                 Click="OpenHandoffDialogAsync" Disabled="@(selectedDate is null)" aria-label="Generate handoff" />
         </div>
 
-        <h3>Clinical Narrative</h3>
+        <h3>Summary of the day</h3>
         @if (loading)
         {
             <div class="skeleton-block">
@@ -108,7 +109,7 @@
         {
             <div class="archive-empty">
                 <p>No observations recorded for this day.</p>
-                <a href="/" class="archive-empty-cta">→ Go to Observer Hub to start capturing</a>
+                <a href="/" class="archive-empty-cta">→ Go to the Live Room to start watching</a>
             </div>
         }
 
@@ -197,14 +198,21 @@
                             <span class="activity-subject">@item.SubjectDisplayName</span>
                             @if (item.IsClinicalOutlier)
                             {
-                                <span class="activity-badge activity-badge--outlier">Outlier</span>
+                                <span class="activity-badge activity-badge--outlier">⚠ Unusual</span>
                             }
                             else if (item.IsSignificant)
                             {
-                                <span class="activity-badge activity-badge--significant">Significant</span>
+                                <span class="activity-badge activity-badge--significant">Notable</span>
                             }
                             <span class="activity-activity">@item.Activity</span>
                         </div>
+                        @if ((item.IsClinicalOutlier || item.IsSignificant) && !string.IsNullOrWhiteSpace(item.SignificantReason))
+                        {
+                            <div class="activity-why">
+                                <span class="activity-why-label">Why flagged</span>
+                                <span class="activity-why-text">@item.SignificantReason</span>
+                            </div>
+                        }
                         @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
                         {
                             <div class="activity-note">@item.ClinicalDescription</div>
@@ -244,6 +252,10 @@
     private string briefAudience = "NurseToNurse";
     private ElementReference _pageRef;
 
+    // One-tap handoff entry (Win #5): "End shift" on the Live Room navigates here with ?handoff=1&shift=<auto>.
+    [Parameter, SupplyParameterFromQuery(Name = "handoff")] public string? HandoffQuery { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "shift")] public string? ShiftQuery { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         // Always default to today — this is a monitoring app and users primarily want current data.
@@ -268,7 +280,20 @@
             selectedDate = DateTime.Today;
         }
 
+        // One-tap handoff: honour the auto-detected shift passed from the Live Room "End shift" button.
+        if (!string.IsNullOrWhiteSpace(ShiftQuery) &&
+            shiftOptions.Any(o => string.Equals(o.Value, ShiftQuery, StringComparison.OrdinalIgnoreCase)))
+        {
+            selectedShift = ShiftQuery;
+        }
+
         await LoadChapterAsync();
+
+        // Deep-link straight into the handoff flow so "End shift" is genuinely one tap end-to-end.
+        if (!string.IsNullOrWhiteSpace(HandoffQuery))
+        {
+            await OpenHandoffDialogAsync();
+        }
     }
 
     private async Task PreviousDayAsync()
@@ -311,19 +336,19 @@
                     builder.OpenElement(2, "img");
                     builder.AddAttribute(3, "src", imageUrl);
                     builder.AddAttribute(4, "alt", $"Evidence: {item.Activity}");
-                    builder.AddAttribute(5, "style", "max-width:100%; max-height:70vh; border-radius:8px; display:block; margin:0 auto;");
+                    builder.AddAttribute(5, "class", "lightbox-image");
                     builder.CloseElement();
                 }
                 else
                 {
                     builder.OpenElement(6, "p");
-                    builder.AddAttribute(7, "style", "color:#9ea2bc; text-align:center; padding:2rem;");
+                    builder.AddAttribute(7, "class", "lightbox-missing");
                     builder.AddContent(8, "No image available for this event.");
                     builder.CloseElement();
                 }
 
                 builder.OpenElement(9, "div");
-                builder.AddAttribute(10, "style", "margin-top:0.75rem; font-size:0.82rem; color:#9ea2bc; text-align:center;");
+                builder.AddAttribute(10, "class", "lightbox-meta");
                 builder.AddContent(11, $"{item.ObservedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm} · {item.SignificantReason ?? "Significant event"}");
                 builder.CloseElement();
 

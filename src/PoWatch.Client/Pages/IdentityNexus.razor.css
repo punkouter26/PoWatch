@@ -1,0 +1,4 @@
+/* IdentityNexus — scoped styles (audit #7). Replaces prior inline Style= attrs. */
+
+.identity-flex-input  { flex: 1; }
+.identity-wide-input  { width: 100%; }

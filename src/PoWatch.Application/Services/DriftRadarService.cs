@@ -37,7 +37,7 @@ public sealed class DriftRadarService(
         // Replaces the previous N per-subject queries (N+1 pattern against Azure Table Storage).
         var allHistoricalEvents = await observationRepository.GetByDateRangeAsync(historyFrom, historyTo, cancellationToken);
         var historicalBySubject = allHistoricalEvents
-            .GroupBy(e => e.SubjectId, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(e => e.SubjectId.Value, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<ObservationEvent>)g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         // Get today's events once (needed for all subjects)

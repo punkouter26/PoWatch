@@ -18,7 +18,7 @@ public sealed class IdentityService(
         {
             SubjectId = p.SubjectId,
             DisplayName = p.DisplayName,
-            IsKnownIdentity = p.IsKnownIdentity,
+            IsKnownIdentity = p.IdentityStatus == IdentityStatus.Known,
             FirstSeenUtc = p.FirstSeenUtc,
             LastSeenUtc = p.LastSeenUtc
         }).ToList();
@@ -156,7 +156,7 @@ public sealed class IdentityService(
         {
             SubjectId = profile.SubjectId,
             DisplayName = profile.DisplayName,
-            IsKnownIdentity = profile.IsKnownIdentity,
+            IsKnownIdentity = profile.IdentityStatus == IdentityStatus.Known,
             FirstSeenUtc = profile.FirstSeenUtc,
             LastSeenUtc = profile.LastSeenUtc
         };
@@ -204,7 +204,7 @@ public sealed class IdentityService(
             {
                 SubjectId = profile.SubjectId,
                 DisplayName = profile.DisplayName,
-                IsKnownIdentity = profile.IsKnownIdentity,
+                IsKnownIdentity = profile.IdentityStatus == IdentityStatus.Known,
                 LastSeenUtc = profile.LastSeenUtc,
                 LastActivity = profile.LastActivity ?? string.Empty,
                 LastActivityIsOutlier = profile.LastActivityIsOutlier,

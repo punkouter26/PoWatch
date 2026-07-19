@@ -27,7 +27,9 @@ internal static class ObserverEndpoints
             return result.Dropped ? Results.Accepted(value: result) : Results.Ok(result);
         })
         .WithName("ObserverIngest")
-        .WithSummary("Persist a locally inferred observation event.");
+        .WithSummary("Persist a locally inferred observation event.")
+        .Produces<IngestObservationResultDto>(StatusCodes.Status200OK)
+        .Produces<IngestObservationResultDto>(StatusCodes.Status202Accepted);
 
         group.MapGet("/state", (
             ObservationService service,
@@ -55,7 +57,9 @@ internal static class ObserverEndpoints
             }
         })
             .WithName("ObserverState")
-            .WithSummary("Get the live observer runtime status and feature flags.");
+            .WithSummary("Get the live observer runtime status and feature flags.")
+            .Produces<ObserverRuntimeStateDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         // SSE streaming with backpressure support
         group.MapGet("/events", (
@@ -96,7 +100,7 @@ internal static class ObserverEndpoints
                 parsed.Count,
                 request.AcknowledgedBy);
 
-            return Results.Ok(new { AcknowledgedCount = parsed.Count, AcknowledgedAtUtc = DateTimeOffset.UtcNow });
+            return TypedResults.Ok(new AcknowledgeEventsResultDto(parsed.Count, DateTimeOffset.UtcNow));
         })
         .WithName("ObserverAcknowledge")
         .WithSummary("Acknowledge one or more significant events to mark them as reviewed.");

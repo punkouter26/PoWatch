@@ -17,7 +17,7 @@
     {
         <div class="drift-chart-section">
             <p class="drift-chart-label">Hourly activity density — baseline vs today</p>
-            <RadzenChart Style="height:180px;">
+            <RadzenChart Class="drift-chart">
                 <RadzenLineSeries Smooth="true" Data="@chartData" CategoryProperty="Hour" ValueProperty="BaselineDensity"
                                   Title="7-day baseline" Stroke="rgba(74,144,217,0.8)" StrokeWidth="2" />
                 <RadzenLineSeries Smooth="true" Data="@chartData" CategoryProperty="Hour" ValueProperty="TodayDensity"

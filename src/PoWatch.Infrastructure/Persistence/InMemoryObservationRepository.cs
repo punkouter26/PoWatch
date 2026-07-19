@@ -14,7 +14,7 @@ public sealed class InMemoryObservationRepository(ILogger<InMemoryObservationRep
     public Task AddAsync(ObservationEvent observation, CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("Storage.AddObservation");
-        activity?.SetTag("powatch.subject_id", observation.SubjectId);
+        activity?.SetTag("powatch.subject_id", observation.SubjectId.Value);
 
         _events[observation.Id] = observation;
 

@@ -1,9 +1,9 @@
 graph TD
-    A["Client route"] --> B["GET /auth/me"]
-    B --> C{"Cookie authenticated"}
-    C -- "yes" --> D["Render protected page"]
-    C -- "no" --> E["Login"]
-    E --> F{"Microsoft or guest"}
-    F --> G["Server sign-in"]
-    G --> H["HttpOnly cookie"]
-    H --> B
+    A["Caregiver opens a protected page"] --> B{"Already signed in"}
+    B -- "yes" --> C["Page opens"]
+    B -- "no" --> D["Sent to the login screen"]
+    D --> E{"Choose sign-in"}
+    E -- "Microsoft" --> F["Sign in with Microsoft"]
+    E -- "Guest in Dev or Test" --> G["Continue as guest"]
+    F --> C
+    G --> C

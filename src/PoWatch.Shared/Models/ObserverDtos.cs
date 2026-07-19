@@ -66,3 +66,6 @@ public sealed class AcknowledgeEventsRequestDto
     /// <summary>Optional note explaining the acknowledgment.</summary>
     public string? Note { get; init; }
 }
+
+/// <summary>Result of <c>POST /api/observer/acknowledge</c> (audit #7: typed instead of an anonymous object).</summary>
+public sealed record AcknowledgeEventsResultDto(int AcknowledgedCount, DateTimeOffset AcknowledgedAtUtc);

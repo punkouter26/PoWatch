@@ -71,15 +71,32 @@ var featureFlags = builder.Configuration
     .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
 
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
-builder.Services.Configure<AzureStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
-builder.Services.Configure<ObserverOptions>(builder.Configuration.GetSection("ObserverOptions"));
 builder.Services.Configure<PoWatch.Application.Options.AlertThresholdOptions>(builder.Configuration.GetSection("AlertThresholds"));
 builder.Services.Configure<PoWatch.Application.Options.DriftRadarOptions>(builder.Configuration.GetSection("DriftRadar"));
 builder.Services.Configure<PoWatch.Application.Options.HandoffCoachOptions>(builder.Configuration.GetSection("HandoffCoach"));
-builder.Services.Configure<PoWatch.Application.Options.AzureOpenAiOptions>(builder.Configuration.GetSection("AzureOpenAi"));
 
-// T009: OpenAPI document at /openapi/v1.json
-builder.Services.AddOpenApi();
+// Audit #2: fail-fast options — the startup-critical settings are validated and ValidateOnStart()
+// forces evaluation during host build, so a bad table name, polling interval, or Azure OpenAI range
+// aborts boot with an actionable message instead of throwing lazily on first use.
+builder.Services.AddOptions<AzureStorageOptions>()
+    .Bind(builder.Configuration.GetSection("AzureStorage"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddOptions<ObserverOptions>()
+    .Bind(builder.Configuration.GetSection("ObserverOptions"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddOptions<PoWatch.Application.Options.AzureOpenAiOptions>()
+    .Bind(builder.Configuration.GetSection("AzureOpenAi"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// Audit #1: durable, shared Data Protection keyring so BFF auth cookies survive recycle/scale-out.
+builder.AddPoWatchDataProtection();
+
+// T009 / audit #6: OpenAPI document at /openapi/v1.json, emitted at OpenAPI 3.1.
+builder.Services.AddOpenApi(options =>
+    options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 
 // HybridCache for hot, frequently-polled read paths (live dashboard / drift status).
 builder.Services.AddHybridCache(o =>

@@ -9,21 +9,21 @@
 @inject DialogService DialogService
 @inject IOptions<ClientFeatureFlagsOptions> FeatureFlags
 
-<PageTitle>PoWatch | Live Dashboard</PageTitle>
+<PageTitle>PoWatch | Overview</PageTitle>
 
 <div class="live-dashboard-page">
     <header class="live-dashboard-header" data-test="live-dashboard-header">
         <div>
-            <p class="observer-eyebrow">Multi-subject view</p>
-            <h1>Live Dashboard</h1>
-            <p class="panel-summary">Real-time status for all known subjects. Auto-refreshes every @RefreshIntervalSeconds seconds.</p>
+            <p class="observer-eyebrow">Everyone at a glance</p>
+            <h1>Overview</h1>
+            <p class="panel-summary">How everyone is doing right now. Updates on its own every @RefreshIntervalSeconds seconds.</p>
         </div>
         <div class="live-dashboard-controls" data-test="live-dashboard-controls">
             <RadzenTextBox Placeholder="Filter subjects…" @bind-Value="subjectFilter" @oninput="OnFilterInput"
-                Style="width:200px;" aria-label="Filter subjects by name or activity" data-test="live-dashboard-filter" />
+                Class="livedashboard-filter-input" aria-label="Filter subjects by name or activity" data-test="live-dashboard-filter" />
             @if (loading)
             {
-                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:4px; width:80px; align-self:center;" />
+                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Class="livedashboard-progress" />
             }
             <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="RefreshAsync" Disabled="@loading" aria-label="Refresh" data-test="live-dashboard-refresh" />
@@ -33,7 +33,7 @@
     @if (subjects.Count == 0 && !loading)
     {
         <div class="live-dashboard-empty" data-test="live-dashboard-empty">
-            <p>No subjects observed yet. Start the Observer Hub to begin monitoring.</p>
+            <p>No one seen yet. Go to the Live Room to start watching.</p>
         </div>
     }
 
@@ -62,11 +62,11 @@
                     }
                     @if (subject.LastActivityIsOutlier)
                     {
-                        <span class="subject-card-badge subject-card-badge--outlier">OUTLIER</span>
+                        <span class="subject-card-badge subject-card-badge--outlier" title="Something unusual was flagged">⚠ UNUSUAL</span>
                     }
                     @if (!subject.IsKnownIdentity && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations)
                     {
-                        <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
+                        <span class="subject-card-badge subject-card-badge--unknown" title="New person — not named yet">NEW</span>
                     }
                     @if (FeatureFlags.Value.DriftRadarEnabled)
                     {
@@ -213,8 +213,10 @@
         return string.Empty;
     }
 
+    // Unified subject pathing (Win #8): tapping a person anywhere in the app lands on the same place —
+    // the People page focused on that person — instead of each surface going somewhere different.
     private void NavigateToSubject(string subjectId) =>
-        Navigation.NavigateTo($"/?subjectFilter={Uri.EscapeDataString(subjectId)}");
+        Navigation.NavigateTo($"/identity?focus={Uri.EscapeDataString(subjectId)}");
 
     private void HandleSubjectCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args, string subjectId)
     {

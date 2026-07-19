@@ -234,7 +234,7 @@ public sealed class DriftRadarServiceTests
     {
         SubjectId = id,
         DisplayName = name,
-        IsKnownIdentity = true,
+        IdentityStatus = IdentityStatus.Known,
         FirstSeenUtc = DateTimeOffset.UtcNow.AddDays(-10),
         LastSeenUtc = DateTimeOffset.UtcNow
     };
@@ -286,7 +286,7 @@ public sealed class DriftRadarServiceTests
         public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
+            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 
     private sealed class FakeDriftObservationRepository(

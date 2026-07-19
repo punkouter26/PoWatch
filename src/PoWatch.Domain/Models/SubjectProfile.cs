@@ -2,11 +2,11 @@ namespace PoWatch.Domain.Models;
 
 public sealed class SubjectProfile
 {
-    public string SubjectId { get; init; } = string.Empty;
+    public SubjectId SubjectId { get; init; } = SubjectId.None;
 
     public string DisplayName { get; set; } = string.Empty;
 
-    public bool IsKnownIdentity { get; set; }
+    public IdentityStatus IdentityStatus { get; set; }
 
     public DateTimeOffset FirstSeenUtc { get; init; } = DateTimeOffset.UtcNow;
 

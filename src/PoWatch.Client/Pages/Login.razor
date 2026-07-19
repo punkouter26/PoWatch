@@ -11,32 +11,36 @@
 
         @if (_config is null)
         {
-            <p class="login-status">Loading sign-in options…</p>
+            <p class="login-status" role="status" aria-live="polite">Loading sign-in options…</p>
         }
         else
         {
             @if (_config.MicrosoftEnabled)
             {
                 <a class="login-btn login-btn-ms" href="@LoginUrl("auth/login/microsoft")" data-test="login-microsoft">
-                    Sign in with Microsoft
+                    <span aria-hidden="true" class="login-btn-icon">⊞</span>
+                    <span class="login-btn-text">Sign in with Microsoft</span>
                 </a>
+                <p class="login-btn-hint">Microsoft Entra SSO — for production caregivers with a tenant identity.</p>
             }
             @if (_config.GuestEnabled)
             {
                 <a class="login-btn login-btn-guest" href="@LoginUrl("auth/login/fake")" data-test="login-guest">
-                    Continue as Guest
+                    <span aria-hidden="true" class="login-btn-icon">⌂</span>
+                    <span class="login-btn-text">Continue as Guest</span>
                 </a>
+                <p class="login-btn-hint login-btn-hint--muted">Local demo only — no real data, no Microsoft tenant required. Disabled in production.</p>
             }
             @if (!_config.MicrosoftEnabled && !_config.GuestEnabled)
             {
-                <p class="login-status">No sign-in method is configured for the <b>@_config.Environment</b> environment.</p>
+                <p class="login-status" role="alert">No sign-in method is configured for the <b>@_config.Environment</b> environment.</p>
             }
         }
     </div>
 </div>
 
 @code {
-    private PoWatch.Client.Services.AuthConfigResponse? _config;
+    private PoWatch.Shared.Models.AuthConfigDto? _config;
     private string _returnUrl = "/";
 
     protected override async Task OnInitializedAsync()
@@ -49,7 +53,7 @@
                 _returnUrl = Uri.UnescapeDataString(kv[1]);
         }
 
-        _config = await Http.GetFromJsonAsync("auth/config", PoWatch.Client.Services.PoWatchJsonContext.Default.AuthConfigResponse);
+        _config = await Http.GetFromJsonAsync("auth/config", PoWatch.Client.Services.PoWatchJsonContext.Default.AuthConfigDto);
     }
 
     private string LoginUrl(string endpoint) => $"{endpoint}?returnUrl={Uri.EscapeDataString(_returnUrl)}";

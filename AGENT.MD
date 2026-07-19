@@ -8,7 +8,7 @@ Authoritative map of architectural boundaries and project configuration. Update 
 - LF line endings enforced via `.gitattributes` (matches `.editorconfig`).
 
 ## Retained root layout (rule 7)
-`/src`, `/tests`, `/infra` (Bicep IaC — App Service Plan, Key Vault, storage, observability), `/SCRIPTS/setup.ps1`, `.vscode/{launch,tasks,settings}.json`, `docker-compose.yml` (local Azurite), the CPM/build props, `global.json`, and `AGENT.MD`. Stale docs, Mermaid diagrams, README, `azure.yaml`, and Copilot configs were removed.
+`/src`, `/tests`, `/infra` (Bicep IaC — App Service Plan, Key Vault, storage, observability), `/docs` (PRD_Master, Mermaid + SVG diagrams, `technical/deployment-guidelines.md`), `/SCRIPTS` (`setup.ps1`, `restore-prod-identity-and-monitoring.ps1`), `.vscode/{launch,tasks,settings}.json`, `docker-compose.yml` (local Azurite), `README.md`, the CPM/build props, `global.json`, and `AGENT.MD`. `azure.yaml` and Copilot configs are not used.
 
 ## Projects (`/src`)
 - `PoWatch.Api` — host; serves the Blazor WASM client same-origin (no CORS). **Vertical feature slices** under `Features/<Feature>/` (Auth, Observer, Archives, Identity, Fhir, Diagnostics), each owning its `Map<Feature>Feature` endpoints. BFF auth, Key Vault, health checks, telemetry, rate limiting, ProblemDetails, HybridCache.
@@ -46,5 +46,5 @@ Authoritative map of architectural boundaries and project configuration. Update 
 - `PoWatch.E2EUI` — C# Playwright UI; drives a running instance via `E2E_BASE_URL`, skips when unset.
 
 ## CI/CD & local
-- `.github/workflows/deploy.yml` — only workflow: restore, build, format-verify, publish, deploy to App Service `app-powatch` (RG `PoWatch`). **No tests in the pipeline (rule 6.4).**
+- `.github/workflows/deploy.yml` — only workflow: restore, build, format-verify, publish, deploy to App Service `app-powatch-win` (RG `PoWatch`), then a `/health` gate. **No tests in the pipeline (rule 6.4).**
 - Local: HTTP `5000` / HTTPS `5001`; Azurite container `PoWatch` (docker-compose); `SCRIPTS/setup.ps1` cold-starts toolchain + Azurite + az login.

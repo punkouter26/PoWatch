@@ -4,8 +4,9 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    background: repeating-linear-gradient(45deg, #b45309, #b45309 8px, #92400e 8px, #92400e 16px);
-    color: #fff;
+    background: var(--state-warning-bg);
+    color: var(--state-warning-fg);
+    border: 1px solid var(--state-warning-border);
     font-weight: 800;
     letter-spacing: 0.05em;
     padding: 0.28rem 0.6rem;
@@ -16,17 +17,67 @@
     animation: mock-flash 1.2s ease-in-out infinite;
 }
 
+/* WCAG 2.3.1 (Animation from Interactions): flashing >3 Hz is out, our pulse is
+   1.2 s/cycle (~0.83 Hz) which is permitted. Still — under prefers-reduced-motion
+   we lock opacity to 1.0 so the chip never appears or disappears for low-vision
+   or vestibular-sensitive operators. */
 @keyframes mock-flash {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+    50% { opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mock-chip { animation: none; opacity: 1; }
+}
+
+/* ── Theme toggle button (right rail, between mock-chip and user chip) ── */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-overlay);
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform var(--motion-instant), background var(--motion-quick),
+                border-color var(--motion-quick), color var(--motion-quick);
+}
+.theme-toggle:hover {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+.theme-toggle:active { transform: scale(0.92) translateZ(0); }
+.theme-toggle:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+}
+@media (prefers-reduced-motion: reduce) {
+    .theme-toggle { transition: none; }
+}
+
+/* Visually-hidden helper — used for accessible label strings (theme name etc.) */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* ── PoWatch top navbar (Phase 4 standardization) ── */
 
 .app-navbar {
     background: linear-gradient(135deg, #0d1b2a 0%, #1a2a3a 100%);
-    padding: 0 1.25rem;
-    min-height: 3.5rem;
+    padding: 0 var(--space-5);
+    min-height: var(--topbar-h);
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -39,11 +90,11 @@
 .navbar-brand {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
     text-decoration: none;
-    color: white;
-    margin-right: 1.5rem;
-    padding: 0.5rem 0;
+    color: var(--text-bright);
+    margin-right: var(--space-6);
+    padding: var(--space-2) 0;
 }
 
 .brand-mark {
@@ -56,7 +107,7 @@
     justify-content: center;
     font-size: 0.7rem;
     font-weight: 800;
-    color: white;
+    color: var(--text-bright);
     letter-spacing: 0.02em;
 }
 
@@ -70,18 +121,18 @@
 .navbar-toggler {
     background: rgba(255,255,255,0.08);
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 0.4rem 0.6rem;
     cursor: pointer;
     margin-left: auto;
-    color: white;
+    color: var(--text-bright);
 }
 
 .navbar-toggler-icon {
     display: block;
     width: 20px;
     height: 2px;
-    background: white;
+    background: var(--text-bright);
     position: relative;
 }
 
@@ -91,7 +142,7 @@
     display: block;
     width: 20px;
     height: 2px;
-    background: white;
+    background: var(--text-bright);
     position: absolute;
 }
 
@@ -156,7 +207,7 @@
 
 .nav-link:hover {
     background: rgba(255,255,255,0.1);
-    color: #fff !important;
+    color: var(--text-bright) !important;
 }
 
 .nav-link.active {

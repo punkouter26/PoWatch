@@ -200,7 +200,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
                 subject.DisplayName,
                 subject.FirstSeenUtc,
                 DateTimeOffset.UtcNow,
-                subject.IsKnownIdentity,
+                subject.IdentityStatus == IdentityStatus.Known,
                 lastActivity: activity,
                 lastActivityIsOutlier: isOutlier);
 
@@ -237,7 +237,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
             subject.DisplayName,
             subject.FirstSeenUtc,
             now,
-            subject.IsKnownIdentity,
+            subject.IdentityStatus == IdentityStatus.Known,
             subject.LastActivity,
             subject.LastActivityIsOutlier);
     }
@@ -255,7 +255,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
         {
             SubjectId = subjectId,
             DisplayName = displayName,
-            IsKnownIdentity = knownIdentity,
+            IdentityStatus = knownIdentity ? IdentityStatus.Known : IdentityStatus.Temporary,
             FirstSeenUtc = firstSeenUtc,
             LastSeenUtc = lastSeenUtc,
             LastActivity = lastActivity,

@@ -16,8 +16,9 @@
         </header>
 
         <div class="identity-register-bar">
-            <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput" Placeholder="New subject display name…" Style="flex:1;"
-                @onkeydown="@(async e => { if (e.Key == "Enter") await RegisterSubjectAsync(); })" />
+            <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput" Placeholder="New subject display name…"
+                          Class="identity-flex-input"
+                          @onkeydown="@(async e => { if (e.Key == "Enter") await RegisterSubjectAsync(); })" />
             <RadzenButton Icon="person_add" Text="Add Known Subject" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                 Click="RegisterSubjectAsync" Disabled="@(busy || string.IsNullOrWhiteSpace(newSubjectName))" />
         </div>
@@ -40,7 +41,7 @@
                 <div class="empty-icon">👤</div>
                 <p class="empty-title">No subjects identified yet</p>
                 <p class="empty-subtitle">Start monitoring to detect and track subjects in your space.</p>
-                <a href="/" class="archive-empty-cta primary-cta">→ Go to Observer Hub to start detecting</a>
+                <a href="/" class="archive-empty-cta primary-cta">→ Go to the Live Room to start watching</a>
             </div>
         }
         else
@@ -52,8 +53,8 @@
                             @if (editingSubjectId == item.SubjectId)
                             {
                                 <div class="inline-edit-row">
-                                    <RadzenTextBox @bind-Value="editingName" Style="flex:1;"
-                                        @onkeydown="@(async e => { if (e.Key == "Enter") await CommitInlineRenameAsync(); else if (e.Key == "Escape") CancelInlineEdit(); })" />
+                                    <RadzenTextBox @bind-Value="editingName" Class="identity-flex-input"
+                                                  @onkeydown="@(async e => { if (e.Key == "Enter") await CommitInlineRenameAsync(); else if (e.Key == "Escape") CancelInlineEdit(); })" />
                                     <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                                         Click="CommitInlineRenameAsync" Disabled="@(string.IsNullOrWhiteSpace(editingName))" aria-label="Save" />
                                     <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
@@ -99,13 +100,13 @@
         <CollapsibleSection Title="Merge Two Identities">
             <div class="merge-form">
                 <label>Primary Subject</label>
-                <RadzenDropDown Data="subjects" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="primarySubjectId" Style="width:100%;" />
+                <RadzenDropDown Data="subjects" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="primarySubjectId" Class="identity-wide-input" />
 
                 <label>Secondary Subject</label>
-                <RadzenDropDown Data="subjects.Where(x => x.SubjectId != primarySubjectId)" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="secondarySubjectId" Style="width:100%;" />
+                <RadzenDropDown Data="subjects.Where(x => x.SubjectId != primarySubjectId)" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="secondarySubjectId" Class="identity-wide-input" />
 
                 <label>Canonical Name (optional)</label>
-                <RadzenTextBox @bind-Value="canonicalName" Style="width:100%;" />
+                <RadzenTextBox @bind-Value="canonicalName" Class="identity-wide-input" />
 
                 <RadzenButton Text="Commit Merge" ButtonStyle="ButtonStyle.Danger" Click="MergeAsync" Disabled="@(busy || subjects.Count < 2)" />
             </div>

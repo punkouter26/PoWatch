@@ -5,11 +5,21 @@
 @using PoWatch.Shared.Models
 @using Microsoft.Extensions.Options
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject PoWatch.Client.Services.UserPreferencesService UserPrefs
 @inject IJSRuntime JS
 @inject NotificationService NotificationService
 @inject NavigationManager Navigation
 
-<PageTitle>PoWatch | Observer Hub</PageTitle>
+<PageTitle>PoWatch | Live Room</PageTitle>
+
+<RoomAlertOverlay Visible="@_alertOverlayVisible"
+                  SubjectName="@_alertOverlaySubject"
+                  Reason="@_alertOverlayReason"
+                  ActivityLabel="@_alertOverlayActivity"
+                  TimeLabel="@_alertOverlayTime"
+                  ImageDataUrl="@_alertOverlayImage"
+                  OnAcknowledge="AcknowledgeAlertOverlay"
+                  OnViewSubject="ViewAlertSubject" />
 
 @if (_pipelineHealthLatched)
 {
@@ -28,6 +38,34 @@
 }
 
 <div class="observer-page">
+    @* Calm-state hero (UX Win #1/#6): the single, glanceable answer to "is the room OK right now?".
+       This is what the caregiver stares at for hours — quiet is designed to read as SAFE, not as
+       "nothing loaded". Telemetry is demoted into the Live Monitor panel's collapsible drawers. *@
+    <section class="room-status-hero room-status-hero--@RoomStatusKey" aria-live="polite" data-test="room-status-hero">
+        <div class="room-status-orb" aria-hidden="true">
+            <span class="room-status-orb-core"></span>
+        </div>
+        <div class="room-status-copy">
+            <p class="room-status-eyebrow">@(thinking ? "Checking…" : monitoring ? "Live · watching" : "Standby")</p>
+            <h1 class="room-status-headline">@RoomStatusHeadline</h1>
+            <p class="room-status-subline">@RoomStatusSubline</p>
+        </div>
+        <div class="room-status-actions">
+            @if (!monitoring && !thinking)
+            {
+                <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Text="▶ Start watching"
+                              Click="StartMonitoringAsync" Disabled="@(!ObservationLoopEnabled)" data-test="hero-start" />
+            }
+            else
+            {
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Medium" Text="■ Stop"
+                              Click="StopMonitoringAsync" data-test="hero-stop" />
+            }
+            <RadzenButton ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Medium" Icon="assignment" Text="End shift"
+                          Click="StartHandoff" data-test="hero-handoff" title="Generate a one-tap handoff brief for the next caregiver" />
+        </div>
+    </section>
+
     @if (FeatureFlags.Value.EnableHud)
     {
         <div class="hud-float-container">
@@ -93,15 +131,13 @@
             <div class="controls-row controls-row--primary">
                 <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Text="▶ Start Monitoring" Click="StartMonitoringAsync" Disabled="@(monitoring || thinking || !ObservationLoopEnabled)" data-test="observer-start" />
                 <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Large" Text="■ Stop" Click="StopMonitoringAsync" Disabled="@(!monitoring && !thinking)" data-test="observer-stop" />
-                <div class="status-strip">
-                    <span class="status-dot-live @(monitoring ? "status-dot-live--on" : string.Empty)" aria-hidden="true"></span>
-                    <span class="status-strip-label">@(monitoring ? "RUNNING" : "IDLE")</span>
-                    @if (thinking) { <span class="status-strip-thinking">analysing…</span> }
-                    <div class="mute-toggle">
-                        <span>Mute</span>
-                        <RadzenSwitch @bind-Value="muted" TValue="bool" />
-                    </div>
-                </div>
+                <PoStatusStrip Active="monitoring" Thinking="thinking">
+                    <MuteSlot>
+                        <label for="observer-mute" class="mute-label">Mute observations audio</label>
+                        <RadzenSwitch id="observer-mute" @bind-Value="muted" TValue="bool"
+                                      aria-label="Mute or unmute audio notifications for new observations" />
+                    </MuteSlot>
+                </PoStatusStrip>
             </div>
 
             @if (!ObservationLoopEnabled)
@@ -109,8 +145,9 @@
                 <div class="observer-disabled-note">Monitoring is disabled by the current feature flags.</div>
             }
 
-            <div class="nexus-frame @(thinking ? "thinking" : string.Empty)">
+            <div class="nexus-frame @(thinking ? "thinking webcam-shell-ready" : string.Empty)">
                 <video @ref="liveCameraFeed" class="live-camera-feed" autoplay muted playsinline poster="media/webcam-fallback.svg" aria-label="Live webcam preview"></video>
+                <canvas class="webcam-shell @(thinking ? "webcam-shell--on" : string.Empty)" aria-hidden="true"></canvas>
                 <div class="scanlines @(hasCameraFeed ? string.Empty : "hidden")"></div>
                 <div class="video-label @(hasCameraFeed ? string.Empty : "hidden")">LIVE 16:9</div>
                 <div class="video-sub">@(monitoring ? "Observation loop active" : "Idle")</div>
@@ -137,11 +174,9 @@
 
         </RadzenCard>
 
-        <RadzenCard class="panel panel-activity">
-            <header class="panel-header compact observer-panel-header">
-                <h2 title="Chronological log of all AI-detected activities today. Green = normal, orange = significant, red = outlier.">Room Activity</h2>
-                <span class="activity-count">@streamItems.Count today</span>
-            </header>
+        <PoPanel Glass="true" Title="Room Activity"
+                  Badge="@($"{streamItems.Count} today")"
+                  BadgeClass="@(streamItems.Count > 0 ? "po-panel-badge--live" : null)">
 
             <div class="activity-scroll-region">
                 <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
@@ -149,10 +184,10 @@
 
             <div class="subjects-in-panel" aria-label="All detected subjects">
                 <div class="subjects-strip-header">
-                    <span class="stats-section-label" title="All subjects detected across all monitoring sessions. TEMP = unidentified subject awaiting a name. Click a card to manage identities.">Subjects</span>
-                    @if (_subjectsLoading) { <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Style="height:3px; width:50px; align-self:center;" /> }
-                    <RadzenTextBox Placeholder="Filter…" @bind-Value="_subjectFilter" @oninput="OnSubjectFilterInput" Style="width:120px;" aria-label="Filter subjects" />
-                    <a href="/identity" class="subjects-manage-link" title="Add known subjects, rename TEMP subjects, or merge duplicate identities">Manage identities →</a>
+                    <span class="stats-section-label" title="Everyone seen across all sessions. NEW = a person the app hasn't been told the name of yet. Tap a card to name or merge people.">People</span>
+                    @if (_subjectsLoading) { <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Class="subjects-loading-progress" /> }
+                    <RadzenTextBox Placeholder="Filter…" @bind-Value="_subjectFilter" @oninput="OnSubjectFilterInput" Class="subjects-filter-input" aria-label="Filter people" />
+                    <a href="/identity" class="subjects-manage-link" title="Name a new person, rename someone, or merge duplicates">Manage people →</a>
                 </div>
                 <div class="subjects-mini-row">
                     @if (_liveSubjects.Count == 0 && !_subjectsLoading)
@@ -175,11 +210,11 @@
                                 }
                                 @if (subject.LastActivityIsOutlier)
                                 {
-                                    <span class="subject-card-badge subject-card-badge--outlier">!</span>
+                                    <span class="subject-card-badge subject-card-badge--outlier" title="Something unusual was flagged">!</span>
                                 }
                                 @if (!subject.IsKnownIdentity && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations)
                                 {
-                                    <span class="subject-card-badge subject-card-badge--unknown">TEMP</span>
+                                    <span class="subject-card-badge subject-card-badge--unknown" title="New person — not named yet">NEW</span>
                                 }
                             </div>
                             <div class="subject-card-activity">
@@ -192,15 +227,31 @@
                     }
                 </div>
             </div>
-        </RadzenCard>
+        </PoPanel>
 
-        <RadzenCard class="panel panel-stats">
-            <header class="panel-header observer-panel-header">
-                <h2 title="Real-time session health and LLM processing diagnostics. All metrics reset each time you click Start.">Live Monitor</h2>
-            </header>
+        <PoPanel Glass="true" Title="Live Monitor">
 
+
+            @* Human summary (Win #6): a caregiver-readable glance stays visible; the full telemetry
+               grid drops into a disclosure so the panel isn't a wall of numbers by default. *@
+            <div class="monitor-summary" aria-label="Room summary">
+                <div class="monitor-summary-item monitor-summary-item--@RoomStatusKey">
+                    <span class="monitor-summary-label">Room</span>
+                    <strong class="monitor-summary-value">@RoomStatusHeadline</strong>
+                </div>
+                <div class="monitor-summary-item">
+                    <span class="monitor-summary-label">Person</span>
+                    <strong class="monitor-summary-value">@PersonDetectedLabel</strong>
+                </div>
+                <div class="monitor-summary-item">
+                    <span class="monitor-summary-label">Last event</span>
+                    <strong class="monitor-summary-value">@LatestActivityLabel</strong>
+                    <small>@LatestTimestampLabel</small>
+                </div>
+            </div>
+
+            <CollapsibleSection Title="Session details" InitiallyExpanded="false">
             <section class="stats-section">
-                <p class="stats-section-label">Session status</p>
                 <div class="monitor-metrics-grid" aria-label="Live monitor telemetry">
                     <div class="monitor-metric-card">
                         <span class="monitor-metric-label">Recording duration</span>
@@ -224,7 +275,7 @@
                     </div>
                     <div class="monitor-metric-card">
                         <span class="monitor-metric-label">AI confidence</span>
-                        <strong class="monitor-metric-value">@ConfidenceDisplayLabel</strong>
+                        <strong class="monitor-metric-value">@ConfidenceTrustLabel</strong>
                         <small>Inference: @(inferenceDiagnostics?.LastInferenceMs is int ms ? $"{ms} ms" : "Pending")</small>
                     </div>
                     <div class="monitor-metric-card">
@@ -254,6 +305,7 @@
                     </div>
                 </div>
             </section>
+            </CollapsibleSection>
 
             @* Tiering (idea 1): the 11 deep-diagnostic cards are collapsed by default so the glance
                view stays dense with operational state, not telemetry. One click reveals the debug tier. *@
@@ -316,7 +368,7 @@
                     </div>
                 </div>
             </CollapsibleSection>
-        </RadzenCard>
+        </PoPanel>
     </div>
 </div>
 

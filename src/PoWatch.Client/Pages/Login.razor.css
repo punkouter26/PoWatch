@@ -57,6 +57,29 @@
 
 .login-btn:last-of-type { margin-bottom: 0; }
 
+.login-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4em;
+    font-size: 1.1em;
+    line-height: 1;
+}
+
+.login-btn-text { flex: 0 0 auto; }
+
+/* Hint copy under each sign-in button (Idea #10 — onboarding clarity) */
+.login-btn-hint {
+    margin: calc(var(--space-3) * -1) 0 var(--space-4);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+    text-align: left;
+    padding: 0 var(--space-2);
+}
+
+.login-btn-hint--muted { font-style: italic; opacity: 0.85; }
+
 .login-btn:focus-visible {
     outline: 2px solid var(--neon-green);
     outline-offset: 3px;
@@ -69,7 +92,7 @@
 /* Microsoft — primary brand action */
 .login-btn-ms {
     background: #2f2f2f;
-    color: #ffffff;
+    color: var(--text-bright);
     border: 1px solid #4a4a4a;
 }
 .login-btn-ms:hover {
@@ -86,6 +109,6 @@
 }
 .login-btn-guest:hover {
     background: rgba(56, 255, 168, 0.06);
-    border-color: rgba(56, 255, 168, 0.4);
+    border-color: var(--neon-green-glow);
     color: var(--neon-green);
 }

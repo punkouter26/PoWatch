@@ -16,9 +16,25 @@
     "wasmDtype": "q8"
   },
   {
-    "key": "qwen2-vl-2b",
-    "id": "onnx-community/Qwen2-VL-2B-Instruct",
-    "label": "Qwen2-VL 2B",
+    "key": "smolvlm2-256m",
+    "id": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+    "label": "SmolVLM2 256M",
+    "webgpuDtype": "fp16",
+    "webgpuDtypeFallback": "fp32",
+    "wasmDtype": "q8"
+  },
+  {
+    "key": "smolvlm2-500m",
+    "id": "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
+    "label": "SmolVLM2 500M",
+    "webgpuDtype": "fp16",
+    "webgpuDtypeFallback": "fp32",
+    "wasmDtype": "q8"
+  },
+  {
+    "key": "smolvlm-2b",
+    "id": "HuggingFaceTB/SmolVLM-Instruct",
+    "label": "SmolVLM 2.2B",
     "webgpuDtype": "q4f16",
     "webgpuDtypeFallback": "q4",
     "wasmDtype": "q4"

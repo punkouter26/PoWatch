@@ -1,0 +1,46 @@
+/* PoStatusStrip — single source of truth for the inline RUNNING/IDLE pill. */
+
+.po-status-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.po-status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    flex: 0 0 auto;
+    transition: background var(--motion-quick), box-shadow var(--motion-quick);
+}
+
+.po-status-dot--on {
+    background: var(--state-success-fg);
+    box-shadow: 0 0 8px var(--state-success-border);
+    animation: poStatusPulse 1.6s ease-in-out infinite;
+}
+
+.po-status-dot--off { background: var(--color-text-muted); }
+
+.po-status-label {
+    color: var(--color-text-primary);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.po-status-thinking {
+    color: var(--state-warning-fg);
+    font-style: italic;
+    font-size: var(--text-sm);
+}
+
+.po-status-mute { margin-left: var(--space-2); }
+
+@keyframes poStatusPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(0.9); opacity: 0.7; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .po-status-dot--on { animation: none; }
+}

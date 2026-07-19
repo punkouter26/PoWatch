@@ -20,7 +20,7 @@
                 <span class="hud-badge hud-badge--@_inferenceLevel" title="Local inference engine state" data-test="inference-badge">
                     <span class="hud-badge-dot" aria-hidden="true"></span>@_inferenceLabel
                 </span>
-                <span class="hud-clock" aria-live="polite" data-test="page-clock">@_clock</span>
+                <span class="hud-clock" aria-live="off" data-test="page-clock"><ClockDisplay /></span>
             </div>
         </div>
 
@@ -42,11 +42,10 @@
 <RadzenContextMenu />
 
 @code {
-    private string _clock = DateTime.Now.ToString("HH:mm:ss");
     private System.Threading.Timer? _timer;
     private int _tick;
     private bool _navigating = false;
-    private string _pageTitle = "Observer Hub";
+    private string _pageTitle = "Live Room";
     private string _pageSubtitle = "Local-only ambient monitoring";
 
     // Live inference-engine badge (NET_RUN_10 #10) — replaces the static "Inference ready" chip.
@@ -55,16 +54,36 @@
 
     protected override void OnInitialized()
     {
+        // Inference-badge poll only — clock moved to its own <ClockDisplay />.
         _timer = new System.Threading.Timer(_ =>
         {
-            _clock = DateTime.Now.ToString("HH:mm:ss");
-            // Poll the local inference engine every 5s so the badge reflects real state.
             if (++_tick % 5 == 0) _ = InvokeAsync(RefreshInferenceBadgeAsync);
-            InvokeAsync(StateHasChanged);
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
         Nav.LocationChanged += OnLocationChanged;
         UpdatePageTitle(Nav.Uri);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Wire the global keyboard shortcuts (Ctrl+1..5 for nav, "/" to
+            // focus the page filter, "?" for help). The JS file auto-loads
+            // in index.html; we just need to register the dotNetRef so it can
+            // bubble commands back to C# (e.g. keyboard "r" might later mean
+            // "refresh", depending on the page).
+            try { await JS.InvokeVoidAsync("powatchKeybindings.setup", DotNetObjectReference.Create(this)); }
+            catch { /* private mode or polyfill missing */ }
+        }
+    }
+
+    [JSInvokable]
+    public void OnShortcut(string key)
+    {
+        // Future: surface recognized combos as a toast. Today the `/` shortcut
+        // is handled inside keyboard-bindings.js (focus-filter). Centralising
+        // the wiring here keeps the JS one source of truth.
     }
 
     private async Task RefreshInferenceBadgeAsync()
@@ -110,13 +129,13 @@
         var path = new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
         (_pageTitle, _pageSubtitle) = path switch
         {
-            "" or "/" => ("Observer Hub", "Live webcam capture, local AI inference & activity log"),
-            "/archives" => ("Archives", "Daily chapters, clinical narratives & evidence"),
-            "/live-dashboard" => ("Live Dashboard", "Real-time status across all known subjects"),
-            "/identity" => ("Subjects", "Name subjects, rename & merge identities"),
-            "/diagnostics" => ("Diagnostics", "Runtime resource, storage & inference health"),
-            "/login" => ("Sign in", "Authenticate to access PoWatch"),
-            _ => ("PoWatch", "Local-only ambient monitoring")
+            "" or "/" => ("Live Room", "Watching the room, quietly"),
+            "/archives" => ("History", "Each day's story and the moments that mattered"),
+            "/live-dashboard" => ("Overview", "How everyone is doing, right now"),
+            "/identity" => ("People", "Name, rename, and merge the people seen"),
+            "/diagnostics" => ("System", "Runtime, storage & inference health"),
+            "/login" => ("Sign in", "Sign in to PoWatch"),
+            _ => ("PoWatch", "Calm, local-only room monitoring")
         };
     }
 
@@ -126,3 +145,4 @@
         Nav.LocationChanged -= OnLocationChanged;
     }
 }
+

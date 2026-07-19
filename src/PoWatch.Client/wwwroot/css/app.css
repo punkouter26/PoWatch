@@ -1,102 +1,17 @@
-:root {
-    /* ── Color System ─────────────────────────────────────────────────────── */
-    --bg-main: #05030a;
-    --bg-panel: #0f0b1f;
-    --bg-panel-soft: #15112c;
-    --line: #6f3de3;
-    --neon-green: #38ffa8;
-    --neon-green-dim: rgba(56, 255, 168, 0.15);
-    --neon-green-glow: rgba(56, 255, 168, 0.4);
-    --accent-purple: #6f3de3;
-    --accent-purple-dim: rgba(111, 61, 227, 0.2);
-    --accent-purple-glow: rgba(111, 61, 227, 0.5);
-    --alert-orange: #ff9f40;
-    --alert-red: #ff7070;
-    --text-primary: #ecf1ff;
-    --text-muted: #adb2cc;        /* secondary / supporting text — WCAG AA on panel bg */
-    --text-label: #c8cde8;       /* small uppercase labels — higher contrast than muted */
-    --text-bright: #ffffff;
+/* ── app.css — feature-specific styles, vendor overrides, and the bits that
+       hadn't yet been promoted into a scoped .razor.css file.
 
-    /* ── Topbar height — adjust if Bootstrap/custom top-row changes ───────── */
-    --topbar-h: 3.5rem;
-    
-    /* ── Typography Scale ──────────────────────────────────────────────────── */
-    --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: "Consolas", "Lucida Console", monospace;
-    
-    /* ── Fluid Typography ──────────────────────────────────────────────────── */
-    --text-xs: clamp(0.75rem, 0.6vw + 0.55rem, 0.82rem);
-    --text-sm: clamp(0.82rem, 0.7vw + 0.6rem, 0.88rem);
-    --text-base: clamp(0.88rem, 0.8vw + 0.6rem, 0.95rem);
-    --text-lg: clamp(1rem, 1vw + 0.7rem, 1.1rem);
-    --text-xl: clamp(1.15rem, 1.2vw + 0.8rem, 1.35rem);
-    --text-2xl: clamp(1.35rem, 1.5vw + 0.9rem, 1.55rem);
-    --text-3xl: clamp(1.55rem, 2vw + 1rem, 1.85rem);
-    /* Mono data readout: larger minimum ensures legibility at arm's length */
-    --text-data: clamp(0.85rem, 0.8vw + 0.6rem, 0.92rem);
-    
-    /* ── Spacing Scale ───────────────────────────────────────────────────── */
-    --space-1: 0.25rem;
-    --space-2: 0.5rem;
-    --space-3: 0.75rem;
-    --space-4: 1rem;
-    --space-5: 1.25rem;
-    --space-6: 1.5rem;
-    --space-8: 2rem;
-    --space-10: 2.5rem;
-    --space-12: 3rem;
-    
-    /* ── Border Radius ────────────────────────────────────────────────────── */
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 18px;
-    --radius-full: 9999px;
-    
-    /* ── Shadows ─────────────────────────────────────────────────────────── */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
-    --shadow-glow-green: 0 0 20px rgba(56, 255, 168, 0.25);
-    --shadow-glow-purple: 0 0 20px rgba(111, 61, 227, 0.25);
+       Tokens and element reset now live in tokens.css and base.css. Do not
+       re-declare palette or focus-ring values here — extend the tokens or
+       use a scoped stylesheet. ──────────────────────────────────────────── */
 
-    /* ── Elevation Tiers ──────────────────────────────────────────────────── */
-    --elevation-base: 0 0 0 1px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
-    --elevation-raised: 0 0 0 1px rgba(56, 255, 168, 0.18), 0 0 24px rgba(111, 61, 227, 0.2), 0 24px 48px rgba(0, 0, 0, 0.38);
-    --elevation-float: 0 0 0 2px rgba(56, 255, 168, 0.32), 0 0 40px rgba(111, 61, 227, 0.35), 0 32px 60px rgba(0, 0, 0, 0.5);
-    
-    /* ── Transitions ──────────────────────────────────────────────────────── */
-    --transition-fast: 150ms ease;
-    --transition-base: 250ms ease;
-    --transition-slow: 400ms ease;
-    --transition-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
-
-    /* ── Motion system (audit #4) — a single vocabulary for hardware-accelerated
-       micro-interactions. Animate ONLY transform/opacity with these tokens. ──── */
-    --motion-instant: 90ms cubic-bezier(0.4, 0, 0.2, 1);   /* tap feedback */
-    --motion-quick: 160ms cubic-bezier(0.4, 0, 0.2, 1);    /* hovers, toggles */
-    --motion-enter: 320ms cubic-bezier(0.16, 1, 0.3, 1);   /* page/panel entry */
-    --motion-spring: var(--transition-spring);
-
-    /* ── Glassmorphism (audit #5) — tokenized so every frosted surface matches ── */
-    --glass-bg: rgba(15, 11, 31, 0.62);
-    --glass-bg-strong: rgba(5, 3, 10, 0.9);
-    --glass-border: rgba(56, 255, 168, 0.14);
-    --glass-blur: blur(14px) saturate(140%);
-
-    /* ── Semantic alert aliases (audit #2) — one name per intent ─────────────── */
-    --alert-amber: #ff9f40;
-    --alert-amber-dim: rgba(255, 159, 64, 0.14);
-    --alert-red-dim: rgba(255, 112, 112, 0.14);
-}
-
-/* ═══ Reusable frosted-glass surface (audit #5) ═══════════════════════════════ */
 .glass {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
 }
+
 
 /* ═══ GPU compositing + motion (audit #4) ═════════════════════════════════════
    Promote animated layers to their own compositor layer so transitions run on the
@@ -112,12 +27,19 @@
     transform: translateZ(0);
 }
 
-/* Reduced-motion users get instant, non-animated feedback. */
+/* Reduced-motion users get instant, non-animated feedback. This is an UNSCOPED global
+   rule, so its !important declarations cascade into every Blazor component-scoped
+   stylesheet too (MainLayout/NavMenu/Archives/Diagnostics/Login/ObserverSetupPanel) —
+   neutralizing their transitions, keyframe animations, stagger delays and smooth scroll
+   in one place, without needing a per-file @media block. */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.01ms !important;
+        animation-delay: 0ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
     }
 }
 
@@ -155,17 +77,7 @@
 }
 
 html,
-body {
-    font-family: var(--font-ui);
-    margin: 0;
-    min-height: 100%;
-    background:
-        radial-gradient(circle at 20% 20%, #22103b 0%, transparent 42%),
-        radial-gradient(circle at 80% 0%, #103325 0%, transparent 35%),
-        linear-gradient(165deg, #05030a 0%, #080617 60%, #020205 100%);
-    color: var(--text-primary);
-}
-
+body { /* moved to base.css */ }
 a,
 p,
 small,
@@ -277,9 +189,11 @@ code,
 .threshold-alert-dismiss-all:hover { background: rgba(220, 60, 60, 0.4); }
 
 .observer-page {
-    display: grid;
-    grid-template-rows: 1fr;
-    grid-template-columns: 1fr;
+    /* Flex column so the fixed-height page can hold the calm-state hero (auto height) ABOVE the
+       scrollable panel grid (fills the rest) — the old single-row grid clipped everything once the
+       hero became a second child. The HUD is position:fixed, so it stays out of this flow. */
+    display: flex;
+    flex-direction: column;
     gap: 0.55rem;
     height: calc(100svh - var(--topbar-h) - 2rem);
     overflow: hidden;
@@ -427,13 +341,17 @@ code,
 
 .panel,
 .rz-card.panel {
-    background: linear-gradient(180deg, rgba(15, 11, 31, 0.92) 0%, rgba(10, 8, 23, 0.94) 100%) !important;
+    background: var(--color-surface-overlay) !important;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(111, 61, 227, 0.32) !important;
+    border: 1px solid var(--color-border-subtle) !important;
     border-radius: 18px !important;
     box-shadow: var(--elevation-base);
     padding: 1rem 1.05rem !important;
+}
+
+:root[data-theme="dark"] .rz-card.panel {
+    background: linear-gradient(180deg, rgba(15, 11, 31, 0.92) 0%, rgba(10, 8, 23, 0.94) 100%) !important;
 }
 
 .panel--active {
@@ -534,7 +452,22 @@ code,
     background: repeating-linear-gradient(to bottom, rgba(56, 255, 168, 0.12), rgba(56, 255, 168, 0.12) 2px, transparent 2px, transparent 6px);
 }
 
-.nexus-frame.thinking .scanlines {
+/* GPU WebGL overlay (preferred) — supersedes CSS gradient when present. */
+.webcam-shell {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity var(--motion-quick);
+}
+.webcam-shell--on { opacity: 1; }
+
+/* If WebGL isn't available, show the older CSS scanline gradient as a fallback. */
+.webcam-shell-fallback { display: none; }
+.nexus-frame.thinking:not(.webcam-shell-ready) .scanlines {
     opacity: 1;
     animation: pulseScan 0.8s linear infinite;
 }
@@ -568,6 +501,12 @@ code,
     align-items: center;
     gap: 0.5rem;
     margin-left: auto;
+}
+
+.mute-toggle .mute-label {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    cursor: pointer;
 }
 
 .hud-grid {
@@ -930,10 +869,16 @@ code,
 
 /* Camera left (7 cols), stats right (5 cols), activity full-width below */
 .observer-page > .sector-grid {
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
+}
+
+/* Hero keeps its natural height and never gets squeezed by the flex sibling. */
+.observer-page > .room-status-hero {
+    flex: 0 0 auto;
 }
 
 /* 3-column compact layout: camera (5) | activity+subjects (4) | stats (3) — all in one row */
@@ -1035,28 +980,32 @@ code,
 .subject-card {
     padding: 1rem 1.1rem;
     border-radius: 14px;
-    border: 1px solid rgba(111, 61, 227, 0.22);
-    background: rgba(10, 8, 20, 0.78);
+    /* Theme-aware surfaces (contrast fix): cards now read correctly in BOTH light and dark,
+       instead of hardcoded dark navy that turned into dark-text-on-dark in light mode. */
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-1);
+    box-shadow: var(--shadow-sm);
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
 }
 
 .subject-card:hover {
-    border-color: rgba(111, 61, 227, 0.6);
-    background: rgba(20, 14, 38, 0.88);
+    border-color: var(--color-accent);
+    background: var(--color-surface-2);
+    box-shadow: var(--shadow-md);
 }
 
 .subject-card--alert {
-    border-color: rgba(255, 160, 60, 0.55);
-    background: rgba(40, 20, 0, 0.78);
+    border-color: var(--state-warning-border);
+    background: var(--state-warning-bg);
 }
 
 .subject-card--outlier {
-    border-color: rgba(220, 60, 60, 0.55);
-    background: rgba(40, 5, 5, 0.78);
+    border-color: var(--state-danger-border);
+    background: var(--state-danger-bg);
 }
 
 .subject-card-header {
@@ -1070,7 +1019,11 @@ code,
     font-weight: 600;
     font-size: 0.95rem;
     flex: 1;
+    color: var(--color-text-bright);
 }
+
+.subject-card-activity strong,
+.subject-card-value { color: var(--color-text-primary); }
 
 .subject-card-badge {
     font-size: 0.68rem;
@@ -1082,21 +1035,21 @@ code,
 }
 
 .subject-card-badge--alert {
-    background: rgba(255, 140, 40, 0.25);
-    color: #ffa040;
-    border: 1px solid rgba(255, 140, 40, 0.4);
+    background: var(--state-warning-bg);
+    color: var(--state-warning-fg);
+    border: 1px solid var(--state-warning-border);
 }
 
 .subject-card-badge--outlier {
-    background: rgba(220, 60, 60, 0.2);
-    color: #ff7070;
-    border: 1px solid rgba(220, 60, 60, 0.4);
+    background: var(--state-danger-bg);
+    color: var(--state-danger-fg);
+    border: 1px solid var(--state-danger-border);
 }
 
 .subject-card-badge--unknown {
-    background: rgba(111, 61, 227, 0.15);
-    color: #b48eff;
-    border: 1px solid rgba(111, 61, 227, 0.3);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    border: 1px solid var(--color-border-subtle);
 }
 
 .subject-card-activity,
@@ -3686,4 +3639,390 @@ button:active:not(:disabled) {
     margin-top: var(--space-2);
     padding-top: var(--space-2);
     border-top: 1px solid rgba(111, 61, 227, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE PORTRAIT (audit #6) — single-column, 44 px tap targets, sticky bottom CTA
+   The previous layout was a fluid 12-col grid that worked on tablet but cramped on
+   phone-portrait. This block reorganises the Observer Hub into a vertical flow
+   with a sticky primary CTA above the iOS safe area.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+    .app-shell { padding: var(--space-3) var(--space-3) calc(env(safe-area-inset-bottom, 0) + 6rem); }
+    .sector-grid { gap: var(--space-3); }
+    .sector-grid > .panel { grid-column: 1 / -1; }
+
+    .observer-grid,
+    .identity-grid,
+    .archives-grid,
+    .live-dashboard-page,
+    .diagnostics-page {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Subjects strip becomes a horizontal chip row (no wrap, swipeable). */
+    .subjects-mini-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+    }
+    .subject-card--mini { scroll-snap-align: start; }
+
+    /* Make every interactive target ≥44 px to satisfy WCAG 2.2 AA Target Size. */
+    .rz-button,
+    .nav-link,
+    .login-btn,
+    .subject-card,
+    .theme-toggle,
+    .nav-logout,
+    .archive-empty-cta,
+    .evidence-card,
+    .rz-switch {
+        min-height: 44px;
+    }
+    .rz-button { min-width: 44px; }
+
+    /* Primary CTA stays visible above the keyboard / soft-nav. */
+    .controls-row--primary {
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        background: var(--color-surface-overlay);
+        border-top: 1px solid var(--color-border-subtle);
+        margin: 0 calc(-1 * var(--space-3));
+        padding: var(--space-3);
+        padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0));
+        backdrop-filter: var(--glass-blur);
+    }
+    .controls-row--primary .rz-button {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: var(--text-base);
+    }
+
+    /* Activity panel — use a slightly smaller heading & full-bleed scroll area. */
+    .panel-header h2 { font-size: var(--text-md, var(--text-lg)); }
+
+    /* Hide non-essential hero text to reduce vertical mass. */
+    .observer-summary,
+    .live-dashboard-header p.observer-eyebrow,
+    .panel-summary { display: none; }
+
+    /* Hero strip collapses to single line on phone. */
+    .page-hud {
+        padding: var(--space-2) var(--space-3);
+        gap: var(--space-2);
+    }
+    .page-hud-subtitle { display: none; }
+}
+
+/* ============================================================================
+   UX Transformation — Calm State, Trust, Alert Takeover, Handoff, Motion
+   (Top-10 wins). Appended as one block; reuses design tokens from tokens.css.
+   Reduced-motion is handled globally by the rule near the top of this file.
+   ============================================================================ */
+
+/* -- Win #1/#6: Calm-state Room Status hero -- */
+.room-status-hero {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    padding: var(--space-5) var(--space-6);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-1);
+    box-shadow: var(--elevation-base);
+    transition: border-color var(--transition-base), background var(--transition-base);
+}
+.room-status-copy { flex: 1 1 auto; min-width: 0; }
+.room-status-eyebrow {
+    margin: 0;
+    font-size: var(--text-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+.room-status-headline {
+    margin: var(--space-1) 0;
+    font-size: var(--text-3xl);
+    line-height: 1.1;
+    color: var(--color-text-bright);
+}
+.room-status-subline {
+    margin: 0;
+    font-size: var(--text-base);
+    color: var(--color-text-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.room-status-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 0 0 auto;
+}
+
+/* The breathing orb: quiet = a slow, reassuring pulse; alert = an urgent one. */
+.room-status-orb {
+    flex: 0 0 auto;
+    width: 68px;
+    height: 68px;
+    border-radius: var(--radius-full);
+    display: grid;
+    place-items: center;
+    background: var(--state-success-bg);
+    border: 2px solid var(--state-success-border);
+}
+.room-status-orb-core {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-full);
+    background: var(--state-success-fg);
+    animation: roomBreathe 4.5s ease-in-out infinite;
+}
+@keyframes roomBreathe {
+    0%, 100% { transform: scale(0.82); opacity: 0.65; }
+    50%      { transform: scale(1);    opacity: 1; }
+}
+
+.room-status-hero--idle { border-color: var(--color-border-subtle); }
+.room-status-hero--idle .room-status-orb {
+    background: var(--color-surface-3);
+    border-color: var(--color-border-subtle);
+}
+.room-status-hero--idle .room-status-orb-core {
+    background: var(--color-text-muted);
+    animation: none;
+}
+.room-status-hero--calm { border-color: var(--state-success-border); }
+.room-status-hero--watch { border-color: var(--state-warning-border); }
+.room-status-hero--watch .room-status-orb {
+    background: var(--state-warning-bg);
+    border-color: var(--state-warning-border);
+}
+.room-status-hero--watch .room-status-orb-core {
+    background: var(--state-warning-fg);
+    animation-duration: 2.6s;
+}
+.room-status-hero--alert {
+    border-color: var(--state-danger-border);
+    background: var(--state-danger-bg);
+}
+.room-status-hero--alert .room-status-orb {
+    background: var(--state-danger-bg);
+    border-color: var(--state-danger-border);
+}
+.room-status-hero--alert .room-status-orb-core {
+    background: var(--state-danger-fg);
+    animation-duration: 1s;
+}
+@media (max-width: 640px) {
+    .room-status-hero { flex-wrap: wrap; padding: var(--space-4); gap: var(--space-3); }
+    .room-status-actions { width: 100%; }
+    .room-status-actions .rz-button { flex: 1 1 auto; }
+}
+
+/* -- Win #6: caregiver summary above the demoted telemetry -- */
+.monitor-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.monitor-summary-item {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    border-left: 3px solid var(--color-border-subtle);
+}
+.monitor-summary-item--calm  { border-left-color: var(--state-success-fg); }
+.monitor-summary-item--watch { border-left-color: var(--state-warning-fg); }
+.monitor-summary-item--alert { border-left-color: var(--state-danger-fg); }
+.monitor-summary-item--idle  { border-left-color: var(--color-text-muted); }
+.monitor-summary-label {
+    display: block;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+}
+.monitor-summary-value {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--text-lg);
+    color: var(--color-text-bright);
+}
+.monitor-summary-item small { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+/* -- Win #3: "why flagged" trust line on timeline events -- */
+.activity-why {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-2);
+    font-size: var(--text-sm);
+}
+.activity-why-label {
+    flex: 0 0 auto;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--state-warning-fg);
+    font-weight: 600;
+}
+.activity-why-text { color: var(--color-text-label); }
+
+/* -- Win #4: full-screen alert takeover -- */
+.alert-takeover {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    background: rgba(5, 3, 10, 0.82);
+    backdrop-filter: blur(6px);
+    animation: alertFade var(--motion-enter) both;
+}
+@keyframes alertFade { from { opacity: 0; } to { opacity: 1; } }
+.alert-takeover-card {
+    position: relative;
+    width: min(520px, 100%);
+    text-align: center;
+    padding: var(--space-8) var(--space-6);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface-1);
+    border: 2px solid var(--state-danger-border);
+    box-shadow: 0 0 0 4px var(--state-danger-bg), var(--shadow-lg);
+    animation: alertPop var(--transition-spring) both;
+}
+@keyframes alertPop {
+    from { transform: scale(0.9); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+.alert-takeover-pulse {
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 2px solid var(--state-danger-fg);
+    animation: alertRing 1.6s ease-out infinite;
+    pointer-events: none;
+}
+@keyframes alertRing {
+    0%   { opacity: 0.7; transform: scale(1); }
+    100% { opacity: 0;   transform: scale(1.06); }
+}
+.alert-takeover-eyebrow {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--state-danger-fg);
+}
+.alert-takeover-title {
+    margin: var(--space-2) 0;
+    font-size: var(--text-2xl);
+    color: var(--color-text-bright);
+}
+.alert-takeover-frame {
+    margin: var(--space-3) auto;
+    max-width: 320px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle);
+}
+.alert-takeover-frame img { display: block; width: 100%; height: auto; }
+.alert-takeover-reason {
+    margin: var(--space-3) 0;
+    font-size: var(--text-lg);
+    color: var(--color-text-primary);
+}
+.alert-takeover-meta {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+    flex-wrap: wrap;
+}
+.alert-takeover-chip {
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-2);
+    color: var(--color-text-label);
+    font-size: var(--text-sm);
+}
+.alert-takeover-chip--time { font-family: var(--font-mono); }
+.alert-takeover-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.alert-takeover-btn {
+    min-height: 48px;
+    padding: 0 var(--space-5);
+    border-radius: var(--radius-md);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform var(--motion-instant), filter var(--motion-quick);
+}
+.alert-takeover-btn:active { transform: scale(0.97); }
+.alert-takeover-btn--primary {
+    background: var(--state-danger-fg);
+    color: var(--palette-ink-050);
+}
+.alert-takeover-btn--primary:hover { filter: brightness(1.08); }
+.alert-takeover-btn--ghost {
+    background: transparent;
+    border-color: var(--color-border-subtle);
+    color: var(--color-text-label);
+}
+
+/* -- Win #5: one-tap handoff dialog -- */
+.handoff-lead {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-base);
+    color: var(--color-text-primary);
+}
+.handoff-input--primary { width: 100%; }
+.handoff-more { margin-top: var(--space-3); font-size: var(--text-sm); }
+.handoff-more > summary {
+    cursor: pointer;
+    color: var(--color-text-muted);
+    padding: var(--space-1) 0;
+    min-height: 32px;
+}
+.handoff-more label { display: block; margin: var(--space-2) 0 var(--space-1); color: var(--color-text-label); }
+.handoff-download-link {
+    display: inline-block;
+    margin-top: var(--space-3);
+    background: none;
+    border: none;
+    padding: var(--space-1) 0;
+    color: var(--color-accent);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    text-decoration: underline;
+}
+
+/* -- Win #7: de-emphasised "System" nav link -- */
+.nav-link--muted { opacity: 0.72; }
+.nav-link--muted:hover, .nav-link--muted.active { opacity: 1; }
+
+/* -- Win #10: accessibility — comfortable tap targets + visible focus -- */
+.room-status-actions .rz-button,
+.subjects-manage-link,
+.setup-advanced-toggle {
+    min-height: 44px;
+}
+.subjects-manage-link { display: inline-flex; align-items: center; }
+.alert-takeover-btn:focus-visible,
+.room-status-actions .rz-button:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
 }

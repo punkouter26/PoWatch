@@ -1,0 +1,24 @@
+/* HandoffDialog — fully scoped per audit #7 (no inline styles). */
+
+.handoff-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.handoff-dialog-body label {
+    color: var(--color-text-label);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.handoff-input {
+    width: 100%;
+}
+
+.handoff-input--button {
+    margin-bottom: var(--space-2);
+}
+.handoff-input--button:last-child { margin-bottom: 0; }

@@ -21,14 +21,23 @@ else
                     }
                     @if (item.IsClinicalOutlier)
                     {
-                        <span class="activity-badge activity-badge--outlier">Outlier</span>
+                        <span class="activity-badge activity-badge--outlier" title="Flagged as unusual by the AI">⚠ Unusual</span>
                     }
                     else if (item.IsSignificant)
                     {
-                        <span class="activity-badge activity-badge--significant">Significant</span>
+                        <span class="activity-badge activity-badge--significant" title="Flagged as worth noting by the AI">Notable</span>
                     }
                     <span class="activity-activity">@item.Activity</span>
                 </div>
+                @* Trust layer (Win #3): every flagged event says, in plain language, WHY it was flagged.
+                   A caregiver should never have to guess whether an orange/red mark can be believed. *@
+                @if ((item.IsClinicalOutlier || item.IsSignificant) && !string.IsNullOrWhiteSpace(item.SignificantReason))
+                {
+                    <div class="activity-why">
+                        <span class="activity-why-label">Why flagged</span>
+                        <span class="activity-why-text">@item.SignificantReason</span>
+                    </div>
+                }
                 @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
                 {
                     <div class="activity-note">@item.ClinicalDescription</div>

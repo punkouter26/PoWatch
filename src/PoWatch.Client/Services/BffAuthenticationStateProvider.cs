@@ -16,7 +16,7 @@ internal sealed class BffAuthenticationStateProvider(HttpClient http) : Authenti
     {
         try
         {
-            var me = await http.GetFromJsonAsync("auth/me", PoWatchJsonContext.Default.AuthMeResponse);
+            var me = await http.GetFromJsonAsync("auth/me", PoWatchJsonContext.Default.AuthStateDto);
             if (me is null || !me.IsAuthenticated)
                 return Anonymous;
 

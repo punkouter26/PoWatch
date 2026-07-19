@@ -1,0 +1,55 @@
+/* base.css — element reset, body surface, and focus ring (small, ~2 KB). */
+
+html,
+body {
+    font-family: var(--font-ui);
+    margin: 0;
+    min-height: 100%;
+    background: var(--color-surface-0);
+    color: var(--color-text-primary);
+    transition: background-color var(--motion-quick), color var(--motion-quick);
+}
+:root[data-theme="dark"] body {
+    background:
+        radial-gradient(circle at 20% 20%, #22103b 0%, transparent 42%),
+        radial-gradient(circle at 80% 0%, #103325 0%, transparent 35%),
+        linear-gradient(165deg, #05030a 0%, #080617 60%, #020205 100%);
+}
+:root[data-theme="light"] body {
+    background: var(--color-surface-0);
+}
+
+a, p, small, span, label, h1, h2, h3 {
+    color: var(--color-text-primary);
+}
+
+.hud-grid span,
+.clock,
+.model-id-text,
+pre, code,
+.activity-time, .activity-note, .activity-count,
+.status-strip-label, .status-strip-thinking,
+.refresh-indicator {
+    font-family: var(--font-mono);
+}
+
+/* Global keyboard focus ring — see app.css for details */
+:where(a, button, [role="button"], [role="tab"], input, select, textarea,
+       [tabindex], [contenteditable="true"], .rz-button, .subject-card,
+       .nav-link, .login-btn, .hud-float-pill):focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+    border-radius: var(--radius-sm);
+}
+.nexus-frame :focus-visible { outline: none; }
+
+@media (forced-colors: active) {
+    :where(a, button, [role="button"], .rz-button, .nav-link):focus-visible {
+        outline: 3px solid CanvasText;
+        outline-offset: 2px;
+    }
+    .panel, .rz-card.panel, .nav-logout, .login-btn, .hud-float-pill {
+        border-color: CanvasText !important;
+    }
+    .nexus-frame .scanlines, .nexus-frame.thinking { display: none; }
+}

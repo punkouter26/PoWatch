@@ -67,9 +67,9 @@ public sealed class AzureObservationRepository : IObservationRepository
                 // so RowKey no longer needs to carry sort order. (Edge: a resubmit that crosses a UTC-midnight
                 // boundary lands in a different PartitionKey; idempotency-key retries happen within seconds, so
                 // this is acceptable and vastly better than the previous never-dedupes behaviour.)
-                var rowKey = $"{observation.SubjectId}_{observation.Id:N}";
+                var rowKey = BuildRowKey(observation.SubjectId, observation.Id);
 
-                activity?.SetTag("powatch.subject_id", observation.SubjectId);
+                activity?.SetTag("powatch.subject_id", observation.SubjectId.Value);
                 activity?.SetTag("powatch.partition_key", partitionKey);
                 activity?.SetTag("powatch.is_significant", observation.IsSignificant);
 
@@ -77,7 +77,7 @@ public sealed class AzureObservationRepository : IObservationRepository
                 {
                     ["Id"] = observation.Id.ToString("N"),
                     ["ObservedAtUtc"] = observation.ObservedAtUtc,
-                    ["SubjectId"] = observation.SubjectId,
+                    ["SubjectId"] = observation.SubjectId.Value,
                     ["SubjectDisplayName"] = observation.SubjectDisplayName,
                     ["Activity"] = observation.Activity,
                     ["ClinicalDescription"] = observation.ClinicalDescription,
@@ -313,11 +313,11 @@ public sealed class AzureObservationRepository : IObservationRepository
         var id = source.GetString("Id") ?? Guid.NewGuid().ToString("N");
         var observedAt = source.GetDateTimeOffset("ObservedAtUtc") ?? DateTimeOffset.UtcNow;
 
-        return new TableEntity(source.PartitionKey, BuildRowKey(target.SubjectId, observedAt.UtcDateTime, Guid.Parse(id)))
+        return new TableEntity(source.PartitionKey, BuildRowKey(target.SubjectId, Guid.Parse(id)))
         {
             ["Id"] = id,
             ["ObservedAtUtc"] = observedAt,
-            ["SubjectId"] = target.SubjectId,
+            ["SubjectId"] = target.SubjectId.Value,
             ["SubjectDisplayName"] = target.DisplayName,
             ["Activity"] = source.GetString("Activity") ?? string.Empty,
             ["ClinicalDescription"] = source.GetString("ClinicalDescription") ?? string.Empty,
@@ -328,11 +328,11 @@ public sealed class AzureObservationRepository : IObservationRepository
         };
     }
 
-    private static string BuildRowKey(string subjectId, DateTime observedAtUtc, Guid id)
-    {
-        var invertedTicks = DateTime.MaxValue.Ticks - observedAtUtc.Ticks;
-        return $"{subjectId}_{invertedTicks:D19}_{id:N}";
-    }
+    // Audit #3: ONE canonical row-key scheme for both the ingest write (AddAsync) and the identity-history
+    // rewrite (RewriteEntity) — subjectId + stable observation Id, no timestamp. Previously the rewrite path
+    // emitted a legacy inverted-ticks key, leaving a table with two incompatible key formats that forced every
+    // reader to defensively re-sort. With a single deterministic, idempotent key that inconsistency is gone.
+    private static string BuildRowKey(string subjectId, Guid id) => $"{subjectId}_{id:N}";
 
     private static ObservationEvent Map(TableEntity entity) => new()
     {

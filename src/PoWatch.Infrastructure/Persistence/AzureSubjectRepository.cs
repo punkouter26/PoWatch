@@ -82,7 +82,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             {
                 SubjectId = normalized,
                 DisplayName = normalized,
-                IsKnownIdentity = !normalized.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase),
+                IdentityStatus = normalized.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
+                    ? IdentityStatus.Temporary
+                    : IdentityStatus.Known,
                 FirstSeenUtc = now,
                 LastSeenUtc = now
             };
@@ -120,7 +122,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         {
             SubjectId = canonicalId,
             DisplayName = trimmed,
-            IsKnownIdentity = true,
+            IdentityStatus = IdentityStatus.Known,
             FirstSeenUtc = existing.FirstSeenUtc,
             LastSeenUtc = existing.LastSeenUtc
         };
@@ -141,7 +143,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         {
             SubjectId = primarySubjectId,
             DisplayName = primarySubjectId,
-            IsKnownIdentity = !primarySubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase),
+            IdentityStatus = primarySubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
+                ? IdentityStatus.Temporary
+                : IdentityStatus.Known,
             FirstSeenUtc = DateTimeOffset.UtcNow,
             LastSeenUtc = DateTimeOffset.UtcNow
         };
@@ -154,7 +158,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         {
             SubjectId = canonicalId,
             DisplayName = displayName,
-            IsKnownIdentity = true,
+            IdentityStatus = IdentityStatus.Known,
             FirstSeenUtc = secondary is null
                 ? primary.FirstSeenUtc
                 : new[] { primary.FirstSeenUtc, secondary.FirstSeenUtc }.Min(),
@@ -179,7 +183,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         var entity = new TableEntity("Subjects", profile.SubjectId)
         {
             ["DisplayName"] = profile.DisplayName,
-            ["IsKnownIdentity"] = profile.IsKnownIdentity,
+            ["IdentityStatus"] = profile.IdentityStatus.ToString(),
             ["FirstSeenUtc"] = profile.FirstSeenUtc,
             ["LastSeenUtc"] = profile.LastSeenUtc
         };
@@ -193,7 +197,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
     {
         var all = await GetAllAsync(cancellationToken);
         var nextNumber = all
-            .Select(x => x.SubjectId)
+            .Select(x => x.SubjectId.Value)
             .Where(x => x.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase))
             .Select(x => int.TryParse(x[8..], out var parsed) ? parsed : 0)
             .DefaultIfEmpty(0)
@@ -210,7 +214,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             var entity = new TableEntity("Subjects", subjectId)
             {
                 ["DisplayName"] = subjectId,
-                ["IsKnownIdentity"] = false,
+                ["IdentityStatus"] = IdentityStatus.Temporary.ToString(),
                 ["FirstSeenUtc"] = now,
                 ["LastSeenUtc"] = now
             };
@@ -257,7 +261,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
         {
             SubjectId = subjectId,
             DisplayName = trimmed,
-            IsKnownIdentity = true,
+            IdentityStatus = IdentityStatus.Known,
             FirstSeenUtc = now,
             LastSeenUtc = now
         };
@@ -343,7 +347,9 @@ public sealed class AzureSubjectRepository : ISubjectRepository
     {
         SubjectId = entity.RowKey,
         DisplayName = entity.GetString("DisplayName") ?? entity.RowKey,
-        IsKnownIdentity = entity.GetBoolean("IsKnownIdentity") ?? false,
+        IdentityStatus = Enum.TryParse<IdentityStatus>(entity.GetString("IdentityStatus"), out var identityStatus)
+            ? identityStatus
+            : IdentityStatus.Temporary,
         FirstSeenUtc = entity.GetDateTimeOffset("FirstSeenUtc") ?? DateTimeOffset.UtcNow,
         LastSeenUtc = entity.GetDateTimeOffset("LastSeenUtc") ?? DateTimeOffset.UtcNow,
         LastActivity = entity.GetString("LastActivity"),

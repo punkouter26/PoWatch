@@ -5,6 +5,7 @@
 @inject IInferenceService InferenceService
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 @* Spatial contract (audit #9): LEFT = branding, CENTER = navigation actions, RIGHT = mock-data guard
    + signed-in user chip + sign-out. The "USING MOCK DATA" warning is now a topbar chip rather than a
@@ -22,15 +23,27 @@
 
     <div class="navbar-collapse @(collapseNavMenu ? "" : "show")">
         <div class="navbar-nav">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" data-test="nav-link-observer-hub">Observer Hub</NavLink>
-            <NavLink class="nav-link" href="live-dashboard" data-test="nav-link-live-dashboard">Live Dashboard</NavLink>
-            <NavLink class="nav-link" href="archives" data-test="nav-link-archives">Archives</NavLink>
-            <NavLink class="nav-link" href="identity" data-test="nav-link-identity">Identity</NavLink>
-            <NavLink class="nav-link" href="diagnostics" data-test="nav-link-diagnostics">Diagnostics</NavLink>
+            @* Caregiver language (Win #7): destinations are named for what the caregiver is doing,
+               not for the system's internals. Diagnostics is de-emphasised as "System". *@
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" data-test="nav-link-observer-hub" aria-label="Go to the Live Room">Live Room</NavLink>
+            <NavLink class="nav-link" href="live-dashboard" data-test="nav-link-live-dashboard" aria-label="Go to the Overview of everyone">Overview</NavLink>
+            <NavLink class="nav-link" href="archives" data-test="nav-link-archives" aria-label="Go to History">History</NavLink>
+            <NavLink class="nav-link" href="identity" data-test="nav-link-identity" aria-label="Go to People">People</NavLink>
+            <NavLink class="nav-link nav-link--muted" href="diagnostics" data-test="nav-link-diagnostics" aria-label="Go to System diagnostics">System</NavLink>
         </div>
         <AuthorizeView>
             <Authorized>
                 <div class="navbar-account">
+                    @* Theme toggle (WCAG 2.2 + dark/light 2026 requirement): the global
+                       script (theme-controller.js) reads the persisted preference before
+                       paint, so this button just toggles and writes to localStorage. *@
+                    <button class="theme-toggle" @onclick="ToggleThemeAsync"
+                            aria-label="@(_theme == "light" ? "Switch to dark theme" : "Switch to light theme")"
+                            aria-pressed="@(_theme == "light")"
+                            title="Toggle theme" data-test="theme-toggle">
+                        <span aria-hidden="true">@(_theme == "light" ? "☀" : "☾")</span>
+                        <span class="visually-hidden">Theme</span>
+                    </button>
                     @if (MockLabel is not null)
                     {
                         <span class="mock-chip" role="status" aria-live="polite" title="Mock data active — @MockLabel" data-test="mock-chip">
@@ -46,7 +59,7 @@
                             @_signedInEmail
                         </span>
                     }
-                    <button class="nav-logout" @onclick="LogoutAsync" disabled="@_loggingOut" aria-label="Sign out" data-test="navbar-sign-out">
+                    <button class="nav-logout" @onclick="LogoutAsync" disabled="@_loggingOut" aria-disabled="@_loggingOut" aria-label="Sign out" data-test="navbar-sign-out">
                         @(_loggingOut ? "Signing out…" : "Sign out")
                     </button>
                 </div>
@@ -63,8 +76,39 @@
     private bool collapseNavMenu = true;
     private bool _loggingOut;
     private string? _signedInEmail;
+    private string _theme = "dark";
 
     [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var current = await JS.InvokeAsync<string>("powatchTheme.get");
+                if (!string.IsNullOrEmpty(current)) _theme = current;
+                StateHasChanged();
+            }
+            catch
+            {
+                // Ignore — JS interop unavailable (shouldn't happen in WASM).
+            }
+        }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        try
+        {
+            var next = await JS.InvokeAsync<string>("powatchTheme.toggle");
+            _theme = string.IsNullOrEmpty(next) ? _theme : next;
+        }
+        catch
+        {
+            _theme = _theme == "dark" ? "light" : "dark";
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {

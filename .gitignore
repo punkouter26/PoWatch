@@ -96,3 +96,6 @@ __queuestorage__/
 
 # User-specific tool state
 .potune-state.json
+
+# Local Data Protection keyring (dev/test)
+.dataprotection-keys/

@@ -18,7 +18,7 @@ public sealed class IdentityServiceTests
             {
                 SubjectId = "Subject-1",
                 DisplayName = "Subject-1",
-                IsKnownIdentity = false,
+                IdentityStatus = IdentityStatus.Temporary,
                 FirstSeenUtc = DateTimeOffset.UtcNow.AddMinutes(-5),
                 LastSeenUtc = DateTimeOffset.UtcNow
             });
@@ -56,7 +56,7 @@ public sealed class IdentityServiceTests
             {
                 SubjectId = "kim",
                 DisplayName = "Kim",
-                IsKnownIdentity = true,
+                IdentityStatus = IdentityStatus.Known,
                 FirstSeenUtc = DateTimeOffset.UtcNow.AddHours(-1),
                 LastSeenUtc = DateTimeOffset.UtcNow.AddMinutes(-1)
             },
@@ -64,7 +64,7 @@ public sealed class IdentityServiceTests
             {
                 SubjectId = "Subject-2",
                 DisplayName = "Subject-2",
-                IsKnownIdentity = false,
+                IdentityStatus = IdentityStatus.Temporary,
                 FirstSeenUtc = DateTimeOffset.UtcNow.AddHours(-2),
                 LastSeenUtc = DateTimeOffset.UtcNow
             });
@@ -178,7 +178,7 @@ public sealed class IdentityServiceTests
         {
             var primary = Items[primarySubjectId];
             primary.DisplayName = explicitName ?? primary.DisplayName;
-            primary.IsKnownIdentity = true;
+            primary.IdentityStatus = IdentityStatus.Known;
             Items.Remove(secondarySubjectId);
             Items[primary.SubjectId] = primary;
             return Task.FromResult(primary);
@@ -193,7 +193,7 @@ public sealed class IdentityServiceTests
             {
                 SubjectId = newDisplayName.ToLowerInvariant(),
                 DisplayName = newDisplayName,
-                IsKnownIdentity = true,
+                IdentityStatus = IdentityStatus.Known,
                 FirstSeenUtc = subject.FirstSeenUtc,
                 LastSeenUtc = subject.LastSeenUtc
             };
@@ -212,6 +212,6 @@ public sealed class IdentityServiceTests
         }
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IsKnownIdentity = true });
+            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 }

@@ -13,7 +13,7 @@
         'ctrl+3': { action: 'nav', path: '/archives', label: 'Archives' },
         'ctrl+4': { action: 'nav', path: '/identity', label: 'Identity Nexus' },
         'ctrl+5': { action: 'nav', path: '/diagnostics', label: 'Diagnostics' },
-        
+
         // Action shortcuts
         'ctrl+b': { action: 'sidebar-toggle', label: 'Toggle Sidebar' },
         'ctrl+k': { action: 'command-palette', label: 'Command Palette' },
@@ -21,7 +21,8 @@
         'r': { action: 'refresh', label: 'Refresh (when not in input)' },
         '?': { action: 'help', label: 'Show Help' },
         'Escape': { action: 'close', label: 'Close/Dismiss' },
-        
+        '/': { action: 'focus-filter', label: 'Focus the page filter input' },
+
         // Archives navigation
         '←': { action: 'prev-day', label: 'Previous Day' },
         '→': { action: 'next-day', label: 'Next Day' },
@@ -93,9 +94,30 @@
             case 'prev-day':
                 triggerEvent('archives-prev');
                 break;
-                
+
             case 'next-day':
                 triggerEvent('archives-next');
+                break;
+
+            case 'focus-filter':
+                // Find the most relevant filter input on the page and focus
+                // it. Prefer aria-label="Filter subjects…" > "Filter subjects
+                // by name…" > "New subject display name…"; fall back to the
+                // first visible text input on the page.
+                let candidates = Array.from(document.querySelectorAll(
+                    'input[aria-label*="Filter" i], input[placeholder*="Filter" i]'
+                )).filter(el => el.offsetParent !== null);
+                let target = candidates[0];
+                if (!target) {
+                    target = document.querySelector('main input[type="text"], main input:not([type])');
+                }
+                if (target) {
+                    target.focus({ preventScroll: false });
+                    target.select && target.select();
+                    // Bounce the keyboard event out so the "/" key never
+                    // lands in the just-focused input.
+                    setTimeout(() => { target.value = target.value; }, 0);
+                }
                 break;
         }
 

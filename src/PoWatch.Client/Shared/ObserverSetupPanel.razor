@@ -2,25 +2,25 @@
 
 @if (!IsMonitoring && !IsThinking)
 {
-    <div class="setup-row">
-        <label>Inference Model</label>
-        <select class="rz-dropdown" @onchange="OnNativeModelChanged">
-            @foreach (var opt in ModelOptions)
-            {
-                <option value="@opt.Value" selected="@(opt.Value == SelectedModelKey)">@opt.Label</option>
-            }
-        </select>
-    </div>
-
-    @* Declutter (idea 8): GPU + poll interval are set-once on a kiosk — tuck them behind an
-       "Advanced" disclosure so the Start button stays the unmistakable primary action. *@
+    @* Invisible complexity (Win #2): a caregiver never picks an ML model. Start uses the recommended
+       default; the model, GPU, and poll interval all live behind one "Advanced" disclosure so the
+       cold-start screen offers exactly one obvious action — Start watching. *@
     <div class="setup-advanced">
         <button type="button" class="setup-advanced-toggle" @onclick="ToggleAdvanced"
                 aria-expanded="@_advExpanded">
-            @(_advExpanded ? "▾" : "▸") Advanced (GPU &amp; poll interval)
+            @(_advExpanded ? "▾" : "▸") Advanced settings (model, GPU &amp; check interval)
         </button>
         @if (_advExpanded)
         {
+            <div class="setup-row">
+                <label>Inference Model</label>
+                <select class="rz-dropdown" @onchange="OnNativeModelChanged">
+                    @foreach (var opt in ModelOptions)
+                    {
+                        <option value="@opt.Value" selected="@(opt.Value == SelectedModelKey)">@opt.Label</option>
+                    }
+                </select>
+            </div>
             <div class="setup-row">
                 <label>GPU Power Preference</label>
                 <select class="rz-dropdown" @onchange="OnGpuPreferenceChanged">
@@ -30,7 +30,7 @@
                 </select>
             </div>
             <div class="setup-row">
-                <label>Poll Interval — <strong>@PollingSeconds s</strong></label>
+                <label>Check the room every — <strong>@PollingSeconds s</strong></label>
                 <input type="range" min="5" max="120" step="5"
                        value="@PollingSeconds"
                        @onchange="OnPollingChanged" />

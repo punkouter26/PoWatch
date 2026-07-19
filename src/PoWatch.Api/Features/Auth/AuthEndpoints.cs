@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.Options;
 using PoWatch.Api.Security;
 using PoWatch.Application.Options;
+using PoWatch.Shared.Models;
 
 namespace PoWatch.Api.Features.Auth;
 
@@ -20,38 +21,34 @@ internal static class AuthEndpoints
         // still carry their principal — AllowAnonymous only removes the requirement, it doesn't strip claims.
         var group = app.MapGroup("/auth").WithTags("Auth").AllowAnonymous();
 
-        group.MapGet("/me", (ClaimsPrincipal user, string? returnUrl) => Results.Ok(new
-        {
-            isAuthenticated = user.Identity?.IsAuthenticated ?? false,
-            name = user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name),
+        group.MapGet("/me", (ClaimsPrincipal user, string? returnUrl) => TypedResults.Ok(new AuthStateDto(
+            IsAuthenticated: user.Identity?.IsAuthenticated ?? false,
+            Name: user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name),
             // Surface the email/UPN so the navbar can show "you are signed in as …" after Microsoft OAuth.
             // Prefer `preferred_username` (OIDC standard), fall back to `email` and `upn`.
-            email = user.FindFirstValue("preferred_username")
+            Email: user.FindFirstValue("preferred_username")
                   ?? user.FindFirstValue(ClaimTypes.Email)
                   ?? user.FindFirstValue("upn"),
-            roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray(),
-            returnUrl = SafeLocalUrl(returnUrl)
-        }))
+            Roles: user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray(),
+            ReturnUrl: SafeLocalUrl(returnUrl))))
         .WithName("AuthMe")
         .WithSummary("Server-side authentication state for the client.");
 
         group.MapGet("/config", (
             IOptions<FeatureFlagsOptions> flags,
             IConfiguration config,
-            IWebHostEnvironment env) => Results.Ok(new
-            {
+            IWebHostEnvironment env) => TypedResults.Ok(new AuthConfigDto(
                 // NET_RULE §4.4: Prod → Microsoft only. Dev → Microsoft + guest. Test → guest bypass.
                 // Production requires a real `AzureAd:ClientId`. In Dev we also light up the Microsoft
                 // button when the operator explicitly opts in via `FeatureFlags:DeveloperEnableMicrosoftLogin`
                 // so the UI can show the split-view (Microsoft + Guest) without needing real Azure secrets
                 // committed to appsettings.Development.json. The actual /auth/login/microsoft endpoint
                 // returns 404 unless a real ClientId is configured, which keeps dev sign-in flow honest.
-                microsoftEnabled =
+                MicrosoftEnabled:
                     !string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]) ||
                     (!env.IsProduction() && flags.Value.DeveloperEnableMicrosoftLogin),
-                guestEnabled = flags.Value.DeveloperBypassAuth && !env.IsProduction(),
-                environment = env.EnvironmentName
-            }))
+                GuestEnabled: flags.Value.DeveloperBypassAuth && !env.IsProduction(),
+                Environment: env.EnvironmentName)))
         .WithName("AuthConfig")
         .WithSummary("Which sign-in methods are available in this environment.");
 

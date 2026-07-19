@@ -1,9 +1,9 @@
 graph TD
-    A["Input"] --> B{"Client valid"}
-    B -- "no" --> C["Show local validation"]
-    B -- "yes" --> D["Submit DTO"]
-    D --> E{"Endpoint guard"}
-    E -- "bad request" --> F["Return 400"]
-    E -- "feature off" --> G["Return gated status"]
-    E -- "ok" --> H["Service and storage"]
-    H --> I["Update UI"]
+    A["Caregiver fills in a form"] --> B{"Entry complete and valid"}
+    B -- "no" --> C["Inline message points to the fix"]
+    C --> A
+    B -- "yes" --> D["Submit the action"]
+    D --> E{"Accepted"}
+    E -- "no" --> F["Friendly error notification"]
+    E -- "yes" --> G["Screen updates with the result"]
+    F --> A

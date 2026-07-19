@@ -1,0 +1,86 @@
+/* PoPanel — single tokenized surface shared across all pages. */
+
+.po-panel {
+    background: var(--color-surface-overlay);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-base);
+    padding: var(--space-4) var(--space-5);
+    color: var(--color-text-primary);
+}
+
+:root[data-theme="dark"] .po-panel {
+    background: linear-gradient(180deg, rgba(15, 11, 31, 0.92) 0%, rgba(10, 8, 23, 0.94) 100%);
+}
+
+.po-panel--glass {
+    background: var(--color-surface-overlay);
+}
+
+.po-panel--active {
+    border-color: var(--state-success-border);
+    box-shadow: 0 0 0 2px var(--state-success-bg), 0 0 32px rgba(56, 255, 168, 0.18);
+}
+
+.po-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border-subtle);
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.po-panel-header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.po-panel-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.po-panel-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-label);
+    background: var(--color-surface-2);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.po-panel-badge--live {
+    border-color: var(--state-success-border);
+    background: var(--state-success-bg);
+    color: var(--state-success-fg);
+}
+
+.po-panel-badge--warn {
+    border-color: var(--state-warning-border);
+    background: var(--state-warning-bg);
+    color: var(--state-warning-fg);
+}
+
+.po-panel-badge--danger {
+    border-color: var(--state-danger-border);
+    background: var(--state-danger-bg);
+    color: var(--state-danger-fg);
+}
+
+.po-panel-body { min-width: 0; }

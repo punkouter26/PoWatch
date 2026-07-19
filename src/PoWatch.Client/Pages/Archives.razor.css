@@ -1,8 +1,8 @@
 .archive-toolbar {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--space-2);
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-4);
     flex-wrap: wrap;
 }
 
@@ -20,7 +20,7 @@
 }
 
 .archive-empty p {
-    margin: 0 0 0.5rem;
+    margin: 0 0 var(--space-2);
 }
 
 .archive-empty-cta {
@@ -41,15 +41,15 @@
 /* Image-first evidence cards — CSS columns masonry layout */
 .evidence-grid {
     columns: 3;
-    column-gap: 0.75rem;
-    margin-top: 0.5rem;
+    column-gap: var(--space-3);
+    margin-top: var(--space-2);
 }
 
 .evidence-card {
     break-inside: avoid;
-    margin-bottom: 0.75rem;
-    border: 1px solid rgba(56, 255, 168, 0.15);
-    border-radius: 10px;
+    margin-bottom: var(--space-3);
+    border: 1px solid var(--neon-green-dim);
+    border-radius: var(--radius-md);
     overflow: hidden;
     background: rgba(15, 11, 31, 0.86);
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -59,6 +59,35 @@
 .evidence-card:hover {
     border-color: rgba(56, 255, 168, 0.5);
     box-shadow: 0 0 0 1px rgba(56, 255, 168, 0.12), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Lightbox (RenderTreeBuilder markup) — replaces inline styles (audit #7) ── */
+.lightbox-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.lightbox-image {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: var(--radius-md);
+    display: block;
+    margin: 0 auto;
+}
+.lightbox-missing {
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-8);
+    margin: 0;
+}
+.lightbox-meta {
+    margin-top: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+/* Toolbar progress bar (was inline Style=… audit #7) */
+.archive-progress {
+    height: 4px;
+    width: 100px;
+    align-self: center;
 }
 
 .evidence-image-wrap {
@@ -97,7 +126,7 @@
 .evidence-subject {
     font-weight: 700;
     font-size: 0.88rem;
-    color: #ecf1ff;
+    color: var(--text-primary);
 }
 
 .evidence-activity {

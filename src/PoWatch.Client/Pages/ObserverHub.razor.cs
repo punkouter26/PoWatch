@@ -30,10 +30,13 @@ public partial class ObserverHub
             LoadSubjectsAsync(),
             LoadModelRegistryAsync());
 
-        // Restore persisted polling interval; fall back to appSettings default
+        // Restore persisted polling interval; fall back to appSettings default.
+        // Uses UserPreferencesService (typed localStorage wrapper) so this works
+        // across full reloads and survives the model + model-registry migrations
+        // to a typed service in step #8 of the modernization plan.
         try
         {
-            var stored = await JS.InvokeAsync<string?>("PoWatchStorage.get", PollingStorageKey);
+            var stored = await UserPrefs.GetAsync(PollingStorageKey);
             _livePollingSeconds = int.TryParse(stored, out var parsed) && parsed is >= 5 and <= 120
                 ? parsed
                 : FeatureFlags.Value.PollingIntervalSeconds;
@@ -187,7 +190,7 @@ public partial class ObserverHub
     {
         if (!int.TryParse(e.Value?.ToString(), out var seconds) || seconds is < 5 or > 120) return;
         _livePollingSeconds = seconds;
-        try { await JS.InvokeVoidAsync("PoWatchStorage.set", PollingStorageKey, seconds.ToString()); }
+        try { await UserPrefs.SetAsync(PollingStorageKey, seconds.ToString()); }
         catch { /* persistence is best-effort */ }
     }
 
@@ -355,6 +358,18 @@ public partial class ObserverHub
             {
                 lastAlertLevel = AlertLevel.Urgent;
                 lastAlertReason = result.Detail;
+
+                // Full-screen takeover (Win #4): the one moment that matters must be unmissable.
+                _alertOverlaySubject = result.SubjectDisplayName;
+                _alertOverlaySubjectId = result.SubjectId;
+                _alertOverlayReason = string.IsNullOrWhiteSpace(result.Detail)
+                    ? (inference.SignificantReason ?? "Unusual activity detected in the room.")
+                    : result.Detail;
+                _alertOverlayActivity = inference.Activity;
+                _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss");
+                _alertOverlayImage = inference.CapturedImageDataUrl;
+                _alertOverlayVisible = true;
+                await PlayCueAsync("alert");
             }
             else if (inference.IsSignificant)
             {
@@ -479,6 +494,18 @@ public partial class ObserverHub
         if (result is not null && !result.Dropped)
         {
             await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Clinical outlier");
+
+            // Drive the full-screen takeover from the dev-tool injector too, so the alert flow is testable.
+            lastAlertLevel = AlertLevel.Urgent;
+            lastAlertReason = result.Detail;
+            _alertOverlaySubject = result.SubjectDisplayName;
+            _alertOverlaySubjectId = result.SubjectId;
+            _alertOverlayReason = string.IsNullOrWhiteSpace(result.Detail) ? "Unusual activity detected in the room." : result.Detail;
+            _alertOverlayActivity = "Unknown movement";
+            _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss");
+            _alertOverlayImage = null;
+            _alertOverlayVisible = true;
+            await PlayCueAsync("alert");
         }
 
         if (result is not null && !muted)
@@ -629,6 +656,27 @@ public partial class ObserverHub
         _keepAliveCts?.Cancel();
 
         await JS.InvokeVoidAsync("powatchInference.stopMonitor");
+    }
+
+    // ── WebGL shader bridge: tell the canvas overlay when the inference loop
+    // enters/leaves its "thinking" phase. Diff-gated so we only fire on actual
+    // transitions (avoids JS-interop per frame).
+    private bool _lastWebcamShellThinking;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Bind the canvas overlay on first paint — the JS side auto-attaches
+            // any .webcam-shell elements via MutationObserver, but the initial
+            // bootstrap hits immediately when the script loads.
+            await JS.InvokeVoidAsync("powatchWebcamShell.setThinking", false);
+        }
+        if (thinking != _lastWebcamShellThinking)
+        {
+            _lastWebcamShellThinking = thinking;
+            try { await JS.InvokeVoidAsync("powatchWebcamShell.setThinking", thinking); }
+            catch { /* script not present */ }
+        }
     }
 
     private sealed class InferenceBridgeResult

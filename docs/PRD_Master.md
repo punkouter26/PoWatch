@@ -68,8 +68,9 @@ Hot paths must use source-generated logging rather than interpolated strings or 
 
 Azure Table Storage is the durable store, with Azurite used locally.
 
-- Observations table: partitioned by UTC date `yyyyMMdd`; row key starts with subject id and observation id for idempotent ingest. Current rewrite code can create inverted-tick row keys during identity history rewrite, so readers sort by `ObservedAtUtc`.
-- Subjects table: partition key `Subjects`; row key `SubjectId`; profile columns store display name, identity status, first seen, last seen, and recent activity metadata.
+- Observations table: partitioned by UTC date `yyyyMMdd`; row key is `{SubjectId}_{ObservationId:N}` for idempotent ingest. Both the ingest write and the identity-history rewrite use this one canonical scheme, so the table never mixes key formats; readers still sort by `ObservedAtUtc` in code.
+- Subjects table: partition key `Subjects`; row key `SubjectId`; profile columns store display name, `IdentityStatus` (Known/Temporary), first seen, last seen, and recent activity metadata.
+- Domain models use a strongly-typed `SubjectId` value type and an `IdentityStatus` enum; transport DTOs and Table Storage keys remain plain strings, converted at the boundary.
 - Blob storage: significant images are addressed by subject/date paths and exposed only through scoped SAS descriptors.
 
 ## Nonfunctional Requirements

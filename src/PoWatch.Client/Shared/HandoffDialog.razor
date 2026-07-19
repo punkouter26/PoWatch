@@ -2,19 +2,28 @@
 @inject DialogService DialogService
 
 <div class="handoff-dialog-body">
-    <label>Shift Window</label>
-    <RadzenDropDown @bind-Value="SelectedShift" Data="ShiftOptions" TextProperty="Label" ValueProperty="Value"
-                    Style="width:100%; margin-bottom:12px;" />
-
-    <RadzenButton Icon="download" Text="Download Handoff Report" ButtonStyle="ButtonStyle.Secondary"
-                  Click="DownloadAsync" Style="width:100%; margin-bottom:8px;" />
+    @* One-tap handoff (Win #5): the shift is pre-filled from the current time, so the primary action —
+       generate the brief written like a nurse's note — is genuinely one tap. The raw PDF download is
+       demoted to a quiet secondary link for people who need the formal document. *@
+    <p class="handoff-lead">Ready to hand off the <strong>@ShiftLabel</strong> shift?</p>
 
     @if (HandoffCoachEnabled)
     {
-        <RadzenButton Icon="auto_awesome" Text="@(GeneratingBrief ? "Generating..." : "Generate AI Brief")"
-                      ButtonStyle="ButtonStyle.Info" Disabled="GeneratingBrief"
-                      Click="GenerateBriefAsync" Style="width:100%;" />
+        <RadzenButton Icon="auto_awesome" Text="@(GeneratingBrief ? "Writing brief…" : "Generate shift brief")"
+                      ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Disabled="GeneratingBrief"
+                      Click="GenerateBriefAsync" Class="handoff-input handoff-input--button handoff-input--primary" />
     }
+
+    <details class="handoff-more">
+        <summary>More options</summary>
+        <label for="handoff-shift">Shift window</label>
+        <RadzenDropDown id="handoff-shift" @bind-Value="SelectedShift" Data="ShiftOptions" TextProperty="Label" ValueProperty="Value"
+                        Class="handoff-input handoff-input--dropdown" />
+
+        <button type="button" class="handoff-download-link" @onclick="DownloadAsync">
+            ⬇ Download the formal PDF report instead
+        </button>
+    </details>
 </div>
 
 @code {
@@ -25,6 +34,15 @@
     [Parameter] public bool GeneratingBrief { get; set; }
     [Parameter] public Func<Task>? OnDownload { get; set; }
     [Parameter] public Func<Task>? OnGenerateBrief { get; set; }
+
+    // Friendly shift name without reflecting over the untyped ShiftOptions bag (trim-safe).
+    private string ShiftLabel => SelectedShift switch
+    {
+        "Morning" => "morning",
+        "Afternoon" => "afternoon",
+        "Night" => "night",
+        _ => "full day"
+    };
 
     private async Task DownloadAsync()
     {

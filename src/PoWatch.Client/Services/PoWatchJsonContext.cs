@@ -35,12 +35,7 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(HandoffBriefDto))]
 [JsonSerializable(typeof(GenerateHandoffBriefRequestDto))]
 [JsonSerializable(typeof(StorageResetResultDto))]
-[JsonSerializable(typeof(AuthMeResponse))]
-[JsonSerializable(typeof(AuthConfigResponse))]
+[JsonSerializable(typeof(AcknowledgeEventsResultDto))]
+[JsonSerializable(typeof(AuthStateDto))]
+[JsonSerializable(typeof(AuthConfigDto))]
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;
-
-/// <summary>Server auth state from <c>/auth/me</c>.</summary>
-internal sealed record AuthMeResponse(bool IsAuthenticated, string? Name, string? Email, string[]? Roles);
-
-/// <summary>Available sign-in methods from <c>/auth/config</c>.</summary>
-internal sealed record AuthConfigResponse(bool MicrosoftEnabled, bool GuestEnabled, string Environment);

@@ -55,6 +55,12 @@ public sealed class AzureStorageInitializer(
                 .GetBlobContainerClient(options.Value.SignificantImagesContainer)
                 .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
+            // Container for the persisted Data Protection keyring (BFF cookie encryption keys). The blob
+            // provider creates the key blob on demand but never the container, so ensure it exists here.
+            await clients.BlobService
+                .GetBlobContainerClient(options.Value.DataProtectionKeysContainer)
+                .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
             // Seed the in-memory slug registry from all persisted subjects so that
             // SubjectIdSlugger.ResolveCanonicalSubjectId can detect collisions after a restart.
             var subjects = await subjectRepository.GetAllAsync(cancellationToken);

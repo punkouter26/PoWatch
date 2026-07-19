@@ -10,7 +10,7 @@ stateDiagram-v2
     MicrosoftChallenge --> AuthorizedShell: OIDC callback creates cookie
     GuestCookie --> AuthorizedShell: fake login creates cookie
     AuthorizedShell --> ObserverHub: /
-    AuthorizedShell --> LiveDashboard: /live
+    AuthorizedShell --> LiveDashboard: /live-dashboard
     AuthorizedShell --> IdentityNexus: /identity
     AuthorizedShell --> Archives: /archives
     AuthorizedShell --> Diagnostics: /diagnostics
