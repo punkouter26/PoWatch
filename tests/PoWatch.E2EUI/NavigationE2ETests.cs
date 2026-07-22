@@ -21,7 +21,11 @@ public sealed class NavigationE2ETests
         if (PlaywrightFixture.BaseUrl is null) return; // no live server configured — nothing to exercise
 
         var page = await _fixture.Browser.NewPageAsync(new() { IgnoreHTTPSErrors = true });
-        await page.GotoAsync(PlaywrightFixture.BaseUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
+
+        // BFF auth: anonymous visits redirect to /login, which has no navbar. Sign in as the
+        // dev guest first (sets the session cookie, then redirects to returnUrl).
+        await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/auth/login/fake?returnUrl=%2F",
+            new() { WaitUntil = WaitUntilState.NetworkIdle });
 
         // Stable selectors — see data-test attributes on MainLayout / NavMenu.
         await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
