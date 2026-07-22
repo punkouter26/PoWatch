@@ -9,12 +9,14 @@
 <PageTitle>PoWatch | Identity Nexus</PageTitle>
 
 <div class="sector-grid identity-grid">
-    <RadzenCard class="panel panel-library">
-        <header class="panel-header">
-            <h1>Identity Nexus</h1>
-            <p>Name subjects and rewrite history.</p>
-        </header>
+    @* Consolidation #1: the old Overview page's live card grid now lives here, above the
+       management table — one page owns everything about people. *@
+    <RadzenCard class="panel panel-glance">
+        <PoWatch.Client.Shared.SubjectGlanceGrid />
+    </RadzenCard>
 
+    <RadzenCard class="panel panel-library">
+        @* Title/subtitle live in the page-hud header bar (UI review item #7). *@
         <div class="identity-register-bar">
             <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput" Placeholder="New subject display name…"
                           Class="identity-flex-input"

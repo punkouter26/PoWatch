@@ -14,12 +14,6 @@ public partial class ObserverHub
     {
         muted = true;
 
-        // Honour a ?subjectFilter= drill-down from the Live Dashboard subject cards.
-        if (!string.IsNullOrWhiteSpace(SubjectFilterQuery))
-        {
-            _subjectFilter = SubjectFilterQuery;
-        }
-
         // TTV: these loads are independent (state, timeline, local JS diagnostics, subjects, model list).
         // Fetch them concurrently instead of serially so the first paint lands after the slowest
         // round-trip, not the sum of all of them.
@@ -247,13 +241,9 @@ public partial class ObserverHub
         finally
         {
             var elapsedMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_cycleStartTs).TotalMilliseconds;
-            _hudCycleMs = elapsedMs;
             _emaInferenceMs = _emaInferenceMs <= 0 ? elapsedMs : 0.8 * _emaInferenceMs + 0.2 * elapsedMs;
-            _frameCount++;
             if (inferenceDiagnostics is not null)
             {
-                if (!string.IsNullOrWhiteSpace(inferenceDiagnostics.ModelId)) _hudModel = inferenceDiagnostics.ModelId;
-                if (!string.IsNullOrWhiteSpace(inferenceDiagnostics.Device)) _hudBackend = inferenceDiagnostics.Device.ToUpperInvariant();
                 if (inferenceDiagnostics.LastInferenceMs is int inferMs && inferMs > 0)
                 {
                     _totalActiveMs += inferMs;
@@ -604,10 +594,6 @@ public partial class ObserverHub
             inferenceDiagnostics = await JS.InvokeAsync<InferenceDiagnosticsSnapshot>("powatchInference.getInferenceDiagnostics");
             if (inferenceDiagnostics is not null)
             {
-                _gpuAdapterVendor = inferenceDiagnostics.GpuAdapterVendor ?? string.Empty;
-                _gpuAdapterName = inferenceDiagnostics.GpuAdapterName ?? "--";
-                _hudMemory = inferenceDiagnostics.JsHeapMb ?? "--";
-
                 // GPU degraded to fp32 — not fatal, but the operator should know throughput will drop.
                 // Latch once so it doesn't re-fire every cycle.
                 if (inferenceDiagnostics.Fp16FallbackUsed && !_fp16WarningLatched)

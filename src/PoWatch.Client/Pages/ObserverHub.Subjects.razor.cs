@@ -7,27 +7,13 @@ public partial class ObserverHub
 {
     private List<SubjectLiveStatusDto> _liveSubjects = [];
     private bool _subjectsLoading;
-    private string _subjectFilter = string.Empty;
 
     /// <summary>
-    /// Drill-down from Live Dashboard: navigating to <c>/?subjectFilter=&lt;id&gt;</c> now actually filters the
-    /// subjects strip. Previously the query param was supplied but never bound, so the link was a dead no-op.
+    /// The Live Room strip shows only people seen in the last 24 hours (consolidation #9) —
+    /// the full, filterable library lives on the People page.
     /// </summary>
-    [Parameter]
-    [SupplyParameterFromQuery(Name = "subjectFilter")]
-    public string? SubjectFilterQuery { get; set; }
-
-    private IReadOnlyList<SubjectLiveStatusDto> FilteredLiveSubjects =>
-        string.IsNullOrWhiteSpace(_subjectFilter)
-            ? _liveSubjects
-            : _liveSubjects
-                .Where(subject =>
-                    subject.DisplayName.Contains(_subjectFilter, StringComparison.OrdinalIgnoreCase) ||
-                    (subject.LastActivity ?? string.Empty).Contains(_subjectFilter, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-    private void OnSubjectFilterInput(ChangeEventArgs e) =>
-        _subjectFilter = e.Value?.ToString() ?? string.Empty;
+    private IReadOnlyList<SubjectLiveStatusDto> RecentLiveSubjects =>
+        _liveSubjects.Where(s => Services.DisplayText.IsRecent(s.LastSeenUtc)).ToList();
 
     private static string GetSubjectCardClass(SubjectLiveStatusDto subject)
     {

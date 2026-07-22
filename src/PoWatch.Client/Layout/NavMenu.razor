@@ -16,24 +16,34 @@
         <span class="brand-copy">PoWatch</span>
     </a>
 
+    @* The entire nav surface (links, toggler, session controls) is auth-gated: an anonymous
+       visitor's only action is signing in, so the app chrome offers nothing else. *@
+    <AuthorizeView>
+        <Authorized>
     <button class="navbar-toggler" @onclick="ToggleNavMenu"
             aria-expanded="@(!collapseNavMenu)" aria-label="Toggle navigation" data-test="navbar-toggler">
         <span class="navbar-toggler-icon"></span>
     </button>
+        </Authorized>
+    </AuthorizeView>
 
     <div class="navbar-collapse @(collapseNavMenu ? "" : "show")">
+        <AuthorizeView>
+            <Authorized>
         <div class="navbar-nav">
-            @* Caregiver language (Win #7): destinations are named for what the caregiver is doing,
-               not for the system's internals. Diagnostics is de-emphasised as "System". *@
+            @* Three destinations, one job each (consolidation #1/#10): Overview merged into People,
+               System demoted to the gear icon in the account rail. *@
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All" data-test="nav-link-observer-hub" aria-label="Go to the Live Room">Live Room</NavLink>
-            <NavLink class="nav-link" href="live-dashboard" data-test="nav-link-live-dashboard" aria-label="Go to the Overview of everyone">Overview</NavLink>
             <NavLink class="nav-link" href="archives" data-test="nav-link-archives" aria-label="Go to History">History</NavLink>
             <NavLink class="nav-link" href="identity" data-test="nav-link-identity" aria-label="Go to People">People</NavLink>
-            <NavLink class="nav-link nav-link--muted" href="diagnostics" data-test="nav-link-diagnostics" aria-label="Go to System diagnostics">System</NavLink>
         </div>
+            </Authorized>
+        </AuthorizeView>
         <AuthorizeView>
             <Authorized>
                 <div class="navbar-account">
+                    <NavLink class="nav-gear" href="diagnostics" title="System health & diagnostics"
+                             aria-label="System health and diagnostics" data-test="nav-link-diagnostics">⚙</NavLink>
                     @* Theme toggle (WCAG 2.2 + dark/light 2026 requirement): the global
                        script (theme-controller.js) reads the persisted preference before
                        paint, so this button just toggles and writes to localStorage. *@

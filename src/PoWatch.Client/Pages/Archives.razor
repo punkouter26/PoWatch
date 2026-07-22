@@ -15,19 +15,14 @@
 
 <div class="sector-grid archives-grid" @onkeydown="HandlePageKeyDown" tabindex="-1" @ref="_pageRef">
     <RadzenCard class="panel panel-chapter">
-        <header class="panel-header">
-            <h1>History</h1>
-            <p>Each day's story, in plain language, with the moments that mattered.</p>
-        </header>
-
+        @* Page title/subtitle live in the page-hud header bar — repeating them here doubled
+           every heading (UI review item #7). The toolbar is the card's header now. *@
         <div class="archive-toolbar">
             <RadzenButton Icon="chevron_left" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                Click="PreviousDayAsync" Disabled="@loading" aria-label="Previous day" />
-            <span class="kbd-hint" title="Arrow Left — previous day">←</span>
+                Click="PreviousDayAsync" Disabled="@loading" aria-label="Previous day" title="Previous day (Arrow Left)" />
             <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd"
                 Max="@DateTime.Today"
                 Change="@(async _ => await LoadChapterAsync())" aria-label="Select date" />
-            <span class="kbd-hint" title="Arrow Right — next day">→</span>
             <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="NextDayAsync" Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
             <RadzenButton Icon="today" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
@@ -36,9 +31,8 @@
             {
                 <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Class="archive-progress" />
             }
-            <span class="archive-toolbar-divider"></span>
-            <RadzenButton Icon="assignment" Text="Handoff" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
-                Click="OpenHandoffDialogAsync" Disabled="@(selectedDate is null)" aria-label="Generate handoff" />
+            @* Handoff has ONE entry point — the hero's "End shift" (consolidation #6). It routes
+               here with ?handoff=1, which OpenHandoffDialogAsync still honours. *@
         </div>
 
         <h3>Summary of the day</h3>

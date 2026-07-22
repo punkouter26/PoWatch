@@ -34,7 +34,7 @@ public partial class ObserverHub
     private bool thinking;
     private bool monitoring;
     private bool hasCameraFeed;
-    private bool _hudExpanded;
+    private bool _settingsOpen;
     private ElementReference liveCameraFeed;
     private CancellationTokenSource? monitorCts;
     private string selectedModelKey = "smolvlm-256m";
@@ -122,12 +122,14 @@ public partial class ObserverHub
         _ => "—"
     };
 
+    // The hero subline is the ONLY live summary line (the Live Monitor panel was consolidated
+    // away) — while watching it carries the person-detection state too.
     private string RoomStatusSubline => CurrentRoomStatus switch
     {
         RoomStatus.Idle => "Press Start to begin watching the room.",
         RoomStatus.Calm => string.IsNullOrWhiteSpace(lastSyncStatus) || lastSyncStatus == "Standby"
-            ? "Watching quietly — everything looks normal."
-            : $"Watching quietly · {lastSyncStatus}",
+            ? $"Watching quietly · {PersonDetectedLabel}"
+            : $"Watching quietly · {PersonDetectedLabel} · {lastSyncStatus}",
         RoomStatus.Watch => $"{LatestActivityLabel} · {LatestTimestampLabel}",
         RoomStatus.Alert => string.IsNullOrWhiteSpace(lastAlertReason) ? "Something unusual just happened." : lastAlertReason,
         _ => string.Empty
@@ -184,17 +186,10 @@ public partial class ObserverHub
         Navigation.NavigateTo($"/archives?handoff=1&shift={DetectCurrentShift()}");
 
     private const string PollingStorageKey = "pw_polling_interval";
-    private long _hudCycleMs = 0;
     private double _emaInferenceMs = 0.0;
-    private int _hudTokenCount = 0;
-    private string _hudTokensPerSecond = "0";
-    private string _hudMemory = "--";
-    private string _hudModel = "--";
-    private string _hudBackend = "--";
-    private string _gpuAdapterVendor = string.Empty;
-    private string _gpuAdapterName = "--";
-    private int _frameCount = 0;
-    private int _livePollingSeconds;
+    // Sane default until OnInitializedAsync loads the persisted preference — the settings
+    // drawer can render before that completes and must not show "0 s".
+    private int _livePollingSeconds = 10;
     private string _selectedGpuPreference = "default";
     private readonly Queue<long> _latencyHistory = new();
     private readonly long[] _p95Buffer = new long[100]; // reused each cycle; matches _latencyHistory cap
@@ -214,7 +209,6 @@ public partial class ObserverHub
     private string SkipRateDisplay => _totalCycles > 0 ? $"{_skippedCycles * 100 / _totalCycles:0}% ({_skippedCycles}/{_totalCycles})" : "--";
     private string StructRateDisplay => _totalCycles > 0 ? $"{_structuredCycles * 100 / _totalCycles:0}% ({_structuredCycles}/{_totalCycles})" : "--";
     private string MinMaxInferDisplay => _maxInferenceMs > 0 ? $"{_minInferenceMs}/{_maxInferenceMs} ms" : "--";
-    private string DriftDisplay => _emaInferenceMs > 0 && _hudCycleMs > 0 ? $"{Math.Abs(_hudCycleMs - (long)_emaInferenceMs)} ms" : "--";
     private string DutyCycleDisplay
     {
         get

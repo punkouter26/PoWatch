@@ -21,26 +21,34 @@
                   OnAcknowledge="AcknowledgeAlertOverlay"
                   OnViewSubject="ViewAlertSubject" />
 
-@if (_pipelineHealthLatched)
+@* Consolidation #7: ONE inline alert strip for every non-critical warning (pipeline health +
+   threshold alerts share the same visual language); the full-screen overlay above is reserved
+   for critical events. *@
+@if (_pipelineHealthLatched || (HasActiveThresholdAlerts && FeatureFlags.Value.AlertThresholdsEnabled))
 {
-    <div class="pipeline-health-banner pipeline-health-banner--@_pipelineHealthLevel" role="alert" aria-live="assertive">
-        <span class="pipeline-health-icon" aria-hidden="true">@(_pipelineHealthLevel == "error" ? "⛔" : "⚠")</span>
-        <span class="pipeline-health-text">@_pipelineHealthMessage</span>
-        <button class="pipeline-health-dismiss" @onclick="@(() => _pipelineHealthLatched = false)" aria-label="Dismiss pipeline health alert">×</button>
+    <div class="alert-strip">
+        @if (_pipelineHealthLatched)
+        {
+            <div class="threshold-alert-banner threshold-alert-banner--@_pipelineHealthLevel" role="alert" aria-live="assertive">
+                <span class="threshold-alert-icon" aria-hidden="true">@(_pipelineHealthLevel == "error" ? "⛔" : "⚠")</span>
+                <div class="threshold-alert-list">
+                    <div class="threshold-alert-item">@_pipelineHealthMessage</div>
+                </div>
+                <button class="threshold-alert-dismiss" @onclick="@(() => _pipelineHealthLatched = false)" aria-label="Dismiss pipeline health alert">×</button>
+            </div>
+        }
+        @if (HasActiveThresholdAlerts && FeatureFlags.Value.AlertThresholdsEnabled)
+        {
+            <ThresholdAlertBanner Alerts="_activeThresholdAlerts"
+                                  OnDismiss="@(alert => { DismissThresholdAlert(alert); StateHasChanged(); })"
+                                  OnDismissAll="@(() => { DismissAllThresholdAlerts(); StateHasChanged(); })" />
+        }
     </div>
 }
 
-@if (HasActiveThresholdAlerts && FeatureFlags.Value.AlertThresholdsEnabled)
-{
-    <ThresholdAlertBanner Alerts="_activeThresholdAlerts"
-                          OnDismiss="@(alert => { DismissThresholdAlert(alert); StateHasChanged(); })"
-                          OnDismissAll="@(() => { DismissAllThresholdAlerts(); StateHasChanged(); })" />
-}
-
 <div class="observer-page">
-    @* Calm-state hero (UX Win #1/#6): the single, glanceable answer to "is the room OK right now?".
-       This is what the caregiver stares at for hours — quiet is designed to read as SAFE, not as
-       "nothing loaded". Telemetry is demoted into the Live Monitor panel's collapsible drawers. *@
+    @* Calm-state hero: THE single owner of monitoring state and start/stop (consolidation #2/#3).
+       The subline also carries person-detection so no separate summary panel is needed. *@
     <section class="room-status-hero room-status-hero--@RoomStatusKey" aria-live="polite" data-test="room-status-hero">
         <div class="room-status-orb" aria-hidden="true">
             <span class="room-status-orb-core"></span>
@@ -53,7 +61,7 @@
         <div class="room-status-actions">
             @if (!monitoring && !thinking)
             {
-                <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Text="▶ Start watching"
+                <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Medium" Text="▶ Start watching"
                               Click="StartMonitoringAsync" Disabled="@(!ObservationLoopEnabled)" data-test="hero-start" />
             }
             else
@@ -66,112 +74,33 @@
         </div>
     </section>
 
-    @if (FeatureFlags.Value.EnableHud)
-    {
-        <div class="hud-float-container">
-            <button class="hud-float-pill" @onclick="@(() => _hudExpanded = !_hudExpanded)"
-                    aria-expanded="@_hudExpanded"
-                    aria-label="@(_hudExpanded ? "Collapse diagnostics HUD" : "Expand diagnostics HUD")">
-                <span class="hud-float-pill-dot @(monitoring ? string.Empty : "hud-float-pill-dot--idle")"></span>
-                <span>@MonitoringStateLabel</span>
-                <span class="hud-sep">·</span>
-                <span><span class="hud-float-val">@LastMsDisplay</span> ms</span>
-                <span class="hud-sep">·</span>
-                <span><span class="hud-float-val">@_hudTokensPerSecond</span> TPS</span>
-                <span>@(_hudExpanded ? "▾" : "▸")</span>
-            </button>
-            @if (_hudExpanded)
-            {
-                <div class="hud-float-expanded">
-                    @* HUD owns the live hardware + throughput glance only. Detailed inference
-                       analytics (COUNT/SKIP/STRUCT/FP16/LOAD/DTYPE/EMA/DRIFT/P95/DUTY) are owned
-                       solely by the "Live Monitor" panel below — no duplication. *@
-                    <div class="hud-bar hud-bar--detail">
-                        <div class="hud-group hud-group--key">
-                            <span class="hud-group-label">Live</span>
-                            <span class="hud-item">BACKEND <span class="hud-val">@_hudBackend</span></span>
-                            <span class="hud-item">GPU <span class="hud-val">@(!string.IsNullOrWhiteSpace(_gpuAdapterVendor) ? $"{_gpuAdapterVendor} {_gpuAdapterName}" : _gpuAdapterName)</span></span>
-                        </div>
-                        <div class="hud-group">
-                            <span class="hud-group-label">Runtime</span>
-                            <span class="hud-item">SESSION <span class="hud-val"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" IdleText="--:--:--" /></span></span>
-                            <span class="hud-item">FRAMES <span class="hud-val">@_frameCount</span></span>
-                            <span class="hud-item">CYCLE <span class="hud-val">@_hudCycleMs ms</span></span>
-                        </div>
-                        <div class="hud-group">
-                            <span class="hud-group-label">Engine</span>
-                            <span class="hud-item">MODEL <span class="hud-val">@_hudModel</span></span>
-                            <span class="hud-item">TOKENS <span class="hud-val">@_hudTokenCount</span></span>
-                            <span class="hud-item">MEM <span class="hud-val">@_hudMemory</span></span>
-                        </div>
-                        <span class="hud-note">Full inference analytics → Live Monitor panel</span>
-                    </div>
-                </div>
-            }
-        </div>
-    }
-
     <div class="sector-grid observer-grid @(monitoring ? "observer-grid--active" : string.Empty)">
         <RadzenCard class="@("panel panel-main" + (monitoring ? " panel--active" : string.Empty))">
             <header class="panel-header observer-panel-header">
                 <div class="panel-header-left">
-                    <h2 title="Webcam feed and AI inference controls. Click Start to begin capturing frames and logging activity.">Room Feed</h2>
-                    <span class="panel-badge @(monitoring ? "panel-badge--live" : string.Empty)">@MonitoringStateLabel</span>
+                    <h2 title="Live webcam feed. Use ▶ Start watching above to begin.">Room Feed</h2>
                     @if (monitoring) { <span class="page-header-time"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" IdleText="--:--:--" /></span> }
                 </div>
                 <div class="page-header-meta">
-                    <span title="Model loaded for local AI inference">@SelectedModelLabel &middot; @DtypeDisplay</span>
-                    @if (!monitoring && !thinking)
-                    {
-                        <span class="help-tip" title="1. Select your AI model and GPU preference below. 2. Click Start to begin webcam capture and inference. 3. Each cycle captures a frame, runs local AI, and logs the detected activity. Significant events are flagged automatically.">? How to use</span>
-                    }
+                    <label for="observer-mute" class="mute-label">Mute audio</label>
+                    <RadzenSwitch id="observer-mute" @bind-Value="muted" TValue="bool"
+                                  aria-label="Mute or unmute audio notifications for new observations" />
+                    <button class="settings-gear" @onclick="@(() => _settingsOpen = true)"
+                            title="Observer settings — model, GPU & check interval"
+                            aria-label="Open observer settings" data-test="observer-settings-gear">⚙</button>
                 </div>
             </header>
-
-            <div class="controls-row controls-row--primary">
-                <RadzenButton ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Text="▶ Start Monitoring" Click="StartMonitoringAsync" Disabled="@(monitoring || thinking || !ObservationLoopEnabled)" data-test="observer-start" />
-                <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Large" Text="■ Stop" Click="StopMonitoringAsync" Disabled="@(!monitoring && !thinking)" data-test="observer-stop" />
-                <PoStatusStrip Active="monitoring" Thinking="thinking">
-                    <MuteSlot>
-                        <label for="observer-mute" class="mute-label">Mute observations audio</label>
-                        <RadzenSwitch id="observer-mute" @bind-Value="muted" TValue="bool"
-                                      aria-label="Mute or unmute audio notifications for new observations" />
-                    </MuteSlot>
-                </PoStatusStrip>
-            </div>
 
             @if (!ObservationLoopEnabled)
             {
                 <div class="observer-disabled-note">Monitoring is disabled by the current feature flags.</div>
             }
 
-            <div class="nexus-frame @(thinking ? "thinking webcam-shell-ready" : string.Empty)">
+            @* Plain, unfiltered camera view (special effects removed 2026-07-22). *@
+            <div class="nexus-frame">
                 <video @ref="liveCameraFeed" class="live-camera-feed" autoplay muted playsinline poster="media/webcam-fallback.svg" aria-label="Live webcam preview"></video>
-                <canvas class="webcam-shell @(thinking ? "webcam-shell--on" : string.Empty)" aria-hidden="true"></canvas>
-                <div class="scanlines @(hasCameraFeed ? string.Empty : "hidden")"></div>
-                <div class="video-label @(hasCameraFeed ? string.Empty : "hidden")">LIVE 16:9</div>
                 <div class="video-sub">@(monitoring ? "Observation loop active" : "Idle")</div>
             </div>
-
-            @if (!monitoring && !thinking)
-            {
-                <ObserverSetupPanel IsMonitoring="monitoring"
-                                    IsThinking="thinking"
-                                    SelectedModelKey="selectedModelKey"
-                                    SelectedModelKeyChanged="@(v => selectedModelKey = v)"
-                                    ModelOptions="@ModelOptions.Select(o => new ObserverSetupPanel.ModelOption(o.Value, o.Label)).ToList()"
-                                    GpuPreference="_selectedGpuPreference"
-                                    PollingSeconds="_livePollingSeconds"
-                                    ShowDevTools="@(observerState?.DeveloperModeEnabled == true)"
-                                    OnModelChanged="OnModelSwitched"
-                                    OnGpuPreferenceChanged="OnGpuPreferenceChangedAsync"
-                                    OnPollingChanged="OnPollingIntervalChangedAsync"
-                                    OnInjectEvent="InjectEventAsync"
-                                    OnInjectOutlier="InjectOutlierAsync" />
-            }
-
-            @* Live session metrics are owned solely by the "Live Monitor" panel to avoid duplication. *@
-
         </RadzenCard>
 
         <PoPanel Glass="true" Title="Room Activity"
@@ -182,28 +111,29 @@
                 <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
             </div>
 
-            <div class="subjects-in-panel" aria-label="All detected subjects">
+            @* Consolidation #9: a single row of TODAY's people. The full library (with filter,
+               rename, merge) lives on the People page — one home per capability. *@
+            <div class="subjects-in-panel" aria-label="People seen today">
                 <div class="subjects-strip-header">
-                    <span class="stats-section-label" title="Everyone seen across all sessions. NEW = a person the app hasn't been told the name of yet. Tap a card to name or merge people.">People</span>
+                    <span class="stats-section-label" title="People seen in the last 24 hours. Tap a card to name or manage them.">People today</span>
                     @if (_subjectsLoading) { <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Class="subjects-loading-progress" /> }
-                    <RadzenTextBox Placeholder="Filter…" @bind-Value="_subjectFilter" @oninput="OnSubjectFilterInput" Class="subjects-filter-input" aria-label="Filter people" />
-                    <a href="/identity" class="subjects-manage-link" title="Name a new person, rename someone, or merge duplicates">Manage people →</a>
+                    <a href="/identity" class="subjects-manage-link" title="See everyone, name a new person, or merge duplicates">All people →</a>
                 </div>
                 <div class="subjects-mini-row">
-                    @if (_liveSubjects.Count == 0 && !_subjectsLoading)
+                    @if (RecentLiveSubjects.Count == 0 && !_subjectsLoading)
                     {
-                        <div class="subjects-empty">No subjects detected yet — start monitoring to begin tracking.</div>
+                        <div class="subjects-empty">No one seen today yet — start watching to begin tracking.</div>
                     }
-                    @foreach (var subject in FilteredLiveSubjects)
+                    @foreach (var subject in RecentLiveSubjects)
                     {
                         var subCardClass = GetSubjectCardClass(subject);
                         <div @key="subject.SubjectId" class="subject-card subject-card--mini @subCardClass"
                              @onclick="() => NavigateToManageSubject(subject.SubjectId)"
                              role="button" tabindex="0"
                              @onkeydown="@((e) => { if (e.Key == "Enter" || e.Key == " ") NavigateToManageSubject(subject.SubjectId); })"
-                             title="@subject.DisplayName — @(subject.LastActivity ?? "No activity") — last seen @subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")">
+                             title="@PoWatch.Client.Services.DisplayText.SubjectName(subject.DisplayName, subject.IsKnownIdentity) — @PoWatch.Client.Services.DisplayText.Activity(subject.LastActivity) — last seen @subject.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")">
                             <div class="subject-card-header">
-                                <span class="subject-card-name">@subject.DisplayName</span>
+                                <span class="subject-card-name">@PoWatch.Client.Services.DisplayText.SubjectName(subject.DisplayName, subject.IsKnownIdentity)</span>
                                 @if (subject.UnacknowledgedSignificantCount > 0)
                                 {
                                     <span class="subject-card-badge subject-card-badge--alert">@subject.UnacknowledgedSignificantCount</span>
@@ -212,163 +142,56 @@
                                 {
                                     <span class="subject-card-badge subject-card-badge--outlier" title="Something unusual was flagged">!</span>
                                 }
-                                @if (!subject.IsKnownIdentity && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations)
+                                @if (!subject.IsKnownIdentity
+                                     && subject.RecentEvents.Count >= FeatureFlags.Value.TempBadgeMinObservations
+                                     && PoWatch.Client.Services.DisplayText.IsRecent(subject.LastSeenUtc))
                                 {
                                     <span class="subject-card-badge subject-card-badge--unknown" title="New person — not named yet">NEW</span>
                                 }
                             </div>
                             <div class="subject-card-activity">
-                                <strong>@(string.IsNullOrWhiteSpace(subject.LastActivity) ? "No data" : subject.LastActivity)</strong>
+                                <strong>@PoWatch.Client.Services.DisplayText.Activity(subject.LastActivity)</strong>
                             </div>
                             <div class="subject-card-meta">
-                                <span>@subject.LastSeenUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+                                <span>@PoWatch.Client.Services.DisplayText.RelativeTime(subject.LastSeenUtc)</span>
                             </div>
                         </div>
                     }
                 </div>
             </div>
         </PoPanel>
-
-        <PoPanel Glass="true" Title="Live Monitor">
-
-
-            @* Human summary (Win #6): a caregiver-readable glance stays visible; the full telemetry
-               grid drops into a disclosure so the panel isn't a wall of numbers by default. *@
-            <div class="monitor-summary" aria-label="Room summary">
-                <div class="monitor-summary-item monitor-summary-item--@RoomStatusKey">
-                    <span class="monitor-summary-label">Room</span>
-                    <strong class="monitor-summary-value">@RoomStatusHeadline</strong>
-                </div>
-                <div class="monitor-summary-item">
-                    <span class="monitor-summary-label">Person</span>
-                    <strong class="monitor-summary-value">@PersonDetectedLabel</strong>
-                </div>
-                <div class="monitor-summary-item">
-                    <span class="monitor-summary-label">Last event</span>
-                    <strong class="monitor-summary-value">@LatestActivityLabel</strong>
-                    <small>@LatestTimestampLabel</small>
-                </div>
-            </div>
-
-            <CollapsibleSection Title="Session details" InitiallyExpanded="false">
-            <section class="stats-section">
-                <div class="monitor-metrics-grid" aria-label="Live monitor telemetry">
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Recording duration</span>
-                        <strong class="monitor-metric-value"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" /></strong>
-                        <small>State: @MonitoringStateLabel</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Person detected</span>
-                        <strong class="monitor-metric-value">@PersonDetectedLabel</strong>
-                        <small>Model: @SelectedModelLabel</small>
-                    </div>
-                    <div class="@($"monitor-metric-card {AlertLevelClass}")">
-                        <span class="monitor-metric-label">Current alert level</span>
-                        <strong class="monitor-metric-value">@AlertLevelLabel</strong>
-                        <small>@lastAlertReason</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Last detected event</span>
-                        <strong class="monitor-metric-value">@LatestActivityLabel</strong>
-                        <small>@LatestTimestampLabel</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">AI confidence</span>
-                        <strong class="monitor-metric-value">@ConfidenceTrustLabel</strong>
-                        <small>Inference: @(inferenceDiagnostics?.LastInferenceMs is int ms ? $"{ms} ms" : "Pending")</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Camera health</span>
-                        <strong class="monitor-metric-value">@CameraHealthLabel</strong>
-                        <small>Device: @(inferenceDiagnostics?.Device?.ToUpperInvariant() ?? "pending")</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Connection and sync</span>
-                        <strong class="monitor-metric-value">@ConnectionStatusLabel</strong>
-                        <small>@(observerState?.StatusDetail ?? "Observer loop ready for the next local inference poll.")</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Motion level</span>
-                        <strong class="monitor-metric-value">@MotionDisplayLabel</strong>
-                        <small>@lastInferenceStatus</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Session event count</span>
-                        <strong class="monitor-metric-value">@SessionEventCount</strong>
-                        <small>@streamItems.Count events listed today</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Privacy and recording</span>
-                        <strong class="monitor-metric-value">@PrivacyStatusLabel</strong>
-                        <small>Images: @(observerState?.SaveSignificantImages == true ? "saved for important alerts" : "not persisted")</small>
-                    </div>
-                </div>
-            </section>
-            </CollapsibleSection>
-
-            @* Tiering (idea 1): the 11 deep-diagnostic cards are collapsed by default so the glance
-               view stays dense with operational state, not telemetry. One click reveals the debug tier. *@
-            <CollapsibleSection Title="Inference analytics" InitiallyExpanded="false">
-                <div class="monitor-metrics-grid infer-metrics-grid" aria-label="LLM inference diagnostics">
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Quantization (DTYPE)</span>
-                        <strong class="monitor-metric-value">@DtypeDisplay</strong>
-                        <small>Device: @(inferenceDiagnostics?.Device?.ToUpperInvariant() ?? "pending")</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Model load time</span>
-                        <strong class="monitor-metric-value">@LoadTimeDisplay</strong>
-                        <small>State: @(inferenceDiagnostics?.LoadState ?? "idle")</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Inferences (session)</span>
-                        <strong class="monitor-metric-value">@InferCountDisplay</strong>
-                        <small>Total structured outputs</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Last inference</span>
-                        <strong class="monitor-metric-value">@LastMsDisplay</strong>
-                        <small>Raw model processing time</small>
-                    </div>
-                    <div class="monitor-metric-card @(inferenceDiagnostics?.Fp16FallbackUsed == true ? "monitor-metric-card--watch" : string.Empty)">
-                        <span class="monitor-metric-label">FP16 fallback</span>
-                        <strong class="monitor-metric-value">@Fp16FallbackDisplay</strong>
-                        <small>GPU precision mode</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Skip rate</span>
-                        <strong class="monitor-metric-value">@SkipRateDisplay</strong>
-                        <small>Unchanged / low-quality frames</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Min / max latency</span>
-                        <strong class="monitor-metric-value">@MinMaxInferDisplay</strong>
-                        <small>Session extremes</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">P95 latency</span>
-                        <strong class="monitor-metric-value">@P95LatencyDisplay</strong>
-                        <small>95th-percentile inference time</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Struct output rate</span>
-                        <strong class="monitor-metric-value">@StructRateDisplay</strong>
-                        <small>LABEL: compliant responses</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">EMA drift</span>
-                        <strong class="monitor-metric-value">@DriftDisplay</strong>
-                        <small>|cycle &minus; EMA| deviation</small>
-                    </div>
-                    <div class="monitor-metric-card">
-                        <span class="monitor-metric-label">Duty cycle</span>
-                        <strong class="monitor-metric-value">@DutyCycleDisplay</strong>
-                        <small>Active inference / session time</small>
-                    </div>
-                </div>
-            </CollapsibleSection>
-        </PoPanel>
     </div>
 </div>
 
+@* Consolidation #5: model/GPU/polling setup and developer tools live in a slide-over settings
+   drawer, off the daily-use screen. Opened via the ⚙ in the Room Feed header. *@
+@if (_settingsOpen)
+{
+    <div class="settings-drawer-backdrop" @onclick="@(() => _settingsOpen = false)"></div>
+    <aside class="settings-drawer" role="dialog" aria-label="Observer settings" data-test="observer-settings-drawer">
+        <header class="settings-drawer-header">
+            <h2>Observer settings</h2>
+            <button class="settings-drawer-close" @onclick="@(() => _settingsOpen = false)" aria-label="Close settings">×</button>
+        </header>
+        @if (monitoring || thinking)
+        {
+            <p class="settings-drawer-note">Stop watching to change the model, GPU preference, or check interval.</p>
+        }
+        else
+        {
+            <ObserverSetupPanel IsMonitoring="monitoring"
+                                IsThinking="thinking"
+                                SelectedModelKey="selectedModelKey"
+                                SelectedModelKeyChanged="@(v => selectedModelKey = v)"
+                                ModelOptions="@ModelOptions.Select(o => new ObserverSetupPanel.ModelOption(o.Value, o.Label)).ToList()"
+                                GpuPreference="_selectedGpuPreference"
+                                PollingSeconds="_livePollingSeconds"
+                                ShowDevTools="@(observerState?.DeveloperModeEnabled == true)"
+                                OnModelChanged="OnModelSwitched"
+                                OnGpuPreferenceChanged="OnGpuPreferenceChangedAsync"
+                                OnPollingChanged="OnPollingIntervalChangedAsync"
+                                OnInjectEvent="InjectEventAsync"
+                                OnInjectOutlier="InjectOutlierAsync" />
+        }
+    </aside>
+}

@@ -47,10 +47,24 @@
     return _worker;
   }
 
-  function postToWorker(type, payload) {
+  // timeoutMs = 0 means wait forever (RUN_INFERENCE/model loads can be slow). Quick status
+  // queries MUST pass a timeout: a worker that never responds otherwise hangs the awaiting
+  // Blazor OnInitializedAsync and the page never renders (System page bug, 2026-07-22).
+  function postToWorker(type, payload, timeoutMs = 0) {
     return new Promise((resolve, reject) => {
       const id = _msgId++;
-      _pendingMessages.set(id, { resolve, reject });
+      let timer = null;
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          if (_pendingMessages.delete(id)) {
+            reject(new Error(`Inference worker did not answer ${type} within ${timeoutMs}ms`));
+          }
+        }, timeoutMs);
+      }
+      _pendingMessages.set(id, {
+        resolve: (v) => { if (timer) clearTimeout(timer); resolve(v); },
+        reject: (e) => { if (timer) clearTimeout(timer); reject(e); },
+      });
       getWorker().postMessage({ id, type, payload });
     });
   }
@@ -130,7 +144,7 @@
 
   window.powatchInference = {
     async isWebGpuAvailable() {
-      const res = await postToWorker('GET_DIAGNOSTICS', {});
+      const res = await postToWorker('GET_DIAGNOSTICS', {}, 5000);
       return res.data?.webGpuPresent ?? false;
     },
 
@@ -224,7 +238,7 @@
 
     // Async — queries the worker for the full diagnostics snapshot.
     async getInferenceDiagnostics() {
-      const res = await postToWorker('GET_DIAGNOSTICS', {});
+      const res = await postToWorker('GET_DIAGNOSTICS', {}, 5000);
       // JS heap usage — Chrome-only (performance.memory is not in the spec).
       // Returns MB used / total, e.g. "42 / 128 MB". Returns null elsewhere.
       let jsHeapMb = null;

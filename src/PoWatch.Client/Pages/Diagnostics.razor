@@ -12,10 +12,12 @@
 <PageTitle>PoWatch | Diagnostics</PageTitle>
 
 <div class="sector-grid diagnostics-page">
+    @* Consolidation #8: one Health card — server row + inference row, one refresh control,
+       auto-refresh on by default. *@
     <RadzenCard class="panel">
         <header class="panel-header">
-            <h1>System Diagnostics</h1>
-            <p>Zero-waste transparency into runtime resource usage and connection health.</p>
+            <h1>Health</h1>
+            <p>Runtime, storage &amp; inference — refreshed automatically.</p>
         </header>
 
         <div class="diagnostics-toolbar">
@@ -44,13 +46,7 @@
                 <div><label>Masked Key</label><span>@snapshot.MaskedApiKey</span></div>
             </div>
         }
-    </RadzenCard>
-
-    <RadzenCard class="panel">
-        <header class="panel-header">
-            <h1>Inference Engine</h1>
-            <p>WebGPU / WASM model status and runtime telemetry.</p>
-        </header>
+        <h2 class="health-section-label">Inference engine</h2>
 
         @if (inferenceDiag is not null)
         {
@@ -134,7 +130,7 @@
 @code {
     private DiagnosticsSnapshotDto? snapshot;
     private InferenceDiagnosticsDto? inferenceDiag;
-    private bool autoRefresh;
+    private bool autoRefresh = true;
     private DateTime? lastRefreshed;
     private int _autoRefreshIntervalSeconds;
     private CancellationTokenSource _cts = new();
@@ -145,6 +141,10 @@
     {
         _autoRefreshIntervalSeconds = ClientFlags.Value.DiagnosticsAutoRefreshIntervalSeconds;
         await LoadAsync();
+        // Auto-refresh is the default (consolidation #8) — a health page that shows stale
+        // numbers until someone clicks Refresh reads as broken.
+        if (autoRefresh)
+            _ = AutoRefreshLoopAsync(_cts.Token);
     }
 
     private async Task OnAutoRefreshChanged(bool value)
@@ -184,6 +184,9 @@
             snapshot = await ApiClient.GetDiagnosticsAsync();
             if (snapshot is null)
                 NotificationService.Notify(NotificationSeverity.Warning, "Diagnostics", "Unavailable in current environment.", duration: 4000);
+            // Paint the snapshot immediately — the inference query below can take seconds to
+            // time out when no worker is running, and the page looked broken meanwhile.
+            StateHasChanged();
         }
         catch
         {

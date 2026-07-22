@@ -8,15 +8,15 @@
 
 .narrative {
     line-height: 1.6;
-    color: #d6def5;
+    color: var(--color-text-primary);
 }
 
 .archive-empty {
     margin-top: 1rem;
     padding: 0.9rem 1rem;
     border-radius: 8px;
-    background: rgba(56, 255, 168, 0.08);
-    color: #9ef7d4;
+    background: var(--state-success-bg);
+    color: var(--state-success-fg);
 }
 
 .archive-empty p {

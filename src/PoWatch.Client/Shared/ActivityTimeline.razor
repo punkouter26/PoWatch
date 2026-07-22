@@ -17,7 +17,7 @@ else
                     <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
                     @if (ShowSubjectBadge)
                     {
-                        <span class="activity-subject">@item.SubjectDisplayName</span>
+                        <span class="activity-subject">@PoWatch.Client.Services.DisplayText.SubjectName(item.SubjectDisplayName, isKnownIdentity: false)</span>
                     }
                     @if (item.IsClinicalOutlier)
                     {

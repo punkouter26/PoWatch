@@ -131,6 +131,17 @@
 
 :root[data-theme="light"] {
     color-scheme: light dark;
+    /* Glass tokens MUST be overridden here too — the dark defaults otherwise render
+       dark translucent cards (login, glass panels) on light pages. */
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-bg-strong: rgba(255, 255, 255, 0.94);
+    --glass-border: rgba(111, 61, 227, 0.16);
+    --elevation-base: 0 0 0 1px rgba(26, 21, 48, 0.06), 0 12px 28px rgba(26, 21, 48, 0.10);
+    --elevation-raised: 0 0 0 1px rgba(26, 21, 48, 0.08), 0 18px 40px rgba(26, 21, 48, 0.14);
+    --elevation-float: 0 0 0 2px rgba(111, 61, 227, 0.18), 0 24px 48px rgba(26, 21, 48, 0.18);
+    --shadow-sm: 0 2px 8px rgba(26, 21, 48, 0.08);
+    --shadow-md: 0 4px 16px rgba(26, 21, 48, 0.10);
+    --shadow-lg: 0 8px 32px rgba(26, 21, 48, 0.12);
     --color-surface-0: #f7f7fb;
     --color-surface-1: #ffffff;
     --color-surface-2: #f1eefb;

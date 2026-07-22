@@ -8,11 +8,10 @@
 
     const SHORTCUTS = {
         // Navigation shortcuts
-        'ctrl+1': { action: 'nav', path: '/', label: 'Observer Hub' },
-        'ctrl+2': { action: 'nav', path: '/live-dashboard', label: 'Live Dashboard' },
-        'ctrl+3': { action: 'nav', path: '/archives', label: 'Archives' },
-        'ctrl+4': { action: 'nav', path: '/identity', label: 'Identity Nexus' },
-        'ctrl+5': { action: 'nav', path: '/diagnostics', label: 'Diagnostics' },
+        'ctrl+1': { action: 'nav', path: '/', label: 'Live Room' },
+        'ctrl+2': { action: 'nav', path: '/archives', label: 'History' },
+        'ctrl+3': { action: 'nav', path: '/identity', label: 'People' },
+        'ctrl+4': { action: 'nav', path: '/diagnostics', label: 'System' },
 
         // Action shortcuts
         'ctrl+b': { action: 'sidebar-toggle', label: 'Toggle Sidebar' },
@@ -256,11 +255,10 @@
 
         // Default commands
         const commands = [
-            { label: 'Observer Hub', action: '/', shortcut: 'Ctrl+1', icon: 'home' },
-            { label: 'Live Dashboard', action: '/live-dashboard', shortcut: 'Ctrl+2', icon: 'chart' },
-            { label: 'Archives', action: '/archives', shortcut: 'Ctrl+3', icon: 'archive' },
-            { label: 'Identity Nexus', action: '/identity', shortcut: 'Ctrl+4', icon: 'users' },
-            { label: 'Diagnostics', action: '/diagnostics', shortcut: 'Ctrl+5', icon: 'cpu' },
+            { label: 'Live Room', action: '/', shortcut: 'Ctrl+1', icon: 'home' },
+            { label: 'History', action: '/archives', shortcut: 'Ctrl+2', icon: 'archive' },
+            { label: 'People', action: '/identity', shortcut: 'Ctrl+3', icon: 'users' },
+            { label: 'System', action: '/diagnostics', shortcut: 'Ctrl+4', icon: 'cpu' },
             { label: 'Toggle Sidebar', action: 'sidebar-toggle', shortcut: 'Ctrl+B', icon: 'sidebar' },
             { label: 'Refresh Page', action: 'refresh', shortcut: 'R', icon: 'refresh' },
             { label: 'Show Help', action: 'help', shortcut: '?', icon: 'help' },

@@ -416,7 +416,7 @@ code,
     height: 100%;
     object-fit: cover;
     background: linear-gradient(135deg, #0f1325, #040608);
-    filter: saturate(0.92) contrast(1.08);
+    /* No filter: the camera view stays true-to-life (special effects removed 2026-07-22). */
 }
 
 .nexus-frame .video-label {
@@ -517,9 +517,9 @@ code,
 }
 
 .hud-grid div {
-    border: 1px solid rgba(111, 61, 227, 0.4);
+    border: 1px solid var(--color-border-subtle);
     border-radius: 6px;
-    background: rgba(16, 12, 30, 0.85);
+    background: var(--color-surface-2);
     padding: 0.65rem;
 }
 
@@ -813,21 +813,21 @@ code,
     font-weight: 700;
 }
 
-/* Dropdown trigger */
+/* Dropdown trigger — theme tokens, never hard-coded dark (black-slab bug, 2026-07-22) */
 .setup-row .rz-dropdown,
 .setup-row .rz-dropdown-label,
 .setup-row .rz-text {
-    background: rgba(9, 7, 20, 0.88) !important;
+    background: var(--color-surface-2) !important;
     color: var(--text-primary) !important;
 }
 
 /* Dropdown popup panel */
 .rz-dropdown-panel,
 .rz-multiselect-panel {
-    background: #0f0b1f !important;
-    border: 1px solid rgba(111, 61, 227, 0.4) !important;
+    background: var(--color-surface-1) !important;
+    border: 1px solid var(--color-border-subtle) !important;
     border-radius: 10px !important;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.5) !important;
+    box-shadow: var(--shadow-lg) !important;
 }
 
 /* Each option item */
@@ -840,15 +840,15 @@ code,
 /* Hover state */
 .rz-dropdown-panel .rz-dropdown-item:hover,
 .rz-dropdown-panel li:hover {
-    background: rgba(111, 61, 227, 0.18) !important;
-    color: #fff !important;
+    background: var(--color-accent-soft) !important;
+    color: var(--color-text-bright) !important;
 }
 
 /* Selected / highlighted item */
 .rz-dropdown-panel .rz-dropdown-item.rz-state-highlight,
 .rz-dropdown-panel li.rz-state-highlight {
-    background: rgba(111, 61, 227, 0.35) !important;
-    color: #fff !important;
+    background: var(--color-accent) !important;
+    color: #ffffff !important;
 }
 
 #blazor-error-ui {
@@ -1196,10 +1196,10 @@ code,
 .archive-timeline-grid,
 .identity-grid-table {
     margin-top: 0.6rem;
-    border: 1px solid rgba(111, 61, 227, 0.22);
+    border: 1px solid var(--color-border-subtle);
     border-radius: 12px;
     overflow: hidden;
-    background: rgba(7, 6, 16, 0.75);
+    background: var(--color-surface-1);
 }
 
 .archive-timeline-grid .rz-datatable-thead th,
@@ -1211,9 +1211,9 @@ code,
 .identity-grid-table .rz-data-grid-data thead th,
 .identity-grid-table .rz-grid-table thead th,
 .identity-grid-table th.rz-unselectable-text {
-    background: rgba(12, 10, 24, 0.95) !important;
-    color: #d6def5 !important;
-    border-color: rgba(111, 61, 227, 0.18) !important;
+    background: var(--color-surface-2) !important;
+    color: var(--color-text-label) !important;
+    border-color: var(--color-border-subtle) !important;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 0.74rem;
@@ -1229,14 +1229,27 @@ code,
 .identity-grid-table .rz-cell-data {
     background: transparent !important;
     color: var(--text-primary) !important;
-    border-color: rgba(111, 61, 227, 0.14) !important;
+    border-color: var(--color-border-subtle) !important;
 }
 
 .archive-timeline-grid .rz-data-row:hover td,
 .archive-timeline-grid .rz-datatable-even:hover td,
 .identity-grid-table .rz-data-row:hover td,
 .identity-grid-table .rz-datatable-even:hover td {
-    background: rgba(56, 255, 168, 0.05) !important;
+    background: var(--color-accent-soft) !important;
+}
+
+/* Disabled buttons keep readable text instead of vanishing (item #9). */
+.rz-button:disabled,
+.rz-button.rz-state-disabled {
+    opacity: 0.55;
+}
+
+/* Horizontal subject strip: fade the clipped edge so overflow reads as scrollable (item #10). */
+.subjects-mini-row {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 42px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 42px), transparent);
+    scrollbar-width: thin;
 }
 
 @media (max-width: 900px) {
@@ -2116,8 +2129,8 @@ button:active:not(:disabled) {
 .search-input {
     width: 100%;
     padding: 0.6rem 0.75rem 0.6rem 2.5rem;
-    background: rgba(15, 11, 31, 0.8);
-    border: 1px solid rgba(111, 61, 227, 0.3);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
     color: var(--text-primary);
     font-size: var(--text-sm);
@@ -2373,7 +2386,7 @@ button:active:not(:disabled) {
 
 /* Glass effect */
 .glass {
-    background: rgba(15, 11, 31, 0.7);
+    background: var(--glass-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
@@ -2907,8 +2920,8 @@ button:active:not(:disabled) {
     flex-direction: column;
     gap: 0.4rem;
     padding: 0.5rem 0.7rem 0.55rem;
-    background: linear-gradient(180deg, rgba(15, 11, 31, 0.94) 0%, rgba(10, 8, 23, 0.96) 100%);
-    border: 1px solid rgba(111, 61, 227, 0.32);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
     border-radius: 14px;
     box-shadow: var(--elevation-base);
     min-height: 0;
@@ -3726,8 +3739,9 @@ button:active:not(:disabled) {
 .room-status-hero {
     display: flex;
     align-items: center;
-    gap: var(--space-5);
-    padding: var(--space-5) var(--space-6);
+    gap: var(--space-4);
+    /* Compact strip: one glanceable row, minimum vertical footprint. */
+    padding: var(--space-2) var(--space-5);
     border-radius: var(--radius-xl);
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface-1);
@@ -3743,8 +3757,8 @@ button:active:not(:disabled) {
     color: var(--color-text-muted);
 }
 .room-status-headline {
-    margin: var(--space-1) 0;
-    font-size: var(--text-3xl);
+    margin: 0.1rem 0;
+    font-size: var(--text-xl);
     line-height: 1.1;
     color: var(--color-text-bright);
 }
@@ -3765,8 +3779,8 @@ button:active:not(:disabled) {
 /* The breathing orb: quiet = a slow, reassuring pulse; alert = an urgent one. */
 .room-status-orb {
     flex: 0 0 auto;
-    width: 68px;
-    height: 68px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-full);
     display: grid;
     place-items: center;
@@ -3774,8 +3788,8 @@ button:active:not(:disabled) {
     border: 2px solid var(--state-success-border);
 }
 .room-status-orb-core {
-    width: 26px;
-    height: 26px;
+    width: 16px;
+    height: 16px;
     border-radius: var(--radius-full);
     background: var(--state-success-fg);
     animation: roomBreathe 4.5s ease-in-out infinite;

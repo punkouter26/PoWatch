@@ -14,6 +14,7 @@
 .login-card {
     width: 100%;
     max-width: 420px;
+    box-sizing: border-box;
     padding: var(--space-10) var(--space-8);
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -44,6 +45,9 @@
     justify-content: center;
     gap: var(--space-2);
     width: 100%;
+    /* No global box-sizing reset in this project — without this, width:100% + padding
+       overflows the card's right edge. */
+    box-sizing: border-box;
     min-height: 48px;                      /* WCAG touch target */
     padding: var(--space-3) var(--space-5);
     border-radius: var(--radius-md);
@@ -70,7 +74,8 @@
 
 /* Hint copy under each sign-in button (Idea #10 — onboarding clarity) */
 .login-btn-hint {
-    margin: calc(var(--space-3) * -1) 0 var(--space-4);
+    /* Positive top margin — the old negative value overlapped the hint onto the button border. */
+    margin: var(--space-2) 0 var(--space-4);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     line-height: 1.4;
@@ -89,16 +94,16 @@
     transform: scale(0.98) translateZ(0);
 }
 
-/* Microsoft — primary brand action */
+/* Microsoft — primary brand action. Accent-filled so it reads in BOTH themes
+   (the old #2f2f2f slab was near-invisible on the light theme). */
 .login-btn-ms {
-    background: #2f2f2f;
-    color: var(--text-bright);
-    border: 1px solid #4a4a4a;
+    background: var(--color-accent);
+    color: #ffffff;
+    border: 1px solid transparent;
 }
 .login-btn-ms:hover {
-    background: #3a3a3a;
-    border-color: var(--neon-green);
-    box-shadow: var(--shadow-glow-green);
+    background: var(--palette-violet-400);
+    box-shadow: var(--shadow-glow-purple);
 }
 
 /* Guest — secondary, quieter */

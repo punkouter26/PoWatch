@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @implements IDisposable
+@using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -16,12 +17,8 @@
                 <strong data-test="page-hud-title">@_pageTitle</strong>
                 <span class="page-hud-subtitle">@_pageSubtitle</span>
             </div>
-            <div class="page-hud-meta">
-                <span class="hud-badge hud-badge--@_inferenceLevel" title="Local inference engine state" data-test="inference-badge">
-                    <span class="hud-badge-dot" aria-hidden="true"></span>@_inferenceLabel
-                </span>
-                <span class="hud-clock" aria-live="off" data-test="page-clock"><ClockDisplay /></span>
-            </div>
+            @* Chrome kept minimal (consolidation #10): no clock (the OS shows one) and no status
+               chip (the Live Room hero owns monitoring state; System owns engine state). *@
         </div>
 
         @if (_navigating)
@@ -42,24 +39,12 @@
 <RadzenContextMenu />
 
 @code {
-    private System.Threading.Timer? _timer;
-    private int _tick;
     private bool _navigating = false;
     private string _pageTitle = "Live Room";
     private string _pageSubtitle = "Local-only ambient monitoring";
 
-    // Live inference-engine badge (NET_RUN_10 #10) — replaces the static "Inference ready" chip.
-    private string _inferenceLabel = "Standby";
-    private string _inferenceLevel = "idle";
-
     protected override void OnInitialized()
     {
-        // Inference-badge poll only — clock moved to its own <ClockDisplay />.
-        _timer = new System.Threading.Timer(_ =>
-        {
-            if (++_tick % 5 == 0) _ = InvokeAsync(RefreshInferenceBadgeAsync);
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-
         Nav.LocationChanged += OnLocationChanged;
         UpdatePageTitle(Nav.Uri);
     }
@@ -86,32 +71,6 @@
         // the wiring here keeps the JS one source of truth.
     }
 
-    private async Task RefreshInferenceBadgeAsync()
-    {
-        try
-        {
-            var diag = await JS.InvokeAsync<InferenceBadgeDto>("powatchInference.getInferenceDiagnostics");
-            (_inferenceLabel, _inferenceLevel) = diag?.LoadState switch
-            {
-                "ready" => ("Model ready", "ready"),
-                "loading" => ("Loading model…", "loading"),
-                "error" => ("Inference error", "error"),
-                _ => ("Standby", "idle"),
-            };
-        }
-        catch
-        {
-            // Inference JS not present (e.g. anonymous /login) — keep the neutral Standby state.
-            (_inferenceLabel, _inferenceLevel) = ("Standby", "idle");
-        }
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private sealed class InferenceBadgeDto
-    {
-        public string? LoadState { get; set; }
-    }
-
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         _navigating = true;
@@ -131,8 +90,7 @@
         {
             "" or "/" => ("Live Room", "Watching the room, quietly"),
             "/archives" => ("History", "Each day's story and the moments that mattered"),
-            "/live-dashboard" => ("Overview", "How everyone is doing, right now"),
-            "/identity" => ("People", "Name, rename, and merge the people seen"),
+            "/identity" => ("People", "Everyone seen — name, rename, and merge"),
             "/diagnostics" => ("System", "Runtime, storage & inference health"),
             "/login" => ("Sign in", "Sign in to PoWatch"),
             _ => ("PoWatch", "Calm, local-only room monitoring")
@@ -141,7 +99,6 @@
 
     public void Dispose()
     {
-        _timer?.Dispose();
         Nav.LocationChanged -= OnLocationChanged;
     }
 }
