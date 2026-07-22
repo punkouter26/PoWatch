@@ -625,10 +625,20 @@ public partial class ObserverHub
 
     private async Task RefreshTimelineAsync()
     {
-        var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.UtcNow));
-        streamItems = chapter?.Timeline is not null
-            ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(50).ToList()
-            : [];
+        try
+        {
+            var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+            streamItems = chapter?.Timeline is not null
+                ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(50).ToList()
+                : [];
+        }
+        catch (HttpRequestException)
+        {
+            // A failed timeline load must not take down the whole Live Room (this runs unguarded
+            // inside OnInitializedAsync's Task.WhenAll). Keep whatever we had and latch the banner,
+            // matching RefreshStateAsync's degradation path.
+            LatchPipelineHealth("warn", "Could not load today's activity timeline — will retry on the next refresh.");
+        }
     }
 
     private async Task RunSessionKeepAliveAsync(CancellationToken cancellationToken)
