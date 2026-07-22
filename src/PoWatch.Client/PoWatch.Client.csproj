@@ -3,7 +3,10 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
-    <IsTrimmable>true</IsTrimmable>
+    <!-- Do NOT set IsTrimmable on this assembly: routable @page components are discovered via
+         reflection (RouteTableFactory), so member-level trimming deletes every page and the router
+         404s all routes in the published app (this took prod down on 2026-07-22). Framework
+         assemblies are still trimmed by the default Blazor WASM publish. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <!-- Trim-safe options/config binding (clears IL2026 on Configure/Get). -->
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
