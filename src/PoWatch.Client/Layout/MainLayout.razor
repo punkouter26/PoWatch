@@ -33,6 +33,10 @@
 </div>
 
 <RadzenNotification />
+@* RadzenDialog host — required for DialogService.Confirm/OpenAsync to render anything. Without
+   it, the clear-data confirm, the System-page reset confirm, and the handoff dialog were all
+   silent no-ops (added 2026-07-22). *@
+<RadzenDialog />
 @* Advanced Radzen hosts (audit #10): enable app-wide tooltips and contextual menus.
    TooltipService gives touch-usable tooltips that native title="" cannot. *@
 <RadzenTooltip />

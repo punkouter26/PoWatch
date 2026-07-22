@@ -73,7 +73,7 @@
     [Parameter] public EventCallback OnInjectOutlier { get; set; }
 
     private bool _devExpanded;
-    private bool _advExpanded;
+    private bool _advExpanded = true;
 
     private void ToggleAdvanced() => _advExpanded = !_advExpanded;
 

@@ -219,4 +219,28 @@ public partial class ObserverHub
         }
     }
     private string P95LatencyDisplay => _p95LatencyMs > 0 ? $"{_p95LatencyMs:N0} ms" : "--";
+
+    // ── Live model-telemetry strip under the Room Feed camera ──
+    private string ModelLoadStateDisplay
+    {
+        get
+        {
+            var state = inferenceDiagnostics?.LoadState;
+            if (string.IsNullOrWhiteSpace(state)) return "Not loaded yet";
+            var label = char.ToUpperInvariant(state[0]) + state[1..];
+            return inferenceDiagnostics?.LoadDurationMs is int ms and > 0
+                ? $"{label} · loaded in {ms / 1000.0:0.0} s"
+                : label;
+        }
+    }
+    private string EngineDisplay => inferenceDiagnostics?.Device is { Length: > 0 } device
+        ? $"{device.ToUpperInvariant()} · {DtypeDisplay}"
+        : "--";
+    private string EngineSubDisplay => inferenceDiagnostics?.GpuAdapterName is { Length: > 0 } gpu
+        ? gpu
+        : inferenceDiagnostics?.WebGpuPresent == true ? "WebGPU available" : "No WebGPU — CPU only";
+    private bool EngineDegraded => inferenceDiagnostics is not null
+        && (inferenceDiagnostics.Fp16FallbackUsed
+            || string.Equals(inferenceDiagnostics.Device, "wasm", StringComparison.OrdinalIgnoreCase));
+    private string AvgCycleDisplay => _emaInferenceMs > 0 ? $"avg cycle {_emaInferenceMs:N0} ms" : "avg cycle --";
 }

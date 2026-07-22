@@ -8,6 +8,7 @@
 @inject PoWatch.Client.Services.UserPreferencesService UserPrefs
 @inject IJSRuntime JS
 @inject NotificationService NotificationService
+@inject DialogService DialogService
 @inject NavigationManager Navigation
 
 <PageTitle>PoWatch | Live Room</PageTitle>
@@ -101,11 +102,62 @@
                 <video @ref="liveCameraFeed" class="live-camera-feed" autoplay muted playsinline poster="media/webcam-fallback.svg" aria-label="Live webcam preview"></video>
                 <div class="video-sub">@(monitoring ? "Observation loop active" : "Idle")</div>
             </div>
+
+            @* Live model telemetry: what the on-device model is doing and how well it's keeping up.
+               Values refresh every observation cycle (RefreshDiagnosticsAsync + StateHasChanged). *@
+            <div class="model-stats-strip" data-test="model-stats-strip" aria-label="Live model processing stats">
+                <div class="model-stat" title="Vision model running locally in this browser tab">
+                    <span class="model-stat-label">Model</span>
+                    <span class="model-stat-value">@SelectedModelLabel</span>
+                    <span class="model-stat-sub">@ModelLoadStateDisplay</span>
+                </div>
+                <div class="model-stat @(EngineDegraded ? "model-stat--warn" : string.Empty)" title="Where inference runs: WebGPU (fast) or WASM/CPU fallback (slower). Warns when fp16 fell back to fp32 or no GPU is in use.">
+                    <span class="model-stat-label">Engine</span>
+                    <span class="model-stat-value">@EngineDisplay</span>
+                    <span class="model-stat-sub">@EngineSubDisplay</span>
+                </div>
+                <div class="model-stat" title="Time the model took to analyse the most recent frame; below it, the smoothed average of the whole check cycle including sync">
+                    <span class="model-stat-label">Last analysis</span>
+                    <span class="model-stat-value">@LastMsDisplay</span>
+                    <span class="model-stat-sub">@AvgCycleDisplay</span>
+                </div>
+                <div class="model-stat" title="95% of frame analyses finish within this time (rolling window of the last 100 checks)">
+                    <span class="model-stat-label">p95 latency</span>
+                    <span class="model-stat-value">@P95LatencyDisplay</span>
+                    <span class="model-stat-sub">min/max @MinMaxInferDisplay</span>
+                </div>
+                <div class="model-stat" title="Checks this session; skipped = frame unchanged or too low-quality to be worth analysing">
+                    <span class="model-stat-label">Checks</span>
+                    <span class="model-stat-value">@_totalCycles</span>
+                    <span class="model-stat-sub">skipped @SkipRateDisplay</span>
+                </div>
+                <div class="model-stat" title="How often the model returned a well-formed structured answer, and its confidence in the latest one">
+                    <span class="model-stat-label">Reply quality</span>
+                    <span class="model-stat-value">@StructRateDisplay</span>
+                    <span class="model-stat-sub">@ConfidenceTrustLabel</span>
+                </div>
+            </div>
         </RadzenCard>
 
         <PoPanel Glass="true" Title="Room Activity"
                   Badge="@($"{streamItems.Count} today")"
                   BadgeClass="@(streamItems.Count > 0 ? "po-panel-badge--live" : null)">
+
+            @* Clear data — deletes ALL observations, people, and saved images (there is no
+               targeted delete). Gated on the SERVER's developer mode (DeveloperBypassAuth), the
+               same signal the inject-event dev tools use — the client-only ExposeDebugDetailsInUi
+               flag is unreliable because the WASM app never loads the Development appsettings.
+               The server AllowDataReset flag is the real guard on the endpoint, off in production. *@
+            @if (observerState?.DeveloperModeEnabled == true)
+            {
+                <div class="activity-clear-row">
+                    <RadzenButton Text="@(_clearingData ? "Clearing…" : "Clear data")" Icon="delete_sweep"
+                                  ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall"
+                                  Click="ClearDataAsync" Disabled="@_clearingData"
+                                  title="Delete all recorded activity, people, and images (cannot be undone)"
+                                  data-test="live-clear-data" />
+                </div>
+            }
 
             <div class="activity-scroll-region">
                 <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
