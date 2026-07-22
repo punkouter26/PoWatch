@@ -20,11 +20,17 @@
         <div class="archive-toolbar">
             <RadzenButton Icon="chevron_left" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="PreviousDayAsync" Disabled="@loading" aria-label="Previous day" title="Previous day (Arrow Left)" />
+            @* Fix #9: removed the redundant "Toggle" calendar button — the native date input
+               already opens its picker on click. Added a clearer title on the disabled Next day
+               button so users understand it's bounded by "today" rather than just greyed out. *@
             <RadzenDatePicker @bind-Value="selectedDate" TValue="DateTime?" DateFormat="yyyy-MM-dd"
                 Max="@DateTime.Today"
-                Change="@(async _ => await LoadChapterAsync())" aria-label="Select date" />
+                Change="@(async _ => await LoadChapterAsync())" aria-label="Select date" title="Pick a day (up to today)" />
             <RadzenButton Icon="chevron_right" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                Click="NextDayAsync" Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)" aria-label="Next day" />
+                Click="NextDayAsync"
+                Disabled="@(loading || selectedDate?.Date >= DateTime.Now.Date)"
+                aria-label="Next day"
+                title="@(selectedDate?.Date >= DateTime.Now.Date ? "Can't go past today" : "Next day (Arrow Right)")" />
             <RadzenButton Icon="today" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                 Click="GoToTodayAsync" Disabled="@loading" aria-label="Go to today" title="Jump to today" />
             @if (loading)

@@ -41,13 +41,17 @@
                 <div><label>Captured</label><span>@snapshot.CapturedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</span></div>
                 <div><label>CPU Load</label><span>@snapshot.CpuLoadPercent.ToString("0")%</span></div>
                 <div><label>Memory</label><span>@snapshot.MemoryMb.ToString("0.0") MB</span></div>
-                <div><label>Storage</label><span>@snapshot.StorageConnectionStatus</span></div>
-                <div><label>Masked Endpoint</label><span title="@snapshot.MaskedEndpoint" class="masked-value">@snapshot.MaskedEndpoint</span></div>
-                <div><label>Masked Key</label><span>@snapshot.MaskedApiKey</span></div>
+                <div><label>Storage</label><span>@FriendlyStorageLabel(snapshot.StorageConnectionStatus)</span></div>
+                <div><label>Server endpoint</label><span title="@snapshot.MaskedEndpoint" class="masked-value">@FriendlyEndpointLabel(snapshot.MaskedEndpoint)</span></div>
+                <div><label>API key</label><span>@FriendlyKeyLabel(snapshot.MaskedApiKey)</span></div>
             </div>
         }
         <h2 class="health-section-label">Inference engine</h2>
 
+        @* Fix #6: the inference section used to render only its header when the worker hadn't
+           yet reported in, leaving the operator with "why isn't inference working?" and no
+           answer. Always render a state block — even if it's "worker not reachable yet" —
+           so the page never reads as broken. *@
         @if (inferenceDiag is not null)
         {
             var isReady = inferenceDiag.LoadState == "ready";
@@ -91,6 +95,16 @@
                     <pre class="raw-output-pre">@inferenceDiag.LastInferenceOutput</pre>
                 </div>
             }
+        }
+        else
+        {
+            <div class="inference-status status-idle" data-test="inference-worker-unreachable">
+                <div class="status-indicator">
+                    <span class="status-dot status-idle"></span>
+                    <span class="status-label status-idle">WORKER NOT REACHABLE</span>
+                </div>
+                <div class="status-sub">The on-device inference worker hasn't reported in yet. Open the Live Room and press Start watching — the model loads on first use and will appear here.</div>
+            </div>
         }
     </RadzenCard>
 </div>
@@ -202,12 +216,41 @@
     {
         try
         {
-            inferenceDiag = await JS.InvokeAsync<InferenceDiagnosticsDto>("powatchInference.getInferenceDiagnostics");
+            inferenceDiag = await JS.TryInvokeAsync<InferenceDiagnosticsDto>("powatchInference.getInferenceDiagnostics");
         }
         catch
         {
             inferenceDiag = null;
         }
+    }
+
+    // Fix #5: the raw values from the API are dev-only labels (Azurite is a local emulator,
+    // masked-endpoint / masked-key rows are designed for screenshots, not users). Translate
+    // them into caregiver-friendly copy without losing the actual status signal.
+    private static string FriendlyStorageLabel(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return "Not connected";
+        var s = status.Trim();
+        if (s.Contains("azurite", StringComparison.OrdinalIgnoreCase)) return "Connected (local emulator)";
+        if (s.Contains("ok", StringComparison.OrdinalIgnoreCase)) return "Connected";
+        if (s.Contains("error", StringComparison.OrdinalIgnoreCase) || s.Contains("fail", StringComparison.OrdinalIgnoreCase))
+            return "Connection problem";
+        return s;
+    }
+
+    private static string FriendlyEndpointLabel(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "Managed by platform";
+        // The server already masks the value; surface that fact plainly.
+        return "Hidden (configured)";
+    }
+
+    private static string FriendlyKeyLabel(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "Managed by platform";
+        // The DEV... prefix indicates a development-environment credential — don't surface that on a kiosk.
+        if (raw.StartsWith("DEV", StringComparison.OrdinalIgnoreCase)) return "Development credential";
+        return "Configured";
     }
 
     private async Task ResetAllDataAsync()

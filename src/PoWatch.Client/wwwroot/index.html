@@ -27,6 +27,20 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="PoWatch.Client.styles.css" rel="stylesheet" />
     <script type="importmap"></script>
+    <!-- Local JS bridges (audit #10): loaded with defer in <head> so they're guaranteed
+         to be evaluated before Blazor's first OnAfterRenderAsync fires. Previously these
+         lived at the end of <body>, which meant Blazor's JSInterop calls in OnAfterRenderAsync
+         ran before the scripts attached their globals (`powatchWebcamShell`, `powatchInference`,
+         etc.) and threw an "unhandled error" overlay on every first paint. Defer preserves
+         execution order while still running before Blazor's first render commit. -->
+    <script src="js/theme-controller.js" defer></script>
+    <script src="js/storage.js" defer></script>
+    <script src="js/preferences.js" defer></script>
+    <script src="js/inference-bridge.js" defer></script>
+    <script src="js/audio-bridge.js" defer></script>
+    <script src="js/blob-upload.js" defer></script>
+    <script src="js/keyboard-bindings.js" defer></script>
+    <script src="js/webcam-shell.js" defer></script>
 </head>
 
 <body>
@@ -43,17 +57,10 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
-    <!-- theme-controller.js must come BEFORE blazor.webassembly.js so it sets
-         data-theme on <html> synchronously before any Radzen/Blazor paint. -->
-    <script src="js/theme-controller.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/preferences.js"></script>
-    <script src="js/inference-bridge.js"></script>
-    <script src="js/audio-bridge.js"></script>
-    <script src="js/blob-upload.js"></script>
-    <script src="js/keyboard-bindings.js"></script>
-    <script src="js/webcam-shell.js"></script>
-    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+    <!-- All app-specific JS bridges now load in <head> with defer (see above). Only the
+         Radzen vendor bundle and Blazor runtime remain in <body>. theme-controller.js sets
+         data-theme on <html> synchronously (it has no defer), so the page never flashes. -->
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js" defer></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

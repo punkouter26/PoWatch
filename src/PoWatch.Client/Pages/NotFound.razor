@@ -6,14 +6,72 @@
 <PageTitle>PoWatch | Sector Not Found</PageTitle>
 
 <div class="sector-grid">
+	@* Fix #7: the previous 404 was a single dead-end button. Caregivers who mistype a URL
+	   (or bookmark an old path after a route moved) saw no hint what *does* exist.
+	   Add a quick-link rail listing the four real routes so a typo never becomes a kiosk blocker. *@
 	<RadzenCard class="panel">
 		<h1>Sector Not Found</h1>
-		<p>The requested route is outside the current command center map.</p>
+		<p class="not-found-context">The requested route is outside the current command center map.</p>
+		@if (!string.IsNullOrWhiteSpace(RequestedPath))
+		{
+			<p class="not-found-path">Requested: <code>@RequestedPath</code></p>
+		}
 		<RadzenButton Text="Return to the Live Room" ButtonStyle="ButtonStyle.Primary" Click="OnReturnClick" />
+	</RadzenCard>
+
+	<RadzenCard class="panel panel-glance">
+		<h2>Where you can go</h2>
+		<p class="panel-subtitle">These are the four sectors currently wired up.</p>
+		<div class="not-found-route-grid">
+			<a class="not-found-route-tile" href="" aria-label="Go to the Live Room">
+				<span class="not-found-route-icon" aria-hidden="true">📹</span>
+				<span class="not-found-route-name">Live Room</span>
+				<span class="not-found-route-desc">Start watching the room.</span>
+			</a>
+			<a class="not-found-route-tile" href="archives" aria-label="Go to History">
+				<span class="not-found-route-icon" aria-hidden="true">📅</span>
+				<span class="not-found-route-name">History</span>
+				<span class="not-found-route-desc">Each day's story and the moments that mattered.</span>
+			</a>
+			<a class="not-found-route-tile" href="identity" aria-label="Go to People">
+				<span class="not-found-route-icon" aria-hidden="true">👤</span>
+				<span class="not-found-route-name">People</span>
+				<span class="not-found-route-desc">Everyone seen — name, rename, and merge.</span>
+			</a>
+			<a class="not-found-route-tile" href="diagnostics" aria-label="Go to System">
+				<span class="not-found-route-icon" aria-hidden="true">⚙</span>
+				<span class="not-found-route-name">System</span>
+				<span class="not-found-route-desc">Runtime, storage &amp; inference health.</span>
+			</a>
+		</div>
 	</RadzenCard>
 </div>
 
 @code {
+	// Fix #7: surface the bad URL so the operator knows what was rejected.
+	[Parameter]
+	[SupplyParameterFromQuery(Name = "path")]
+	public string? RequestedPath { get; set; }
+
+	protected override void OnInitialized()
+	{
+		// The Router's NotFoundPage doesn't pass the URL automatically. Read it from the
+		// current navigation so the breadcrumb is never empty.
+		if (string.IsNullOrWhiteSpace(RequestedPath))
+		{
+			try
+			{
+				var uri = new Uri(Navigation.Uri);
+				RequestedPath = uri.PathAndQuery == "/" ? null : uri.PathAndQuery;
+			}
+			catch
+			{
+				// NotFound is the page that handles errors — be tolerant of any
+				// URL-parsing edge case and fall back to the empty state.
+			}
+		}
+	}
+
 	private void OnReturnClick()
 	{
 		Navigation.NavigateTo("/");

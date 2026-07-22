@@ -107,6 +107,10 @@ public partial class ObserverHub
         monitorCts?.Cancel();
         monitorCts = new CancellationTokenSource();
 
+        // Cancel any in-flight inference from a prior session so it can't finish and overwrite
+        // the new run's state. (See SafeJsInterop.cs note about CancellationToken serialization.)
+        await JS.TryInvokeVoidAsync("powatchInference.cancelInFlight");
+
         monitoringStartedAtUtc = DateTimeOffset.UtcNow;
         lastSyncAtUtc = null;
         lastSyncStatus = "Connecting...";
@@ -137,17 +141,27 @@ public partial class ObserverHub
         monitoring = true;
         await InvokeAsync(StateHasChanged);
 
-        var previewStatus = await JS.InvokeAsync<string>("powatchInference.startPreview", liveCameraFeed);
+        var previewStatus = await JS.TryInvokeAsync<string>("powatchInference.startPreview", liveCameraFeed) ?? "Bridge unavailable";
         if (!string.Equals(previewStatus, "OK", StringComparison.OrdinalIgnoreCase))
         {
             monitoring = false;
+            // Fix #2 + #8: persist the failure so the operator can see WHY watching didn't start.
+            // Toast-only feedback was being missed on a kiosk — the page silently snapped back to
+            // Standby with no breadcrumb, so the operator thought the system was monitoring when
+            // it wasn't.
+            _lastAttemptFailure = string.IsNullOrWhiteSpace(previewStatus) ? "Camera preview did not start." : previewStatus;
+            _lastAttemptAtUtc = DateTimeOffset.UtcNow;
             lastSyncStatus = "Camera unavailable";
             lastInferenceStatus = previewStatus;
-            NotificationService.Notify(NotificationSeverity.Warning, "Camera", previewStatus, duration: 5000);
+            NotificationService.Notify(NotificationSeverity.Warning, "Camera", previewStatus, duration: 6000);
             await RefreshDiagnosticsAsync();
             await InvokeAsync(StateHasChanged);
             return;
         }
+
+        // Clear any pinned failure once we're genuinely live.
+        _lastAttemptFailure = null;
+        _lastAttemptAtUtc = null;
 
         hasCameraFeed = true;
         await RefreshDiagnosticsAsync();
@@ -166,17 +180,25 @@ public partial class ObserverHub
         hasCameraFeed = false;
         lastSyncStatus = "Paused";
         lastInferenceStatus = "Stopped";
+        // Operator intentionally stopped — wipe the failure latch so we don't keep nagging.
+        _lastAttemptFailure = null;
+        _lastAttemptAtUtc = null;
 
         monitorCts?.Cancel();
+        // Cancel any in-flight captureAndInfer call so we don't get a stale inference round-trip
+        // finishing after Stop. The C# CancellationToken can't cross JSInterop (IntPtr on the
+        // token's WaitHandle trips JSON serialization), so the bridge keeps its own AbortController.
+        await JS.TryInvokeVoidAsync("powatchInference.cancelInFlight");
 
-        await JS.InvokeVoidAsync("powatchInference.stopMonitor");
+        await JS.TryInvokeVoidAsync("powatchInference.stopMonitor");
         await RefreshDiagnosticsAsync();
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task OnModelSwitched(object _)
     {
-        await JS.InvokeVoidAsync("powatchInference.setModel", selectedModelKey);
+        // Safe wrapper — model selection persists in the worker; bridge absence is harmless.
+        await JS.TryInvokeVoidAsync("powatchInference.setModel", selectedModelKey);
         NotificationService.Notify(NotificationSeverity.Info, "Model", "Will load on next inference.", duration: 3000);
     }
 
@@ -193,7 +215,8 @@ public partial class ObserverHub
         var pref = e.Value?.ToString() ?? "default";
         if (pref == _selectedGpuPreference) return;
         _selectedGpuPreference = pref;
-        await JS.InvokeVoidAsync("powatchInference.setPowerPreference", pref);
+        // Safe wrapper — GPU preference applies on next worker spin-up.
+        await JS.TryInvokeVoidAsync("powatchInference.setPowerPreference", pref);
         NotificationService.Notify(NotificationSeverity.Info, "GPU", "Power preference updated. Restart monitoring to apply.", duration: 4000);
     }
 
@@ -268,12 +291,25 @@ public partial class ObserverHub
         lastInferenceStatus = "Analysing frame...";
         await InvokeAsync(StateHasChanged);
 
-        var inference = await JS.InvokeAsync<InferenceBridgeResult>(
-            "powatchInference.captureAndInfer",
-            cancellationToken,
-            "Describe what you observe. Reply in this exact format:\nLABEL: <activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
-            liveCameraFeed,
-            Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256));
+        // Safe wrapper with a sentinel fallback — captureAndInfer is the hot path but a missing
+            // bridge (or a hung worker) must surface as a clean "unavailable" result, not a
+            // JSException that takes the whole Blazor tree down with the global error overlay.
+            // NOTE: do NOT pass cancellationToken as a JSInterop argument. System.Text.Json tries
+            // to serialize every arg, and CancellationToken.WatchHandle.Handle is IntPtr — that
+            // surfaces as the SerializeTypeInstanceNotSupported toast. Cancel from the C# side
+            // via JS.TryInvokeVoidAsync("powatchInference.cancelInFlight") instead.
+            var inference = await JS.TryInvokeAsync<InferenceBridgeResult>(
+                "powatchInference.captureAndInfer",
+                "Describe what you observe. Reply in this exact format:\nLABEL: <activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
+                liveCameraFeed,
+                Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256))
+                ?? new InferenceBridgeResult
+                {
+                    IsAvailable = false,
+                    Status = "Inference bridge unavailable",
+                    Activity = "Unknown",
+                    ConfidenceLabel = "Bridge missing"
+                };
 
         lastInferenceStatus = inference.Status;
         lastMotionPercent = inference.MotionScore ?? 0;
@@ -510,22 +546,22 @@ public partial class ObserverHub
     // break the monitoring flow, and it only works after a user gesture has unlocked the AudioContext.
     private async Task PlayCueAsync(string kind)
     {
-        try { await JS.InvokeVoidAsync("powatchAudio.cue", kind); }
-        catch { /* audio unavailable — ignore */ }
+        // Safe wrapper — audio bridge is optional; absence must not throw.
+        await JS.TryInvokeVoidAsync("powatchAudio.cue", kind);
     }
 
     private async Task AnnounceAsync(string subjectDisplayName, bool isUnknown)
     {
         if (isUnknown)
         {
-            await JS.InvokeVoidAsync("powatchAudio.playChirp");
+            await JS.TryInvokeVoidAsync("powatchAudio.playChirp");
         }
 
         var message = isUnknown
             ? $"New subject detected: {subjectDisplayName}"
             : $"Subject identified: {subjectDisplayName}";
 
-        await JS.InvokeVoidAsync("powatchAudio.announce", message);
+        await JS.TryInvokeVoidAsync("powatchAudio.announce", message);
     }
 
     private async Task TryUploadEvidenceAsync(string? imageReference, string? capturedImageDataUrl, string label)
@@ -543,12 +579,12 @@ public partial class ObserverHub
                 if (!string.IsNullOrWhiteSpace(capturedImageDataUrl))
                 {
                     // Upload the actual webcam frame captured at inference time
-                    await JS.InvokeVoidAsync("powatchBlobUpload.uploadFrame", access.SasUrl, capturedImageDataUrl);
+                    await JS.TryInvokeVoidAsync("powatchBlobUpload.uploadFrame", access.SasUrl, capturedImageDataUrl);
                 }
                 else
                 {
                     // Fallback for dev-tool injected events that have no real frame
-                    await JS.InvokeVoidAsync("powatchBlobUpload.uploadSvgPlaceholder", access.SasUrl, label);
+                    await JS.TryInvokeVoidAsync("powatchBlobUpload.uploadSvgPlaceholder", access.SasUrl, label);
                 }
             }
         }
@@ -591,7 +627,7 @@ public partial class ObserverHub
     {
         try
         {
-            inferenceDiagnostics = await JS.InvokeAsync<InferenceDiagnosticsSnapshot>("powatchInference.getInferenceDiagnostics");
+            inferenceDiagnostics = await JS.TryInvokeAsync<InferenceDiagnosticsSnapshot>("powatchInference.getInferenceDiagnostics");
             if (inferenceDiagnostics is not null)
             {
                 // GPU degraded to fp32 — not fatal, but the operator should know throughput will drop.
@@ -651,7 +687,8 @@ public partial class ObserverHub
         monitorCts?.Cancel();
         _keepAliveCts?.Cancel();
 
-        await JS.InvokeVoidAsync("powatchInference.stopMonitor");
+        // Safe wrapper — a missing inference-bridge must not throw during disposal.
+        await JS.TryInvokeVoidAsync("powatchInference.stopMonitor");
     }
 
     // ── WebGL shader bridge: tell the canvas overlay when the inference loop
@@ -662,16 +699,15 @@ public partial class ObserverHub
     {
         if (firstRender)
         {
-            // Bind the canvas overlay on first paint — the JS side auto-attaches
-            // any .webcam-shell elements via MutationObserver, but the initial
-            // bootstrap hits immediately when the script loads.
-            await JS.InvokeVoidAsync("powatchWebcamShell.setThinking", false);
+            // Safe wrapper — powatchWebcamShell is optional, see audit #10.
+            await JS.TryInvokeVoidAsync("powatchWebcamShell.setThinking", false);
         }
         if (thinking != _lastWebcamShellThinking)
         {
             _lastWebcamShellThinking = thinking;
-            try { await JS.InvokeVoidAsync("powatchWebcamShell.setThinking", thinking); }
-            catch { /* script not present */ }
+            // Safe wrapper — overlay shader is purely cosmetic; a missing bridge
+            // must not surface as "An unhandled error has occurred".
+            await JS.TryInvokeVoidAsync("powatchWebcamShell.setThinking", thinking);
         }
     }
 

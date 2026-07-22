@@ -48,6 +48,27 @@
 }
 
 <div class="observer-page">
+    @* Fix #2: a pinned start-failure card. Toast-only feedback for a failed Start was invisible
+       on a kiosk — the page silently returned to Standby and the operator thought monitoring was
+       live. This card stays until dismissed, shows the timestamp + reason, and points to the
+       most common fix (camera permission). *@
+    @if (HasLastAttemptFailure)
+    {
+        <div class="startup-error-card" role="alert" aria-live="assertive" data-test="startup-error-card">
+            <div class="startup-error-icon" aria-hidden="true">📷</div>
+            <div class="startup-error-body">
+                <strong class="startup-error-title">Couldn't start watching</strong>
+                <p class="startup-error-message">@_lastAttemptFailure</p>
+                @if (_lastAttemptAtUtc is { } ts)
+                {
+                    <p class="startup-error-meta">Attempted at @ts.ToLocalTime().ToString("HH:mm:ss") · Check that no other app is using the camera, then try Start again.</p>
+                }
+            </div>
+            <button class="startup-error-dismiss" @onclick="@(() => { _lastAttemptFailure = null; _lastAttemptAtUtc = null; StateHasChanged(); })"
+                    aria-label="Dismiss start-failure notice">×</button>
+        </div>
+    }
+
     @* Calm-state hero: THE single owner of monitoring state and start/stop (consolidation #2/#3).
        The subline also carries person-detection so no separate summary panel is needed. *@
     <section class="room-status-hero room-status-hero--@RoomStatusKey" aria-live="polite" data-test="room-status-hero">

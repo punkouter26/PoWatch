@@ -18,11 +18,15 @@
     <RadzenCard class="panel panel-library">
         @* Title/subtitle live in the page-hud header bar (UI review item #7). *@
         <div class="identity-register-bar">
-            <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput" Placeholder="New subject display name…"
+            <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput"
+                          Placeholder="Type a name (e.g. Mom) then press Enter to add a known person"
+                          aria-label="New subject display name"
                           Class="identity-flex-input"
                           @onkeydown="@(async e => { if (e.Key == "Enter") await RegisterSubjectAsync(); })" />
             <RadzenButton Icon="person_add" Text="Add Known Subject" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
-                Click="RegisterSubjectAsync" Disabled="@(busy || string.IsNullOrWhiteSpace(newSubjectName))" />
+                Click="RegisterSubjectAsync"
+                Disabled="@(busy || string.IsNullOrWhiteSpace(newSubjectName))"
+                title="@(string.IsNullOrWhiteSpace(newSubjectName) ? "Type a name first" : "Add this person to the subject library")" />
         </div>
 
         <h2>Subject Library</h2>

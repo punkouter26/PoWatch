@@ -54,6 +54,17 @@ public partial class ObserverHub
     private bool HasActiveThresholdAlerts => _activeThresholdAlerts.Count > 0;
     private bool ObservationLoopEnabled => observerState?.ObservationLoopEnabled ?? FeatureFlags.Value.ObservationLoopEnabled;
 
+    // ── Start-up failure latch (Fix #2/#8): when Start watching fails (no webcam, permission
+    // denied, model not loadable, …) we previously just snapped back to Standby and toasted
+    // a 5-second message nobody reads. Now we keep a pinned card until the operator clears it,
+    // so the kiosk never sits there looking like it's "monitoring" when nothing happened. ──
+    private string? _lastAttemptFailure;
+    private DateTimeOffset? _lastAttemptAtUtc;
+    private bool HasLastAttemptFailure => !string.IsNullOrWhiteSpace(_lastAttemptFailure);
+    private string LastAttemptLabel => HasLastAttemptFailure && _lastAttemptAtUtc is { } ts
+        ? $"Last attempt failed at {ts.ToLocalTime():HH:mm:ss} — {_lastAttemptFailure}"
+        : "Press Start to begin watching the room.";
+
     // ── Pipeline-health latch (idea 7): the one failure class that matters on a kiosk — GPU /
     // inference / server dropout — surfaced as a persistent banner that stays until dismissed,
     // rather than a toast nobody is watching.
@@ -124,9 +135,11 @@ public partial class ObserverHub
 
     // The hero subline is the ONLY live summary line (the Live Monitor panel was consolidated
     // away) — while watching it carries the person-detection state too.
+    // Fix #3: when monitoring isn't running but the most recent attempt failed, the subline
+    // surfaces that breadcrumb so the operator knows the system isn't watching, not "calm".
     private string RoomStatusSubline => CurrentRoomStatus switch
     {
-        RoomStatus.Idle => "Press Start to begin watching the room.",
+        RoomStatus.Idle => HasLastAttemptFailure ? LastAttemptLabel : "Press Start to begin watching the room.",
         RoomStatus.Calm => string.IsNullOrWhiteSpace(lastSyncStatus) || lastSyncStatus == "Standby"
             ? $"Watching quietly · {PersonDetectedLabel}"
             : $"Watching quietly · {PersonDetectedLabel} · {lastSyncStatus}",

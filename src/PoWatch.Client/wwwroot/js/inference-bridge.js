@@ -148,6 +148,16 @@
       return res.data?.webGpuPresent ?? false;
     },
 
+    // Fix: C# used to pass its CancellationToken across the JSInterop boundary, which made
+    // System.Text.Json walk into CancellationToken.WaitHandle.Handle (IntPtr) and throw
+    // SerializeTypeInstanceNotSupported. Now C# calls cancelInFlight() and the bridge keeps
+    // an AbortController scoped to the in-flight captureAndInfer call.
+    _abortController: null,
+    cancelInFlight() {
+      try { window.powatchInference._abortController?.abort(); }
+      catch { /* nothing to cancel */ }
+    },
+
     async ensureWebcamAccess() {
       if (!navigator?.mediaDevices?.getUserMedia) {
         return { available: false, errorState: 'Webcam unavailable in this browser. Fallback preview active.' };
@@ -177,7 +187,19 @@
     },
 
     async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96) {
+      // Abort any in-flight capture (defensive — C# also calls cancelInFlight before issuing a
+      // new one when stopping monitoring). One controller per call, not shared, so a new
+      // inference cycle isn't poisoned by a stale abort from a previous run.
+      if (window.powatchInference._abortController) {
+        try { window.powatchInference._abortController.abort(); } catch { /* */ }
+      }
+      const ctrl = new AbortController();
+      window.powatchInference._abortController = ctrl;
+
       const webcam = await window.powatchInference.ensureWebcamAccess();
+      if (ctrl.signal.aborted) {
+        return { isAvailable: false, status: 'Cancelled', activity: 'Cancelled', confidenceLabel: 'Cancelled' };
+      }
       if (!webcam.available) {
         return {
           isAvailable: false,
@@ -218,6 +240,9 @@
 
       // Capture frame on main thread (DOM), then hand off to the worker
       const base64Frame = await captureFrame(videoElement);
+      if (ctrl.signal.aborted) {
+        return { isAvailable: false, status: 'Cancelled', activity: 'Cancelled', confidenceLabel: 'Cancelled' };
+      }
       const res = await postToWorker('RUN_INFERENCE', {
         base64Frame,
         prompt,
