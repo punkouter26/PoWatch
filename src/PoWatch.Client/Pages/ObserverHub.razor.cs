@@ -292,24 +292,24 @@ public partial class ObserverHub
         await InvokeAsync(StateHasChanged);
 
         // Safe wrapper with a sentinel fallback — captureAndInfer is the hot path but a missing
-            // bridge (or a hung worker) must surface as a clean "unavailable" result, not a
-            // JSException that takes the whole Blazor tree down with the global error overlay.
-            // NOTE: do NOT pass cancellationToken as a JSInterop argument. System.Text.Json tries
-            // to serialize every arg, and CancellationToken.WatchHandle.Handle is IntPtr — that
-            // surfaces as the SerializeTypeInstanceNotSupported toast. Cancel from the C# side
-            // via JS.TryInvokeVoidAsync("powatchInference.cancelInFlight") instead.
-            var inference = await JS.TryInvokeAsync<InferenceBridgeResult>(
-                "powatchInference.captureAndInfer",
-                "Describe what you observe. Reply in this exact format:\nLABEL: <activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
-                liveCameraFeed,
-                Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256))
-                ?? new InferenceBridgeResult
-                {
-                    IsAvailable = false,
-                    Status = "Inference bridge unavailable",
-                    Activity = "Unknown",
-                    ConfidenceLabel = "Bridge missing"
-                };
+        // bridge (or a hung worker) must surface as a clean "unavailable" result, not a
+        // JSException that takes the whole Blazor tree down with the global error overlay.
+        // NOTE: do NOT pass cancellationToken as a JSInterop argument. System.Text.Json tries
+        // to serialize every arg, and CancellationToken.WatchHandle.Handle is IntPtr — that
+        // surfaces as the SerializeTypeInstanceNotSupported toast. Cancel from the C# side
+        // via JS.TryInvokeVoidAsync("powatchInference.cancelInFlight") instead.
+        var inference = await JS.TryInvokeAsync<InferenceBridgeResult>(
+            "powatchInference.captureAndInfer",
+            "Describe what you observe. Reply in this exact format:\nLABEL: <activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
+            liveCameraFeed,
+            Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256))
+            ?? new InferenceBridgeResult
+            {
+                IsAvailable = false,
+                Status = "Inference bridge unavailable",
+                Activity = "Unknown",
+                ConfidenceLabel = "Bridge missing"
+            };
 
         lastInferenceStatus = inference.Status;
         lastMotionPercent = inference.MotionScore ?? 0;
