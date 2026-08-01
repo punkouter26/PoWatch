@@ -54,6 +54,9 @@ public partial class ObserverHub
     /// <summary>Verbatim model reply from the most recent quality-gate rejection, surfaced in the UI.</summary>
     private string? lastRejectedOutput;
 
+    /// <summary>Tensor shapes for the last empty generation — tells apart a silent model from a slicing bug.</summary>
+    private string? lastGenerationDiagnostic;
+
     /// <summary>
     /// True once enough cycles have run to conclude the model is producing nothing usable. A high
     /// skip rate is the failure mode that previously presented as a healthy, idle-looking loop.
@@ -259,9 +262,25 @@ public partial class ObserverHub
     private string EngineDisplay => inferenceDiagnostics?.Device is { Length: > 0 } device
         ? $"{device.ToUpperInvariant()} · {DtypeDisplay}"
         : "--";
-    private string EngineSubDisplay => inferenceDiagnostics?.GpuAdapterName is { Length: > 0 } gpu
-        ? gpu
-        : inferenceDiagnostics?.WebGpuPresent == true ? "WebGPU available" : "No WebGPU — CPU only";
+    // Report the device actually executing inference, not merely the adapter that was detected.
+    // This showed the GPU name whenever an adapter existed, so a run that had fallen back to wasm
+    // still read "GPU" — exactly when knowing it is on the CPU matters most for explaining latency.
+    private string EngineSubDisplay
+    {
+        get
+        {
+            if (string.Equals(inferenceDiagnostics?.Device, "wasm", StringComparison.OrdinalIgnoreCase))
+            {
+                return inferenceDiagnostics?.WebGpuPresent == true
+                    ? "CPU — GPU returned no output"
+                    : "CPU — no WebGPU";
+            }
+
+            return inferenceDiagnostics?.GpuAdapterName is { Length: > 0 } gpu
+                ? gpu
+                : inferenceDiagnostics?.WebGpuPresent == true ? "WebGPU available" : "No WebGPU — CPU only";
+        }
+    }
     private bool EngineDegraded => inferenceDiagnostics is not null
         && (inferenceDiagnostics.Fp16FallbackUsed
             || string.Equals(inferenceDiagnostics.Device, "wasm", StringComparison.OrdinalIgnoreCase));

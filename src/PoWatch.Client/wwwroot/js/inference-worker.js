@@ -38,6 +38,13 @@ let _activeModelKey = 'smolvlm-256m';
 let _device = null;
 let _dtype = null;
 let _fp16FallbackUsed = false;
+// How far the RUNTIME fallback chain has escalated after empty generations:
+//   0 = original config, 1 = webgpu at fallback precision, 2 = wasm, 3 = exhausted.
+// The load-time chain in ensureModelLoaded only reacts to from_pretrained THROWING. A backend that
+// loads fine and then emits NaN logits (argmax pinned to one pad token every step, so the whole
+// budget decodes to nothing) never reached those fallbacks, which is how empty output survived
+// both fp16 and fp32. Escalation is capped so a genuinely mute model stops reloading each cycle.
+let _runtimeFallbackStage = 0;
 let _loadStartMs = null;
 let _loadEndMs = null;
 let _inferenceCount = 0;
@@ -214,8 +221,101 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
 
   // Decode only the newly generated tokens, not the prompt prefix
   const newTokenIds = generatedIds.slice(null, [inputs.input_ids.dims[1], null]);
-  const output = _processor.batch_decode(newTokenIds, { skip_special_tokens: true })[0].trim();
+  let output = _processor.batch_decode(newTokenIds, { skip_special_tokens: true })[0].trim();
+
+  // An empty generation is the signature failure of SmolVLM at fp16 on WebGPU: the model loads and
+  // runs (burning the full inference time) but the logits go NaN, so every token decodes to nothing.
+  // webgpuDtypeFallback previously only covered LOAD exceptions, so this case never recovered — it
+  // fed the quality gate an empty string, which surfaced as "unstructured output skipped" and
+  // silently starved the ingest pipeline. Retry once at the declared fallback precision.
+  while (output.length === 0 && _runtimeFallbackStage < 3) {
+    const cfg = _MODELS[_activeModelKey];
+
+    // Choose the next rung of the chain: reduced precision on WebGPU, then the wasm backend, which
+    // is numerically independent of the GPU path and is what actually rescues a NaN-producing GPU.
+    let nextDevice = null;
+    let nextDtype = null;
+    if (_runtimeFallbackStage === 0 && _device === 'webgpu' && cfg?.webgpuDtypeFallback) {
+      nextDevice = 'webgpu';
+      nextDtype = cfg.webgpuDtypeFallback;
+    } else if (_runtimeFallbackStage <= 1 && cfg?.wasmDtype) {
+      nextDevice = 'wasm';
+      nextDtype = cfg.wasmDtype;
+    }
+
+    _runtimeFallbackStage = nextDevice === 'wasm' ? 2 : _runtimeFallbackStage + 1;
+    if (!nextDevice) {
+      _runtimeFallbackStage = 3;
+      break;
+    }
+
+    self.postMessage({ type: 'STATE_UPDATE', loadState: 'loading' });
+    const { AutoModelForImageTextToText, AutoModelForCausalLM } = await import(_TRANSFORMERS_URL);
+    const RetryModelClass = cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM : AutoModelForImageTextToText;
+    _model = await RetryModelClass.from_pretrained(cfg.id, { device: nextDevice, dtype: nextDtype });
+    _device = nextDevice;
+    _dtype = typeof nextDtype === 'string' ? nextDtype : 'mixed';
+    _fp16FallbackUsed = nextDevice === 'webgpu';
+    self.postMessage({ type: 'STATE_UPDATE', loadState: 'ready' });
+
+    const retryIds = await _model.generate({ ...inputs, max_new_tokens: safeMaxNewTokens });
+    output = _processor
+      .batch_decode(retryIds.slice(null, [inputs.input_ids.dims[1], null]), { skip_special_tokens: true })[0]
+      .trim();
+  }
+
+  // An empty decode has two very different causes that looked identical: the model genuinely
+  // emitted nothing, or generate() returned ONLY the new tokens (not prompt+new) so slicing at
+  // input_ids.dims[1] cut past the end and threw the answer away. Decode the untrimmed sequence:
+  // if THAT has content, the slice is the bug, and the recovered text is the real answer.
+  let generationDiagnostic = null;
+  if (output.length === 0) {
+    let fullDecoded = '';
+    try {
+      fullDecoded = (_processor.batch_decode(generatedIds, { skip_special_tokens: true })[0] ?? '').trim();
+    } catch (err) {
+      fullDecoded = `<full decode failed: ${err?.message ?? 'unknown'}>`;
+    }
+
+    const inputLen = inputs.input_ids.dims[1];
+    const genDims = Array.isArray(generatedIds.dims) ? generatedIds.dims.join('x') : String(generatedIds.dims);
+    generationDiagnostic =
+      `inputTokens=${inputLen} generatedDims=${genDims} ` +
+      `slicedChars=0 fullDecodeChars=${fullDecoded.length} device=${_device} dtype=${_dtype}` +
+      (fullDecoded.length > 0 ? ` | fullDecode="${fullDecoded.slice(0, 400)}"` : '');
+
+    // Recover the answer when the untrimmed decode carries text the slice discarded. The chat
+    // template echoes the prompt, so take whatever follows the final Assistant turn.
+    if (fullDecoded.length > 0) {
+      const assistantSplit = fullDecoded.split(/Assistant:\s*/i);
+      const recovered = (assistantSplit.length > 1 ? assistantSplit[assistantSplit.length - 1] : '').trim();
+      if (recovered.length > 0) {
+        output = recovered;
+      }
+    }
+  }
+
   _lastInferenceOutput = output;
+
+  // Distinguish "the model said nothing" from "the model said something we rejected". These had
+  // identical symptoms before, which is why 33 cycles of empty output read as a quality problem.
+  if (output.length === 0) {
+    return {
+      isAvailable: false,
+      status: _runtimeFallbackStage > 0
+        ? `Model returned an empty response (retried on ${_device}/${_dtype})`
+        : 'Model returned an empty response',
+      rawOutput: '',
+      generationDiagnostic,
+      subjectHint: null,
+      activity: 'Unavailable',
+      clinicalPayload: '',
+      isSignificant: false,
+      significantReason: null,
+      confidenceScore: 0,
+      confidenceLabel: 'Empty',
+    };
+  }
 
   // Parse structured LABEL / NOTE response.
   // LABEL: is preferred. Accept common misspellings/malformations emitted by small models:
@@ -429,6 +529,7 @@ self.onmessage = async (e) => {
         _device = null;
         _dtype = null;
         _fp16FallbackUsed = false;
+        _runtimeFallbackStage = 0;
         _loadStartMs = null;
         _loadEndMs = null;
         _inferenceCount = 0;
@@ -461,6 +562,7 @@ self.onmessage = async (e) => {
         _device = null;
         _dtype = null;
         _fp16FallbackUsed = false;
+        _runtimeFallbackStage = 0;
         _loadStartMs = null;
         _loadEndMs = null;
         _inferenceCount = 0;

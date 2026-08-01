@@ -322,21 +322,25 @@ public partial class ObserverHub
             lastConfidencePercent = 0;
             lastConfidenceLabel = "Awaiting AI";
 
-            // Silent skips — don't show as errors, preserve current status
-            if (inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase) ||
-                inference.Status.StartsWith("Low-quality", StringComparison.OrdinalIgnoreCase))
+            // Silent skips — don't show as errors, preserve current status.
+            // Match on "is this a model-output outcome" rather than on specific prefixes: keying off
+            // the "Low-quality" prefix meant a newly-added status ("Model returned an empty response")
+            // fell through to the generic handler below and reported "Sync blocked", hiding the real
+            // reason again. Anything the worker classifies is reported verbatim.
+            var isFrameSkip = inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase);
+            var isModelOutputSkip =
+                inference.Status.StartsWith("Low-quality", StringComparison.OrdinalIgnoreCase) ||
+                inference.Status.StartsWith("Model returned an empty response", StringComparison.OrdinalIgnoreCase);
+
+            if (isFrameSkip || isModelOutputSkip)
             {
-                if (inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase))
+                // "Awaiting clearer frame" used to be shown here, which blames the camera for what is
+                // really a model-output rejection — a run skipping 100% of cycles looked like lighting.
+                lastSyncStatus = isFrameSkip ? "No sync needed" : inference.Status;
+                if (isModelOutputSkip)
                 {
-                    lastSyncStatus = "No sync needed";
-                }
-                else
-                {
-                    // Report the gate that actually fired. This previously read "Awaiting clearer
-                    // frame", which blames the camera for what is really a model-output rejection —
-                    // so a run that skipped 100% of cycles looked like a lighting problem.
-                    lastSyncStatus = inference.Status;
                     lastRejectedOutput = inference.RawOutput;
+                    lastGenerationDiagnostic = inference.GenerationDiagnostic;
                 }
 
                 _skippedCycles++;
@@ -748,6 +752,12 @@ public partial class ObserverHub
         /// operator sees a rising skip count with no way to learn what the model actually said.
         /// </summary>
         public string? RawOutput { get; init; }
+
+        /// <summary>
+        /// Tensor shapes and a full-sequence decode preview, populated only when generation came
+        /// back empty. Distinguishes "the model emitted nothing" from "we sliced the tokens wrong".
+        /// </summary>
+        public string? GenerationDiagnostic { get; init; }
     }
 
 }

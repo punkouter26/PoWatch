@@ -178,6 +178,21 @@
                         <p class="inference-stall-label">The model actually replied:</p>
                         <pre class="inference-stall-raw" data-test="inference-stall-raw">@lastRejectedOutput</pre>
                     }
+                    else
+                    {
+                        @* An empty reply is a different failure from a rejected one and needs its own
+                           wording — showing nothing here previously made the two indistinguishable. *@
+                        <p class="inference-stall-label" data-test="inference-stall-empty">
+                            The model produced <strong>no text at all</strong> — it ran for the full
+                            inference time and the decoded result was empty.
+                        </p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(lastGenerationDiagnostic))
+                    {
+                        <p class="inference-stall-label">Generation diagnostic:</p>
+                        <pre class="inference-stall-raw" data-test="inference-stall-diag">@lastGenerationDiagnostic</pre>
+                    }
                 </div>
             }
         </RadzenCard>
