@@ -1,8 +1,0 @@
-{
-  "version": "1.0.0",
-  "category": "Distributed",
-  "packages": [
-    "ManagedCode.Orleans.SignalR.Server",
-    "ManagedCode.Orleans.SignalR.Client"
-  ]
-}

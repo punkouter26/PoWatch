@@ -1,8 +1,0 @@
-{
-  "version": "1.0.0",
-  "category": "Architecture",
-  "packages": [
-    "NetArchTest.Rules",
-    "NetArchTest.eNhancedEdition"
-  ]
-}
