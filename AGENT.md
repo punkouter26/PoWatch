@@ -144,13 +144,17 @@ Directory depth stays shallow — at most two levels inside a project.
 ## 5. Testing, CI/CD, hygiene
 
 - **Targets: 100 unit · 50 integration · 25 API E2E · 25 UI E2E.**
-  Current counts are well below this (67 · 24 · 4 · 1) — closing that gap is the single largest
+  Current counts are well below this (71 · 24 · 4 · 1) — closing that gap is the single largest
   outstanding item. Add tests with the feature you are writing.
-- CI (`.github/workflows/deploy.yml`) restores, builds, verifies formatting, then runs all four
-  suites before publishing. The `emergency` workflow-dispatch input skips the formatting and test
-  gates — it exists solely so a red test cannot trap a hotfix during an outage. Do not use it
-  routinely.
-- `PoWatch.E2EUI` self-skips unless `E2E_BASE_URL` is set, so it is a no-op against a headless build.
+- CI (`.github/workflows/deploy.yml`) restores, builds, verifies formatting, then runs **Unit,
+  Integration, and API E2E** before publishing. The `emergency` workflow-dispatch input skips the
+  formatting and test gates — it exists solely so a red test cannot trap a hotfix during an outage.
+  Do not use it routinely.
+- **`PoWatch.E2EUI` is not run in CI.** It needs a Playwright browser download and a live
+  deployment to drive. Run it locally against a running instance:
+  `E2E_BASE_URL=https://... dotnet test tests/PoWatch.E2EUI`. The fixture self-skips when the
+  variable is unset, but the browser binary must still be present, so install it first with
+  `pwsh tests/PoWatch.E2EUI/bin/Release/net10.0/playwright.ps1 install chromium`.
 - Azure: resources live in resource groups **`PoShared`** (shared platform services) and
   **`PoWatch`**. Authenticate with system-assigned Managed Identity + Key Vault.
   **No raw connection strings in app settings.**
