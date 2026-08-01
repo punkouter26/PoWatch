@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using PoWatch.Client.Services;
@@ -206,7 +207,7 @@ public partial class ObserverHub
     {
         if (!int.TryParse(e.Value?.ToString(), out var seconds) || seconds is < 5 or > 120) return;
         _livePollingSeconds = seconds;
-        try { await UserPrefs.SetAsync(PollingStorageKey, seconds.ToString()); }
+        try { await UserPrefs.SetAsync(PollingStorageKey, seconds.ToString(CultureInfo.InvariantCulture)); }
         catch { /* persistence is best-effort */ }
     }
 
@@ -325,9 +326,19 @@ public partial class ObserverHub
             if (inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase) ||
                 inference.Status.StartsWith("Low-quality", StringComparison.OrdinalIgnoreCase))
             {
-                lastSyncStatus = inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase)
-                    ? "No sync needed"
-                    : "Awaiting clearer frame";
+                if (inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase))
+                {
+                    lastSyncStatus = "No sync needed";
+                }
+                else
+                {
+                    // Report the gate that actually fired. This previously read "Awaiting clearer
+                    // frame", which blames the camera for what is really a model-output rejection —
+                    // so a run that skipped 100% of cycles looked like a lighting problem.
+                    lastSyncStatus = inference.Status;
+                    lastRejectedOutput = inference.RawOutput;
+                }
+
                 _skippedCycles++;
                 await RefreshDiagnosticsAsync();
                 await InvokeAsync(StateHasChanged);
@@ -392,7 +403,7 @@ public partial class ObserverHub
                     ? (inference.SignificantReason ?? "Unusual activity detected in the room.")
                     : result.Detail;
                 _alertOverlayActivity = inference.Activity;
-                _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss");
+                _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
                 _alertOverlayImage = inference.CapturedImageDataUrl;
                 _alertOverlayVisible = true;
                 await PlayCueAsync("alert");
@@ -528,7 +539,7 @@ public partial class ObserverHub
             _alertOverlaySubjectId = result.SubjectId;
             _alertOverlayReason = string.IsNullOrWhiteSpace(result.Detail) ? "Unusual activity detected in the room." : result.Detail;
             _alertOverlayActivity = "Unknown movement";
-            _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss");
+            _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
             _alertOverlayImage = null;
             _alertOverlayVisible = true;
             await PlayCueAsync("alert");
@@ -685,10 +696,16 @@ public partial class ObserverHub
     public async ValueTask DisposeAsync()
     {
         monitorCts?.Cancel();
+        monitorCts?.Dispose();
+        monitorCts = null;
         _keepAliveCts?.Cancel();
+        _keepAliveCts?.Dispose();
+        _keepAliveCts = null;
 
         // Safe wrapper — a missing inference-bridge must not throw during disposal.
         await JS.TryInvokeVoidAsync("powatchInference.stopMonitor");
+
+        GC.SuppressFinalize(this);
     }
 
     // ── WebGL shader bridge: tell the canvas overlay when the inference loop
@@ -725,6 +742,12 @@ public partial class ObserverHub
         public double? MotionScore { get; init; }
         public string MotionLevel { get; init; } = string.Empty;
         public string? CapturedImageDataUrl { get; init; }
+
+        /// <summary>
+        /// The model's verbatim reply, populated when a quality gate rejected it. Without this the
+        /// operator sees a rising skip count with no way to learn what the model actually said.
+        /// </summary>
+        public string? RawOutput { get; init; }
     }
 
 }

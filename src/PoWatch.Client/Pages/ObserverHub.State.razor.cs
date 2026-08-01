@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Options;
 using PoWatch.Client.Services;
@@ -50,6 +51,15 @@ public partial class ObserverHub
     private double lastMotionPercent;
     private string lastMotionLabel = "Still";
 
+    /// <summary>Verbatim model reply from the most recent quality-gate rejection, surfaced in the UI.</summary>
+    private string? lastRejectedOutput;
+
+    /// <summary>
+    /// True once enough cycles have run to conclude the model is producing nothing usable. A high
+    /// skip rate is the failure mode that previously presented as a healthy, idle-looking loop.
+    /// </summary>
+    private bool AllCyclesRejected => _totalCycles >= 3 && _structuredCycles == 0;
+
     private List<ThresholdAlertDto> _activeThresholdAlerts = [];
     private bool HasActiveThresholdAlerts => _activeThresholdAlerts.Count > 0;
     private bool ObservationLoopEnabled => observerState?.ObservationLoopEnabled ?? FeatureFlags.Value.ObservationLoopEnabled;
@@ -87,7 +97,7 @@ public partial class ObserverHub
     private string SelectedModelLabel => ModelOptions.FirstOrDefault(option => option.Value == selectedModelKey)?.Label ?? selectedModelKey;
     private string LatestActivityLabel => streamItems.FirstOrDefault()?.Activity ?? "Waiting for first event";
     private string LatestTimestampLabel => streamItems.FirstOrDefault() is { } latest
-        ? latest.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")
+        ? latest.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)
         : "No activity recorded";
     private int SessionEventCount => monitoringStartedAtUtc is { } startedAt
         ? streamItems.Count(item => item.ObservedAtUtc >= startedAt)

@@ -253,7 +253,7 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
     {
         return new SubjectProfile
         {
-            SubjectId = subjectId,
+            SubjectId = SubjectId.From(subjectId),
             DisplayName = displayName,
             IdentityStatus = knownIdentity ? IdentityStatus.Known : IdentityStatus.Temporary,
             FirstSeenUtc = firstSeenUtc,

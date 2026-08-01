@@ -78,7 +78,7 @@ public sealed class ObservationService(
             {
                 // Idempotency: a client-supplied key gives the row a stable identity so a retried submit
                 // maps to the same Id; the repository treats the resulting 409 as success (no duplicate).
-                Id = request.IdempotencyKey ?? Guid.NewGuid(),
+                Id = request.IdempotencyKey is { } idempotencyKey ? ObservationEventId.From(idempotencyKey) : ObservationEventId.New(),
                 // Server-authoritative timestamp; client-supplied ObservedAtUtc is not trusted to prevent backdating.
                 ObservedAtUtc = observedAtUtc,
                 SubjectId = subject.SubjectId,
@@ -109,7 +109,7 @@ public sealed class ObservationService(
             var triggeredAlerts = thresholdEvaluator.Evaluate(observation);
 
             logger.ObservationPersisted(
-                observation.Id,
+                (Guid)observation.Id,
                 observation.SubjectId,
                 observation.IsSignificant,
                 observation.IsClinicalOutlier,
@@ -122,7 +122,7 @@ public sealed class ObservationService(
                 Accepted = true,
                 Dropped = false,
                 IsOutlier = observation.IsClinicalOutlier,
-                EventId = observation.Id.ToString("N"),
+                EventId = observation.Id.Value.ToString("N"),
                 SubjectId = observation.SubjectId,
                 SubjectDisplayName = observation.SubjectDisplayName,
                 ImageReference = observation.ImageReference,

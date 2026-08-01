@@ -69,7 +69,7 @@ public sealed class AzureBlobSasProvider : IBlobSasProvider
             ? blobClient.GenerateSasUri(BlobSasPermissions.Read, expiresAtUtc).ToString()
             : blobClient.Uri.ToString();
 
-        _logger.LogInformation("Generated read URL for blob {BlobPath}. HasSasToken={HasSasToken}", normalized, url.Contains("?"));
+        _logger.LogInformation("Generated read URL for blob {BlobPath}. HasSasToken={HasSasToken}", normalized, url.Contains('?', StringComparison.Ordinal));
         return url;
     }
 

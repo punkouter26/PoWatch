@@ -1,9 +1,15 @@
 // PoWatch Azure Infrastructure
 // Subscription: Punkouter26 (bbb8dfbe-9169-432f-9b7a-fbf861b51037)
 //
-// Resource layout:
-//   rg-platform-shared-prod-eus2 — Shared platform services
-//   rg-powatch-prod-wus2         — App Service, Table Storage, Blob Storage, Key Vault
+// Resource layout (rule 5: resource groups are named PoShared / Po{SolutionName} — no rg-* prefix,
+// no region or environment suffix):
+//   PoShared — Log Analytics, App Insights, App Service Plan (services shared across Po* solutions)
+//   PoWatch  — App Service, Table Storage, Blob Storage, Key Vault
+//
+// NOTE: Bicep cannot rename an existing resource group — changing these names provisions NEW groups.
+// The live PoWatch app already sits in a group named 'PoWatch' (see .github/workflows/deploy.yml
+// AZURE_RESOURCE_GROUP), so only the shared group needs a one-time migration off
+// 'rg-platform-shared-prod-eus2'.
 //
 // All secrets accessed via Managed Identity — no connection strings in app config.
 // Run: az deployment sub create --location westus2 --template-file infra/main.bicep
@@ -13,19 +19,28 @@ targetScope = 'subscription'
 @description('Environment name (dev, staging, prod)')
 param environment string = 'prod'
 
-@description('Azure region for all resources')
+@description('Azure region for this solution\'s resources')
 param location string = 'westus2'
+
+@description('Azure region for the shared platform resource group')
+param sharedLocation string = 'eastus2'
 
 // -------------------------------------------------------
 // Resource Groups
 // -------------------------------------------------------
+@description('Resource group holding services shared across Po* solutions')
+param sharedResourceGroupName string = 'PoShared'
+
+@description('Resource group holding this solution\'s own resources')
+param solutionResourceGroupName string = 'PoWatch'
+
 resource poSharedRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: 'rg-platform-shared-prod-eus2'
-  location: 'eastus2'
+  name: sharedResourceGroupName
+  location: sharedLocation
 }
 
 resource poWatchRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: 'rg-powatch-prod-wus2'
+  name: solutionResourceGroupName
   location: location
 }
 

@@ -2,7 +2,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 public sealed class ArchivesServiceTests
 {
@@ -25,7 +25,7 @@ public sealed class ArchivesServiceTests
         {
             new ObservationEvent
             {
-                SubjectId = "Kim",
+                SubjectId = SubjectId.From("Kim"),
                 SubjectDisplayName = "Kim",
                 Activity = "Desk Work",
                 ClinicalDescription = "Focused work",
@@ -34,7 +34,7 @@ public sealed class ArchivesServiceTests
             },
             new ObservationEvent
             {
-                SubjectId = "Maya",
+                SubjectId = SubjectId.From("Maya"),
                 SubjectDisplayName = "Maya",
                 Activity = "Entered",
                 ClinicalDescription = "Entered room",
@@ -45,7 +45,7 @@ public sealed class ArchivesServiceTests
             },
             new ObservationEvent
             {
-                SubjectId = "Kim",
+                SubjectId = SubjectId.From("Kim"),
                 SubjectDisplayName = "Kim",
                 Activity = "Break",
                 ClinicalDescription = "Step away",

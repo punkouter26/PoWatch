@@ -37,7 +37,6 @@ internal static class FhirEndpoints
             string? date,
             int? count,
             IObservationRepository observationRepository,
-            FhirMappingService fhirMapper,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -70,7 +69,7 @@ internal static class FhirEndpoints
                 .ToList();
 
             var bundleId = Guid.NewGuid().ToString();
-            var bundle = fhirMapper.MapToFhirBundle(filtered, bundleId);
+            var bundle = FhirMappingService.MapToFhirBundle(filtered, bundleId);
 
             logger.LogInformation(
                 "FHIR Observation bundle built. Subject={Subject} Date={Date} ResultCount={Count} BundleId={BundleId}",
@@ -85,7 +84,6 @@ internal static class FhirEndpoints
         group.MapGet("/Observation/{id}", async (
             string id,
             IObservationRepository observationRepository,
-            FhirMappingService fhirMapper,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -104,7 +102,7 @@ internal static class FhirEndpoints
                 return Results.NotFound(new { resourceType = "OperationOutcome", issue = new[] { new { severity = "error", code = "not-found", details = new { text = $"Observation '{id}' not found." } } } });
             }
 
-            return Results.Json(fhirMapper.MapToFhirObservation(obs), contentType: "application/fhir+json");
+            return Results.Json(FhirMappingService.MapToFhirObservation(obs), contentType: "application/fhir+json");
         })
         .WithName("FhirObservationRead")
         .WithSummary("FHIR R4 Observation read by ID.");

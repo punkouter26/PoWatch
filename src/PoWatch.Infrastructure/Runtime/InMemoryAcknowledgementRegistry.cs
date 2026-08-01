@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using PoWatch.Application.Contracts;
+using PoWatch.Domain.Models;
 
 namespace PoWatch.Infrastructure.Runtime;
 
@@ -11,15 +12,15 @@ namespace PoWatch.Infrastructure.Runtime;
 public sealed class InMemoryAcknowledgementRegistry : IAcknowledgementRegistry
 {
     // Key: event ID — Value: acknowledgedBy identifier
-    private readonly ConcurrentDictionary<Guid, string> _acknowledged = new();
+    private readonly ConcurrentDictionary<ObservationEventId, string> _acknowledged = new();
 
     /// <inheritdoc/>
-    public void Acknowledge(IReadOnlyList<Guid> eventIds, string acknowledgedBy)
+    public void Acknowledge(IReadOnlyList<ObservationEventId> eventIds, string acknowledgedBy)
     {
         foreach (var id in eventIds)
             _acknowledged.TryAdd(id, acknowledgedBy);
     }
 
     /// <inheritdoc/>
-    public bool IsAcknowledged(Guid eventId) => _acknowledged.ContainsKey(eventId);
+    public bool IsAcknowledged(ObservationEventId eventId) => _acknowledged.ContainsKey(eventId);
 }

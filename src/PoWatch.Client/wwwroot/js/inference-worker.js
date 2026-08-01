@@ -4,11 +4,13 @@
 // The main thread (inference-bridge.js) handles all DOM access (video/canvas).
 
 // Pinned, self-hosted transformers.js supply chain (rule §7): the library AND its ONNX Runtime wasm are
-// vendored under wwwroot/lib/transformers/<version>/ and loaded from our own origin — no live third-party
+// vendored under wwwroot/lib/transformers-<version>/ and loaded from our own origin — no live third-party
 // CDN import() at runtime, and the version cannot silently drift (@3 previously floated). To upgrade:
 // vendor a new dist folder (transformers.min.js + ort-wasm-simd-threaded.jsep.{mjs,wasm}) and bump this line.
+// The version lives in the folder NAME rather than a nested subfolder so the asset tree stays within the
+// 2-level depth budget while keeping the pin explicit.
 const _TRANSFORMERS_VERSION = '3.8.1';
-const _TRANSFORMERS_BASE = new URL(`../lib/transformers/${_TRANSFORMERS_VERSION}/`, import.meta.url);
+const _TRANSFORMERS_BASE = new URL(`../lib/transformers-${_TRANSFORMERS_VERSION}/`, import.meta.url);
 const _TRANSFORMERS_URL = new URL('transformers.min.js', _TRANSFORMERS_BASE).href;
 
 // Single source of truth for the model registry (rule 1.5): /model-registry.json, shared verbatim with
@@ -264,6 +266,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
       return {
         isAvailable: false,
         status: 'Low-quality inference: unstructured output skipped',
+        rawOutput: output,
         subjectHint: null,
         activity: 'Unavailable',
         clinicalPayload: '',
@@ -289,6 +292,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     return {
       isAvailable: false,
       status: 'Low-quality inference: prompt echo detected',
+        rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
       clinicalPayload: '',
@@ -304,6 +308,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     return {
       isAvailable: false,
       status: 'Low-quality inference: skipped',
+        rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
       clinicalPayload: '',
@@ -320,6 +325,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     return {
       isAvailable: false,
       status: 'Low-quality inference: prompt format echo detected',
+        rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
       clinicalPayload: '',
@@ -337,6 +343,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     return {
       isAvailable: false,
       status: 'Low-quality inference: incomplete sentence',
+        rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
       clinicalPayload: '',

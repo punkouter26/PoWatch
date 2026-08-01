@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -116,22 +117,22 @@ public sealed class AzureOpenAiHandoffSummarizer(
         var r = context.Report;
         var sb = new StringBuilder();
 
-        sb.AppendLine($"Generate a {context.Audience} handoff brief for the {context.ShiftWindow} shift on {r.Date:yyyy-MM-dd}.");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Generate a {context.Audience} handoff brief for the {context.ShiftWindow} shift on {r.Date:yyyy-MM-dd}.");
         sb.AppendLine();
         sb.AppendLine("SHIFT DATA:");
-        sb.AppendLine($"- Total events: {r.TotalEvents}");
-        sb.AppendLine($"- Primary subject: {r.PrimarySubject}");
-        sb.AppendLine($"- Dominant activity: {r.DominantActivity}");
-        sb.AppendLine($"- Outliers flagged: {r.OutlierCount}");
-        sb.AppendLine($"- Significant events: {r.SignificantCount}");
-        sb.AppendLine($"- Clinical narrative: {r.ClinicalNarrative}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- Total events: {r.TotalEvents}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- Primary subject: {r.PrimarySubject}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- Dominant activity: {r.DominantActivity}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- Outliers flagged: {r.OutlierCount}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- Significant events: {r.SignificantCount}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- Clinical narrative: {r.ClinicalNarrative}");
 
         if (context.IncludeHighlights && r.OutlierEvents.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("CLINICAL OUTLIERS (top 5):");
             foreach (var e in r.OutlierEvents.Take(5))
-                sb.AppendLine($"  - {e.ObservedAtUtc:HH:mm} {e.SubjectDisplayName}: {e.Activity}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  - {e.ObservedAtUtc:HH:mm} {e.SubjectDisplayName}: {e.Activity}");
         }
 
         if (context.IncludeHighlights && r.SignificantEvents.Count > 0)
@@ -139,7 +140,7 @@ public sealed class AzureOpenAiHandoffSummarizer(
             sb.AppendLine();
             sb.AppendLine("SIGNIFICANT EVENTS (top 5):");
             foreach (var e in r.SignificantEvents.Take(5))
-                sb.AppendLine($"  - {e.ObservedAtUtc:HH:mm} {e.SubjectDisplayName}: {e.Activity}{(string.IsNullOrWhiteSpace(e.SignificantReason) ? string.Empty : $" ({e.SignificantReason})")}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  - {e.ObservedAtUtc:HH:mm} {e.SubjectDisplayName}: {e.Activity}{(string.IsNullOrWhiteSpace(e.SignificantReason) ? string.Empty : $" ({e.SignificantReason})")}");
         }
 
         if (context.DriftStatus.Count > 0)
@@ -150,7 +151,7 @@ public sealed class AzureOpenAiHandoffSummarizer(
                 sb.AppendLine();
                 sb.AppendLine("BEHAVIORAL DRIFT ALERTS:");
                 foreach (var d in notable)
-                    sb.AppendLine($"  - {d.DisplayName}: {d.DriftLabel} (score {d.DriftScore:F0}/100)");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"  - {d.DisplayName}: {d.DriftLabel} (score {d.DriftScore:F0}/100)");
             }
         }
 

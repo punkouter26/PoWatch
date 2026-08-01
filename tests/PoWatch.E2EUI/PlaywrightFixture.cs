@@ -15,6 +15,9 @@ public sealed class PlaywrightFixture : IAsyncLifetime
     /// </summary>
     public static string? BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL");
 
+    // Local dev cert is untrusted by Chromium — ignore for E2E runs.
+    private static readonly string[] LaunchArgs = ["--ignore-certificate-errors"];
+
     private IPlaywright? _playwright;
     private IBrowser? _browser;
 
@@ -32,8 +35,7 @@ public sealed class PlaywrightFixture : IAsyncLifetime
         {
             // E2E_HEADED=1 opens a visible browser window (demo/debug); default stays headless for CI.
             Headless = Environment.GetEnvironmentVariable("E2E_HEADED") != "1",
-            // Local dev cert is untrusted by Chromium — ignore for E2E runs.
-            Args = new[] { "--ignore-certificate-errors" }
+            Args = LaunchArgs
         });
     }
 

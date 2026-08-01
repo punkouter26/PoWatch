@@ -127,7 +127,7 @@ public sealed class ReportService(
     private static IReadOnlyList<ObservationEventDto> MapEvents(IEnumerable<ObservationEvent> events) =>
         events.Select(e => new ObservationEventDto
         {
-            Id = e.Id,
+            Id = (Guid)e.Id,
             ObservedAtUtc = e.ObservedAtUtc,
             SubjectId = e.SubjectId,
             SubjectDisplayName = e.SubjectDisplayName,

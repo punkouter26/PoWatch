@@ -1,3 +1,4 @@
+using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -54,9 +55,9 @@ public static class HandoffReportRenderer
 
                         Row("Primary Subject", report.PrimarySubject);
                         Row("Dominant Activity", report.DominantActivity);
-                        Row("Total Events", report.TotalEvents.ToString());
-                        Row("Significant Events", report.SignificantCount.ToString());
-                        Row("Clinical Outliers", report.OutlierCount.ToString());
+                        Row("Total Events", report.TotalEvents.ToString(CultureInfo.InvariantCulture));
+                        Row("Significant Events", report.SignificantCount.ToString(CultureInfo.InvariantCulture));
+                        Row("Clinical Outliers", report.OutlierCount.ToString(CultureInfo.InvariantCulture));
                     });
 
                     // Clinical narrative
@@ -87,7 +88,7 @@ public static class HandoffReportRenderer
 
                             foreach (var ev in report.SignificantEvents)
                             {
-                                table.Cell().Text(ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss"));
+                                table.Cell().Text(ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture));
                                 table.Cell().Text(ev.SubjectDisplayName);
                                 table.Cell().Text(ev.Activity);
                                 table.Cell().Text(ev.SignificantReason ?? "-");
@@ -117,7 +118,7 @@ public static class HandoffReportRenderer
 
                             foreach (var ev in report.OutlierEvents)
                             {
-                                table.Cell().Text(ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss"));
+                                table.Cell().Text(ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture));
                                 table.Cell().Text(ev.SubjectDisplayName);
                                 table.Cell().Text(ev.ClinicalDescription);
                             }

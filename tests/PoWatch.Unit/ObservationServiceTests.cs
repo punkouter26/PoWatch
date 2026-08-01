@@ -7,7 +7,7 @@ using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Infrastructure.Runtime;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 public sealed class ObservationServiceTests
 {
@@ -197,7 +197,7 @@ public sealed class ObservationServiceTests
     {
         private SubjectProfile _subject = new()
         {
-            SubjectId = "Subject-1",
+            SubjectId = SubjectId.From("Subject-1"),
             DisplayName = "Subject-1",
             FirstSeenUtc = DateTimeOffset.UtcNow,
             LastSeenUtc = DateTimeOffset.UtcNow,
@@ -216,7 +216,7 @@ public sealed class ObservationServiceTests
                 {
                     _subject = new SubjectProfile
                     {
-                        SubjectId = hint,
+                        SubjectId = SubjectId.From(hint),
                         DisplayName = hint,
                         FirstSeenUtc = DateTimeOffset.UtcNow,
                         LastSeenUtc = DateTimeOffset.UtcNow,
@@ -238,7 +238,7 @@ public sealed class ObservationServiceTests
         {
             _subject = new SubjectProfile
             {
-                SubjectId = newDisplayName.ToLowerInvariant(),
+                SubjectId = SubjectId.From(newDisplayName.ToLowerInvariant()),
                 DisplayName = newDisplayName,
                 FirstSeenUtc = _subject.FirstSeenUtc,
                 LastSeenUtc = _subject.LastSeenUtc,
@@ -262,7 +262,7 @@ public sealed class ObservationServiceTests
         public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
+            Task.FromResult(new SubjectProfile { SubjectId = SubjectId.From(displayName.ToLowerInvariant().Replace(" ", "-")), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 }
 

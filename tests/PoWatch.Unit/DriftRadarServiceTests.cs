@@ -5,7 +5,7 @@ using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 public sealed class DriftRadarServiceTests
 {
@@ -118,12 +118,12 @@ public sealed class DriftRadarServiceTests
         var profiles = new[] { Profile("dan", "Dan") };
         var today = new List<ObservationEvent>
         {
-            new() { SubjectId = "dan", SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test", IsClinicalOutlier = true },
-            new() { SubjectId = "dan", SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test", IsClinicalOutlier = true },
-            new() { SubjectId = "dan", SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
-            new() { SubjectId = "dan", SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
-            new() { SubjectId = "dan", SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
-            new() { SubjectId = "dan", SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
+            new() { SubjectId = SubjectId.From("dan"), SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test", IsClinicalOutlier = true },
+            new() { SubjectId = SubjectId.From("dan"), SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test", IsClinicalOutlier = true },
+            new() { SubjectId = SubjectId.From("dan"), SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
+            new() { SubjectId = SubjectId.From("dan"), SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
+            new() { SubjectId = SubjectId.From("dan"), SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
+            new() { SubjectId = SubjectId.From("dan"), SubjectDisplayName = "dan", Activity = "Test", ClinicalDescription = "Test" },
         };
 
         var historical = Events("dan", count: 42, hourOfDay: 10);
@@ -153,7 +153,7 @@ public sealed class DriftRadarServiceTests
         var utcHour = (20 - (int)localOffset.TotalHours + 24) % 24;
         var today = Enumerable.Range(0, 6).Select(i => new ObservationEvent
         {
-            SubjectId = "eve",
+            SubjectId = SubjectId.From("eve"),
             SubjectDisplayName = "eve",
             Activity = "Test",
             ClinicalDescription = "Test",
@@ -232,7 +232,7 @@ public sealed class DriftRadarServiceTests
 
     private static SubjectProfile Profile(string id, string name) => new()
     {
-        SubjectId = id,
+        SubjectId = SubjectId.From(id),
         DisplayName = name,
         IdentityStatus = IdentityStatus.Known,
         FirstSeenUtc = DateTimeOffset.UtcNow.AddDays(-10),
@@ -250,7 +250,7 @@ public sealed class DriftRadarServiceTests
         return Enumerable.Range(0, count)
             .Select(i => new ObservationEvent
             {
-                SubjectId = subjectId,
+                SubjectId = SubjectId.From(subjectId),
                 SubjectDisplayName = subjectId,
                 Activity = "Test",
                 ClinicalDescription = "Test event",
@@ -286,7 +286,7 @@ public sealed class DriftRadarServiceTests
         public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
+            Task.FromResult(new SubjectProfile { SubjectId = SubjectId.From(displayName.ToLowerInvariant().Replace(" ", "-")), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 
     private sealed class FakeDriftObservationRepository(

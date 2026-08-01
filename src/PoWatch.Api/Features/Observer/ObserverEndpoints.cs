@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
+using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
 
 namespace PoWatch.Api.Features.Observer;
@@ -87,10 +88,10 @@ internal static class ObserverEndpoints
             ILogger<Program> logger,
             CancellationToken ct) =>
         {
+            // Transport gives us strings; adopt them as event ids here and drop anything malformed.
             var parsed = request.EventIds
-                .Select(id => Guid.TryParse(id, out var g) ? g : (Guid?)null)
-                .Where(g => g.HasValue)
-                .Select(g => g!.Value)
+                .Select(ObservationEventId.Parse)
+                .Where(id => !id.IsEmpty)
                 .ToList();
 
             acknowledgementRegistry.Acknowledge(parsed, request.AcknowledgedBy);
@@ -140,7 +141,7 @@ internal static class ObserverEndpoints
                     .Take(maxBatchSize) // Respect batch size limit
                     .Select(e => new ObservationEventDto
                     {
-                        Id = e.Id,
+                        Id = (Guid)e.Id,
                         ObservedAtUtc = e.ObservedAtUtc,
                         SubjectId = e.SubjectId,
                         SubjectDisplayName = e.SubjectDisplayName,

@@ -158,6 +158,28 @@
                     <span class="model-stat-sub">@ConfidenceTrustLabel</span>
                 </div>
             </div>
+
+            @* A 100%-skip run used to be indistinguishable from a healthy idle loop: the counters
+               ticked up, nothing reached storage, and the status line blamed the camera. Say plainly
+               that the model is the problem, and show its actual reply so the gate is identifiable. *@
+            @if (AllCyclesRejected)
+            {
+                <div class="inference-stall" role="alert" data-test="inference-stall">
+                    <strong>Nothing is being recorded — the model's replies are all being rejected.</strong>
+                    <p>
+                        @_totalCycles checks ran and none produced a usable answer, so no observations
+                        were saved. This is a model-output problem, not a camera problem.
+                    </p>
+                    <p class="inference-stall-reason" data-test="inference-stall-reason">
+                        Reason: <code>@lastSyncStatus</code>
+                    </p>
+                    @if (!string.IsNullOrWhiteSpace(lastRejectedOutput))
+                    {
+                        <p class="inference-stall-label">The model actually replied:</p>
+                        <pre class="inference-stall-raw" data-test="inference-stall-raw">@lastRejectedOutput</pre>
+                    }
+                </div>
+            }
         </RadzenCard>
 
         <PoPanel Glass="true" Title="Room Activity"

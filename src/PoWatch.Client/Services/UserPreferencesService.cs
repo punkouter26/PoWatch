@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.JSInterop;
 
 namespace PoWatch.Client.Services;
@@ -16,7 +17,7 @@ public sealed class UserPreferencesService : IAsyncDisposable
     public UserPreferencesService(IJSRuntime js) => _js = js;
 
     /// <summary>Fired when a key is mutated — subscribers can call StateHasChanged on themselves.</summary>
-    public event EventHandler<PreferenceChangedEventArgs>? PreferenceChanged;
+    public event EventHandler<PreferenceChange>? PreferenceChanged;
 
     public async Task<string?> GetAsync(string key)
     {
@@ -40,7 +41,7 @@ public sealed class UserPreferencesService : IAsyncDisposable
         PreferenceChanged?.Invoke(this, new(key, value));
     }
 
-    public async Task SetIntAsync(string key, int value) => await SetAsync(key, value.ToString());
+    public async Task SetIntAsync(string key, int value) => await SetAsync(key, value.ToString(CultureInfo.InvariantCulture));
 
     private async Task EnsureHydratedAsync()
     {
@@ -69,4 +70,4 @@ public sealed class UserPreferencesService : IAsyncDisposable
     }
 }
 
-public sealed record PreferenceChangedEventArgs(string Key, string Value);
+public sealed record PreferenceChange(string Key, string Value);

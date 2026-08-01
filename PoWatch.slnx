@@ -8,8 +8,8 @@
     <Project Path="src/PoWatch.Shared/PoWatch.Shared.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/PoWatch.UnitTests/PoWatch.UnitTests.csproj" />
-    <Project Path="tests/PoWatch.IntegrationTests/PoWatch.IntegrationTests.csproj" />
+    <Project Path="tests/PoWatch.Unit/PoWatch.Unit.csproj" />
+    <Project Path="tests/PoWatch.Integration/PoWatch.Integration.csproj" />
     <Project Path="tests/PoWatch.E2EAPI/PoWatch.E2EAPI.csproj" />
     <Project Path="tests/PoWatch.E2EUI/PoWatch.E2EUI.csproj" />
   </Folder>

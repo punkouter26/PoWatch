@@ -7,7 +7,7 @@ using PoWatch.Application.Options;
 using PoWatch.Infrastructure;
 using PoWatch.Infrastructure.Persistence;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 public sealed class InfrastructureDependencyInjectionTests
 {

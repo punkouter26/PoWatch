@@ -5,13 +5,13 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <!-- §2.2 IntegrationTests: infrastructure testing against ephemeral Azurite via Testcontainers. -->
+  <!-- Unit suite: pure logic, No-I/O. Deliberately does NOT reference PoWatch.Api — pulling the web
+       host into a no-I/O suite invites accidental HTTP/host-bound tests. Host-level coverage lives in
+       PoWatch.Integration and PoWatch.E2EAPI. -->
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Testcontainers.Azurite" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
@@ -24,7 +24,7 @@
     <ProjectReference Include="..\..\src\PoWatch.Domain\PoWatch.Domain.csproj" />
     <ProjectReference Include="..\..\src\PoWatch.Application\PoWatch.Application.csproj" />
     <ProjectReference Include="..\..\src\PoWatch.Infrastructure\PoWatch.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\PoWatch.Api\PoWatch.Api.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Shared\PoWatch.Shared.csproj" />
   </ItemGroup>
 
 </Project>

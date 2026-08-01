@@ -1,10 +1,11 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.IntegrationTests;
+namespace PoWatch.Integration;
 
 public sealed class FhirApiTests : IClassFixture<AzuriteWebApplicationFactory>
 {
@@ -59,7 +60,7 @@ public sealed class FhirApiTests : IClassFixture<AzuriteWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
 
-        var date = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var date = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var bundle = await client.GetFromJsonAsync<FhirBundleResponse>($"/fhir/Observation?subject=kim&date={date}&count=10");
 
         Assert.NotNull(bundle);

@@ -6,7 +6,7 @@ namespace PoWatch.Infrastructure.Runtime;
 /// Thread-safe observation processing gate using SemaphoreSlim with explicit state tracking.
 /// Ensures exactly-once exit semantics and prevents semaphore leaks under any code path.
 /// </summary>
-public sealed class InMemoryObservationProcessingGate : IObservationProcessingGate
+public sealed class InMemoryObservationProcessingGate : IObservationProcessingGate, IDisposable
 {
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private int _isProcessing = 0; // 0 = idle, 1 = processing
@@ -56,4 +56,6 @@ public sealed class InMemoryObservationProcessingGate : IObservationProcessingGa
     /// For diagnostics/monitoring only.
     /// </summary>
     public bool IsProcessing => Interlocked.CompareExchange(ref _isProcessing, 0, 0) == 1;
+
+    public void Dispose() => _semaphore.Dispose();
 }

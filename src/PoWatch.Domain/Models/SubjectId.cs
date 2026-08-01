@@ -20,8 +20,16 @@ public readonly record struct SubjectId(string Value)
     /// <summary>True when the id carries no value.</summary>
     public bool IsEmpty => string.IsNullOrEmpty(Value);
 
-    /// <summary>Adopt a raw string as a subject id (ingest, persistence read, DTO mapping edges).</summary>
-    public static implicit operator SubjectId(string? value) => new(value ?? string.Empty);
+    /// <summary>
+    /// Adopt a raw string as a subject id at an ingest / persistence-read / DTO-mapping edge.
+    /// Deliberately EXPLICIT: while this conversion was implicit, any string in scope — a display
+    /// name, an activity label, a blob path — silently satisfied a <see cref="SubjectId"/>
+    /// parameter, which is exactly the substitution this type exists to prevent.
+    /// </summary>
+    public static SubjectId From(string? value) => new(value ?? string.Empty);
+
+    /// <summary>Explicit cast form of <see cref="From"/>, for call sites that read better as a cast.</summary>
+    public static explicit operator SubjectId(string? value) => From(value);
 
     /// <summary>
     /// Unwrap to the raw string at transport/persistence boundaries. Implicit so the large body of

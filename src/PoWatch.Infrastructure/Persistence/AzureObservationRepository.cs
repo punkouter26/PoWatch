@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using Azure;
 using Azure.Data.Tables;
@@ -58,7 +59,7 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
             await _retryPipeline.ExecuteAsync(async ct =>
             {
-                var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd");
+                var partitionKey = DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd", CultureInfo.InvariantCulture);
                 // RowKey is derived from the stable observation Id ONLY — never the server timestamp. A client
                 // resubmit carrying the same IdempotencyKey therefore maps to the identical (PartitionKey, RowKey),
                 // so AddEntityAsync returns 409 (caught below as an idempotent no-op) instead of writing a
@@ -75,7 +76,7 @@ public sealed class AzureObservationRepository : IObservationRepository
 
                 var entity = new TableEntity(partitionKey, rowKey)
                 {
-                    ["Id"] = observation.Id.ToString("N"),
+                    ["Id"] = observation.Id.Value.ToString("N"),
                     ["ObservedAtUtc"] = observation.ObservedAtUtc,
                     ["SubjectId"] = observation.SubjectId.Value,
                     ["SubjectDisplayName"] = observation.SubjectDisplayName,
@@ -105,7 +106,7 @@ public sealed class AzureObservationRepository : IObservationRepository
             _logger.LogInformation(
                 "Observation storage write completed. SubjectId={SubjectId} PartitionKey={PartitionKey} TraceId={TraceId}",
                 observation.SubjectId,
-                DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd"),
+                DateOnly.FromDateTime(observation.ObservedAtUtc.UtcDateTime).ToString("yyyyMMdd", CultureInfo.InvariantCulture),
                 Activity.Current?.TraceId.ToString());
         }
         catch (RequestFailedException ex)
@@ -123,7 +124,7 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
             var items = await _retryPipeline.ExecuteAsync(async ct =>
             {
-                var partitionKey = date.ToString("yyyyMMdd");
+                var partitionKey = date.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
                 var results = new List<ObservationEvent>();
 
                 await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
@@ -155,8 +156,8 @@ public sealed class AzureObservationRepository : IObservationRepository
 
     public async Task<IReadOnlyList<ObservationEvent>> GetByDateRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
-        var fromKey = from.ToString("yyyyMMdd");
-        var toKey = to.ToString("yyyyMMdd");
+        var fromKey = from.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var toKey = to.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
 
         // Wrapped in the retry pipeline (previously bypassed it) — this feeds the Drift Radar bulk load,
         // so a transient storage blip here would otherwise fail the whole multi-subject drift computation.
@@ -195,7 +196,7 @@ public sealed class AzureObservationRepository : IObservationRepository
         {
             for (var dayOffset = 0; dayOffset < 30; dayOffset++)
             {
-                var partitionKey = today.AddDays(-dayOffset).ToString("yyyyMMdd");
+                var partitionKey = today.AddDays(-dayOffset).ToString("yyyyMMdd", CultureInfo.InvariantCulture);
                 var results = new List<ObservationEvent>();
 
                 await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
@@ -231,8 +232,8 @@ public sealed class AzureObservationRepository : IObservationRepository
             var items = await _retryPipeline.ExecuteAsync(async ct =>
             {
                 var safeSubjectId = subjectId.Replace("'", "''");
-                var fromKey = from.ToString("yyyyMMdd");
-                var toKey = to.ToString("yyyyMMdd");
+                var fromKey = from.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+                var toKey = to.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
                 var results = new List<ObservationEvent>();
 
                 // Query across date range for specific subject
@@ -313,7 +314,7 @@ public sealed class AzureObservationRepository : IObservationRepository
         var id = source.GetString("Id") ?? Guid.NewGuid().ToString("N");
         var observedAt = source.GetDateTimeOffset("ObservedAtUtc") ?? DateTimeOffset.UtcNow;
 
-        return new TableEntity(source.PartitionKey, BuildRowKey(target.SubjectId, Guid.Parse(id)))
+        return new TableEntity(source.PartitionKey, BuildRowKey(target.SubjectId, ObservationEventId.Parse(id)))
         {
             ["Id"] = id,
             ["ObservedAtUtc"] = observedAt,
@@ -332,13 +333,13 @@ public sealed class AzureObservationRepository : IObservationRepository
     // rewrite (RewriteEntity) — subjectId + stable observation Id, no timestamp. Previously the rewrite path
     // emitted a legacy inverted-ticks key, leaving a table with two incompatible key formats that forced every
     // reader to defensively re-sort. With a single deterministic, idempotent key that inconsistency is gone.
-    private static string BuildRowKey(string subjectId, Guid id) => $"{subjectId}_{id:N}";
+    private static string BuildRowKey(string subjectId, ObservationEventId id) => $"{subjectId}_{id.Value:N}";
 
     private static ObservationEvent Map(TableEntity entity) => new()
     {
-        Id = Guid.Parse(entity.GetString("Id") ?? Guid.NewGuid().ToString("N")),
+        Id = ObservationEventId.Parse(entity.GetString("Id")) is { IsEmpty: false } parsedId ? parsedId : ObservationEventId.New(),
         ObservedAtUtc = entity.GetDateTimeOffset("ObservedAtUtc") ?? DateTimeOffset.UtcNow,
-        SubjectId = entity.GetString("SubjectId") ?? string.Empty,
+        SubjectId = SubjectId.From(entity.GetString("SubjectId")),
         SubjectDisplayName = entity.GetString("SubjectDisplayName") ?? string.Empty,
         Activity = entity.GetString("Activity") ?? string.Empty,
         ClinicalDescription = entity.GetString("ClinicalDescription") ?? string.Empty,

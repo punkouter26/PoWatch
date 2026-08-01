@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace PoWatch.Client.Services;
@@ -41,7 +42,7 @@ public static partial class DisplayText
         var today = DateTimeOffset.Now.Date;
         if (local.Date == today) return $"Today {local:HH:mm}";
         if (local.Date == today.AddDays(-1)) return $"Yesterday {local:HH:mm}";
-        return local.ToString("MMM d, HH:mm");
+        return local.ToString("MMM d, HH:mm", CultureInfo.CurrentCulture);
     }
 
     /// <summary>Badges like NEW only earn attention when the activity is actually recent.</summary>

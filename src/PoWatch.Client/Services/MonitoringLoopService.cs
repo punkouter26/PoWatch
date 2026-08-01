@@ -17,7 +17,7 @@ namespace PoWatch.Client.Services;
 /// Encapsulates the inference loop orchestration: polling, frame capture, and event ingestion.
 /// Separated from the UI layer for testability and cleaner separation of concerns.
 /// </summary>
-public sealed class MonitoringLoopService
+public sealed class MonitoringLoopService : IDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<MonitoringLoopService> _logger;
@@ -44,7 +44,7 @@ public sealed class MonitoringLoopService
     public int StructuredCycles => _structuredCycles;
     public long P95LatencyMs => _p95LatencyMs;
 
-    public event EventHandler<MonitoringStateEventArgs>? StateChanged;
+    public event EventHandler<MonitoringStateChange>? StateChanged;
 
     public MonitoringLoopService(IJSRuntime jsRuntime, ILogger<MonitoringLoopService> logger, PoWatchApiClient apiClient)
     {
@@ -55,7 +55,10 @@ public sealed class MonitoringLoopService
 
     public void Start()
     {
+        // Cancel AND dispose the previous source — Start/Stop cycles used to leak one
+        // CancellationTokenSource (and its registered callbacks) per run.
         _monitorCts?.Cancel();
+        _monitorCts?.Dispose();
         _monitorCts = new CancellationTokenSource();
         _startedAtUtc = DateTimeOffset.UtcNow;
         _isRunning = true;
@@ -106,8 +109,15 @@ public sealed class MonitoringLoopService
         OnStateChanged();
     }
 
+    public void Dispose()
+    {
+        _monitorCts?.Cancel();
+        _monitorCts?.Dispose();
+        _monitorCts = null;
+    }
+
     private void OnStateChanged() =>
-        StateChanged?.Invoke(this, new MonitoringStateEventArgs(
+        StateChanged?.Invoke(this, new MonitoringStateChange(
             IsRunning: _isRunning,
             IsThinking: _isThinking,
             TotalCycles: _totalCycles,
@@ -116,7 +126,7 @@ public sealed class MonitoringLoopService
             P95LatencyMs: _p95LatencyMs));
 }
 
-public sealed record MonitoringStateEventArgs(
+public sealed record MonitoringStateChange(
     bool IsRunning,
     bool IsThinking,
     int TotalCycles,

@@ -3,7 +3,7 @@ using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 /// <summary>
 /// Architecture guard tests (audit #8). The Vertical Slice / layered boundaries are enforced by

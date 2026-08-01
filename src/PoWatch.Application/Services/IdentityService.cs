@@ -187,7 +187,7 @@ public sealed class IdentityService(
                 .Take(10)
                 .Select(e => new ObservationEventDto
                 {
-                    Id = e.Id,
+                    Id = (Guid)e.Id,
                     ObservedAtUtc = e.ObservedAtUtc,
                     SubjectId = e.SubjectId,
                     SubjectDisplayName = e.SubjectDisplayName,

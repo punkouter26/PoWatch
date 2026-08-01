@@ -2,7 +2,7 @@ namespace PoWatch.Domain.Models;
 
 public sealed class ObservationEvent
 {
-    public Guid Id { get; init; } = Guid.NewGuid();
+    public ObservationEventId Id { get; init; } = ObservationEventId.New();
 
     public DateTimeOffset ObservedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 

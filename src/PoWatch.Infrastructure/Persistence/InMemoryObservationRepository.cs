@@ -9,7 +9,7 @@ namespace PoWatch.Infrastructure.Persistence;
 public sealed class InMemoryObservationRepository(ILogger<InMemoryObservationRepository> logger) : IObservationRepository
 {
     private static readonly ActivitySource ActivitySource = new("PoWatch.Storage");
-    private readonly ConcurrentDictionary<Guid, ObservationEvent> _events = new();
+    private readonly ConcurrentDictionary<ObservationEventId, ObservationEvent> _events = new();
 
     public Task AddAsync(ObservationEvent observation, CancellationToken cancellationToken)
     {

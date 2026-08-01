@@ -6,7 +6,7 @@ using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 public sealed class HandoffCoachServiceTests
 {
@@ -225,7 +225,7 @@ public sealed class HandoffCoachServiceTests
 
     private static SubjectProfile Subject(string id, string name) => new()
     {
-        SubjectId = id,
+        SubjectId = SubjectId.From(id),
         DisplayName = name,
         IdentityStatus = IdentityStatus.Known,
         FirstSeenUtc = DateTimeOffset.UtcNow.AddDays(-10),
@@ -238,7 +238,7 @@ public sealed class HandoffCoachServiceTests
         return Enumerable.Range(0, count)
             .Select(i => new ObservationEvent
             {
-                SubjectId = subjectId,
+                SubjectId = SubjectId.From(subjectId),
                 SubjectDisplayName = subjectId,
                 Activity = "Test",
                 ClinicalDescription = "Test",
@@ -306,7 +306,7 @@ public sealed class HandoffCoachServiceTests
             Task.FromResult(_subjects);
 
         public Task<SubjectProfile> GetOrCreateAsync(string? hint, CancellationToken cancellationToken) =>
-            Task.FromResult(_subjects.FirstOrDefault() ?? new SubjectProfile());
+            Task.FromResult(_subjects.Count > 0 ? _subjects[0] : new SubjectProfile());
 
         public Task<SubjectProfile?> GetByIdAsync(string subjectId, CancellationToken cancellationToken) =>
             Task.FromResult(_subjects.FirstOrDefault(s => s.SubjectId == subjectId));
@@ -323,6 +323,6 @@ public sealed class HandoffCoachServiceTests
         public Task DeleteAsync(string subjectId, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
+            Task.FromResult(new SubjectProfile { SubjectId = SubjectId.From(displayName.ToLowerInvariant().Replace(" ", "-")), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 }

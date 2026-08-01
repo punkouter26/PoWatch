@@ -650,3 +650,50 @@
 
 .model-stat--warn { border-color: var(--state-warning-border); }
 .model-stat--warn .model-stat-value { color: var(--state-warning-fg); }
+
+/* Inference stall banner — shown when every cycle's model reply is rejected, so a run that
+   records nothing can no longer read as a healthy idle loop. */
+.inference-stall {
+    margin-top: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--state-danger-border);
+    border-radius: var(--radius-md);
+    background: var(--state-danger-bg);
+}
+
+.inference-stall strong {
+    display: block;
+    color: var(--state-danger-fg);
+    margin-bottom: var(--space-2);
+}
+
+.inference-stall p {
+    margin: 0 0 var(--space-2);
+    font-size: 0.85rem;
+    color: var(--color-text-primary);
+}
+
+.inference-stall-reason code {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-bright);
+}
+
+.inference-stall-label {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+}
+
+.inference-stall-raw {
+    margin: 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-0);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 12rem;
+    overflow-y: auto;
+}

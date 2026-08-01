@@ -1,8 +1,9 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 
-namespace PoWatch.IntegrationTests;
+namespace PoWatch.Integration;
 
 /// <summary>
 /// Integration tests for the Handoff Coach endpoint.
@@ -33,7 +34,7 @@ public sealed class HandoffCoachApiTests : IClassFixture<AzuriteWebApplicationFa
             });
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var request = new GenerateHandoffBriefRequestDto
         {
             ShiftWindow = "FullDay",
@@ -68,7 +69,7 @@ public sealed class HandoffCoachApiTests : IClassFixture<AzuriteWebApplicationFa
             });
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var response = await _client.PostAsJsonAsync($"/api/archives/{today}/handoff-brief",
             new GenerateHandoffBriefRequestDto
             {
@@ -89,7 +90,7 @@ public sealed class HandoffCoachApiTests : IClassFixture<AzuriteWebApplicationFa
     [Fact]
     public async Task HandoffBrief_ReturnsGeneratedAtUtcWithinReasonableWindow()
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var before = DateTimeOffset.UtcNow.AddSeconds(-5);
 
         var response = await _client.PostAsJsonAsync($"/api/archives/{today}/handoff-brief",
@@ -121,7 +122,7 @@ public sealed class HandoffCoachApiTests : IClassFixture<AzuriteWebApplicationFa
     [Fact]
     public async Task HandoffBrief_ReturnsNurseToNurseBrief_WhenAudienceIsInvalid()
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         var response = await _client.PostAsJsonAsync($"/api/archives/{today}/handoff-brief",
             new GenerateHandoffBriefRequestDto

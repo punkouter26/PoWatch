@@ -16,7 +16,6 @@ public static class DependencyInjection
         services.AddScoped<HandoffCoachService>();
 
         // FHIR
-        services.AddScoped<FhirMappingService>();
 
         // Identity
         services.AddScoped<IdentityService>();

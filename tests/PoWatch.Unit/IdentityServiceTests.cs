@@ -5,7 +5,7 @@ using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Infrastructure.Runtime;
 
-namespace PoWatch.UnitTests;
+namespace PoWatch.Unit;
 
 public sealed class IdentityServiceTests
 {
@@ -16,7 +16,7 @@ public sealed class IdentityServiceTests
         var subjects = new FakeSubjectRepository(
             new SubjectProfile
             {
-                SubjectId = "Subject-1",
+                SubjectId = SubjectId.From("Subject-1"),
                 DisplayName = "Subject-1",
                 IdentityStatus = IdentityStatus.Temporary,
                 FirstSeenUtc = DateTimeOffset.UtcNow.AddMinutes(-5),
@@ -25,7 +25,7 @@ public sealed class IdentityServiceTests
 
         observations.Items.Add(new ObservationEvent
         {
-            SubjectId = "Subject-1",
+            SubjectId = SubjectId.From("Subject-1"),
             SubjectDisplayName = "Subject-1",
             Activity = "Desk Work",
             ClinicalDescription = "Observed at desk."
@@ -54,7 +54,7 @@ public sealed class IdentityServiceTests
         var subjects = new FakeSubjectRepository(
             new SubjectProfile
             {
-                SubjectId = "kim",
+                SubjectId = SubjectId.From("kim"),
                 DisplayName = "Kim",
                 IdentityStatus = IdentityStatus.Known,
                 FirstSeenUtc = DateTimeOffset.UtcNow.AddHours(-1),
@@ -62,7 +62,7 @@ public sealed class IdentityServiceTests
             },
             new SubjectProfile
             {
-                SubjectId = "Subject-2",
+                SubjectId = SubjectId.From("Subject-2"),
                 DisplayName = "Subject-2",
                 IdentityStatus = IdentityStatus.Temporary,
                 FirstSeenUtc = DateTimeOffset.UtcNow.AddHours(-2),
@@ -71,7 +71,7 @@ public sealed class IdentityServiceTests
 
         observations.Items.Add(new ObservationEvent
         {
-            SubjectId = "Subject-2",
+            SubjectId = SubjectId.From("Subject-2"),
             SubjectDisplayName = "Subject-2",
             Activity = "Walking",
             ClinicalDescription = "Observed walking."
@@ -81,8 +81,8 @@ public sealed class IdentityServiceTests
 
         var result = await service.MergeAsync(new MergeIdentityRequestDto
         {
-            PrimarySubjectId = "kim",
-            SecondarySubjectId = "Subject-2",
+            PrimarySubjectId = SubjectId.From("kim"),
+            SecondarySubjectId = SubjectId.From("Subject-2"),
             NewDisplayName = "Kim"
         }, CancellationToken.None);
 
@@ -124,7 +124,7 @@ public sealed class IdentityServiceTests
                 {
                     Id = Items[index].Id,
                     ObservedAtUtc = Items[index].ObservedAtUtc,
-                    SubjectId = target.SubjectId,
+                    SubjectId = SubjectId.From(target.SubjectId),
                     SubjectDisplayName = target.DisplayName,
                     Activity = Items[index].Activity,
                     ClinicalDescription = Items[index].ClinicalDescription,
@@ -191,7 +191,7 @@ public sealed class IdentityServiceTests
 
             var renamed = new SubjectProfile
             {
-                SubjectId = newDisplayName.ToLowerInvariant(),
+                SubjectId = SubjectId.From(newDisplayName.ToLowerInvariant()),
                 DisplayName = newDisplayName,
                 IdentityStatus = IdentityStatus.Known,
                 FirstSeenUtc = subject.FirstSeenUtc,
@@ -212,6 +212,6 @@ public sealed class IdentityServiceTests
         }
 
         public Task<SubjectProfile> RegisterKnownAsync(string displayName, CancellationToken cancellationToken) =>
-            Task.FromResult(new SubjectProfile { SubjectId = displayName.ToLowerInvariant().Replace(" ", "-"), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
+            Task.FromResult(new SubjectProfile { SubjectId = SubjectId.From(displayName.ToLowerInvariant().Replace(" ", "-")), DisplayName = displayName, IdentityStatus = IdentityStatus.Known });
     }
 }

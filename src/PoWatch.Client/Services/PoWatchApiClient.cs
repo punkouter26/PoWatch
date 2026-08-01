@@ -76,6 +76,14 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
     public async Task<DiagnosticsSnapshotDto?> GetDiagnosticsAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("api/diagnostics/status", Json.DiagnosticsSnapshotDto, cancellationToken);
 
+    /// <summary>
+    /// Reads the same <c>/health</c> document the App Service probe and the CI deploy gate read.
+    /// HttpClient does not send an <c>Accept: text/html</c> header, so this always resolves to the
+    /// JSON endpoint rather than the Health page's own HTML shell.
+    /// </summary>
+    public async Task<HealthReportDto?> GetHealthAsync(CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync("health", Json.HealthReportDto, cancellationToken);
+
     public string GetHandoffReportUrl(DateOnly date, string shiftWindow) =>
         $"{httpClient.BaseAddress}api/archives/{date:yyyy-MM-dd}/handoff-report?shiftWindow={Uri.EscapeDataString(shiftWindow)}";
 

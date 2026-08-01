@@ -80,7 +80,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             var now = DateTimeOffset.UtcNow;
             var created = new SubjectProfile
             {
-                SubjectId = normalized,
+                SubjectId = SubjectId.From(normalized),
                 DisplayName = normalized,
                 IdentityStatus = normalized.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
                     ? IdentityStatus.Temporary
@@ -120,7 +120,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
         var renamed = new SubjectProfile
         {
-            SubjectId = canonicalId,
+            SubjectId = SubjectId.From(canonicalId),
             DisplayName = trimmed,
             IdentityStatus = IdentityStatus.Known,
             FirstSeenUtc = existing.FirstSeenUtc,
@@ -141,7 +141,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
     {
         var primary = await GetByIdAsync(primarySubjectId, cancellationToken) ?? new SubjectProfile
         {
-            SubjectId = primarySubjectId,
+            SubjectId = SubjectId.From(primarySubjectId),
             DisplayName = primarySubjectId,
             IdentityStatus = primarySubjectId.StartsWith("Subject-", StringComparison.OrdinalIgnoreCase)
                 ? IdentityStatus.Temporary
@@ -156,7 +156,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
         var merged = new SubjectProfile
         {
-            SubjectId = canonicalId,
+            SubjectId = SubjectId.From(canonicalId),
             DisplayName = displayName,
             IdentityStatus = IdentityStatus.Known,
             FirstSeenUtc = secondary is null
@@ -259,7 +259,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
         var profile = new SubjectProfile
         {
-            SubjectId = subjectId,
+            SubjectId = SubjectId.From(subjectId),
             DisplayName = trimmed,
             IdentityStatus = IdentityStatus.Known,
             FirstSeenUtc = now,
@@ -345,7 +345,7 @@ public sealed class AzureSubjectRepository : ISubjectRepository
 
     private static SubjectProfile Map(TableEntity entity) => new()
     {
-        SubjectId = entity.RowKey,
+        SubjectId = SubjectId.From(entity.RowKey),
         DisplayName = entity.GetString("DisplayName") ?? entity.RowKey,
         IdentityStatus = Enum.TryParse<IdentityStatus>(entity.GetString("IdentityStatus"), out var identityStatus)
             ? identityStatus

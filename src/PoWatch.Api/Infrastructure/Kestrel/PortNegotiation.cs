@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -128,7 +129,7 @@ public static class PortNegotiation
 
         if (!env.IsDevelopment())
         {
-            HostStartupLog.PortConflictFatal(logger, requested.ToString(), 1);
+            HostStartupLog.PortConflictFatal(logger, requested.ToString(CultureInfo.InvariantCulture), 1);
             throw new IOException(
                 $"Kestrel could not bind to the configured {(isHttps ? "HTTPS" : "HTTP")} port {requested} " +
                 $"because it is already in use. Refusing to fall back in {env.EnvironmentName}.");

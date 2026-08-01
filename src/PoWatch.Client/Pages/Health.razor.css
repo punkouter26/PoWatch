@@ -1,0 +1,175 @@
+/* Health page — one row per registered connection, colour-coded by state.
+   All colour/spacing comes from tokens.css so the page follows the active theme. */
+
+.health-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.health-timestamp {
+    font-size: 0.82rem;
+    color: var(--color-text-label);
+    font-family: var(--font-mono);
+}
+
+/* ── Overall verdict banner ─────────────────────────────────────────── */
+.health-overall {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-2);
+    margin-bottom: var(--space-5);
+}
+
+.health-overall strong {
+    display: block;
+    font-size: 1.05rem;
+    color: var(--color-text-bright);
+}
+
+.health-overall-detail {
+    margin: var(--space-1) 0 0;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.health-overall--healthy {
+    border-color: var(--state-success-border);
+    background: var(--state-success-bg);
+}
+
+.health-overall--degraded {
+    border-color: var(--state-warning-border);
+    background: var(--state-warning-bg);
+}
+
+.health-overall--unhealthy {
+    border-color: var(--state-danger-border);
+    background: var(--state-danger-bg);
+}
+
+/* ── Status dot ─────────────────────────────────────────────────────── */
+.health-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-text-muted);
+}
+
+.health-dot--healthy {
+    background: var(--state-success-fg);
+    box-shadow: 0 0 0 3px var(--state-success-bg);
+}
+
+.health-dot--degraded {
+    background: var(--state-warning-fg);
+    box-shadow: 0 0 0 3px var(--state-warning-bg);
+}
+
+.health-dot--unhealthy {
+    background: var(--state-danger-fg);
+    box-shadow: 0 0 0 3px var(--state-danger-bg);
+}
+
+.health-dot--pending {
+    animation: healthPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes healthPulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+}
+
+/* Respect a reduced-motion preference — the dot still reads as "pending" via colour. */
+@media (prefers-reduced-motion: reduce) {
+    .health-dot--pending {
+        animation: none;
+        opacity: 0.6;
+    }
+}
+
+/* ── Per-connection rows ────────────────────────────────────────────── */
+.health-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.health-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-1);
+}
+
+.health-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.health-item-name {
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
+.health-item-detail {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.health-item-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.health-item-status.health-dot--healthy,
+.health-item-status.health-dot--degraded,
+.health-item-status.health-dot--unhealthy {
+    /* Reuse the state colours as text, not as a dot. */
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.health-item-status.health-dot--healthy { color: var(--state-success-fg); }
+.health-item-status.health-dot--degraded { color: var(--state-warning-fg); }
+.health-item-status.health-dot--unhealthy { color: var(--state-danger-fg); }
+
+.health-item-duration {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-label);
+    white-space: nowrap;
+}
+
+/* Narrow screens: let the name/detail take the full width and drop the row to two lines. */
+@media (max-width: 640px) {
+    .health-item {
+        grid-template-columns: auto 1fr;
+    }
+
+    .health-item-status,
+    .health-item-duration {
+        grid-column: 2;
+    }
+}

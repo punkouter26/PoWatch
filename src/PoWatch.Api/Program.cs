@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -33,7 +34,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .Enrich.WithMachineName()
     .Enrich.WithThreadId()
-    .WriteTo.Console()
+    .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
     .CreateLogger();
 
 var bootSw = Stopwatch.StartNew();
@@ -152,6 +153,30 @@ HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
 var app = builder.Build();
 HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
     HostStartupLog.Stage.PipelineBuilt, bootSw);
+
+// /health serves two audiences from one route. Machine clients (the App Service health probe, the
+// CI deploy gate, curl) get the JSON document mapped further down — that contract must not change,
+// it is what gates every production deploy. A browser navigating to /health sends Accept: text/html
+// and instead gets the Blazor shell, whose router resolves the Health page (@page "/health").
+//
+// This MUST run before routing, so UseRouting is called explicitly on the next line: otherwise the
+// framework auto-inserts it at the head of the pipeline, the health endpoint is selected before any
+// user middleware runs, and rewriting the path here has no effect (verified — it returned JSON).
+// Only the path the SERVER resolves changes; the browser URL stays /health, and that is what the
+// WASM router reads, so the Health page renders.
+app.Use(async (ctx, next) =>
+{
+    if (HttpMethods.IsGet(ctx.Request.Method)
+        && ctx.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase)
+        && ctx.Request.Headers.Accept.Any(v =>
+            v is not null && v.Contains("text/html", StringComparison.OrdinalIgnoreCase)))
+    {
+        ctx.Request.Path = "/index.html";
+    }
+
+    await next(ctx);
+});
+app.UseRouting();
 
 // T009: OpenAPI + Scalar API reference UI
 app.MapOpenApi("/openapi/v1.json");

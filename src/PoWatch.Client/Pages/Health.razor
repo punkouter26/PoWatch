@@ -1,0 +1,177 @@
+@page "/health"
+@using System.Globalization
+@using PoWatch.Shared.Models
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@implements IDisposable
+
+<PageTitle>PoWatch | Health</PageTitle>
+
+<div class="sector-grid health-page">
+    <RadzenCard class="panel">
+        <header class="panel-header">
+            <h1>Connection health</h1>
+            <p>Every dependency PoWatch needs, and whether it is answering right now.</p>
+        </header>
+
+        <div class="health-toolbar">
+            <RadzenButton Text="Check again" ButtonStyle="ButtonStyle.Primary"
+                          Click="LoadAsync" Disabled="_busy" data-test="health-refresh" />
+            @if (_lastChecked is not null)
+            {
+                <span class="health-timestamp" data-test="health-timestamp">
+                    Last checked @_lastChecked.Value.ToString("HH:mm:ss", CultureInfo.CurrentCulture)
+                </span>
+            }
+        </div>
+
+        @if (_error is not null)
+        {
+            @* A failed fetch is itself a health signal — the API is unreachable from this browser. *@
+            <div class="health-overall health-overall--unhealthy" role="status" data-test="health-overall">
+                <span class="health-dot health-dot--unhealthy"></span>
+                <div>
+                    <strong>Cannot reach the server</strong>
+                    <p class="health-overall-detail">@_error</p>
+                </div>
+            </div>
+        }
+        else if (_report is null)
+        {
+            <div class="health-overall health-overall--pending" role="status" data-test="health-overall">
+                <span class="health-dot health-dot--pending"></span>
+                <div><strong>Checking&#8230;</strong></div>
+            </div>
+        }
+        else
+        {
+            <div class="health-overall @OverallClass(_report.Status)" role="status" data-test="health-overall">
+                <span class="health-dot @DotClass(_report.Status)"></span>
+                <div>
+                    <strong data-test="health-overall-status">@FriendlyStatus(_report.Status)</strong>
+                    <p class="health-overall-detail">
+                        @_report.Checks.Count @(_report.Checks.Count == 1 ? "connection" : "connections") checked
+                        in @_report.DurationMs.ToString("0", CultureInfo.CurrentCulture) ms
+                    </p>
+                </div>
+            </div>
+
+            <ul class="health-list" data-test="health-check-list">
+                @foreach (var check in _report.Checks)
+                {
+                    <li class="health-item" data-test="health-check">
+                        <span class="health-dot @DotClass(check.Status)"></span>
+                        <div class="health-item-body">
+                            <span class="health-item-name">@FriendlyName(check.Name)</span>
+                            @if (!string.IsNullOrWhiteSpace(check.Description))
+                            {
+                                <span class="health-item-detail">@check.Description</span>
+                            }
+                        </div>
+                        <span class="health-item-status @DotClass(check.Status)">@FriendlyCheckStatus(check.Status)</span>
+                        <span class="health-item-duration">@check.DurationMs.ToString("0", CultureInfo.CurrentCulture) ms</span>
+                    </li>
+                }
+            </ul>
+        }
+    </RadzenCard>
+</div>
+
+@code {
+    private HealthReportDto? _report;
+    private string? _error;
+    private bool _busy;
+    private DateTimeOffset? _lastChecked;
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _ = AutoRefreshLoopAsync(_cts.Token);
+    }
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        try
+        {
+            _report = await ApiClient.GetHealthAsync(_cts.Token);
+            _error = _report is null ? "The server returned an empty health document." : null;
+        }
+        catch (OperationCanceledException)
+        {
+            // Page is being disposed — nothing to report.
+        }
+        catch (Exception ex)
+        {
+            _report = null;
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+            _lastChecked = DateTimeOffset.Now;
+        }
+    }
+
+    // A health page showing stale values reads as broken, so it refreshes itself.
+    private async Task AutoRefreshLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), ct);
+                await LoadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private static string OverallClass(string status) => status switch
+    {
+        "Healthy" => "health-overall--healthy",
+        "Degraded" => "health-overall--degraded",
+        _ => "health-overall--unhealthy"
+    };
+
+    private static string DotClass(string status) => status switch
+    {
+        "Healthy" => "health-dot--healthy",
+        "Degraded" => "health-dot--degraded",
+        _ => "health-dot--unhealthy"
+    };
+
+    // Overall verdict — reads as a summary of the whole system.
+    private static string FriendlyStatus(string status) => status switch
+    {
+        "Healthy" => "All systems connected",
+        "Degraded" => "Running with reduced service",
+        "Unhealthy" => "Connection problem",
+        _ => status
+    };
+
+    // Per-connection verdict — the summary wording would be wrong on a single row.
+    private static string FriendlyCheckStatus(string status) => status switch
+    {
+        "Healthy" => "Connected",
+        "Degraded" => "Degraded",
+        "Unhealthy" => "Not connected",
+        _ => status
+    };
+
+    // Check names are registration keys ("azure-storage"); the operator reading this page
+    // should not have to decode them.
+    private static string FriendlyName(string name) => name switch
+    {
+        "azure-storage" => "Storage (observations & images)",
+        "azure-key-vault" => "Key Vault (secrets)",
+        _ => name
+    };
+}

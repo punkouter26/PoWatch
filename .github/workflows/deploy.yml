@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       emergency:
-        description: 'Emergency deploy: skip the formatting gate (use only when production is down and the fix must ship now)'
+        description: 'Emergency deploy: skip the formatting and test gates (use only when production is down and the fix must ship now)'
         type: boolean
         default: false
 
@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build & Publish
+    name: Build, Test & Publish
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -48,8 +48,39 @@ jobs:
       # can never block a hotfix while production is down (2026-07-06: FINALNEWLINE blocked recovery).
       - if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
         run: dotnet format ${{ env.SOLUTION_PATH }} --verify-no-changes --verbosity minimal
-      # Rule 6.4: tests are NOT run in the CI/CD pipeline — they run locally / pre-merge
-      # (unit + integration via Testcontainers, E2E via Playwright).
+
+      # Test gate. Suites run separately so a failure names the layer that broke rather than a
+      # single opaque "tests failed". Shares the 'emergency' escape hatch with the formatting gate
+      # above — a red test must never trap a hotfix while production is down (2026-07-06 outage).
+      - name: Unit tests (pure logic, no I/O)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
+        run: dotnet test tests/PoWatch.Unit/PoWatch.Unit.csproj -c Release --no-build --logger "trx;LogFileName=unit.trx" --results-directory testresults
+      # Testcontainers pulls the Azurite image; Docker is preinstalled on ubuntu-latest runners.
+      - name: Integration tests (Azurite via Testcontainers)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
+        run: dotnet test tests/PoWatch.Integration/PoWatch.Integration.csproj -c Release --no-build --logger "trx;LogFileName=integration.trx" --results-directory testresults
+      - name: API E2E tests (contract)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
+        run: dotnet test tests/PoWatch.E2EAPI/PoWatch.E2EAPI.csproj -c Release --no-build --logger "trx;LogFileName=e2eapi.trx" --results-directory testresults
+      # PlaywrightFixture self-skips when E2E_BASE_URL is unset, so this is a no-op against a
+      # headless build. Set E2E_BASE_URL (repo variable) to point the suite at a live deployment.
+      - name: UI E2E tests (Playwright)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+        run: |
+          if [ -n "$E2E_BASE_URL" ]; then
+            pwsh tests/PoWatch.E2EUI/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+          fi
+          dotnet test tests/PoWatch.E2EUI/PoWatch.E2EUI.csproj -c Release --no-build --logger "trx;LogFileName=e2eui.trx" --results-directory testresults
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: testresults
+          retention-days: 7
+
       - run: dotnet publish ${{ env.API_PROJECT_PATH }} -c Release --no-restore -o publish
       - uses: actions/upload-artifact@v4
         with:

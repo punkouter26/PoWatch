@@ -66,7 +66,7 @@ public sealed record FhirBundle(
 /// Maps internal domain models to FHIR R4-compatible objects for serialisation.
 /// Uses typed records with <see cref="JsonPropertyNameAttribute"/> — no external FHIR SDK needed.
 /// </summary>
-public sealed class FhirMappingService
+public static class FhirMappingService
 {
     private const string FhirObservationUrl = "http://hl7.org/fhir/StructureDefinition/Observation";
 
@@ -77,7 +77,7 @@ public sealed class FhirMappingService
         new("https://powatch.local/codesystem/flag", "outlier-flag", "Clinical Outlier Flag");
 
     /// <summary>Maps a single <see cref="ObservationEvent"/> to a FHIR R4 Observation.</summary>
-    public FhirObservation MapToFhirObservation(ObservationEvent observation)
+    public static FhirObservation MapToFhirObservation(ObservationEvent observation)
     {
         ArgumentNullException.ThrowIfNull(observation);
 
@@ -101,7 +101,7 @@ public sealed class FhirMappingService
     }
 
     /// <summary>Wraps a list of observations in a FHIR R4 Bundle (type = searchset).</summary>
-    public FhirBundle MapToFhirBundle(IEnumerable<ObservationEvent> observations, string bundleId)
+    public static FhirBundle MapToFhirBundle(IEnumerable<ObservationEvent> observations, string bundleId)
     {
         var entries = observations
             .Select(o => new FhirBundleEntry(

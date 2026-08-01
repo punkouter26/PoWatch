@@ -1,3 +1,4 @@
+using System.Globalization;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -27,11 +28,13 @@ public static class TelemetrySetup
            .Enrich.WithProperty("Application", "PoWatch")
            .Enrich.WithProperty("Environment", ctx.HostingEnvironment.EnvironmentName)
            .WriteTo.Console(
+               formatProvider: CultureInfo.InvariantCulture,
                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{UserId}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
 
         if (ctx.HostingEnvironment.IsDevelopment())
         {
             cfg.WriteTo.File(
+                formatProvider: CultureInfo.InvariantCulture,
                 path: "logs/powatch-.log",
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 30,
