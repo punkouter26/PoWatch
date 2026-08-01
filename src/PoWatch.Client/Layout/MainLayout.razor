@@ -57,34 +57,33 @@
     {
         if (firstRender)
         {
-            // Wire the global keyboard shortcuts (Ctrl+1..5 for nav, "/" to
-            // focus the page filter, "?" for help). The JS file auto-loads
-            // in index.html; we just need to register the dotNetRef so it can
-            // bubble commands back to C# (e.g. keyboard "r" might later mean
-            // "refresh", depending on the page).
-            try { await JS.InvokeVoidAsync("powatchKeybindings.setup", DotNetObjectReference.Create(this)); }
+            // Global keyboard shortcuts (Ctrl+1..4 to navigate, Ctrl+K for the command
+            // palette, "/" to focus the page filter). Handled entirely in JS — no
+            // DotNetObjectReference, because the C# callback it used to hold was empty.
+            try { await JS.InvokeVoidAsync("powatchKeybindings.setup"); }
             catch { /* private mode or polyfill missing */ }
         }
     }
 
-    [JSInvokable]
-    public void OnShortcut(string key)
-    {
-        // Future: surface recognized combos as a toast. Today the `/` shortcut
-        // is handled inside keyboard-bindings.js (focus-filter). Centralising
-        // the wiring here keeps the JS one source of truth.
-    }
-
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
+        // The heading must change WITH the route, not 350 ms after it. It used to be updated
+        // inside a fire-and-forget Task.Delay continuation, so the HUD kept announcing the
+        // previous page during the transition and two quick navigations could race and leave
+        // the wrong title on screen.
+        UpdatePageTitle(e.Location);
         _navigating = true;
         InvokeAsync(StateHasChanged);
-        Task.Delay(350).ContinueWith(_ =>
-        {
-            _navigating = false;
-            UpdatePageTitle(e.Location);
-            InvokeAsync(StateHasChanged);
-        });
+
+        // The progress bar is purely cosmetic; only its teardown is deferred.
+        _ = HideNavigationBarAsync();
+    }
+
+    private async Task HideNavigationBarAsync()
+    {
+        await Task.Delay(350);
+        _navigating = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     private void UpdatePageTitle(string uri)

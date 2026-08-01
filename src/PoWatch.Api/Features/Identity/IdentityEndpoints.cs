@@ -123,7 +123,7 @@ internal static class IdentityEndpoints
             HybridCache cache,
             CancellationToken cancellationToken) =>
             Results.Ok(await cache.GetOrCreateAsync(
-                "identity:live-status",
+                IdentityCacheKeys.LiveStatus,
                 async ct => await service.GetLiveDashboardStatusAsync(ct),
                 cancellationToken: cancellationToken)))
             .WithName("IdentityLiveDashboard")

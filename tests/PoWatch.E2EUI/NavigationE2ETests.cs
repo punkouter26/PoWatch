@@ -20,15 +20,12 @@ public sealed class NavigationE2ETests
     {
         if (PlaywrightFixture.BaseUrl is null) return; // no live server configured — nothing to exercise
 
-        var page = await _fixture.Browser.NewPageAsync(new() { IgnoreHTTPSErrors = true });
-
-        // BFF auth: anonymous visits redirect to /login, which has no navbar. Sign in as the
-        // dev guest first (sets the session cookie, then redirects to returnUrl).
-        await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/auth/login/fake?returnUrl=%2F",
-            new() { WaitUntil = WaitUntilState.NetworkIdle });
+        // SignedInAsync waits for the navbar with a cold-WASM-boot timeout. This test used to
+        // assert straight after NetworkIdle with Playwright's 5 s default, which is far less than
+        // a first-load .NET runtime download — so it failed on any instance that was not warm.
+        var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
 
         // Stable selectors — see data-test attributes on MainLayout / NavMenu.
-        await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("page-hud")).ToBeVisibleAsync();
 
         await page.AssertNoBlazorErrorAsync();

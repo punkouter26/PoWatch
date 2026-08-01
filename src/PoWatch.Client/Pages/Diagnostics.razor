@@ -9,14 +9,14 @@
 @inject DialogService DialogService
 @implements IDisposable
 
-<PageTitle>PoWatch | Diagnostics</PageTitle>
+<PageTitle>PoWatch | System</PageTitle>
 
 <div class="sector-grid diagnostics-page">
     @* Consolidation #8: one Health card — server row + inference row, one refresh control,
        auto-refresh on by default. *@
     <RadzenCard class="panel">
         <header class="panel-header">
-            <h1>Health</h1>
+            <h1>System</h1>
             <p>Runtime, storage &amp; inference — refreshed automatically.</p>
         </header>
 
@@ -107,11 +107,16 @@
             </div>
         }
     </RadzenCard>
-</div>
 
-@if (ClientFlags.Value.ExposeDebugDetailsInUi)
-{
-    <RadzenCard class="panel panel--danger">
+    @* Gated on the SERVER's developer-mode signal, matching the Live Room's "Clear data" button.
+   This used to read the client-only ExposeDebugDetailsInUi flag, which the WASM app never
+   picks up (it does not load the Development appsettings) — so the same destructive action
+   had two different gates and this one effectively never appeared. The card also lived
+   outside the page's .sector-grid, so on the rare occasion it did render it fell out of the
+   page layout; it is inside the grid now. *@
+    @if (observerState?.DeveloperModeEnabled == true)
+    {
+        <RadzenCard class="panel panel--danger">
         <header class="panel-header">
             <h1>Danger Zone</h1>
             <p>Irreversible operations. Guarded by the <code>AllowDataReset</code> server feature flag.</p>
@@ -138,11 +143,13 @@
                 }
             }
         </div>
-    </RadzenCard>
-}
+        </RadzenCard>
+    }
+</div>
 
 @code {
     private DiagnosticsSnapshotDto? snapshot;
+    private ObserverRuntimeStateDto? observerState;
     private InferenceDiagnosticsDto? inferenceDiag;
     private bool autoRefresh = true;
     private DateTime? lastRefreshed;
@@ -161,10 +168,13 @@
             _ = AutoRefreshLoopAsync(_cts.Token);
     }
 
-    private async Task OnAutoRefreshChanged(bool value)
+    private void OnAutoRefreshChanged(bool value)
     {
         autoRefresh = value;
+        // Dispose the old source before replacing it — toggling repeatedly used to leak one
+        // CancellationTokenSource (and its registrations) per flip.
         _cts.Cancel();
+        _cts.Dispose();
         _cts = new CancellationTokenSource();
 
         if (autoRefresh)
@@ -196,6 +206,9 @@
         try
         {
             snapshot = await ApiClient.GetDiagnosticsAsync();
+            // DeveloperModeEnabled lives on the observer runtime state, and it is what gates
+            // the Danger Zone below (same signal the Live Room's "Clear data" button uses).
+            try { observerState = await ApiClient.GetObserverStateAsync(); } catch { observerState = null; }
             if (snapshot is null)
                 NotificationService.Notify(NotificationSeverity.Warning, "Diagnostics", "Unavailable in current environment.", duration: 4000);
             // Paint the snapshot immediately — the inference query below can take seconds to

@@ -25,8 +25,6 @@ public partial class ObserverHub
 
     // One-tap (audit #7): carry the subject id so Identity opens with this subject's rename ready,
     // instead of landing on the full list and forcing the user to hunt for it again.
-    private void NavigateToIdentityPage() => Navigation.NavigateTo("/identity");
-
     private void NavigateToManageSubject(string subjectId) =>
         Navigation.NavigateTo($"/identity?focus={Uri.EscapeDataString(subjectId)}");
 

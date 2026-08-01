@@ -4,6 +4,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace PoWatch.Api.Features.Observer;
 
@@ -82,9 +83,10 @@ internal static class ObserverEndpoints
         .WithSummary("Subscribe to a real-time SSE stream of observation events with backpressure support.");
 
         // Acknowledgment endpoint for significant events
-        group.MapPost("/acknowledge", (
+        group.MapPost("/acknowledge", async (
             AcknowledgeEventsRequestDto request,
             IAcknowledgementRegistry acknowledgementRegistry,
+            HybridCache cache,
             ILogger<Program> logger,
             CancellationToken ct) =>
         {
@@ -95,6 +97,11 @@ internal static class ObserverEndpoints
                 .ToList();
 
             acknowledgementRegistry.Acknowledge(parsed, request.AcknowledgedBy);
+
+            // The live-status board is cached for ~10 s under a single key. Without this eviction,
+            // acknowledging an alert left its badge on screen until the entry expired — the operator
+            // pressed the button and nothing appeared to happen, so they pressed it again.
+            await cache.RemoveAsync(IdentityCacheKeys.LiveStatus, ct);
 
             logger.LogInformation(
                 "Events acknowledged. EventIds={Count} AcknowledgedBy={AcknowledgedBy}",

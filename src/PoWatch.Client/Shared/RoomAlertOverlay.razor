@@ -3,7 +3,8 @@
    Rendered as an alertdialog so assistive tech announces and traps it like the interruption it is. *@
 @if (Visible)
 {
-    <div class="alert-takeover" role="alertdialog" aria-modal="true"
+    <div class="alert-takeover" role="alertdialog" aria-modal="true" tabindex="-1"
+         @onkeydown="HandleKeyDownAsync"
          aria-labelledby="alert-takeover-title" aria-describedby="alert-takeover-reason">
         <div class="alert-takeover-card">
             <div class="alert-takeover-pulse" aria-hidden="true"></div>
@@ -34,8 +35,8 @@
             </div>
 
             <div class="alert-takeover-actions">
-                <button class="alert-takeover-btn alert-takeover-btn--primary"
-                        @onclick="OnAcknowledge" data-test="alert-acknowledge" autofocus>
+                <button class="alert-takeover-btn alert-takeover-btn--primary" @ref="_acknowledgeButton"
+                        @onclick="OnAcknowledge" data-test="alert-acknowledge">
                     I’ve got it
                 </button>
                 <button class="alert-takeover-btn alert-takeover-btn--ghost"
@@ -48,6 +49,35 @@
 }
 
 @code {
+    private ElementReference _acknowledgeButton;
+    private bool _focused;
+
+    // The overlay declares role="alertdialog" + aria-modal, so it must actually take focus and
+    // accept Escape. The plain `autofocus` attribute it used to carry only applies when the
+    // browser parses the markup, which never happens for an element Blazor adds on re-render —
+    // the most important dialog in the app was reachable by mouse only.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible && !_focused)
+        {
+            _focused = true;
+            try { await _acknowledgeButton.FocusAsync(); }
+            catch { /* element already torn down */ }
+        }
+        else if (!Visible)
+        {
+            _focused = false;
+        }
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await OnAcknowledge.InvokeAsync();
+        }
+    }
+
     [Parameter, EditorRequired] public bool Visible { get; set; }
     [Parameter] public string SubjectName { get; set; } = string.Empty;
     [Parameter] public string Reason { get; set; } = string.Empty;

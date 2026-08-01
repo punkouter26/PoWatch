@@ -73,6 +73,16 @@ public sealed class ObservationService(
                 logger.ClinicalOutlier(subject.SubjectId, request.ClinicalPayload);
             }
 
+            // Significance is decided here, not by the caller. The inference worker used to set it from
+            // the caption's length, which flagged every well-formed observation; deriving it from the
+            // content instead means "Notable" is worth triaging again. A caller that supplies its own
+            // reason (the dev-tool injectors, contract tests) still wins — an explicit reason is a
+            // deliberate assertion, not a default.
+            var callerAssertedSignificance = !string.IsNullOrWhiteSpace(request.SignificantReason);
+            var verdict = ActivitySignificanceClassifier.Classify(request.Activity, description);
+            var isSignificant = callerAssertedSignificance ? request.IsSignificant : verdict.IsSignificant;
+            var significantReason = callerAssertedSignificance ? request.SignificantReason : verdict.Reason;
+
             var observedAtUtc = DateTimeOffset.UtcNow;
             var observation = new ObservationEvent
             {
@@ -85,10 +95,10 @@ public sealed class ObservationService(
                 SubjectDisplayName = subject.DisplayName,
                 Activity = request.Activity,
                 ClinicalDescription = description,
-                IsSignificant = request.IsSignificant,
-                SignificantReason = request.SignificantReason,
+                IsSignificant = isSignificant,
+                SignificantReason = significantReason,
                 IsClinicalOutlier = isOutlier,
-                ImageReference = request.IsSignificant && featureFlags.Value.SaveSignificantImages
+                ImageReference = isSignificant && featureFlags.Value.SaveSignificantImages
                     ? $"significant-images/{DateOnly.FromDateTime(observedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.jpg"
                     : null
             };
@@ -127,6 +137,10 @@ public sealed class ObservationService(
                 SubjectDisplayName = observation.SubjectDisplayName,
                 ImageReference = observation.ImageReference,
                 SkippedAsRedundant = isRedundant,
+                // Echo the server's verdict so the client stops second-guessing it: the Live Room uses
+                // this to decide the alert level, whether to upload an evidence frame, and what to say.
+                IsSignificant = observation.IsSignificant,
+                SignificantReason = observation.SignificantReason,
                 Detail = isRedundant
                     ? "Observation recorded with stable-state flag."
                     : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."),

@@ -10,6 +10,7 @@
 @inject IOptions<ClientFeatureFlagsOptions> ClientFlags
 @inject DialogService DialogService
 @inject NavigationManager Nav
+@inject HttpClient Http
 
 <PageTitle>PoWatch | History</PageTitle>
 
@@ -138,36 +139,26 @@
             <div class="evidence-grid">
                 @foreach (var item in highlightsWithImages)
                 {
+                    @* Every item here already resolved to a loadable image (the list is filtered on
+                       GetEvidenceUrl above), so the old "No image" placeholder branch and the
+                       evidence-status chip were both unreachable — their CSS was dead too. *@
                     var evidenceUrl = GetEvidenceUrl(item);
                     var capturedItem = item;
                     var capturedUrl = evidenceUrl;
-                    var imageStatus = GetImageLoadStatus(item);
                     <div class="evidence-card"
                          @onclick="@(async () => await OpenEvidenceLightboxAsync(capturedItem, capturedUrl))"
                          role="button" tabindex="0"
-                         aria-label="View full image for @item.SubjectDisplayName — @item.Activity"
+                         aria-label="View full image for @PoWatch.Client.Services.DisplayText.SubjectName(item.SubjectDisplayName, isKnownIdentity: false) — @item.Activity"
                          @onkeydown="@(async args => { if (args.Key == "Enter" || args.Key == " ") await OpenEvidenceLightboxAsync(capturedItem, capturedUrl); })">
                         <div class="evidence-image-wrap">
-                            @if (!string.IsNullOrWhiteSpace(evidenceUrl))
-                            {
-                                <img class="evidence-full-img" src="@evidenceUrl" alt="Evidence for @item.SubjectDisplayName"
-                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                                <div class="evidence-full-img evidence-placeholder is-hidden">No image</div>
-                            }
-                            else
-                            {
-                                <div class="evidence-full-img evidence-placeholder">@(imageStatus ?? "No image")</div>
-                            }
+                            <img class="evidence-full-img" src="@evidenceUrl"
+                                 alt="Evidence for @PoWatch.Client.Services.DisplayText.SubjectName(item.SubjectDisplayName, isKnownIdentity: false)"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                            <div class="evidence-full-img evidence-placeholder is-hidden">No image</div>
                             <div class="evidence-overlay">
-                                <span class="evidence-subject">@item.SubjectDisplayName</span>
-                                <span class="evidence-activity">@item.Activity</span>
+                                <span class="evidence-subject">@PoWatch.Client.Services.DisplayText.SubjectName(item.SubjectDisplayName, isKnownIdentity: false)</span>
+                                <span class="evidence-activity">@PoWatch.Client.Services.DisplayText.Activity(item.Activity)</span>
                             </div>
-                            @if (!string.IsNullOrWhiteSpace(imageStatus) && imageStatus != "Loaded")
-                            {
-                                <div class="evidence-status-chip evidence-status-chip--@imageStatus.ToLower().Replace(" ", "-")">
-                                    @imageStatus
-                                </div>
-                            }
                         </div>
                         <div class="evidence-caption">
                             <small>@(item.SignificantReason ?? "Significant event")</small>
@@ -182,54 +173,16 @@
 
     <RadzenCard class="panel panel-timeline">
         <h2>Chronological Timeline</h2>
-        @if (chapter?.Timeline is null or { Count: 0 })
-        {
-            <div class="activity-empty">No events recorded for this day.</div>
-        }
-        else
-        {
-            @* Virtualized (audit #3): a full day's timeline can be hundreds of events; only the visible
-               rows are materialized so the archive scrolls without frame drops. *@
-            <div class="activity-list activity-list--archives">
-                <Virtualize Items="AsRows(chapter.Timeline)" Context="item" ItemSize="54" OverscanCount="6">
-                    <div class="activity-item @(item.IsClinicalOutlier ? "activity-item--outlier" : item.IsSignificant ? "activity-item--significant" : string.Empty)">
-                        <div class="activity-item-header">
-                            <span class="activity-time">@item.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
-                            <span class="activity-subject">@item.SubjectDisplayName</span>
-                            @if (item.IsClinicalOutlier)
-                            {
-                                <span class="activity-badge activity-badge--outlier">⚠ Unusual</span>
-                            }
-                            else if (item.IsSignificant)
-                            {
-                                <span class="activity-badge activity-badge--significant">Notable</span>
-                            }
-                            <span class="activity-activity">@item.Activity</span>
-                        </div>
-                        @if ((item.IsClinicalOutlier || item.IsSignificant) && !string.IsNullOrWhiteSpace(item.SignificantReason))
-                        {
-                            <div class="activity-why">
-                                <span class="activity-why-label">Why flagged</span>
-                                <span class="activity-why-text">@item.SignificantReason</span>
-                            </div>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
-                        {
-                            <div class="activity-note">@item.ClinicalDescription</div>
-                        }
-                    </div>
-                </Virtualize>
-            </div>
-        }
+        @* One timeline implementation, not two. This page used to inline its own copy of
+           ActivityTimeline's markup; the copy drifted — it skipped DisplayText.SubjectName, so the
+           same person read "Subject-116" here and "Person 116" in the Live Room, and it lost the
+           badge tooltips. Render the shared component instead. *@
+        <ActivityTimeline Items="@(chapter?.Timeline ?? [])" ShowSubjectBadge="true"
+                          EmptyMessage="No events recorded for this day." />
     </RadzenCard>
 </div>
 
 @code {
-    // Virtualize needs an ICollection; the DTO list is a List at runtime so this cast avoids a copy.
-    // Mirrors ActivityTimeline's pattern rather than inlining the cast in markup.
-    private static ICollection<ObservationEventDto> AsRows(IReadOnlyList<ObservationEventDto> timeline) =>
-        timeline as ICollection<ObservationEventDto> ?? timeline.ToList();
-
     private sealed record ShiftOption(string Value, string Label);
 
     private static readonly IReadOnlyList<ShiftOption> shiftOptions =
@@ -293,6 +246,18 @@
         if (!string.IsNullOrWhiteSpace(HandoffQuery))
         {
             await OpenHandoffDialogAsync();
+        }
+    }
+
+    // The ←/→ day shortcuts are bound to the page div, so they only fired once the user had
+    // clicked it. Focus it on arrival (it is tabindex="-1", so this steals nothing from the
+    // tab order) and the shortcut advertised in the toolbar tooltips actually works.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { await _pageRef.FocusAsync(); }
+            catch { /* element may already be gone if the user navigated away mid-load */ }
         }
     }
 
@@ -500,6 +465,28 @@
 
         var date = DateOnly.FromDateTime(selectedDate.Value);
         var url = ApiClient.GetHandoffReportUrl(date, selectedShift);
+
+        // Probe first. window.open on a failing URL leaves the operator staring at a blank tab with
+        // a raw status code; the server explains PDF-engine failures in the problem detail, so relay
+        // that instead and only open a tab once we know a document is coming back.
+        try
+        {
+            using var probe = await Http.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+            if (!probe.IsSuccessStatusCode)
+            {
+                var detail = probe.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "The PDF engine is unavailable on the server. The day's activity is still readable here in the app."
+                    : $"The report could not be generated ({(int)probe.StatusCode}).";
+                NotificationService.Notify(NotificationSeverity.Error, "Handoff report", detail, duration: 8000);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Handoff report", ex.Message, duration: 6000);
+            return;
+        }
+
         await JS.InvokeVoidAsync("open", url, "_blank");
     }
 

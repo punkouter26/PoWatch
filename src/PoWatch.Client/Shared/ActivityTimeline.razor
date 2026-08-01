@@ -38,7 +38,10 @@ else
                         <span class="activity-why-text">@item.SignificantReason</span>
                     </div>
                 }
-                @if (!string.IsNullOrWhiteSpace(item.ClinicalDescription))
+                @* The model's caption is usually its own clinical note, so rendering both printed the
+                   same sentence twice in every row. Only show the note when it says something the
+                   activity line above does not. *@
+                @if (AddsDetail(item.ClinicalDescription, item.Activity))
                 {
                     <div class="activity-note">@item.ClinicalDescription</div>
                 }
@@ -72,4 +75,21 @@ else
     /// </summary>
     [Parameter]
     public string EmptyMessage { get; set; } = "No records to display.";
+
+    /// <summary>
+    /// True when the clinical note carries information beyond the activity line — i.e. it is not
+    /// empty, not the same sentence, and not merely the activity with trailing punctuation.
+    /// </summary>
+    internal static bool AddsDetail(string? note, string? activity)
+    {
+        if (string.IsNullOrWhiteSpace(note)) return false;
+        if (string.IsNullOrWhiteSpace(activity)) return true;
+
+        var n = Normalize(note);
+        var a = Normalize(activity);
+        return n.Length > 0 && n != a && !n.StartsWith(a, StringComparison.Ordinal);
+    }
+
+    private static string Normalize(string value) =>
+        new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 }

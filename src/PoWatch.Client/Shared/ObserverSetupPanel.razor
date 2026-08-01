@@ -49,6 +49,12 @@
                 <div class="dev-tools-actions">
                     <RadzenButton ButtonStyle="ButtonStyle.Success" Text="Inject Significant Event" Click="OnInjectEvent" />
                     <RadzenButton ButtonStyle="ButtonStyle.Secondary" Text="Inject Clinical Outlier" Click="OnInjectOutlier" />
+                    @* Moved off the Live Room panel: deleting everything is not a daily-use action. *@
+                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete_sweep"
+                                  Text="@(IsClearingData ? "Clearing…" : "Clear all data")"
+                                  Click="OnClearData" Disabled="@IsClearingData"
+                                  title="Delete all recorded activity, people, and images (cannot be undone)"
+                                  data-test="live-clear-data" />
                 </div>
             }
         </div>
@@ -71,9 +77,11 @@
     [Parameter] public EventCallback<ChangeEventArgs> OnPollingChanged { get; set; }
     [Parameter] public EventCallback OnInjectEvent { get; set; }
     [Parameter] public EventCallback OnInjectOutlier { get; set; }
+    [Parameter] public bool IsClearingData { get; set; }
+    [Parameter] public EventCallback OnClearData { get; set; }
 
     private bool _devExpanded;
-    private bool _advExpanded = true;
+    private bool _advExpanded = true;   // the drawer is already the disclosure — do not nest a collapsed one inside it
 
     private void ToggleAdvanced() => _advExpanded = !_advExpanded;
 

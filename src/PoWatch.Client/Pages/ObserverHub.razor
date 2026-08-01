@@ -201,22 +201,9 @@
                   Badge="@($"{streamItems.Count} today")"
                   BadgeClass="@(streamItems.Count > 0 ? "po-panel-badge--live" : null)">
 
-            @* Clear data — deletes ALL observations, people, and saved images (there is no
-               targeted delete). Gated on the SERVER's developer mode (DeveloperBypassAuth), the
-               same signal the inject-event dev tools use — the client-only ExposeDebugDetailsInUi
-               flag is unreliable because the WASM app never loads the Development appsettings.
-               The server AllowDataReset flag is the real guard on the endpoint, off in production. *@
-            @if (observerState?.DeveloperModeEnabled == true)
-            {
-                <div class="activity-clear-row">
-                    <RadzenButton Text="@(_clearingData ? "Clearing…" : "Clear data")" Icon="delete_sweep"
-                                  ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall"
-                                  Click="ClearDataAsync" Disabled="@_clearingData"
-                                  title="Delete all recorded activity, people, and images (cannot be undone)"
-                                  data-test="live-clear-data" />
-                </div>
-            }
-
+            @* "Clear data" used to sit here as a bright red button pinned above the timeline — the
+               loudest control on the daily-use screen, for a destructive dev-only action. It now
+               lives beside the other developer tools in the settings drawer. *@
             <div class="activity-scroll-region">
                 <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
             </div>
@@ -301,7 +288,9 @@
                                 OnGpuPreferenceChanged="OnGpuPreferenceChangedAsync"
                                 OnPollingChanged="OnPollingIntervalChangedAsync"
                                 OnInjectEvent="InjectEventAsync"
-                                OnInjectOutlier="InjectOutlierAsync" />
+                                OnInjectOutlier="InjectOutlierAsync"
+                                IsClearingData="_clearingData"
+                                OnClearData="ClearDataAsync" />
         }
     </aside>
 }

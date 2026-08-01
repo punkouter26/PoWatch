@@ -39,6 +39,13 @@ public sealed class IngestObservationResultDto
     public string SubjectDisplayName { get; init; } = string.Empty;
     public string? ImageReference { get; init; }
     public string Detail { get; init; } = string.Empty;
+    /// <summary>
+    /// The server's significance verdict for this observation. Authoritative — the client renders and
+    /// alerts on this rather than on whatever it guessed locally before posting.
+    /// </summary>
+    public bool IsSignificant { get; init; }
+    /// <summary>Plain-language reason the observation was flagged, or null when it is routine.</summary>
+    public string? SignificantReason { get; init; }
     /// <summary>Alert threshold rules that fired during this ingest cycle.</summary>
     public IReadOnlyList<ThresholdAlertDto> TriggeredAlerts { get; init; } = [];
 }

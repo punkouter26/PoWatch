@@ -66,7 +66,21 @@ internal static class ArchivesEndpoints
                 shift);
 
             var report = await reportService.BuildHandoffReportAsync(parsedDate, shift, cancellationToken);
-            var pdfBytes = HandoffReportRenderer.Render(report);
+
+            byte[] pdfBytes;
+            try
+            {
+                pdfBytes = HandoffReportRenderer.Render(report);
+            }
+            catch (HandoffReportRenderer.RendererUnavailableException ex)
+            {
+                // Explain it rather than returning a bare 500 the operator cannot act on.
+                logger.LogError(ex, "Handoff report renderer unavailable. Date={Date} ShiftWindow={ShiftWindow}", parsedDate, shift);
+                return Results.Problem(
+                    title: "The PDF report could not be generated on this server.",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
 
             logger.LogInformation(
                 "Handoff report rendered. Date={Date} ShiftWindow={ShiftWindow} SizeBytes={Size}",
@@ -82,7 +96,8 @@ internal static class ArchivesEndpoints
         .WithName("ArchivesHandoffReport")
         .WithSummary("Generate a PDF shift handoff report for a given date and shift window.")
         .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
-        .Produces(StatusCodes.Status400BadRequest);
+        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         group.MapPost("/{date}/handoff-brief", async (
             string date,

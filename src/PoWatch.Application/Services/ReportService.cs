@@ -36,11 +36,14 @@ public sealed class ReportService(
             .OrderBy(e => e.ObservedAtUtc)
             .ToList();
 
-        var primarySubject = filtered
-            .GroupBy(e => e.SubjectDisplayName)
-            .OrderByDescending(g => g.Count())
-            .Select(g => g.Key)
-            .FirstOrDefault() ?? "No subjects identified";
+        // Humanized like everywhere else — a handoff brief that names "Subject-116" is asking the
+        // next caregiver to translate a storage id.
+        var primarySubject = SubjectDisplayNames.Humanize(
+            filtered
+                .GroupBy(e => e.SubjectDisplayName)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault());
 
         var dominantActivity = filtered
             .GroupBy(e => e.Activity)

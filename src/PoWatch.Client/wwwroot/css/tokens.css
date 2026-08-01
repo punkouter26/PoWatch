@@ -75,6 +75,21 @@
     --alert-red-dim: var(--state-danger-bg);
 
     --topbar-h: 3.5rem;
+    /* Top bar: intentionally a constant dark surface in both themes so the brand rail stays
+       stable on a wall-mounted display. Declared here (rule 4.3: no hard-coded colours in
+       component sheets) rather than inline in NavMenu.razor.css. */
+    --topbar-bg: linear-gradient(135deg, #0d1b2a 0%, #1a2a3a 100%);
+    --topbar-ink: rgba(236, 241, 255, 0.8);
+    --topbar-ink-strong: #ffffff;
+    --topbar-ink-muted: rgba(255, 255, 255, 0.75);
+    --topbar-hover: rgba(255, 255, 255, 0.1);
+    --topbar-active-bg: rgba(99, 102, 241, 0.25);
+    --topbar-active-ink: #c7d2fe;
+    --topbar-hairline: rgba(255, 255, 255, 0.08);
+    --topbar-border: rgba(158, 162, 188, 0.35);
+    --brand-mark-bg: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    /* Mock-data chip sits on the constant dark top bar, so it needs its own ink. */
+    --topbar-warning-ink: #ffd9a8;
     --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "Consolas", "Lucida Console", monospace;
 

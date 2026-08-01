@@ -1,6 +1,88 @@
+/* The drawer's controls are native <select>/<input type="range"> rather than Radzen components.
+   They used to inherit raw browser chrome, which read as unfinished next to the Radzen controls
+   used everywhere else, so they are styled from the same design tokens here. */
+
+.setup-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
+}
+
+.setup-row > label {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-label);
+}
+
 .setup-row select,
 .setup-row input[type="range"] {
     width: 100%;
+}
+
+.setup-row select {
+    appearance: none;
+    padding: 0.5rem 2rem 0.5rem 0.65rem;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-2);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    /* Chevron drawn with gradients so no external asset is needed (CSP- and offline-safe). */
+    background-image:
+        linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 1.1rem center, right 0.8rem center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+}
+
+.setup-row select:hover { border-color: var(--color-accent); }
+
+.setup-row select:focus-visible,
+.setup-row input[type="range"]:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+}
+
+.setup-row input[type="range"] {
+    accent-color: var(--color-accent);
+    height: 1.5rem;
+    cursor: pointer;
+}
+
+/* ── Disclosure toggles ─────────────────────────────────────────────────── */
+.setup-advanced-toggle,
+.dev-tools-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) 0;
+    margin-bottom: var(--space-3);
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.setup-advanced-toggle:hover,
+.dev-tools-toggle:hover { color: var(--color-accent); }
+
+.dev-tools-row { margin-top: var(--space-6); }
+
+.dev-tools-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
 /* Replace prior inline Style= attrs (audit #3 — no inline styles). */

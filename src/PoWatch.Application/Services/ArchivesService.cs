@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using PoWatch.Application.Contracts;
 using PoWatch.Domain.Models;
+using PoWatch.Shared.Models;
 
 namespace PoWatch.Application.Services;
 
@@ -28,15 +29,21 @@ public sealed class ArchivesService(IObservationRepository observationRepository
             .Select(x => x.Key)
             .FirstOrDefault() ?? "No detected activity";
 
-        var primarySubject = timeline
-            .GroupBy(x => x.SubjectDisplayName)
-            .OrderByDescending(x => x.Count())
-            .Select(x => x.Key)
-            .FirstOrDefault() ?? "No identified subject";
+        // Humanized with the SAME helper the client uses, so the narrative no longer says
+        // "Primary subject: Subject-116" on a page where every other element says "Person 116".
+        var primarySubject = SubjectDisplayNames.Humanize(
+            timeline
+                .GroupBy(x => x.SubjectDisplayName)
+                .OrderByDescending(x => x.Count())
+                .Select(x => x.Key)
+                .FirstOrDefault());
 
         var narrative = occupiedCount == 0
             ? "No data for this day."
-            : $"The room recorded {occupiedCount} events. Primary subject: {primarySubject}. Dominant activity: {primaryActivity}. Clinical outliers flagged: {outlierCount}.";
+            : $"{occupiedCount} events recorded. Most often: {primarySubject}, {primaryActivity}. "
+              + (outlierCount == 0
+                  ? "Nothing unusual was flagged."
+                  : $"{outlierCount} unusual {(outlierCount == 1 ? "event was" : "events were")} flagged.");
 
         logger.LogInformation(
             "Daily chapter loaded. Date={Date} TimelineCount={TimelineCount} HighlightCount={HighlightCount}",

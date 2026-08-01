@@ -6,30 +6,33 @@
 @inject NotificationService NotificationService
 @using System.Net.Http
 
-<PageTitle>PoWatch | Identity Nexus</PageTitle>
+<PageTitle>PoWatch | People</PageTitle>
 
 <div class="sector-grid identity-grid">
     @* Consolidation #1: the old Overview page's live card grid now lives here, above the
        management table — one page owns everything about people. *@
     <RadzenCard class="panel panel-glance">
-        <PoWatch.Client.Shared.SubjectGlanceGrid />
+        @* Wire OnSubjectFocused. Without it the grid fell back to navigating to
+           /identity?focus=… — the page it is already on — so OnInitializedAsync never re-ran
+           and clicking a card did nothing at all. It now opens the inline rename below. *@
+        <PoWatch.Client.Shared.SubjectGlanceGrid OnSubjectFocused="FocusSubjectAsync" />
     </RadzenCard>
 
     <RadzenCard class="panel panel-library">
         @* Title/subtitle live in the page-hud header bar (UI review item #7). *@
         <div class="identity-register-bar">
             <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput"
-                          Placeholder="Type a name (e.g. Mom) then press Enter to add a known person"
-                          aria-label="New subject display name"
+                          Placeholder="Add someone by name (e.g. Mom) — press Enter"
+                          aria-label="Name of the person to add"
                           Class="identity-flex-input"
                           @onkeydown="@(async e => { if (e.Key == "Enter") await RegisterSubjectAsync(); })" />
-            <RadzenButton Icon="person_add" Text="Add Known Subject" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+            <RadzenButton Icon="person_add" Text="Add person" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                 Click="RegisterSubjectAsync"
                 Disabled="@(busy || string.IsNullOrWhiteSpace(newSubjectName))"
-                title="@(string.IsNullOrWhiteSpace(newSubjectName) ? "Type a name first" : "Add this person to the subject library")" />
+                title="@(string.IsNullOrWhiteSpace(newSubjectName) ? "Type a name first" : "Add this person")" />
         </div>
 
-        <h2>Subject Library</h2>
+        <h2>All people</h2>
 
         @if (loading)
         {
@@ -45,8 +48,8 @@
         {
             <div class="archive-empty actionable-empty">
                 <div class="empty-icon">👤</div>
-                <p class="empty-title">No subjects identified yet</p>
-                <p class="empty-subtitle">Start monitoring to detect and track subjects in your space.</p>
+                <p class="empty-title">No one seen yet</p>
+                <p class="empty-subtitle">Start watching and everyone seen in the room will appear here.</p>
                 <a href="/" class="archive-empty-cta primary-cta">→ Go to the Live Room to start watching</a>
             </div>
         }
@@ -70,11 +73,15 @@
                             else
                             {
                                 <div class="name-cell">
+                                    @* Same humanization as the glance cards above and the Live Room
+                                       timeline (DisplayText.SubjectName). Rendering the raw
+                                       "Subject-116" here made one person appear under two different
+                                       names on the same page, so a card could not be matched to a row. *@
                                     <span class="subject-name subject-name-editable"
                                           @onclick="@(() => BeginInlineEdit(item))"
                                           title="Click to rename"
                                           role="button" tabindex="0"
-                                          @onkeydown="@(e => { if (e.Key == "Enter" || e.Key == " ") BeginInlineEdit(item); })">@item.DisplayName</span>
+                                          @onkeydown="@(e => { if (e.Key == "Enter" || e.Key == " ") BeginInlineEdit(item); })">@PoWatch.Client.Services.DisplayText.SubjectName(item.DisplayName, item.IsKnownIdentity)</span>
                                 </div>
                             }
                         </Template>
@@ -93,25 +100,21 @@
         }
     </RadzenCard>
 
-    @if (mergeUndoVisible)
-    {
-        <div class="undo-toast">
-            <span>Merge committed. <strong>@mergeUndoMessage</strong></span>
-            <span class="undo-countdown">@mergeUndoCountdown s</span>
-            <button class="btn btn-sm btn-outline-warning" @onclick="UndoMergeAsync">Undo</button>
-        </div>
-    }
-
+    @* The 8-second "Undo" toast that used to sit here was a false promise: the confirm dialog
+       says the merge cannot be undone, there is no undo endpoint, and pressing Undo only
+       replied "Undo is not supported by the current API version". It also styled its button
+       with Bootstrap classes this app does not ship. Removed — the pre-merge confirmation is
+       the real safeguard, and the success toast still reports what changed. *@
     <RadzenCard class="panel panel-merge">
-        <CollapsibleSection Title="Merge Two Identities">
+        <CollapsibleSection Title="Merge two people">
             <div class="merge-form">
-                <label>Primary Subject</label>
+                <label>Keep this person</label>
                 <RadzenDropDown Data="subjects" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="primarySubjectId" Class="identity-wide-input" />
 
-                <label>Secondary Subject</label>
+                <label>Merge this one into them</label>
                 <RadzenDropDown Data="subjects.Where(x => x.SubjectId != primarySubjectId)" TextProperty="DisplayName" ValueProperty="SubjectId" @bind-Value="secondarySubjectId" Class="identity-wide-input" />
 
-                <label>Canonical Name (optional)</label>
+                <label>Name to keep (optional)</label>
                 <RadzenTextBox @bind-Value="canonicalName" Class="identity-wide-input" />
 
                 <RadzenButton Text="Commit Merge" ButtonStyle="ButtonStyle.Danger" Click="MergeAsync" Disabled="@(busy || subjects.Count < 2)" />
@@ -130,14 +133,6 @@
     private string? editingSubjectId;
     private string editingName = string.Empty;
     private string newSubjectName = string.Empty;
-
-    // Merge undo toast state
-    private bool mergeUndoVisible;
-    private string mergeUndoMessage = string.Empty;
-    private int mergeUndoCountdown;
-    private string? lastMergedPrimaryId;
-    private string? lastMergedSecondaryId;
-    private CancellationTokenSource? _undoCts;
 
     // One-tap deep-link (audit #7): a subject card elsewhere links to /identity?focus=<id>.
     [Parameter]
@@ -222,6 +217,29 @@
         }
     }
 
+    // A card tap on the glance grid opens that person's rename inline in the table below.
+    private Task FocusSubjectAsync(string subjectId)
+    {
+        var target = subjects.FirstOrDefault(s => string.Equals(s.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase));
+        if (target is not null)
+        {
+            editingSubjectId = target.SubjectId;
+            editingName = target.DisplayName;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    // Merge is destructive and irreversible, so the confirmation must name the two people the
+    // way the rest of the page does ("Person 116"), not by their raw storage id.
+    private string FriendlyName(string? subjectId)
+    {
+        var subject = subjects.FirstOrDefault(x => x.SubjectId == subjectId);
+        return subject is null
+            ? subjectId ?? string.Empty
+            : PoWatch.Client.Services.DisplayText.SubjectName(subject.DisplayName, subject.IsKnownIdentity);
+    }
+
     private void BeginInlineEdit(SubjectProfileDto subject)
     {
         editingSubjectId = subject.SubjectId;
@@ -271,8 +289,8 @@
             return;
         }
 
-        var primaryName = subjects.FirstOrDefault(x => x.SubjectId == primarySubjectId)?.DisplayName ?? primarySubjectId;
-        var secondaryName = subjects.FirstOrDefault(x => x.SubjectId == secondarySubjectId)?.DisplayName ?? secondarySubjectId;
+        var primaryName = FriendlyName(primarySubjectId);
+        var secondaryName = FriendlyName(secondarySubjectId);
 
         var confirmed = await DialogService.Confirm(
             $"Merge '{secondaryName}' into '{primaryName}'? All historical events will be rewritten and the secondary subject will be permanently deleted. This cannot be undone.",
@@ -299,50 +317,13 @@
         }
         else
         {
-            lastMergedPrimaryId = primarySubjectId;
-            lastMergedSecondaryId = secondarySubjectId;
-            mergeUndoMessage = $"{merged.CanonicalName} now owns {merged.EventsRewritten} events.";
-            _ = ShowUndoToastAsync();
-            NotificationService.Notify(NotificationSeverity.Success, "Merged", mergeUndoMessage, duration: 3000);
+            NotificationService.Notify(
+                NotificationSeverity.Success,
+                "Merged",
+                $"{merged.CanonicalName} now owns {merged.EventsRewritten} events.",
+                duration: 5000);
         }
 
         await LoadSubjectsAsync();
-    }
-
-    private async Task ShowUndoToastAsync()
-    {
-        _undoCts?.Cancel();
-        _undoCts = new CancellationTokenSource();
-        var ct = _undoCts.Token;
-
-        mergeUndoCountdown = 8;
-        mergeUndoVisible = true;
-        StateHasChanged();
-
-        try
-        {
-            while (mergeUndoCountdown > 0 && !ct.IsCancellationRequested)
-            {
-                await Task.Delay(1000, ct);
-                mergeUndoCountdown--;
-                StateHasChanged();
-            }
-        }
-        catch (OperationCanceledException) { }
-        finally
-        {
-            mergeUndoVisible = false;
-            StateHasChanged();
-        }
-    }
-
-    private Task UndoMergeAsync()
-    {
-        _undoCts?.Cancel();
-        mergeUndoVisible = false;
-        // Note: The API does not expose an undo endpoint — this dismisses the toast only.
-        // A true undo would require a dedicated API call.
-        NotificationService.Notify(NotificationSeverity.Info, "Undo", "Undo is not supported by the current API version.", duration: 4000);
-        return Task.CompletedTask;
     }
 }

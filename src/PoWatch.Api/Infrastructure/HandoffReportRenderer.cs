@@ -12,7 +12,32 @@ namespace PoWatch.Api.Infrastructure;
 /// </summary>
 public static class HandoffReportRenderer
 {
+    /// <summary>
+    /// Thrown when the PDF engine cannot run on this machine. QuestPDF renders through a native
+    /// Skia binary and ships no <c>win-arm64</c> build, so on an ARM64 Windows host the endpoint
+    /// used to surface a bare HTTP 500 — the caregiver pressed "End shift" and got a blank error
+    /// page with nothing to act on. Callers translate this into an explained response instead.
+    /// </summary>
+    public sealed class RendererUnavailableException(string message, Exception inner)
+        : InvalidOperationException(message, inner);
+
     public static byte[] Render(ShiftHandoffReportDto report)
+    {
+        try
+        {
+            return RenderCore(report);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or TypeInitializationException or BadImageFormatException)
+        {
+            throw new RendererUnavailableException(
+                "The PDF engine could not start on this machine. QuestPDF requires a native library "
+                + $"that is not available for {System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}. "
+                + "The handoff data itself is fine — read it in the app, or generate the report from an x64 host.",
+                ex);
+        }
+    }
+
+    private static byte[] RenderCore(ShiftHandoffReportDto report)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -89,7 +114,7 @@ public static class HandoffReportRenderer
                             foreach (var ev in report.SignificantEvents)
                             {
                                 table.Cell().Text(ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture));
-                                table.Cell().Text(ev.SubjectDisplayName);
+                                table.Cell().Text(SubjectDisplayNames.Humanize(ev.SubjectDisplayName));
                                 table.Cell().Text(ev.Activity);
                                 table.Cell().Text(ev.SignificantReason ?? "-");
                             }
@@ -119,7 +144,7 @@ public static class HandoffReportRenderer
                             foreach (var ev in report.OutlierEvents)
                             {
                                 table.Cell().Text(ev.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture));
-                                table.Cell().Text(ev.SubjectDisplayName);
+                                table.Cell().Text(SubjectDisplayNames.Humanize(ev.SubjectDisplayName));
                                 table.Cell().Text(ev.ClinicalDescription);
                             }
                         });

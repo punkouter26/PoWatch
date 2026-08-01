@@ -9,9 +9,19 @@
     <div class="login-card" data-test="login-card">
         <h1>Sign in to PoWatch</h1>
 
-        @if (_config is null)
+        @if (_error is not null)
         {
-            <p class="login-status" role="status" aria-live="polite">Loading sign-in options…</p>
+            @* An unguarded fetch used to leave this page on "Loading sign-in options…" forever when
+               /auth/config was unreachable — the one screen where a dead end locks the user out. *@
+            <p class="login-status" role="alert" data-test="login-error">@_error</p>
+            <button class="login-btn login-btn-guest" type="button" @onclick="LoadConfigAsync" data-test="login-retry">
+                <span aria-hidden="true" class="login-btn-icon">↻</span>
+                <span class="login-btn-text">Try again</span>
+            </button>
+        }
+        else if (_config is null)
+        {
+            <p class="login-status" role="status" aria-live="polite" data-test="login-loading">Loading sign-in options…</p>
         }
         else
         {
@@ -41,6 +51,7 @@
 
 @code {
     private PoWatch.Shared.Models.AuthConfigDto? _config;
+    private string? _error;
     private string _returnUrl = "/";
 
     protected override async Task OnInitializedAsync()
@@ -53,7 +64,25 @@
                 _returnUrl = Uri.UnescapeDataString(kv[1]);
         }
 
-        _config = await Http.GetFromJsonAsync("auth/config", PoWatch.Client.Services.PoWatchJsonContext.Default.AuthConfigDto);
+        await LoadConfigAsync();
+    }
+
+    private async Task LoadConfigAsync()
+    {
+        _error = null;
+        _config = null;
+        StateHasChanged();
+
+        try
+        {
+            _config = await Http.GetFromJsonAsync("auth/config", PoWatch.Client.Services.PoWatchJsonContext.Default.AuthConfigDto);
+            if (_config is null)
+                _error = "The server did not return any sign-in options. Try again in a moment.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't reach the sign-in service. {ex.Message}";
+        }
     }
 
     private string LoginUrl(string endpoint) => $"{endpoint}?returnUrl={Uri.EscapeDataString(_returnUrl)}";

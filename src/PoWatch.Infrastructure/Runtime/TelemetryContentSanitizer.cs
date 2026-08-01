@@ -101,7 +101,11 @@ public sealed partial class TelemetryContentSanitizer : ITelemetryContentSanitiz
             Activity = normalizedActivity,
             ClinicalPayload = normalizedPayload,
             IsSignificant = input.IsSignificant,
-            SignificantReason = input.SignificantReason
+            SignificantReason = input.SignificantReason,
+            // Must be carried through. This rebuild dropped it, so with the sanitizer enabled the
+            // idempotency key never reached ObservationService — every retried submit minted a fresh
+            // ObservationEventId and persisted a duplicate row, exactly the case the key exists to prevent.
+            IdempotencyKey = input.IdempotencyKey
         };
 
         reason = "Accepted";

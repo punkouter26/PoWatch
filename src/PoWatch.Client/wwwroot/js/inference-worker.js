@@ -486,7 +486,11 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     };
   }
 
-  const isSignificant = clinicalNote.length > 10;
+  // Significance is NOT decided here any more. This used to be `clinicalNote.length > 10`, which
+  // every well-formed caption satisfied, so 100% of observations arrived flagged "Notable" — the
+  // amber tint, the unacknowledged counters and the spoken announcements all lost their meaning.
+  // The server now classifies from the caption's content (ActivitySignificanceClassifier) and
+  // returns its verdict on the ingest response; the worker just reports what it saw.
   const clinicalPayload = `<S>${clinicalNote}<E>`;
 
   // A plain caption is now the EXPECTED result, not a degraded one: the prompt asks a question
@@ -497,8 +501,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     (isUnstructured ? 0.46 : 0.58) +
     Math.min(activity.length, 32) / 120 +
     Math.min(clinicalNote.length, 160) / 500 +
-    (noteMatch ? 0.07 : 0) +
-    (isSignificant ? 0.05 : 0)));
+    (noteMatch ? 0.07 : 0)));
   const confidenceLabel = confidenceScore >= 0.85 ? 'High' : confidenceScore >= 0.72 ? 'Medium' : 'Low';
 
   return {
@@ -507,8 +510,8 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     subjectHint: null,
     activity,
     clinicalPayload,
-    isSignificant,
-    significantReason: isSignificant ? 'Observed activity' : null,
+    isSignificant: false,
+    significantReason: null,
     confidenceScore: Number(confidenceScore.toFixed(2)),
     confidenceLabel,
   };

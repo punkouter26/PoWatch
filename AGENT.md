@@ -120,7 +120,14 @@ Directory depth stays shallow — at most two levels inside a project.
 - Light and dark themes are both first-class, driven by `:root[data-theme="…"]`.
 - Stable selectors for tests are `data-test` attributes (Playwright's test-id attribute is
   configured to match).
-- The **MOCK DATA** chip is driven by any active `IMockable` service.
+- The **MOCK DATA** chip is driven by any active `IMockable` service. `IInferenceService` exists
+  only to carry that marker — inference itself runs in the Web Worker, never through a C# method.
+- **One vocabulary per concept.** A page's browser title, its nav label and its in-page heading must
+  agree. `/diagnostics` is "System" everywhere; `/health` is the only page headed about health.
+- **Never render a raw `Subject-N` id.** `PoWatch.Shared.Models.SubjectDisplayNames.Humanize` is the
+  single implementation, deliberately in `Shared` so the client and the server-rendered prose (daily
+  narrative, handoff brief, handoff PDF) cannot drift. They did: cards read "Person 116" while the
+  table beside them read "Subject-116".
 
 ### Local-first AI inference
 
@@ -138,14 +145,24 @@ Directory depth stays shallow — at most two levels inside a project.
   ingested and Room Activity stays empty while the loop *looks* healthy. Each rejection now carries
   `rawOutput`, and Live Room raises a banner once 3+ cycles run with zero structured replies.
   Before adding a sixth gate, check the skip rate: filters here compound.
+- **Significance is the server's call, not the worker's.** `ActivitySignificanceClassifier`
+  (Domain) decides Routine / Notable / Urgent from the caption's content; `ObservationService`
+  applies it and returns the verdict on the ingest response, and the client renders that. A caller
+  that supplies its own `SignificantReason` is honoured — that is a deliberate assertion (dev-tool
+  injectors, contract tests), not a default. The worker must never set `isSignificant` itself: it
+  once derived it from caption *length*, which flagged 100% of observations and made the amber
+  alert styling, the unacknowledged counters and the spoken announcements all meaningless.
 
 ---
 
 ## 5. Testing, CI/CD, hygiene
 
-- **Targets: 100 unit · 50 integration · 25 API E2E · 25 UI E2E.**
-  Current counts are well below this (71 · 24 · 4 · 1) — closing that gap is the single largest
-  outstanding item. Add tests with the feature you are writing.
+- **Targets: 100 unit · 50 integration · 25 API E2E · 25 UI E2E — all currently met**
+  (121 · 60 · 26 · 40). Add tests with the feature you are writing; do not let a suite fall back
+  under its target.
+- UI E2E tests must wait for the app to boot, not for the network to idle. A Blazor WASM cold start
+  downloads and starts the .NET runtime, which takes far longer than Playwright's 5 s default expect
+  timeout — use `PoWatchPage.SignedInAsync`, which waits on the navbar.
 - CI (`.github/workflows/deploy.yml`) restores, builds, verifies formatting, then runs **Unit,
   Integration, and API E2E** before publishing. The `emergency` workflow-dispatch input skips the
   formatting and test gates — it exists solely so a red test cannot trap a hotfix during an outage.
@@ -159,7 +176,9 @@ Directory depth stays shallow — at most two levels inside a project.
   **`PoWatch`**. Authenticate with system-assigned Managed Identity + Key Vault.
   **No raw connection strings in app settings.**
   - Bicep cannot rename an existing resource group; changing a name provisions a new one.
-- Purge dead code and orphaned assets as you go.
+- Purge dead code and orphaned assets as you go. Retiring a page means deleting its CSS too: the
+  stylesheet had accumulated ~200 orphaned class rules from removed pages, and stale layout rules
+  written for a two-card page actively broke the one-card page that replaced it.
 
 ### Things that have broken production before
 
@@ -174,6 +193,17 @@ Read these before changing the related code:
   are `DateOnly.ToString("yyyyMMdd", CultureInfo.InvariantCulture)`. Under a non-Gregorian calendar
   culture an unqualified `ToString` writes to the wrong partition. Pin persistence and log
   formatting to `InvariantCulture`; use `CurrentCulture` only for operator-facing display.
+- **`TelemetryContentSanitizer` rebuilds the ingest DTO — copy every field.** It silently dropped
+  `IdempotencyKey`, so with the sanitizer enabled a retried submit minted a fresh event id and
+  persisted a duplicate row. Anything added to `IngestObservationRequestDto` must be carried across.
+- **The handoff PDF needs a native library.** QuestPDF renders through Skia and ships no
+  `win-arm64` binary, so the report cannot be produced on an ARM64 Windows host (App Service x64 is
+  fine). The endpoint answers **503 with an explanation**, never a bare 500 — keep it that way.
+- **`/health` is anonymous, so its check descriptions are public.** Never put a resource hostname,
+  endpoint or credential in a `HealthCheckResult` message; mask it and log the full value instead.
+- **Kestrel must bind both loopback families.** Binding only `IPAddress.Loopback` left `localhost`
+  dead on Windows, where the resolver prefers `::1` — the app answered on `127.0.0.1` only, which is
+  not the URL the docs or launchSettings hand you.
 
 ---
 

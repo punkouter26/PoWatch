@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using PoWatch.Api.Observability;
 
@@ -68,7 +69,11 @@ public static class PortNegotiation
         var actualHttp = NegotiatePort(http, env, logger, stopwatch, taken, isHttps: false);
         stopwatch.Stop();
 
-        options.Listen(IPAddress.Loopback, actualHttp);
+        // Bind BOTH loopback families. Binding only IPAddress.Loopback (127.0.0.1) meant
+        // "https://localhost:5001" failed whenever the OS resolver preferred ::1 — which Windows
+        // does by default — so the app appeared dead on the very URL the docs and launchSettings
+        // tell you to open, while 127.0.0.1 worked fine.
+        ListenOnLoopback(options, actualHttp, useHttps: false);
         taken.Add(actualHttp);
 
         int? actualHttps = null;
@@ -79,10 +84,29 @@ public static class PortNegotiation
             stopwatch.Restart();
             actualHttps = NegotiatePort(https, env, logger, stopwatch, taken, isHttps: true);
             stopwatch.Stop();
-            options.Listen(IPAddress.Loopback, actualHttps.Value, lo => lo.UseHttps());
+            ListenOnLoopback(options, actualHttps.Value, useHttps: true);
         }
 
         LogResolvedEndpoints(actualHttp, actualHttps, logger);
+    }
+
+    /// <summary>
+    /// Binds one port on both IPv4 and IPv6 loopback so "localhost" works regardless of which family
+    /// the resolver prefers. IPv6 is best-effort: a host with IPv6 disabled must still start.
+    /// </summary>
+    private static void ListenOnLoopback(KestrelServerOptions options, int port, bool useHttps)
+    {
+        void Configure(ListenOptions lo)
+        {
+            if (useHttps) lo.UseHttps();
+        }
+
+        options.Listen(IPAddress.Loopback, port, Configure);
+
+        if (Socket.OSSupportsIPv6)
+        {
+            options.Listen(IPAddress.IPv6Loopback, port, Configure);
+        }
     }
 
     private static void ConfigureExplicitEndpoints(IConfigurationSection kestrel, KestrelServerOptions options, Serilog.ILogger logger)
@@ -169,12 +193,12 @@ public static class PortNegotiation
     {
         if (https is null)
         {
-            logger.Information("Kestrel HTTP listener bound to http://127.0.0.1:{Port}", http);
+            logger.Information("Kestrel HTTP listener bound to http://localhost:{Port} (IPv4 + IPv6 loopback)", http);
         }
         else
         {
             logger.Information(
-                "Kestrel listeners bound: HTTP=http://127.0.0.1:{HttpPort}  HTTPS=https://127.0.0.1:{HttpsPort}",
+                "Kestrel listeners bound (IPv4 + IPv6 loopback): HTTP=http://localhost:{HttpPort}  HTTPS=https://localhost:{HttpsPort}",
                 http, https);
         }
     }

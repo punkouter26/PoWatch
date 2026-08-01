@@ -121,8 +121,6 @@ public partial class ObserverHub
         lastDetectedSubject = "Awaiting first detection";
         lastConfidencePercent = 0;
         lastConfidenceLabel = "Awaiting AI";
-        lastMotionPercent = 0;
-        lastMotionLabel = "Still";
 
         // Reset inference analytics counters
         _totalCycles = 0;
@@ -130,7 +128,6 @@ public partial class ObserverHub
         _structuredCycles = 0;
         _minInferenceMs = long.MaxValue;
         _maxInferenceMs = 0;
-        _totalActiveMs = 0;
         _latencyHistory.Clear();
         _p95LatencyMs = 0;
         _activeThresholdAlerts = [];
@@ -164,7 +161,6 @@ public partial class ObserverHub
         _lastAttemptFailure = null;
         _lastAttemptAtUtc = null;
 
-        hasCameraFeed = true;
         await RefreshDiagnosticsAsync();
         await PlayCueAsync("start");
 
@@ -178,7 +174,6 @@ public partial class ObserverHub
         await PlayCueAsync("stop");
         monitoring = false;
         thinking = false;
-        hasCameraFeed = false;
         lastSyncStatus = "Paused";
         lastInferenceStatus = "Stopped";
         // Operator intentionally stopped — wipe the failure latch so we don't keep nagging.
@@ -270,7 +265,6 @@ public partial class ObserverHub
             {
                 if (inferenceDiagnostics.LastInferenceMs is int inferMs && inferMs > 0)
                 {
-                    _totalActiveMs += inferMs;
                     if (inferMs < _minInferenceMs) _minInferenceMs = inferMs;
                     if (inferMs > _maxInferenceMs) _maxInferenceMs = inferMs;
                     _latencyHistory.Enqueue(inferMs);
@@ -313,8 +307,6 @@ public partial class ObserverHub
             };
 
         lastInferenceStatus = inference.Status;
-        lastMotionPercent = inference.MotionScore ?? 0;
-        lastMotionLabel = string.IsNullOrWhiteSpace(inference.MotionLevel) ? "Still" : inference.MotionLevel;
 
         if (!inference.IsAvailable)
         {
@@ -352,7 +344,6 @@ public partial class ObserverHub
             if (string.Equals(inference.Status, "Webcam unavailable in this browser. Fallback preview active.", StringComparison.OrdinalIgnoreCase))
             {
                 monitoring = false;
-                hasCameraFeed = false;
                 lastSyncStatus = "Camera unavailable";
                 monitorCts?.Cancel();
                 NotificationService.Notify(NotificationSeverity.Error, "Camera", inference.Status, duration: 0);
@@ -412,10 +403,11 @@ public partial class ObserverHub
                 _alertOverlayVisible = true;
                 await PlayCueAsync("alert");
             }
-            else if (inference.IsSignificant)
+            else if (result.IsSignificant)
             {
+                // Server verdict, not the worker's guess (ActivitySignificanceClassifier).
                 lastAlertLevel = AlertLevel.Watch;
-                lastAlertReason = result.Detail;
+                lastAlertReason = result.SignificantReason ?? result.Detail;
             }
             else
             {
@@ -445,7 +437,7 @@ public partial class ObserverHub
             LatchPipelineHealth("warn", "Reconnecting to server — last sync did not complete.");
         }
 
-        if (result is not null && !result.Dropped && !result.SkippedAsRedundant && inference.IsSignificant)
+        if (result is not null && !result.Dropped && !result.SkippedAsRedundant && result.IsSignificant)
         {
             await TryUploadEvidenceAsync(result.ImageReference, inference.CapturedImageDataUrl, $"{result.SubjectDisplayName}: {inference.Activity}");
         }
@@ -710,26 +702,6 @@ public partial class ObserverHub
         await JS.TryInvokeVoidAsync("powatchInference.stopMonitor");
 
         GC.SuppressFinalize(this);
-    }
-
-    // ── WebGL shader bridge: tell the canvas overlay when the inference loop
-    // enters/leaves its "thinking" phase. Diff-gated so we only fire on actual
-    // transitions (avoids JS-interop per frame).
-    private bool _lastWebcamShellThinking;
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            // Safe wrapper — powatchWebcamShell is optional, see audit #10.
-            await JS.TryInvokeVoidAsync("powatchWebcamShell.setThinking", false);
-        }
-        if (thinking != _lastWebcamShellThinking)
-        {
-            _lastWebcamShellThinking = thinking;
-            // Safe wrapper — overlay shader is purely cosmetic; a missing bridge
-            // must not surface as "An unhandled error has occurred".
-            await JS.TryInvokeVoidAsync("powatchWebcamShell.setThinking", thinking);
-        }
     }
 
     private sealed class InferenceBridgeResult

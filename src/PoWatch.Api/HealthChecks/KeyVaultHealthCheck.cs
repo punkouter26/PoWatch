@@ -1,6 +1,7 @@
 using Azure;
 using Azure.Security.KeyVault.Secrets;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using PoWatch.Infrastructure.Runtime;
 
 namespace PoWatch.Api.HealthChecks;
 
@@ -29,7 +30,12 @@ public sealed class KeyVaultHealthCheck : IHealthCheck
             return HealthCheckResult.Healthy("Key Vault not configured — check skipped");
 
         if (!Uri.TryCreate(rawUri, UriKind.Absolute, out var vaultUri))
-            return HealthCheckResult.Degraded($"KeyVaultUri is not a valid URI: '{rawUri}'");
+            return HealthCheckResult.Degraded("KeyVault:Uri is not a valid absolute URI.");
+
+        // /health is AllowAnonymous and its JSON is also rendered on the Health page, so the check
+        // descriptions are public. The vault's hostname names a real tenant resource, so it is masked
+        // out there and kept only in the server-side log.
+        var safeVault = MaskingUtility.MaskMiddle(vaultUri.Host);
 
         _logger.LogDebug("Running Key Vault health check. Uri={VaultUri}", vaultUri);
 
@@ -48,12 +54,12 @@ public sealed class KeyVaultHealthCheck : IHealthCheck
             }
 
             _logger.LogDebug("Key Vault health check passed. Uri={VaultUri}", vaultUri);
-            return HealthCheckResult.Healthy($"Azure Key Vault is reachable. Uri={vaultUri}");
+            return HealthCheckResult.Healthy($"Azure Key Vault is reachable ({safeVault}).");
         }
         catch (RequestFailedException ex)
         {
             _logger.LogError(ex, "Key Vault health check failed. Uri={VaultUri} Status={StatusCode}", vaultUri, ex.Status);
-            return HealthCheckResult.Degraded($"Azure Key Vault is unreachable (HTTP {ex.Status}). Uri={vaultUri}", ex);
+            return HealthCheckResult.Degraded($"Azure Key Vault is unreachable ({safeVault}, HTTP {ex.Status}).", ex);
         }
         catch (OperationCanceledException ex)
         {

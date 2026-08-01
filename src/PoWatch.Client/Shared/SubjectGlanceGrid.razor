@@ -11,8 +11,8 @@
 <div class="glance-grid-header">
     <h2>Everyone at a glance</h2>
     <div class="glance-grid-controls">
-        <RadzenTextBox Placeholder="Filter subjects…" @bind-Value="subjectFilter" @oninput="OnFilterInput"
-            Class="livedashboard-filter-input" aria-label="Filter subjects by name or activity" data-test="glance-filter" />
+        <RadzenTextBox Placeholder="Filter people…" @bind-Value="subjectFilter" @oninput="OnFilterInput"
+            Class="livedashboard-filter-input" aria-label="Filter people by name or activity" data-test="glance-filter" />
         @if (loading)
         {
             <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" Class="livedashboard-progress" />
@@ -31,7 +31,7 @@
 @if (subjects.Count > 0 && FilteredSubjects.Count == 0)
 {
     <div class="live-dashboard-empty">
-        <p>No subjects match "@subjectFilter".</p>
+        <p>No one matches "@subjectFilter".</p>
     </div>
 }
 
@@ -40,8 +40,8 @@
     {
         var cardClass = GetCardClass(subject);
         <div class="subject-card @cardClass"
-             @onclick="() => FocusSubject(subject.SubjectId)"
-             @onkeydown="@(args => HandleCardKeyDown(args, subject.SubjectId))"
+             @onclick="() => FocusSubjectAsync(subject.SubjectId)"
+             @onkeydown="@(args => HandleCardKeyDownAsync(args, subject.SubjectId))"
              role="button"
              tabindex="0"
              aria-label="Open subject @subject.DisplayName">
@@ -175,7 +175,9 @@
         return string.Empty;
     }
 
-    private async void FocusSubject(string subjectId)
+    // Task, not async void: an unhandled exception in an async void handler escapes the
+    // component and takes the whole Blazor circuit down with the error overlay.
+    private async Task FocusSubjectAsync(string subjectId)
     {
         // Same-page focus: the People page hosts this grid, so a card tap highlights the
         // subject in the management table below instead of navigating anywhere.
@@ -185,13 +187,13 @@
             Navigation.NavigateTo($"/identity?focus={Uri.EscapeDataString(subjectId)}");
     }
 
-    private void HandleCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args, string subjectId)
+    private async Task HandleCardKeyDownAsync(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args, string subjectId)
     {
         if (string.Equals(args.Key, "Enter", StringComparison.Ordinal) ||
             string.Equals(args.Key, " ", StringComparison.Ordinal) ||
             string.Equals(args.Key, "Spacebar", StringComparison.OrdinalIgnoreCase))
         {
-            FocusSubject(subjectId);
+            await FocusSubjectAsync(subjectId);
         }
     }
 

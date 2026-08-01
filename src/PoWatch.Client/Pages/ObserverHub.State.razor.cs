@@ -34,7 +34,6 @@ public partial class ObserverHub
     private bool muted = true;
     private bool thinking;
     private bool monitoring;
-    private bool hasCameraFeed;
     private bool _settingsOpen;
     private ElementReference liveCameraFeed;
     private CancellationTokenSource? monitorCts;
@@ -48,8 +47,6 @@ public partial class ObserverHub
     private string lastDetectedSubject = "No person detected";
     private double lastConfidencePercent;
     private string lastConfidenceLabel = "Awaiting AI";
-    private double lastMotionPercent;
-    private string lastMotionLabel = "Still";
 
     /// <summary>
     /// The vision prompt. Deliberately a plain question with NO worked example and NO angle-bracket
@@ -111,34 +108,12 @@ public partial class ObserverHub
         _pipelineHealthLatched = true;
     }
 
-    private string MonitoringStateLabel => thinking ? "Analysing" : monitoring ? "Live" : "Standby";
     private string SelectedModelLabel => ModelOptions.FirstOrDefault(option => option.Value == selectedModelKey)?.Label ?? selectedModelKey;
     private string LatestActivityLabel => streamItems.FirstOrDefault()?.Activity ?? "Waiting for first event";
     private string LatestTimestampLabel => streamItems.FirstOrDefault() is { } latest
         ? latest.ObservedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)
         : "No activity recorded";
-    private int SessionEventCount => monitoringStartedAtUtc is { } startedAt
-        ? streamItems.Count(item => item.ObservedAtUtc >= startedAt)
-        : 0;
     private string PersonDetectedLabel => lastDetectedSubject;
-    private string AlertLevelLabel => lastAlertLevel.ToString();
-    private string AlertLevelClass => lastAlertLevel switch
-    {
-        AlertLevel.Urgent => "monitor-metric-card--alert",
-        AlertLevel.Watch => "monitor-metric-card--watch",
-        _ => "monitor-metric-card--good"
-    };
-    private string ConfidenceDisplayLabel => lastConfidencePercent > 0
-        ? $"{lastConfidencePercent:0}% · {lastConfidenceLabel}"
-        : lastConfidenceLabel;
-    private string CameraHealthLabel => !hasCameraFeed
-        ? "Offline"
-        : inferenceDiagnostics is { PreviewWidth: > 0, PreviewHeight: > 0 }
-            ? $"Healthy · {inferenceDiagnostics.PreviewWidth}×{inferenceDiagnostics.PreviewHeight}"
-            : "Healthy · Preview attached";
-    private string ConnectionStatusLabel => monitoring ? lastSyncStatus : "Standby";
-    private string MotionDisplayLabel => $"{lastMotionLabel} · {lastMotionPercent:0}%";
-    private string PrivacyStatusLabel => muted ? "Video only · Muted" : "Video only · Voice on";
 
     // ── Calm-state model (UX Win #1 / #6): the single caregiver-facing answer to "is the room OK?".
     // Idle = not watching · Calm = watching, nothing notable · Watch = a notable moment · Alert = urgent.
@@ -240,25 +215,12 @@ public partial class ObserverHub
     private int _structuredCycles;
     private long _minInferenceMs = long.MaxValue;
     private long _maxInferenceMs;
-    private long _totalActiveMs;
 
     private string DtypeDisplay => inferenceDiagnostics?.Dtype?.ToUpperInvariant() ?? "--";
-    private string LoadTimeDisplay => inferenceDiagnostics?.LoadDurationMs is int ldms ? $"{ldms:N0} ms" : "--";
-    private string InferCountDisplay => $"{inferenceDiagnostics?.InferenceCount ?? 0}";
     private string LastMsDisplay => inferenceDiagnostics?.LastInferenceMs is int lms ? $"{lms:N0} ms" : "--";
-    private string Fp16FallbackDisplay => inferenceDiagnostics is null ? "--" : inferenceDiagnostics.Fp16FallbackUsed ? "Yes · fp32 used" : "No · fp16 OK";
     private string SkipRateDisplay => _totalCycles > 0 ? $"{_skippedCycles * 100 / _totalCycles:0}% ({_skippedCycles}/{_totalCycles})" : "--";
     private string StructRateDisplay => _totalCycles > 0 ? $"{_structuredCycles * 100 / _totalCycles:0}% ({_structuredCycles}/{_totalCycles})" : "--";
     private string MinMaxInferDisplay => _maxInferenceMs > 0 ? $"{_minInferenceMs}/{_maxInferenceMs} ms" : "--";
-    private string DutyCycleDisplay
-    {
-        get
-        {
-            if (!monitoring || monitoringStartedAtUtc is null || _totalActiveMs == 0) return "--";
-            var totalMs = (DateTimeOffset.UtcNow - monitoringStartedAtUtc.Value).TotalMilliseconds;
-            return totalMs > 0 ? $"{_totalActiveMs * 100.0 / totalMs:0}%" : "--";
-        }
-    }
     private string P95LatencyDisplay => _p95LatencyMs > 0 ? $"{_p95LatencyMs:N0} ms" : "--";
 
     // ── Live model-telemetry strip under the Room Feed camera ──

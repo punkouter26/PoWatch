@@ -75,7 +75,7 @@
 /* ── PoWatch top navbar (Phase 4 standardization) ── */
 
 .app-navbar {
-    background: linear-gradient(135deg, #0d1b2a 0%, #1a2a3a 100%);
+    background: var(--topbar-bg);
     padding: 0 var(--space-5);
     min-height: var(--topbar-h);
     display: flex;
@@ -84,7 +84,7 @@
     position: sticky;
     top: 0;
     z-index: 100;
-    box-shadow: 0 1px 0 rgba(255,255,255,0.08);
+    box-shadow: 0 1px 0 var(--topbar-hairline);
 }
 
 .navbar-brand {
@@ -100,7 +100,7 @@
 .brand-mark {
     width: 30px;
     height: 30px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    background: var(--brand-mark-bg);
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -115,11 +115,11 @@
     font-weight: 700;
     font-size: 1.05rem;
     letter-spacing: -0.02em;
-    color: #e2e8f0;
+    color: var(--topbar-ink-muted);
 }
 
 .navbar-toggler {
-    background: rgba(255,255,255,0.08);
+    background: var(--topbar-hairline);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.4rem 0.6rem;
@@ -172,24 +172,24 @@
 
 /* System/diagnostics gear (consolidation #10) — rendered by NavLink, so ::deep is required. */
 ::deep .nav-gear {
-    color: rgba(236, 241, 255, 0.75) !important;
+    color: var(--topbar-ink-muted) !important;
     font-size: 1.05rem;
     text-decoration: none;
     padding: 0.3rem 0.5rem;
     border-radius: 8px;
     transition: background 0.15s, color 0.15s;
 }
-::deep .nav-gear:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff !important; }
-::deep .nav-gear.active { background: rgba(99, 102, 241, 0.25); color: #c7d2fe !important; }
+::deep .nav-gear:hover { background: var(--topbar-hover); color: var(--topbar-ink-strong) !important; }
+::deep .nav-gear.active { background: var(--topbar-active-bg); color: var(--topbar-active-ink) !important; }
 
 /* Sign-out affordance — scoped to the nav (rule 6.11). Cross-cutting :active tap motion is a global token. */
 .nav-logout {
     background: none;
-    border: 1px solid rgba(158, 162, 188, 0.35);
+    border: 1px solid var(--topbar-border);
     border-radius: 8px;
     /* Fixed light ink: the navbar surface is always dark, so this must NOT flip with
        the page theme (--text-secondary was also never defined — links rendered invisible). */
-    color: rgba(236, 241, 255, 0.8);
+    color: var(--topbar-ink);
     font-size: 0.8rem;
     padding: 0.35rem 0.85rem;
     cursor: pointer;
@@ -200,21 +200,21 @@
    after Microsoft OAuth login. Truncates with an ellipsis on long addresses. */
 .user-email {
     font-size: 0.8rem;
-    color: rgba(236, 241, 255, 0.8);
+    color: var(--topbar-ink);
     max-width: 18rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 0.2rem 0.4rem;
 }
-.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: #ffffff; }
+.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--topbar-ink-strong); }
 .nav-logout:disabled { opacity: 0.6; cursor: default; }
 
 /* ::deep is required: the <a> tags are rendered by the NavLink CHILD component, so a
    plainly-scoped .nav-link selector never matches and the links fall back to browser
    defaults (dark underlined text on the dark navbar — the invisible-nav bug). */
 ::deep .nav-link {
-    color: rgba(255, 255, 255, 0.75) !important;
+    color: var(--topbar-ink-muted) !important;
     padding: 0.45rem 0.8rem;
     border-radius: 8px;
     text-decoration: none;
@@ -223,13 +223,13 @@
 }
 
 ::deep .nav-link:hover {
-    background: rgba(255,255,255,0.1);
-    color: #ffffff !important;
+    background: var(--topbar-hover);
+    color: var(--topbar-ink-strong) !important;
 }
 
 ::deep .nav-link.active {
-    background: rgba(99,102,241,0.25);
-    color: #c7d2fe !important;
+    background: var(--topbar-active-bg);
+    color: var(--topbar-active-ink) !important;
     font-weight: 600;
 }
 
@@ -266,7 +266,7 @@
 .mock-chip {
     background: rgba(255, 159, 64, 0.12) !important;       /* was repeating-linear-gradient stripes */
     background-image: none !important;
-    color: #ffd9a8 !important;                             /* softer on dark bg */
+    color: var(--topbar-warning-ink) !important;           /* softer on the dark top bar */
     border: 1px solid rgba(255, 159, 64, 0.45);
     animation: mockGlow 2s ease-in-out infinite;
 }

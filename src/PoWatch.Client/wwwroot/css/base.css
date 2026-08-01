@@ -43,6 +43,17 @@ pre, code,
 }
 .nexus-frame :focus-visible { outline: none; }
 
+/* The Archives page focuses its own grid container on load so the ←/→ day shortcuts work
+   without a click. It is tabindex="-1" (a keyboard host, not a control), so it must not paint a
+   focus ring — otherwise arriving on the page outlines the whole layout. Note there are TWO
+   global focus treatments: the outline above and a green box-shadow ring in app.css. Both have
+   to be cleared, or the page still lights up on arrival. */
+.archives-grid[tabindex="-1"]:focus,
+.archives-grid[tabindex="-1"]:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
 @media (forced-colors: active) {
     :where(a, button, [role="button"], .rz-button, .nav-link):focus-visible {
         outline: 3px solid CanvasText;

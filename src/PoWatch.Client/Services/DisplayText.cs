@@ -11,20 +11,16 @@ namespace PoWatch.Client.Services;
 /// </summary>
 public static partial class DisplayText
 {
-    [GeneratedRegex(@"^Subject-(\d+)$", RegexOptions.IgnoreCase)]
-    private static partial Regex AutoSubjectId();
-
     [GeneratedRegex(@"^\s*(the\s+(image|photo|photograph|picture|frame)\s+(shows|is\s+a\s+photograph\s+of|is|contains|depicts|appears\s+to\s+show)(\s+that)?|a\s+photograph\s+of|an\s+image\s+of)\s*", RegexOptions.IgnoreCase)]
     private static partial Regex CaptionBoilerplate();
 
-    /// <summary>"Subject-108" → "Person 108" for unnamed subjects; named subjects pass through.</summary>
-    public static string SubjectName(string? displayName, bool isKnownIdentity)
-    {
-        if (string.IsNullOrWhiteSpace(displayName)) return "Unknown person";
-        if (isKnownIdentity) return displayName;
-        var m = AutoSubjectId().Match(displayName);
-        return m.Success ? $"Person {m.Groups[1].Value}" : displayName;
-    }
+    /// <summary>
+    /// "Subject-108" → "Person 108" for unnamed subjects; named subjects pass through.
+    /// Delegates to <see cref="PoWatch.Shared.Models.SubjectDisplayNames"/> so the client and the
+    /// server-rendered prose (daily narrative, handoff report) cannot drift apart again.
+    /// </summary>
+    public static string SubjectName(string? displayName, bool isKnownIdentity) =>
+        PoWatch.Shared.Models.SubjectDisplayNames.Humanize(displayName, isKnownIdentity);
 
     /// <summary>Strips model-caption boilerplate and capitalizes: "The image shows a man seated…" → "Man seated…".</summary>
     public static string Activity(string? raw)

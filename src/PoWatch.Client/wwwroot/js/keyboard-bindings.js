@@ -6,42 +6,38 @@
 (function () {
     'use strict';
 
+    // Only shortcuts that actually DO something are registered. Every entry here
+    // calls preventDefault(), so an entry wired to a listener nobody implements does
+    // not merely no-op — it swallows the key. The removed ones were:
+    //   ctrl+r / r  → dispatched 'powatch:shortcut' with no listener, while
+    //                 preventDefault() killed the browser's reload. Ctrl+R was a dead key
+    //                 app-wide, which on a kiosk is the one recovery gesture an operator has.
+    //   ctrl+b      → "Toggle Sidebar"; this app has a top nav and no sidebar.
+    //   ?           → "Show Help"; there is no help surface.
+    //   ← / →       → the Archives page binds its own @onkeydown for day paging, so these
+    //                 only blocked arrow-key scrolling everywhere else.
     const SHORTCUTS = {
-        // Navigation shortcuts
         'ctrl+1': { action: 'nav', path: '/', label: 'Live Room' },
         'ctrl+2': { action: 'nav', path: '/archives', label: 'History' },
         'ctrl+3': { action: 'nav', path: '/identity', label: 'People' },
         'ctrl+4': { action: 'nav', path: '/diagnostics', label: 'System' },
 
-        // Action shortcuts
-        'ctrl+b': { action: 'sidebar-toggle', label: 'Toggle Sidebar' },
         'ctrl+k': { action: 'command-palette', label: 'Command Palette' },
-        'ctrl+r': { action: 'refresh', label: 'Refresh' },
-        'r': { action: 'refresh', label: 'Refresh (when not in input)' },
-        '?': { action: 'help', label: 'Show Help' },
         'Escape': { action: 'close', label: 'Close/Dismiss' },
         '/': { action: 'focus-filter', label: 'Focus the page filter input' },
-
-        // Archives navigation
-        '←': { action: 'prev-day', label: 'Previous Day' },
-        '→': { action: 'next-day', label: 'Next Day' },
     };
 
-    let _dotNetRef = null;
     let _commandPaletteOpen = false;
 
-    // Setup keyboard bindings
-    function setup(dotNetRef) {
-        _dotNetRef = dotNetRef;
-        
+    // No .NET callback: every shortcut is handled entirely here, and the C# side that
+    // used to receive them had an empty handler while holding an undisposed
+    // DotNetObjectReference for the lifetime of the app.
+    function setup() {
         document.addEventListener('keydown', handleKeyDown);
-        console.log('[PoWatch] Keyboard bindings initialized');
     }
 
     function cleanup() {
         document.removeEventListener('keydown', handleKeyDown);
-        _dotNetRef = null;
-        console.log('[PoWatch] Keyboard bindings cleaned up');
     }
 
     function handleKeyDown(e) {
@@ -65,37 +61,17 @@
         
         switch (shortcut.action) {
             case 'nav':
-                window.location.href = shortcut.path;
+                navigate(shortcut.path);
                 break;
-                
-            case 'sidebar-toggle':
-                triggerEvent('sidebar-toggle');
-                break;
-                
+
             case 'command-palette':
                 toggleCommandPalette();
                 break;
-                
-            case 'refresh':
-                triggerEvent('refresh');
-                break;
-                
-            case 'help':
-                triggerEvent('help');
-                break;
-                
+
             case 'close':
                 if (_commandPaletteOpen) {
                     closeCommandPalette();
                 }
-                break;
-                
-            case 'prev-day':
-                triggerEvent('archives-prev');
-                break;
-
-            case 'next-day':
-                triggerEvent('archives-next');
                 break;
 
             case 'focus-filter':
@@ -119,11 +95,6 @@
                 }
                 break;
         }
-
-        // Notify .NET
-        if (_dotNetRef && key !== 'Escape') {
-            _dotNetRef.invokeMethodAsync('OnShortcut', key);
-        }
     }
 
     function buildKeyString(e) {
@@ -145,8 +116,14 @@
         return parts.join('+');
     }
 
-    function triggerEvent(action) {
-        window.dispatchEvent(new CustomEvent('powatch:shortcut', { detail: action }));
+    // Blazor SPA navigation. window.location.href forced a full document reload — on a WASM
+    // app that means re-downloading and re-booting the runtime for an in-app route change.
+    function navigate(path) {
+        if (window.Blazor && typeof window.Blazor.navigateTo === 'function') {
+            window.Blazor.navigateTo(path);
+        } else {
+            window.location.href = path;
+        }
     }
 
     // Command Palette
@@ -160,8 +137,6 @@
 
     function openCommandPalette() {
         _commandPaletteOpen = true;
-        triggerEvent('command-palette-open');
-        
         // Create overlay if not exists
         let overlay = document.getElementById('command-palette-overlay');
         if (!overlay) {
@@ -178,8 +153,6 @@
 
     function closeCommandPalette() {
         _commandPaletteOpen = false;
-        triggerEvent('command-palette-close');
-        
         const overlay = document.getElementById('command-palette-overlay');
         if (overlay) {
             overlay.style.display = 'none';
@@ -259,9 +232,7 @@
             { label: 'History', action: '/archives', shortcut: 'Ctrl+2', icon: 'archive' },
             { label: 'People', action: '/identity', shortcut: 'Ctrl+3', icon: 'users' },
             { label: 'System', action: '/diagnostics', shortcut: 'Ctrl+4', icon: 'cpu' },
-            { label: 'Toggle Sidebar', action: 'sidebar-toggle', shortcut: 'Ctrl+B', icon: 'sidebar' },
-            { label: 'Refresh Page', action: 'refresh', shortcut: 'R', icon: 'refresh' },
-            { label: 'Show Help', action: 'help', shortcut: '?', icon: 'help' },
+            { label: 'Health', action: '/health', shortcut: '', icon: 'heart' },
         ];
 
         const filtered = query 
@@ -286,26 +257,19 @@
         });
     }
 
+    // Every palette command is a route now; the old non-route commands
+    // ("Toggle Sidebar", "Refresh Page", "Show Help") dispatched events nothing listened to.
     function executeAction(action) {
         closeCommandPalette();
-        
-        if (action.startsWith('/')) {
-            window.location.href = action;
-        } else {
-            triggerEvent(action);
-        }
+        navigate(action);
     }
 
     function getIconSvg(name) {
         const icons = {
             home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
-            chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
             archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
             users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
             cpu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>',
-            sidebar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
-            refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-            help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
         };
         return icons[name] || '';
     }

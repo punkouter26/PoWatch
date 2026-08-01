@@ -30,7 +30,7 @@
     <!-- Local JS bridges (audit #10): loaded with defer in <head> so they're guaranteed
          to be evaluated before Blazor's first OnAfterRenderAsync fires. Previously these
          lived at the end of <body>, which meant Blazor's JSInterop calls in OnAfterRenderAsync
-         ran before the scripts attached their globals (`powatchWebcamShell`, `powatchInference`,
+         ran before the scripts attached their globals (`powatchInference`, `powatchAudio`,
          etc.) and threw an "unhandled error" overlay on every first paint. Defer preserves
          execution order while still running before Blazor's first render commit. -->
     <script src="js/theme-controller.js" defer></script>
@@ -40,7 +40,6 @@
     <script src="js/audio-bridge.js" defer></script>
     <script src="js/blob-upload.js" defer></script>
     <script src="js/keyboard-bindings.js" defer></script>
-    <script src="js/webcam-shell.js" defer></script>
 </head>
 
 <body>

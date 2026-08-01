@@ -2,16 +2,15 @@
 @layout MainLayout
 @inject NavigationManager Navigation
 
-<h3>Not Found</h3>
-<PageTitle>PoWatch | Sector Not Found</PageTitle>
+<PageTitle>PoWatch | Page not found</PageTitle>
 
 <div class="sector-grid">
 	@* Fix #7: the previous 404 was a single dead-end button. Caregivers who mistype a URL
 	   (or bookmark an old path after a route moved) saw no hint what *does* exist.
 	   Add a quick-link rail listing the four real routes so a typo never becomes a kiosk blocker. *@
 	<RadzenCard class="panel">
-		<h1>Sector Not Found</h1>
-		<p class="not-found-context">The requested route is outside the current command center map.</p>
+		<h1>Page not found</h1>
+		<p class="not-found-context">That address isn't part of PoWatch.</p>
 		@if (!string.IsNullOrWhiteSpace(RequestedPath))
 		{
 			<p class="not-found-path">Requested: <code>@RequestedPath</code></p>
@@ -21,27 +20,33 @@
 
 	<RadzenCard class="panel panel-glance">
 		<h2>Where you can go</h2>
-		<p class="panel-subtitle">These are the four sectors currently wired up.</p>
+		<p class="panel-subtitle">Every page in PoWatch.</p>
 		<div class="not-found-route-grid">
-			<a class="not-found-route-tile" href="" aria-label="Go to the Live Room">
+			<a class="not-found-route-tile" href="" aria-label="Live Room — start watching the room">
 				<span class="not-found-route-icon" aria-hidden="true">📹</span>
 				<span class="not-found-route-name">Live Room</span>
 				<span class="not-found-route-desc">Start watching the room.</span>
 			</a>
-			<a class="not-found-route-tile" href="archives" aria-label="Go to History">
+			<a class="not-found-route-tile" href="archives" aria-label="History — each day's story">
 				<span class="not-found-route-icon" aria-hidden="true">📅</span>
 				<span class="not-found-route-name">History</span>
 				<span class="not-found-route-desc">Each day's story and the moments that mattered.</span>
 			</a>
-			<a class="not-found-route-tile" href="identity" aria-label="Go to People">
+			<a class="not-found-route-tile" href="identity" aria-label="People — everyone seen">
 				<span class="not-found-route-icon" aria-hidden="true">👤</span>
 				<span class="not-found-route-name">People</span>
 				<span class="not-found-route-desc">Everyone seen — name, rename, and merge.</span>
 			</a>
-			<a class="not-found-route-tile" href="diagnostics" aria-label="Go to System">
+			<a class="not-found-route-tile" href="diagnostics" aria-label="System — runtime, storage and inference health">
 				<span class="not-found-route-icon" aria-hidden="true">⚙</span>
 				<span class="not-found-route-name">System</span>
 				<span class="not-found-route-desc">Runtime, storage &amp; inference health.</span>
+			</a>
+			@* Health was missing from this rail even though it is a real destination in the nav. *@
+			<a class="not-found-route-tile" href="health" aria-label="Connection health — every connection PoWatch depends on">
+				<span class="not-found-route-icon" aria-hidden="true">♥</span>
+				<span class="not-found-route-name">Connection health</span>
+				<span class="not-found-route-desc">Every connection PoWatch depends on.</span>
 			</a>
 		</div>
 	</RadzenCard>
