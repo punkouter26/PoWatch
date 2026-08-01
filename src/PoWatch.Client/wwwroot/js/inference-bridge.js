@@ -119,13 +119,24 @@
     return changed / total;
   }
 
+  // Longest edge sent to the model. The frame used to be captured at full webcam resolution
+  // (often 1280x720+), and SmolVLM splits a large image into many patches — a single frame was
+  // costing ~900 image tokens, which dominates inference time on the CPU/wasm backend. The model's
+  // processor downsamples anyway, so the extra pixels bought nothing but latency.
+  const _MAX_CAPTURE_EDGE = 512;
+
   async function captureFrame(videoElement) {
     if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
       return '';
     }
+
+    const srcW = videoElement.videoWidth;
+    const srcH = videoElement.videoHeight;
+    const scale = Math.min(1, _MAX_CAPTURE_EDGE / Math.max(srcW, srcH));
+
     const canvas = document.createElement('canvas');
-    canvas.width = videoElement.videoWidth;
-    canvas.height = videoElement.videoHeight;
+    canvas.width = Math.max(1, Math.round(srcW * scale));
+    canvas.height = Math.max(1, Math.round(srcH * scale));
     const context = canvas.getContext('2d');
     context?.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL('image/jpeg', 0.85);

@@ -113,6 +113,12 @@ async function ensureModelLoaded() {
     // Load the ONNX Runtime wasm from the same vendored, pinned directory (offline supply chain, §7)
     // instead of letting transformers.js fetch it from its default CDN.
     env.backends.onnx.wasm.wasmPaths = _TRANSFORMERS_BASE.href;
+    // Multi-threaded wasm needs SharedArrayBuffer, which needs cross-origin isolation. When the
+    // page is isolated this is a large win on the CPU backend; when it is not, it stays single
+    // threaded rather than throwing. Guarded so enabling COOP/COEP later needs no code change.
+    if (typeof self !== 'undefined' && self.crossOriginIsolated) {
+      env.backends.onnx.wasm.numThreads = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1));
+    }
 
     const hasWebGpu = await probeWebGpu();
     const cfg = _MODELS[_activeModelKey];
@@ -436,6 +442,32 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     };
   }
 
+  // Guard: reject output that parrots the prompt instead of describing the scene. Small VLMs copy
+  // instruction text and worked examples verbatim — the old prompt's example line was recorded as a
+  // real observation four times in a row. A fabricated record that reads plausibly is worse than a
+  // rejected one, so anything substantially overlapping the prompt is discarded.
+  const promptWords = new Set(
+    (prompt ?? '').toLowerCase().match(/[a-z]{4,}/g) ?? []);
+  const activityWords = activity.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+  const echoedWordCount = activityWords.filter((w) => promptWords.has(w)).length;
+  if (
+    /^(?:task|answer|question|instruction|example|reply|response|output)\s*[:\-]/i.test(activity) ||
+    (activityWords.length >= 3 && echoedWordCount / activityWords.length >= 0.8)
+  ) {
+    return {
+      isAvailable: false,
+      status: 'Low-quality inference: prompt echoed instead of describing the scene',
+      rawOutput: output,
+      subjectHint: null,
+      activity: 'Unavailable',
+      clinicalPayload: '',
+      isSignificant: false,
+      significantReason: null,
+      confidenceScore: 0,
+      confidenceLabel: 'Low',
+    };
+  }
+
   // Guard: reject obviously incomplete sentences that indicate the model did not finish its output.
   // e.g. "The scene is a bit", "Person is a", "Room has a"
   // An activity ending with a bare article or preposition is structurally unfinished.
@@ -457,29 +489,26 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   const isSignificant = clinicalNote.length > 10;
   const clinicalPayload = `<S>${clinicalNote}<E>`;
 
-  // Unstructured outputs from small models are capped at Low confidence (max 0.50).
-  // Structured outputs with LABEL: use the full scoring range (0.55–0.98).
-  const confidenceScore = isUnstructured
-    ? Math.max(0.30, Math.min(0.50,
-        0.32 +
-        Math.min(activity.length, 32) / 120 +
-        Math.min(clinicalNote.length, 160) / 500))
-    : Math.max(0.55, Math.min(0.98,
-        0.58 +
-        Math.min(activity.length, 32) / 120 +
-        Math.min(clinicalNote.length, 160) / 500 +
-        (noteMatch ? 0.07 : 0) +
-        (isSignificant ? 0.05 : 0)));
+  // A plain caption is now the EXPECTED result, not a degraded one: the prompt asks a question
+  // rather than demanding a LABEL/NOTE format the small models cannot produce. Capping captions at
+  // 0.50 and tagging them "Unstructured inference" made every correct observation look suspect.
+  // A LABEL: reply still scores slightly higher because it carries an explicit activity/note split.
+  const confidenceScore = Math.max(0.40, Math.min(isUnstructured ? 0.88 : 0.98,
+    (isUnstructured ? 0.46 : 0.58) +
+    Math.min(activity.length, 32) / 120 +
+    Math.min(clinicalNote.length, 160) / 500 +
+    (noteMatch ? 0.07 : 0) +
+    (isSignificant ? 0.05 : 0)));
   const confidenceLabel = confidenceScore >= 0.85 ? 'High' : confidenceScore >= 0.72 ? 'Medium' : 'Low';
 
   return {
     isAvailable: true,
-    status: isUnstructured ? 'Unstructured (low confidence)' : 'OK',
+    status: 'OK',
     subjectHint: null,
     activity,
     clinicalPayload,
     isSignificant,
-    significantReason: isSignificant ? (isUnstructured ? 'Unstructured inference' : 'Inference result') : null,
+    significantReason: isSignificant ? 'Observed activity' : null,
     confidenceScore: Number(confidenceScore.toFixed(2)),
     confidenceLabel,
   };

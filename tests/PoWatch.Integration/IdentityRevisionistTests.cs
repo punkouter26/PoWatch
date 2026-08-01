@@ -17,8 +17,13 @@ public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicati
     [Fact]
     public async Task RenameAndMerge_RewriteHistoricalArchives_AndRemoveSecondarySubject()
     {
+        // Two DISTINCT provisional subjects are created via explicit hints. This test previously
+        // relied on two hint-less ingests producing two identities, which was the identity-churn
+        // bug: a hint-less observation now attaches to the recent provisional subject instead of
+        // minting a new one. Merge still needs two subjects, so they are set up deliberately.
         await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
+            SubjectHint = "Subject-901",
             Activity = "Desk Work",
             ClinicalPayload = "<S>Unknown subject at desk.<E>",
             IsSignificant = false
@@ -26,6 +31,7 @@ public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicati
 
         await _client.PostAsJsonAsync("/api/observer/ingest", new IngestObservationRequestDto
         {
+            SubjectHint = "Subject-902",
             Activity = "Walking",
             ClinicalPayload = "<S>Unknown subject walking.<E>",
             IsSignificant = false

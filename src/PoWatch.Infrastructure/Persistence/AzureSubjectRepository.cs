@@ -16,11 +16,17 @@ public sealed class AzureSubjectRepository : ISubjectRepository
     private readonly TableClient _tableClient;
     private readonly ILogger<AzureSubjectRepository> _logger;
     private readonly ResiliencePipeline _retryPipeline;
+    private readonly TimeSpan _provisionalReuseWindow;
 
-    public AzureSubjectRepository(AzureStorageClients clients, IOptions<AzureStorageOptions> options, ILogger<AzureSubjectRepository> logger)
+    public AzureSubjectRepository(
+        AzureStorageClients clients,
+        IOptions<AzureStorageOptions> options,
+        IOptions<ObserverOptions> observerOptions,
+        ILogger<AzureSubjectRepository> logger)
     {
         _tableClient = clients.TableService.GetTableClient(options.Value.SubjectsTable);
         _logger = logger;
+        _provisionalReuseWindow = TimeSpan.FromSeconds(observerOptions.Value.ProvisionalSubjectReuseWindowSeconds);
 
         // Same transient-fault resilience the observation repository uses. Previously this repo had
         // NO retry, so a single storage blip on the ingest path (GetOrCreate / UpdateLastActivity) threw.
@@ -92,6 +98,28 @@ public sealed class AzureSubjectRepository : ISubjectRepository
             await UpsertAsync(created, cancellationToken);
             SubjectIdSlugger.RegisterSlug(created.SubjectId, created.SubjectId);
             return created;
+        }
+
+        // No hint: attach to the most recently-seen provisional subject rather than minting a new
+        // one. Creating a new Subject-N per hint-less observation meant one person sitting still
+        // became a new "person" every cycle, filling People with duplicates that can never be named.
+        // Only Temporary subjects are reused — a named person is never silently re-attached.
+        if (_provisionalReuseWindow > TimeSpan.Zero)
+        {
+            var cutoff = DateTimeOffset.UtcNow - _provisionalReuseWindow;
+            var recent = (await GetAllAsync(cancellationToken))
+                .Where(x => x.IdentityStatus == IdentityStatus.Temporary && x.LastSeenUtc >= cutoff)
+                .OrderByDescending(x => x.LastSeenUtc)
+                .FirstOrDefault();
+
+            if (recent is not null)
+            {
+                _logger.LogDebug(
+                    "Reusing provisional subject for hint-less observation. SubjectId={SubjectId} LastSeenUtc={LastSeenUtc}",
+                    recent.SubjectId.Value,
+                    recent.LastSeenUtc);
+                return recent;
+            }
         }
 
         return await CreateAutoNumberedSubjectAsync(cancellationToken);

@@ -51,6 +51,21 @@ public partial class ObserverHub
     private double lastMotionPercent;
     private string lastMotionLabel = "Still";
 
+    /// <summary>
+    /// The vision prompt. Deliberately a plain question with NO worked example and NO angle-bracket
+    /// placeholders.
+    /// <para>
+    /// The previous prompt demanded "LABEL: &lt;activity&gt; | NOTE: &lt;sentence&gt;" and supplied an
+    /// example. SmolVLM-256M is a captioner, not an instruction-follower: it never produced the
+    /// format, and it copied the example verbatim — four consecutive observations were recorded as
+    /// "Person seated using laptop" straight from the example line rather than from the camera. A
+    /// fabricated observation that reads plausibly is worse than a rejected one, so the example is
+    /// gone. Structure is derived from the caption in code instead of demanded from the model.
+    /// </para>
+    /// </summary>
+    private const string ObservationPrompt =
+        "What is the person in this image doing? Answer with one short sentence describing only what you can see.";
+
     /// <summary>Verbatim model reply from the most recent quality-gate rejection, surfaced in the UI.</summary>
     private string? lastRejectedOutput;
 

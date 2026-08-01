@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using PoWatch.Application.Contracts;
+using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
 using PoWatch.Domain.Services;
 
@@ -13,7 +14,16 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
 {
     private readonly ConcurrentDictionary<string, SubjectProfile> _subjects = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SubjectProfile> _byDisplayName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly TimeSpan _provisionalReuseWindow;
     private int _sequence = 0;
+
+    public InMemorySubjectRepository()
+        : this(TimeSpan.FromSeconds(new ObserverOptions().ProvisionalSubjectReuseWindowSeconds))
+    {
+    }
+
+    public InMemorySubjectRepository(TimeSpan provisionalReuseWindow) =>
+        _provisionalReuseWindow = provisionalReuseWindow;
 
     public Task<IReadOnlyList<SubjectProfile>> GetAllAsync(CancellationToken cancellationToken)
     {
@@ -52,6 +62,23 @@ public sealed class InMemorySubjectRepository : ISubjectRepository
             _byDisplayName[known.DisplayName] = known;
             SubjectIdSlugger.RegisterSlug(known.SubjectId, known.SubjectId);
             return Task.FromResult<SubjectProfile>(known);
+        }
+
+        // Mirror the Azure repository: with no hint, attach to the most recently-seen provisional
+        // subject instead of minting a new one, so a single person does not become a new "person"
+        // on every observation cycle. Only Temporary subjects are eligible.
+        if (_provisionalReuseWindow > TimeSpan.Zero)
+        {
+            var cutoff = now - _provisionalReuseWindow;
+            var recent = _subjects.Values
+                .Where(x => x.IdentityStatus == IdentityStatus.Temporary && x.LastSeenUtc >= cutoff)
+                .OrderByDescending(x => x.LastSeenUtc)
+                .FirstOrDefault();
+
+            if (recent is not null)
+            {
+                return Task.FromResult(UpdateSubjectTimestamps(recent, now));
+            }
         }
 
         var subjectId = $"Subject-{Interlocked.Increment(ref _sequence)}";

@@ -301,7 +301,7 @@ public partial class ObserverHub
         // via JS.TryInvokeVoidAsync("powatchInference.cancelInFlight") instead.
         var inference = await JS.TryInvokeAsync<InferenceBridgeResult>(
             "powatchInference.captureAndInfer",
-            "Describe what you observe. Reply in this exact format:\nLABEL: <activity> | NOTE: <one sentence describing the scene>\n\nExample: LABEL: Person seated using laptop | NOTE: Subject is working at a desk in a well-lit room.",
+            ObservationPrompt,
             liveCameraFeed,
             Math.Clamp(FeatureFlags.Value.MaxInferenceTokens, 32, 256))
             ?? new InferenceBridgeResult
