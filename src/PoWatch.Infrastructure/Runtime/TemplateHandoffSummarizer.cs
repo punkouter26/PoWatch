@@ -11,6 +11,10 @@ namespace PoWatch.Infrastructure.Runtime;
 /// </summary>
 public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
 {
+    private const int MaxOutlierItems = 5;
+    private const int MaxSignificantItems = 5;
+    private const int MaxDriftItems = 3;
+
     public Task<HandoffSummaryContent> SummarizeAsync(HandoffSummarizerContext context, CancellationToken cancellationToken)
     {
         var report = context.Report;
@@ -20,7 +24,7 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
         var summary = BuildSummary(report, audience, shift);
         var priorityItems = BuildPriorityItems(report, context.DriftStatus, audience);
         var followUps = BuildFollowUps(report, context.DriftStatus);
-        var sourceNotes = BuildSourceNotes(report);
+        var sourceNotes = BuildSourceNotes(report, context.DriftStatus);
 
         return Task.FromResult(new HandoffSummaryContent
         {
@@ -35,7 +39,7 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
     private static string BuildSummary(ShiftHandoffReportDto report, string audience, string shift)
     {
         if (report.TotalEvents == 0)
-            return $"No observations were recorded during the {shift} shift on {report.Date:yyyy-MM-dd}. Monitoring was active but no subjects were detected.";
+            return $"No observations were recorded during the {shift} shift on {report.Date:yyyy-MM-dd} ({WindowLabel(report)}). Monitoring was active but no subjects were detected.";
 
         return audience switch
         {
@@ -47,7 +51,10 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
 
     private static string BuildNurseToNurseSummary(ShiftHandoffReportDto report, string shift)
     {
-        var base_ = $"{shift} shift on {report.Date:MMM d}: {report.TotalEvents} observations recorded. " +
+        // The covered hours are stated explicitly. Without them a brief headed "Afternoon" was
+        // indistinguishable from one covering the whole day, and the reader had no way to check
+        // the event count against the timeline they were looking at.
+        var base_ = $"{shift} shift on {report.Date:MMM d} ({WindowLabel(report)}): {report.TotalEvents} observations recorded. " +
                     $"Primary subject: {report.PrimarySubject}. Dominant activity: {report.DominantActivity}.";
 
         if (report.OutlierCount > 0)
@@ -56,13 +63,16 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
         if (report.SignificantCount > 0)
             base_ += $" {report.SignificantCount} significant event(s) documented.";
 
+        if (report is { OutlierCount: 0, SignificantCount: 0 })
+            base_ += " Nothing was flagged for review during this window.";
+
         return base_;
     }
 
     private static string BuildSupervisorSummary(ShiftHandoffReportDto report, string shift)
     {
         var riskLevel = report.OutlierCount >= 5 ? "HIGH RISK" : report.OutlierCount >= 2 ? "ELEVATED" : "ROUTINE";
-        return $"[{riskLevel}] {shift} shift operational summary — {report.Date:MMM d}. " +
+        return $"[{riskLevel}] {shift} shift operational summary — {report.Date:MMM d} ({WindowLabel(report)}). " +
                $"{report.TotalEvents} total events, {report.OutlierCount} outliers ({report.SignificantCount} significant). " +
                $"Primary monitored subject: {report.PrimarySubject}.";
     }
@@ -94,24 +104,33 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
             return items;
 
         // Clinical outliers are always top priority
-        foreach (var outlier in report.OutlierEvents.Take(5))
+        foreach (var outlier in report.OutlierEvents.Take(MaxOutlierItems))
         {
-            items.Add($"OUTLIER @ {outlier.ObservedAtUtc.ToLocalTime():HH:mm} — {outlier.SubjectDisplayName}: {outlier.Activity}");
+            items.Add($"OUTLIER @ {outlier.ObservedAtUtc.ToLocalTime():HH:mm} — {Name(outlier.SubjectDisplayName)}: {outlier.Activity}");
         }
+
+        // A brief that silently shows 5 of 19 outliers reads as "there were 5". Say what was cut.
+        if (report.OutlierEvents.Count > MaxOutlierItems)
+            items.Add($"…and {report.OutlierEvents.Count - MaxOutlierItems} further outlier(s) — see the full timeline.");
 
         // Significant events
-        foreach (var sig in report.SignificantEvents.Take(5))
+        foreach (var sig in report.SignificantEvents.Take(MaxSignificantItems))
         {
             var reason = string.IsNullOrWhiteSpace(sig.SignificantReason) ? "Significant event" : sig.SignificantReason;
-            items.Add($"{sig.SubjectDisplayName} @ {sig.ObservedAtUtc.ToLocalTime():HH:mm}: {reason}");
+            items.Add($"{Name(sig.SubjectDisplayName)} @ {sig.ObservedAtUtc.ToLocalTime():HH:mm}: {reason}");
         }
 
-        // High-drift subjects
+        if (report.SignificantEvents.Count > MaxSignificantItems)
+            items.Add($"…and {report.SignificantEvents.Count - MaxSignificantItems} further significant event(s) — see the full timeline.");
+
+        // High-drift subjects. Drift compares today's behaviour against a multi-day baseline, so it
+        // is explicitly marked as a cross-shift signal — otherwise a reader takes "DRIFT ALERT" for
+        // something that happened during these hours and goes looking for it in the timeline.
         var highDrift = driftStatus
             .Where(d => d.DriftLabel is DriftLabels.High or DriftLabels.Extreme)
-            .Take(3);
+            .Take(MaxDriftItems);
         foreach (var d in highDrift)
-            items.Add($"DRIFT ALERT — {d.DisplayName}: {d.DriftLabel} (score {d.DriftScore:F0}/100)");
+            items.Add($"DRIFT ALERT (today vs. baseline, not this window) — {Name(d.DisplayName)}: {d.DriftLabel} (score {d.DriftScore:F0}/100)");
 
         return items;
     }
@@ -132,7 +151,7 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
             .Where(d => d.DriftLabel is DriftLabels.Moderate)
             .Take(2);
         foreach (var d in moderateDrift)
-            items.Add($"Monitor {d.DisplayName} — Moderate Drift detected (score {d.DriftScore:F0}/100).");
+            items.Add($"Monitor {Name(d.DisplayName)} — Moderate Drift detected today (score {d.DriftScore:F0}/100).");
 
         if (report.TotalEvents == 0)
             items.Add("Verify sensor and monitoring loop health — no events recorded this shift.");
@@ -140,13 +159,32 @@ public sealed class TemplateHandoffSummarizer : IHandoffSummarizer
         return items;
     }
 
-    private static IReadOnlyList<string> BuildSourceNotes(ShiftHandoffReportDto report)
+    private static IReadOnlyList<string> BuildSourceNotes(
+        ShiftHandoffReportDto report,
+        IReadOnlyList<SubjectDriftStatusDto> driftStatus)
     {
-        return
-        [
+        var notes = new List<string>
+        {
             $"Source: PoWatch Archives — {report.Date:yyyy-MM-dd} {report.ShiftWindow} shift",
+            $"Window covered: {report.WindowStartUtc.ToLocalTime():yyyy-MM-dd HH:mm} to {report.WindowEndUtc.ToLocalTime():yyyy-MM-dd HH:mm} local time",
             $"Data window: {report.TotalEvents} observation events from Azure Table Storage",
             "Brief generated by PoWatch template engine — no AI inference used"
-        ];
+        };
+
+        if (driftStatus.Count > 0)
+            notes.Add("Drift figures compare today's activity against each subject's multi-day baseline and are not scoped to this shift.");
+
+        return notes;
+    }
+
+    /// <summary>"Subject-529" → "Person 529", matching every other surface in the app.</summary>
+    private static string Name(string? displayName) => SubjectDisplayNames.Humanize(displayName);
+
+    /// <summary>"14:00–22:00" — the local hours the report actually covers.</summary>
+    private static string WindowLabel(ShiftHandoffReportDto report)
+    {
+        var start = report.WindowStartUtc.ToLocalTime();
+        var end = report.WindowEndUtc.ToLocalTime();
+        return $"{start:HH:mm}–{end:HH:mm}";
     }
 }

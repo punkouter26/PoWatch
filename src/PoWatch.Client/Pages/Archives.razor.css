@@ -11,12 +11,15 @@
     color: var(--color-text-primary);
 }
 
+/* "No observations" is an absence of data, not a success. On the success ramp — the same green
+   the app uses for healthy/connected — an empty day read as a clean bill of health. */
 .archive-empty {
     margin-top: 1rem;
     padding: 0.9rem 1rem;
-    border-radius: 8px;
-    background: var(--state-success-bg);
-    color: var(--state-success-fg);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-muted);
 }
 
 .archive-empty p {
@@ -25,7 +28,7 @@
 
 .archive-empty-cta {
     display: inline-block;
-    color: var(--neon-green, #38ffa8);
+    color: var(--color-accent);
     text-decoration: none;
     font-size: 0.85rem;
     font-weight: 600;
@@ -45,20 +48,22 @@
     margin-top: var(--space-2);
 }
 
+/* Card chrome follows the theme; only the caption strip over the photo stays dark, because it
+   sits on the image rather than on the page. */
 .evidence-card {
     break-inside: avoid;
     margin-bottom: var(--space-3);
-    border: 1px solid var(--neon-green-dim);
+    border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
     overflow: hidden;
-    background: rgba(15, 11, 31, 0.86);
+    background: var(--color-surface-2);
     transition: border-color 0.2s, box-shadow 0.2s;
     cursor: pointer;
 }
 
 .evidence-card:hover {
-    border-color: rgba(56, 255, 168, 0.5);
-    box-shadow: 0 0 0 1px rgba(56, 255, 168, 0.12), 0 8px 24px rgba(0, 0, 0, 0.3);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
 }
 
 /* ── Lightbox (RenderTreeBuilder markup) — replaces inline styles (audit #7) ── */
@@ -106,8 +111,8 @@
     align-items: center;
     justify-content: center;
     height: 140px;
-    background: linear-gradient(135deg, rgba(56, 255, 168, 0.12), rgba(111, 61, 227, 0.18));
-    color: #9ef7d4;
+    background: var(--color-surface-3);
+    color: var(--color-text-muted);
     font-weight: 700;
     font-size: 1.1rem;
 }
@@ -123,24 +128,27 @@
     flex-direction: column;
 }
 
+/* These two sit on the dark scrim painted over the photo, so they are deliberately fixed light
+   ink in both themes — var(--text-primary) followed the theme and turned black-on-black here. */
 .evidence-subject {
     font-weight: 700;
     font-size: 0.88rem;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 .evidence-activity {
     font-size: 0.78rem;
-    color: #9ef7d4;
+    color: rgba(255, 255, 255, 0.82);
 }
 
 .evidence-caption {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-2);
     padding: 0.4rem 0.6rem;
     font-size: 0.75rem;
-    color: var(--text-label, #c8cde8);
+    color: var(--color-text-muted);
 }
 
 .evidence-time {

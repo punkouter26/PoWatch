@@ -56,44 +56,123 @@
         else
         {
             <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a chapter to begin.")</p>
+
+            @* The counts the narrative sentence is built from, shown as figures. A caregiver
+               scanning for "was anything flagged?" should not have to read prose to find out,
+               and the two can never disagree because both come from the same server-side pass. *@
+            @if (chapter is { TotalEvents: > 0 })
+            {
+                <dl class="day-stats">
+                    <div class="day-stat">
+                        <dt>Observations</dt>
+                        <dd>@chapter.TotalEvents</dd>
+                    </div>
+                    <div class="day-stat">
+                        <dt>People seen</dt>
+                        <dd>@chapter.SubjectCount</dd>
+                    </div>
+                    <div class="day-stat @(chapter.NotableCount > 0 ? "day-stat--notable" : string.Empty)">
+                        <dt>Notable</dt>
+                        <dd>@chapter.NotableCount</dd>
+                    </div>
+                    <div class="day-stat @(chapter.OutlierCount > 0 ? "day-stat--unusual" : string.Empty)">
+                        <dt>Unusual</dt>
+                        <dd>@chapter.OutlierCount</dd>
+                    </div>
+                    @if (chapter.FirstEventUtc is not null && chapter.LastEventUtc is not null)
+                    {
+                        <div class="day-stat day-stat--wide">
+                            <dt>Covered</dt>
+                            <dd>@chapter.FirstEventUtc.Value.ToLocalTime().ToString("HH:mm") – @chapter.LastEventUtc.Value.ToLocalTime().ToString("HH:mm")</dd>
+                        </div>
+                    }
+                </dl>
+            }
         }
 
         @if (handoffBrief is not null)
         {
-            <div class="handoff-brief-panel">
-                <div class="handoff-brief-header">
-                    <h3>Handoff Brief</h3>
-                    <span class="brief-badge @(handoffBrief.IsAiGenerated ? "brief-badge--ai" : "brief-badge--template")">
-                        @(handoffBrief.IsAiGenerated ? "AI-assisted" : "Template")
-                    </span>
-                    <small class="brief-meta">@handoffBrief.Audience &middot; @handoffBrief.ShiftWindow &middot; @handoffBrief.GeneratedAtUtc.ToLocalTime().ToString("HH:mm")</small>
-                    <button class="brief-close" @onclick="() => handoffBrief = null" aria-label="Close brief">&times;</button>
-                </div>
+            <section class="handoff-brief-panel" aria-labelledby="handoff-brief-heading">
+                <header class="handoff-brief-header">
+                    <div class="brief-title-row">
+                        <h3 id="handoff-brief-heading">Handoff brief</h3>
+                        <span class="brief-badge @(handoffBrief.IsAiGenerated ? "brief-badge--ai" : "brief-badge--template")"
+                              title="@(handoffBrief.IsAiGenerated ? "Written by Azure OpenAI from PoWatch observation data" : "Assembled from PoWatch observation data by the template engine — no AI inference")">
+                            @(handoffBrief.IsAiGenerated ? "AI-assisted" : "Template")
+                        </span>
+                        <button class="brief-close" @onclick="() => handoffBrief = null" aria-label="Close brief" title="Close brief">&times;</button>
+                    </div>
+                    @* The window the brief covers is the single most load-bearing fact on this panel —
+                       without it "Afternoon" is indistinguishable from the whole day, and the reader
+                       cannot tell which of the rows below the summary is actually about. *@
+                    <p class="brief-meta">
+                        <span class="brief-meta-strong">@DisplayShift(handoffBrief.ShiftWindow)</span>
+                        <span class="brief-meta-sep">·</span>
+                        <span>@handoffBrief.WindowStartUtc.ToLocalTime().ToString("MMM d, HH:mm") – @handoffBrief.WindowEndUtc.ToLocalTime().ToString("HH:mm")</span>
+                        <span class="brief-meta-sep">·</span>
+                        <span>@DisplayAudience(handoffBrief.Audience)</span>
+                        <span class="brief-meta-sep">·</span>
+                        <span>Generated @handoffBrief.GeneratedAtUtc.ToLocalTime().ToString("HH:mm")</span>
+                    </p>
+                </header>
+
                 <p class="brief-summary">@handoffBrief.Summary</p>
-                @if (handoffBrief.PriorityItems.Count > 0)
-                {
-                    <div class="brief-section">
-                        <h4 class="brief-section-label">Priority Items</h4>
-                        <ul class="brief-list brief-list--priority">
+
+                <dl class="brief-stats">
+                    <div class="brief-stat">
+                        <dt>Observations</dt>
+                        <dd>@handoffBrief.TotalEvents</dd>
+                    </div>
+                    <div class="brief-stat @(handoffBrief.SignificantCount > 0 ? "brief-stat--notable" : string.Empty)">
+                        <dt>Significant</dt>
+                        <dd>@handoffBrief.SignificantCount</dd>
+                    </div>
+                    <div class="brief-stat @(handoffBrief.OutlierCount > 0 ? "brief-stat--unusual" : string.Empty)">
+                        <dt>Outliers</dt>
+                        <dd>@handoffBrief.OutlierCount</dd>
+                    </div>
+                </dl>
+
+                @* Both sections render even when empty. A section that simply disappears leaves the
+                   reader unable to tell "nothing needed escalating" from "the brief never checked". *@
+                <div class="brief-section">
+                    <h4 class="brief-section-label">Priority items</h4>
+                    @if (handoffBrief.PriorityItems.Count > 0)
+                    {
+                        <ul class="brief-list">
                             @foreach (var item in handoffBrief.PriorityItems)
                             {
-                                <li>@item</li>
+                                <li class="brief-item brief-item--@PriorityKind(item)">
+                                    <span class="brief-item-text">@item</span>
+                                </li>
                             }
                         </ul>
-                    </div>
-                }
-                @if (handoffBrief.FollowUps.Count > 0)
-                {
-                    <div class="brief-section">
-                        <h4 class="brief-section-label">Follow-ups for Next Shift</h4>
-                        <ul class="brief-list brief-list--followup">
+                    }
+                    else
+                    {
+                        <p class="brief-empty">Nothing required escalation during this window.</p>
+                    }
+                </div>
+
+                <div class="brief-section">
+                    <h4 class="brief-section-label">Follow-ups for next shift</h4>
+                    @if (handoffBrief.FollowUps.Count > 0)
+                    {
+                        <ul class="brief-list">
                             @foreach (var item in handoffBrief.FollowUps)
                             {
-                                <li>@item</li>
+                                <li class="brief-item brief-item--followup">
+                                    <span class="brief-item-text">@item</span>
+                                </li>
                             }
                         </ul>
-                    </div>
-                }
+                    }
+                    else
+                    {
+                        <p class="brief-empty">No open items to carry forward.</p>
+                    }
+                </div>
+
                 <details class="brief-source-notes">
                     <summary>Source notes</summary>
                     <ul>
@@ -103,7 +182,7 @@
                         }
                     </ul>
                 </details>
-            </div>
+            </section>
         }
 
         @if (chapter is not null && chapter.Timeline.Count == 0)
@@ -289,8 +368,10 @@
 
     private async Task OpenEvidenceLightboxAsync(ObservationEventDto item, string? imageUrl)
     {
+        // Same humanization as the card, the timeline and the narrative — the lightbox was the last
+        // surface on this page still titling itself with the raw storage id.
         await DialogService.OpenAsync(
-            $"{item.SubjectDisplayName} — {item.Activity}",
+            $"{PoWatch.Client.Services.DisplayText.SubjectName(item.SubjectDisplayName, isKnownIdentity: false)} — {PoWatch.Client.Services.DisplayText.Activity(item.Activity)}",
             ds => builder =>
             {
                 builder.OpenElement(0, "div");
@@ -438,6 +519,32 @@
             return null;
 
         return imageLoadStatus.TryGetValue(item.ImageReference, out var status) ? status : null;
+    }
+
+    /// <summary>"NurseToNurse" → "Nurse to nurse" — the audience is shown to a human, not a serializer.</summary>
+    private static string DisplayAudience(string audience) => audience switch
+    {
+        "NurseToNurse" => "Nurse to nurse",
+        "Supervisor" => "Supervisor",
+        "FamilySafe" => "Family-safe",
+        _ => audience
+    };
+
+    private static string DisplayShift(string shiftWindow) =>
+        shiftOptions.FirstOrDefault(o => string.Equals(o.Value, shiftWindow, StringComparison.OrdinalIgnoreCase))?.Label
+        ?? shiftWindow;
+
+    /// <summary>
+    /// Tags a priority line so it can be colour-coded by severity. The brief carries plain strings —
+    /// the AI path returns free prose — so unrecognised lines fall through to the neutral style
+    /// rather than being mislabelled.
+    /// </summary>
+    private static string PriorityKind(string item)
+    {
+        if (item.StartsWith("OUTLIER", StringComparison.OrdinalIgnoreCase)) return "outlier";
+        if (item.StartsWith("DRIFT ALERT", StringComparison.OrdinalIgnoreCase)) return "drift";
+        if (item.StartsWith('…') || item.StartsWith("...", StringComparison.Ordinal)) return "more";
+        return "notable";
     }
 
     private async Task OpenHandoffDialogAsync()

@@ -487,25 +487,36 @@ code,
     flex-wrap: wrap;
 }
 
+/* The three header cells are laid out on a fixed grid so the timestamps, names and activity
+   text line up down the column. Flex-with-wrap let every row set its own column positions,
+   which is what made the feed read as a ragged dump rather than a log. */
 .activity-time {
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: var(--neon-green);
+    color: var(--color-text-muted);
     white-space: nowrap;
     flex-shrink: 0;
+    width: 4.6rem;
 }
 
 .activity-subject {
     font-size: 0.82rem;
     font-weight: 600;
-    color: #c8d0f0;
+    /* Was a fixed pale lavender picked for the dark theme; on the light theme's white panel it
+       fell to roughly 1.6:1 against the background and the name was effectively invisible. */
+    color: var(--color-text-label);
     white-space: nowrap;
     flex-shrink: 0;
+    width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
+/* The activity is the substance of the row, so it gets primary ink — it was muted, leaving
+   the row with no full-contrast text at all. */
 .activity-activity {
-    font-size: 0.78rem;
-    color: var(--text-muted);
+    font-size: 0.82rem;
+    color: var(--color-text-primary);
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -1102,119 +1113,246 @@ button:active:not(:disabled) {
 
 /* ── Floating HUD Diagnostics Widget (Suggestion 6) ─────────────────────── */
 
-/* ── Elevated Floating Panels (Suggestion 2) ─────────────────────────────── */
+/* ── Handoff brief ────────────────────────────────────────────────────────
+   Every colour here resolves through a theme token. This panel used to paint a
+   hard-coded near-black background while its text read var(--text-primary) — in the
+   light theme that token is near-black too, so the title, both lists and the source
+   notes rendered black-on-black and the whole brief was unreadable. A surface may
+   not be fixed while the ink on it moves with the theme. ───────────────────── */
 .handoff-brief-panel {
-    margin-top: 1rem;
-    padding: 1rem 1.1rem;
-    background: rgba(10, 8, 22, 0.96);
-    border: 1px solid rgba(56, 255, 168, 0.28);
-    border-radius: 14px;
-    box-shadow: var(--elevation-float);
+    margin-top: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     animation: fadeSlideUp 0.3s ease-out;
 }
 
 .handoff-brief-header {
+    margin-bottom: var(--space-3);
+}
+
+.brief-title-row {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.7rem;
+    gap: var(--space-3);
 }
 
 .handoff-brief-header h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--text-lg);
+    color: var(--color-text-primary);
 }
 
 .brief-badge {
     display: inline-flex;
     align-items: center;
     padding: 0.2rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.72rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
 .brief-badge--ai {
-    background: rgba(56, 255, 168, 0.12);
-    border: 1px solid rgba(56, 255, 168, 0.3);
-    color: #38ffa8;
+    background: var(--color-accent-soft);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
 }
 
 .brief-badge--template {
-    background: rgba(111, 61, 227, 0.14);
-    border: 1px solid rgba(111, 61, 227, 0.3);
-    color: #b48eff;
+    background: var(--color-surface-3);
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-muted);
 }
 
 .brief-meta {
-    color: var(--text-muted);
-    font-size: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+}
+
+.brief-meta-strong {
+    color: var(--color-text-label);
+    font-weight: 700;
+}
+
+.brief-meta-sep {
+    opacity: 0.5;
 }
 
 .brief-close {
     margin-left: auto;
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: var(--color-text-muted);
     cursor: pointer;
     font-size: 1.25rem;
     line-height: 1;
-    padding: 0;
-    transition: color 0.15s;
+    padding: 0 0.2rem;
+    border-radius: var(--radius-sm);
+    transition: color var(--motion-quick), background var(--motion-quick);
 }
 
-.brief-close:hover { color: var(--text-primary); }
+.brief-close:hover {
+    color: var(--color-text-primary);
+    background: var(--color-surface-3);
+}
 
 .brief-summary {
-    color: #d6def5;
+    color: var(--color-text-primary);
     line-height: 1.6;
-    margin: 0 0 0.75rem;
+    font-size: var(--text-base);
+    margin: 0 0 var(--space-3);
+}
+
+/* Figures the prose was written from, so the reader can reconcile it against the timeline. */
+.brief-stats,
+.day-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: var(--space-3) 0 0;
+}
+
+.brief-stat,
+.day-stat {
+    flex: 1 1 auto;
+    min-width: 5.5rem;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface-1);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.brief-stat dt,
+.day-stat dt {
+    margin: 0;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+}
+
+.brief-stat dd,
+.day-stat dd {
+    margin: 0.15rem 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+}
+
+/* A count only earns colour when it is non-zero — a wall of amber zeroes trains the eye
+   to ignore the row that is supposed to catch it. */
+.brief-stat--notable,
+.day-stat--notable {
+    border-color: var(--state-warning-border);
+}
+
+.brief-stat--notable dd,
+.day-stat--notable dd {
+    color: var(--state-warning-fg);
+}
+
+.brief-stat--unusual,
+.day-stat--unusual {
+    border-color: var(--state-danger-border);
+}
+
+.brief-stat--unusual dd,
+.day-stat--unusual dd {
+    color: var(--state-danger-fg);
+}
+
+.day-stat--wide dd {
+    font-size: var(--text-base);
 }
 
 .brief-section {
-    margin-top: 0.65rem;
+    margin-top: var(--space-4);
 }
 
 .brief-section-label {
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--neon-green);
-    margin: 0 0 0.4rem;
+    color: var(--color-text-muted);
+    margin: 0 0 var(--space-2);
     font-family: var(--font-mono);
 }
 
 .brief-list {
     margin: 0;
-    padding: 0 0 0 1.2rem;
+    padding: 0;
+    list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--space-1);
 }
 
-.brief-list li {
-    font-size: 0.85rem;
-    color: var(--text-primary);
+/* Severity reads off the left rail rather than a list marker, so a scan down the edge of
+   the brief separates outliers from routine notes without reading a word. */
+.brief-item {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
     line-height: 1.5;
+    padding: 0.35rem var(--space-3);
+    border-left: 3px solid var(--color-border-subtle);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--color-surface-1);
 }
 
-.brief-list--priority li::marker { color: rgba(255, 160, 60, 0.8); }
-.brief-list--followup li::marker { color: rgba(111, 61, 227, 0.8); }
+.brief-item--outlier { border-left-color: var(--state-danger-fg); }
+.brief-item--drift { border-left-color: var(--state-warning-fg); }
+.brief-item--notable { border-left-color: var(--color-accent); }
+.brief-item--followup { border-left-color: var(--color-accent); }
+
+.brief-item--more {
+    border-left-color: transparent;
+    background: none;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.brief-empty {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    font-style: italic;
+}
 
 .brief-source-notes {
-    margin-top: 0.75rem;
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border-subtle);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
 }
 
 .brief-source-notes summary {
     cursor: pointer;
-    color: var(--text-muted);
-    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
     letter-spacing: 0.04em;
+}
+
+.brief-source-notes ul {
+    margin: var(--space-2) 0 0;
+    padding-left: 1.1rem;
+}
+
+.brief-source-notes li {
+    color: var(--color-text-muted);
+    line-height: 1.6;
 }
 
 /* ── Undo Toast (Suggestion 2 — elevation-float) ────────────────────────── */

@@ -49,9 +49,15 @@ public sealed class HandoffCoachService(
         // Build grounded report data — no free-form user input reaches the summarizer
         var report = await reportService.BuildHandoffReportAsync(date, shift, cancellationToken);
 
-        // Optionally enrich with drift context when the Drift Radar feature is available
+        // Optionally enrich with drift context when the Drift Radar feature is available.
+        //
+        // Drift Radar always scores TODAY against each subject's baseline — it takes no date. Attaching
+        // it to a brief for an earlier date presented current behaviour as if it belonged to that shift,
+        // so a brief pulled up for last Tuesday carried today's DRIFT ALERT lines. It is only included
+        // when the brief covers the day in progress.
         IReadOnlyList<SubjectDriftStatusDto> driftStatus = [];
-        if (featureFlags.Value.DriftRadarEnabled)
+        var coversToday = date == ShiftClock.Today();
+        if (featureFlags.Value.DriftRadarEnabled && coversToday)
         {
             try
             {
@@ -61,6 +67,12 @@ public sealed class HandoffCoachService(
             {
                 logger.LogWarning(ex, "Drift Radar data could not be loaded for handoff brief. Continuing without drift context.");
             }
+        }
+        else if (featureFlags.Value.DriftRadarEnabled)
+        {
+            logger.LogInformation(
+                "Drift context omitted from handoff brief — Drift Radar scores today only and the brief covers {Date}.",
+                date);
         }
 
         var context = new HandoffSummarizerContext
@@ -80,8 +92,14 @@ public sealed class HandoffCoachService(
 
         return new HandoffBriefDto
         {
+            Date = date,
             Audience = audience,
             ShiftWindow = shift.ToString(),
+            WindowStartUtc = report.WindowStartUtc,
+            WindowEndUtc = report.WindowEndUtc,
+            TotalEvents = report.TotalEvents,
+            OutlierCount = report.OutlierCount,
+            SignificantCount = report.SignificantCount,
             Summary = content.Summary,
             PriorityItems = content.PriorityItems,
             FollowUps = content.FollowUps,

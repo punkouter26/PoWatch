@@ -20,4 +20,15 @@ public sealed class DailyChapterDto
     public IReadOnlyList<ObservationEventDto> Timeline { get; init; } = [];
     public IReadOnlyList<ObservationEventDto> Highlights { get; init; } = [];
     public string ClinicalNarrative { get; init; } = string.Empty;
+
+    // Mirrors PoWatch.Domain.Models.DailyChapter — the endpoint serializes the domain type and the
+    // client deserializes it as this DTO, so the two shapes have to stay in step.
+    public int TotalEvents { get; init; }
+    public int OutlierCount { get; init; }
+
+    /// <summary>Significant events that are not also clinical outliers, so the two never double-count.</summary>
+    public int NotableCount { get; init; }
+    public int SubjectCount { get; init; }
+    public DateTimeOffset? FirstEventUtc { get; init; }
+    public DateTimeOffset? LastEventUtc { get; init; }
 }

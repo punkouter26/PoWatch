@@ -192,6 +192,40 @@ public sealed class HandoffCoachServiceTests
         Assert.Empty(captured.LastContext!.DriftStatus);
     }
 
+    [Fact]
+    public async Task GenerateBriefAsync_ExcludesDriftContext_ForAPastDate()
+    {
+        var captured = new CapturingSummarizer();
+        var service = BuildService(captured, featureFlags: FlagsWithDriftEnabled,
+            subjects: [Subject("alice", "Alice")],
+            todayDriftEvents: DriftEvents("alice", 5, 10));
+
+        await service.GenerateBriefAsync(
+            ShiftClock.Today().AddDays(-3),
+            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
+            CancellationToken.None);
+
+        // Drift Radar takes no date — it always scores today. Attaching it to an older brief
+        // presented current behaviour as if it had happened during that shift.
+        Assert.Empty(captured.LastContext!.DriftStatus);
+    }
+
+    [Fact]
+    public async Task GenerateBriefAsync_CarriesTheCoveredWindowAndCounts_OntoTheDto()
+    {
+        var service = BuildService(new StubSummarizer(new HandoffSummaryContent { Summary = "x" }));
+
+        var dto = await service.GenerateBriefAsync(
+            new DateOnly(2026, 4, 14),
+            new GenerateHandoffBriefRequestDto { ShiftWindow = "Afternoon", Audience = "NurseToNurse" },
+            CancellationToken.None);
+
+        // The panel states which hours the brief describes, so those hours have to reach the client.
+        Assert.Equal(new DateOnly(2026, 4, 14), dto.Date);
+        Assert.Equal(14, dto.WindowStartUtc.ToLocalTime().Hour);
+        Assert.Equal(22, dto.WindowEndUtc.ToLocalTime().Hour);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static HandoffCoachService BuildService(

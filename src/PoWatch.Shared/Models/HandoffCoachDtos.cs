@@ -16,8 +16,21 @@ public sealed class GenerateHandoffBriefRequestDto
 /// <summary>A generated handoff brief produced by the Handoff Coach feature.</summary>
 public sealed class HandoffBriefDto
 {
+    public DateOnly Date { get; init; }
     public string Audience { get; init; } = string.Empty;
     public string ShiftWindow { get; init; } = string.Empty;
+
+    /// <summary>Start of the covered window, inclusive — the local hours the brief actually describes.</summary>
+    public DateTimeOffset WindowStartUtc { get; init; }
+
+    /// <summary>End of the covered window, exclusive.</summary>
+    public DateTimeOffset WindowEndUtc { get; init; }
+
+    // The counts the brief was written from. Surfacing them lets the UI show what the prose is based
+    // on, so a caregiver can reconcile the brief against the timeline instead of taking it on trust.
+    public int TotalEvents { get; init; }
+    public int OutlierCount { get; init; }
+    public int SignificantCount { get; init; }
 
     /// <summary>2–4 sentence overview of the shift.</summary>
     public string Summary { get; init; } = string.Empty;

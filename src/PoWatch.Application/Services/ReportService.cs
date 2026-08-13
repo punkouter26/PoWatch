@@ -23,8 +23,13 @@ public sealed class ReportService(
             date,
             shiftWindow);
 
-        var allEvents = await observationRepository.GetByDateAsync(date, cancellationToken);
-        var filtered = FilterByShift(allEvents, date, shiftWindow).ToList();
+        // Shift boundaries are local wall-clock times, but storage is partitioned by UTC date, so the
+        // window is resolved to instants first and the matching partitions read from that (ShiftClock).
+        // The previous approach read one UTC partition and compared local hours inside it, which made
+        // the Night shift unrepresentable: at a negative UTC offset its 00:00–06:00 half lives in the
+        // next partition entirely, so those events could never be returned.
+        var (windowStartUtc, windowEndUtc) = ShiftClock.WindowFor(date, shiftWindow);
+        var filtered = await ShiftClock.LoadWindowAsync(observationRepository, windowStartUtc, windowEndUtc, cancellationToken);
 
         var significantEvents = filtered
             .Where(e => e.IsSignificant && !e.IsClinicalOutlier)
@@ -59,9 +64,11 @@ public sealed class ReportService(
               $"Clinical outliers flagged: {outlierEvents.Count}.";
 
         logger.LogInformation(
-            "Handoff report built. Date={Date} ShiftWindow={ShiftWindow} TotalEvents={Total} Significant={Significant} Outliers={Outliers}",
+            "Handoff report built. Date={Date} ShiftWindow={ShiftWindow} WindowStartUtc={Start} WindowEndUtc={End} TotalEvents={Total} Significant={Significant} Outliers={Outliers}",
             date,
             shiftWindow,
+            windowStartUtc,
+            windowEndUtc,
             filtered.Count,
             significantEvents.Count,
             outlierEvents.Count);
@@ -70,6 +77,8 @@ public sealed class ReportService(
         {
             Date = date,
             ShiftWindow = shiftWindow,
+            WindowStartUtc = windowStartUtc,
+            WindowEndUtc = windowEndUtc,
             PrimarySubject = primarySubject,
             DominantActivity = dominantActivity,
             TotalEvents = filtered.Count,
@@ -80,51 +89,6 @@ public sealed class ReportService(
             OutlierEvents = MapEvents(outlierEvents),
             GeneratedAtUtc = DateTimeOffset.UtcNow
         };
-    }
-
-    /// <summary>
-    /// Filters events by shift window using local time.
-    /// 
-    /// Shift Window Boundaries (local time):
-    /// - Morning:   [06:00, 14:00) — includes 06:00, excludes 14:00
-    /// - Afternoon: [14:00, 22:00) — includes 14:00, excludes 22:00  
-    /// - Night:     [22:00, 06:00) — includes 22:00-23:59 and 00:00-05:59
-    /// - FullDay:   All events (no filtering)
-    /// 
-    /// Note: At exactly 06:00, events belong to Morning (not Night).
-    /// At exactly 14:00, events belong to Afternoon (not Morning).
-    /// At exactly 22:00, events belong to Night (not Afternoon).
-    /// </summary>
-    private static IEnumerable<ObservationEvent> FilterByShift(
-        IReadOnlyList<ObservationEvent> events,
-        DateOnly date,
-        ShiftWindow window)
-    {
-        if (window == ShiftWindow.FullDay)
-            return events;
-
-        var localOffset = TimeZoneInfo.Local.GetUtcOffset(date.ToDateTime(TimeOnly.MinValue));
-
-        return events.Where(e =>
-        {
-            // Calculate local hour from UTC timestamp
-            var localHour = (int)((e.ObservedAtUtc + localOffset).TimeOfDay.TotalHours);
-
-            // Use half-open intervals [start, end) for Morning/Afternoon
-            // and compound condition for Night [22,24) ∪ [0,6)
-            return window switch
-            {
-                // Half-open interval: includes start hour, excludes end hour
-                ShiftWindow.Morning => localHour >= 6 && localHour < 14,     // [06:00, 14:00)
-                ShiftWindow.Afternoon => localHour >= 14 && localHour < 22,  // [14:00, 22:00)
-
-                // Night uses union of two ranges: [22:00-23:59] OR [00:00-05:59]
-                // Equivalent to: localHour >= 22 OR localHour < 6
-                ShiftWindow.Night => localHour >= 22 || localHour < 6,
-
-                _ => true
-            };
-        });
     }
 
     private static IReadOnlyList<ObservationEventDto> MapEvents(IEnumerable<ObservationEvent> events) =>
