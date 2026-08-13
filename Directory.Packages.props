@@ -9,6 +9,11 @@
   <ItemGroup>
     <!-- DataProtection.Blobs pulls 8.0.2 (GHSA-37gx-xxp4-5rgx, GHSA-w3x6-4m5h-cxqf) — force the patched runtime version -->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+    <!-- Testcontainers declares SSH.NET [2025.1.0, ), which resolves to the vulnerable floor
+         (GHSA-q939-rpr3-3284, arbitrary file write via ScpClient). Every Testcontainers release
+         through 4.13.0 uses that same open range, so a package bump can't fix it — pin the first
+         patched version instead. -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
   <!-- ASP.NET Core / .NET extensions -->
   <ItemGroup>
