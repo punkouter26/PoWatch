@@ -1,0 +1,73 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'14px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f7f9fd','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart TB
+    subgraph SIGNIN["Principal acquisition"]
+        direction TB
+        L1["GET /auth/config — which methods this environment offers"]
+        L2{"Environment"}
+        L3["Production: Microsoft only<br/>MicrosoftEnabled = AzureAd:ClientId configured<br/>GuestEnabled = false (hard-forced by !IsProduction)"]
+        L4["Development: Microsoft + Guest<br/>DeveloperEnableMicrosoftLogin · DeveloperBypassAuth"]
+        L5["Test: Guest bypass<br/>FakeAuth scheme via X-Fake-User / X-Fake-Roles headers"]
+        L6["GET /auth/login/microsoft &rarr; OIDC code + PKCE<br/>authority {Instance}/{TenantId}/v2.0 · scopes openid profile email<br/>IssuerValidator checks AzureAd:AllowedTenants"]
+        L7["GET /auth/login/fake?user=&roles= &rarr; SignInAsync(Cookie)<br/>404 unless DeveloperBypassAuth AND !Production"]
+        L8["Cookie 'PoWatch.Auth'<br/>HttpOnly · SameSite=Strict · Secure=Always<br/>24h sliding · DataProtection keyring (blob or filesystem)"]
+    end
+
+    subgraph PIPELINE["Per-request authorization"]
+        direction TB
+        P1["UseAuthentication — DefaultScheme = Cookie<br/>DefaultChallengeScheme = OIDC when ClientId set, else Cookie"]
+        P2["UseAuthorization"]
+        P3{"Endpoint metadata?"}
+        P4["AllowAnonymous"]
+        P5["RequireAuthorization() &rarr; default policy<br/>schemes = [Cookie] (+ FakeAuth only when DeveloperBypassAuth)"]
+        P6["No metadata &rarr; fallback policy<br/>schemes = [Cookie] ONLY — FakeAuth deliberately excluded<br/>so an always-succeeds guest cannot auto-authenticate /auth/me"]
+        P7{"RequireAuthenticatedUser<br/>satisfied?"}
+        P8["401 via OnRedirectToLogin<br/>403 via OnRedirectToAccessDenied"]
+        P9["Endpoint filter / handler-level feature gates"]
+    end
+
+    subgraph SURFACE["Resolved surface"]
+        direction TB
+        A1["ANONYMOUS BY DESIGN<br/>/auth/me · /auth/config · /auth/login/* · POST /auth/logout<br/>MapStaticAssets (incl. /_framework) · MapFallbackToFile index.html"]
+        A2["ANONYMOUS — FLAGGED<br/>GET /health · GET /diag · GET /diag/boot<br/>diag returns masked endpoint/key, storage status, CPU, memory<br/>diag/boot returns environment name and boot stage"]
+        A3["AUTHENTICATED — explicit<br/>/api/observer/* · /api/archives/* · /api/blobs/*<br/>/api/identity/* · /fhir/* · /api/diagnostics/*"]
+        A4["AUTHENTICATED — by fallback policy only<br/>/openapi/v1.json · /scalar/v1"]
+        A5["ROLE-GUARDED<br/><b>NONE</b> — roles are parsed, transported in AuthStateDto,<br/>and never checked by any guard"]
+    end
+
+    subgraph GAP["Audit findings"]
+        direction TB
+        F1["Rate limiter 'ApiPerIpPolicy' is registered and UseRateLimiter runs,<br/>but NO endpoint calls RequireRateLimiting and no GlobalLimiter is set<br/>&rarr; the limiter enforces nothing today"]
+        F2["The same policy is not partitioned by IP despite its name —<br/>if wired, it would be one 60/min window shared by all callers"]
+        F3["POST /api/blobs/integrity accepts an arbitrary blobPath array<br/>and mints read SAS URLs with no ownership check"]
+        F4["Client [Authorize] on pages is UI-only;<br/>the server guard is what actually enforces access"]
+    end
+
+    L1 --> L2
+    L2 --> L3 --> L6
+    L2 --> L4 --> L6
+    L2 --> L4 --> L7
+    L2 --> L5 --> L7
+    L6 --> L8
+    L7 --> L8
+    L8 --> P1
+    P1 --> P2 --> P3
+    P3 --> P4 --> A1
+    P4 --> A2
+    P3 --> P5 --> P7
+    P3 --> P6 --> P7
+    P7 -->|no| P8
+    P7 -->|yes| P9
+    P9 --> A3
+    P6 --> A4
+    P9 --- A5
+
+    classDef ok fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef deny fill:#fae3e3,stroke:#912323,color:#0a1424,stroke-width:2px;
+    classDef gate fill:#e8eefa,stroke:#4a6fa8,color:#0a1424,stroke-width:2px;
+    classDef note fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef sec fill:#dce8fb,stroke:#1a3f7d,color:#0a1424,stroke-width:2px;
+    class L1,L3,L4,L5,L6,L7,L8,P1,P2,P9 sec;
+    class L2,P3,P7,P5,P6 gate;
+    class P4,A1 ok;
+    class P8,A2,A5,F1,F2,F3,F4 deny;
+    class A3,A4 note;

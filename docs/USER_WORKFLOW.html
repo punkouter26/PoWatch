@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch — User Workflow</title>
+<style>
+:root{
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef3f9; --ink:#0a1424; --ink-2:#3c4a61;
+  --line:#d2dcea; --line-2:#b9c7dc; --accent:#1a3f7d; --accent-soft:#dce8fb;
+  --ok:#1d6b3f; --ok-soft:#e6f6ec; --warn:#8a6100; --warn-soft:#fdf0d5;
+  --bad:#8f2222; --bad-soft:#fae3e3; --info:#5b2d82; --info-soft:#f3e8fb;
+  --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --sans:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px 96px}
+header.masthead{background:linear-gradient(180deg,#12294f 0%,#1a3f7d 100%);color:#fff;padding:40px 0 34px}
+header.masthead .wrap{padding-bottom:0}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#a8c4ee;font-weight:700;margin:0 0 8px}
+header.masthead h1{margin:0 0 10px;font-size:34px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
+header.masthead p.lede{margin:0;max-width:76ch;color:#dce8fb;font-size:17px}
+.meta-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.meta-strip span{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:4px 12px;font-size:12.5px;color:#eaf1fd}
+nav.depth{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(10,20,36,.06)}
+nav.depth .inner{max-width:1220px;margin:0 auto;padding:10px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+nav.depth .label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.seg button{appearance:none;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-2);padding:8px 16px;cursor:pointer;border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg button:hover:not([aria-pressed="true"]){background:#e2eaf6;color:var(--ink)}
+.depth-hint{font-size:13px;color:var(--ink-2)}
+section.level{display:none;padding-top:28px}
+section.level.active{display:block}
+h2{font-size:25px;margin:38px 0 6px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:2px solid var(--accent-soft)}
+h3{font-size:19px;margin:28px 0 8px}
+h4{font-size:16px;margin:20px 0 6px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+p{margin:10px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(10,20,36,.05)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px}
+.stat .n{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.stat .k{font-size:12.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:4px}
+.stat .d{font-size:13px;color:var(--ink-2);margin-top:6px}
+.stat.ok{border-left-color:var(--ok)} .stat.ok .n{color:var(--ok)}
+.stat.warn{border-left-color:var(--warn)} .stat.warn .n{color:var(--warn)}
+.stat.bad{border-left-color:var(--bad)} .stat.bad .n{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--surface-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+tbody tr:nth-child(even){background:#fafcfe}
+.scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+.scroll table{margin:0;border:0}
+code,.mono{font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#123}
+pre{background:#0f1d33;color:#e8f0fb;padding:14px 16px;border-radius:10px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+pre .c{color:#8fb4e8}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
+.p-ok{background:var(--ok-soft);color:var(--ok);border-color:#a6d4b8}
+.p-warn{background:var(--warn-soft);color:var(--warn);border-color:#e0c184}
+.p-bad{background:var(--bad-soft);color:var(--bad);border-color:#e0a5a5}
+.p-info{background:var(--info-soft);color:var(--info);border-color:#cfb0e4}
+.p-neutral{background:var(--surface-2);color:var(--ink-2);border-color:var(--line-2)}
+.callout{border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid;border-left-width:5px}
+.callout h4{margin:0 0 6px;text-transform:none;letter-spacing:0;font-size:15.5px;color:inherit}
+.callout p:last-child{margin-bottom:0}
+.c-bad{background:var(--bad-soft);border-color:#e0a5a5;color:#4a1010}
+.c-warn{background:var(--warn-soft);border-color:#e0c184;color:#432f00}
+.c-ok{background:var(--ok-soft);border-color:#a6d4b8;color:#0f3d23}
+.c-info{background:var(--accent-soft);border-color:#a8c4ee;color:#12294f}
+figure{margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}
+figure img{max-width:100%;height:auto;display:block;margin:0 auto}
+figcaption{font-size:13px;color:var(--ink-2);margin-top:12px;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+ul,ol{padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+.tight li{margin:2px 0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.toc{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:18px 0}
+.toc a{color:var(--accent);text-decoration:none;font-weight:600}
+.toc a:hover{text-decoration:underline}
+/* trace steps */
+ol.trace{list-style:none;padding-left:0;counter-reset:tstep;margin:18px 0}
+ol.trace > li{counter-increment:tstep;position:relative;padding:16px 18px 16px 62px;margin:10px 0;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+ol.trace > li::before{content:counter(tstep);position:absolute;left:16px;top:16px;width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center}
+ol.trace > li h4{margin:0 0 4px;font-size:16.5px;text-transform:none;letter-spacing:0;color:var(--ink)}
+ol.trace > li .where{font-family:var(--mono);font-size:12.5px;color:var(--accent);display:block;margin-bottom:6px}
+ol.trace > li p{margin:6px 0 0;font-size:14.5px}
+ol.trace > li.tier-server::before{background:#1d6b3f}
+ol.trace > li.tier-store::before{background:#5b2d82}
+.banner-demo{border-radius:8px;padding:10px 14px;margin:8px 0;font-size:14px;display:flex;gap:10px;align-items:flex-start;border:1px solid}
+.bd-mock{background:#fff4d6;border-color:#e0c184;color:#5c4200;font-weight:700;letter-spacing:.04em}
+.bd-warn{background:var(--warn-soft);border-color:#e0c184;color:#432f00}
+.bd-err{background:var(--bad-soft);border-color:#e0a5a5;color:#4a1010}
+@media print{ nav.depth{display:none} section.level{display:block !important} body{background:#fff} .card,figure,table{break-inside:avoid} }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">PoWatch · Generated documentation</p>
+    <h1>User Workflow</h1>
+    <p class="lede">One observation, traced end to end: the caregiver presses Start, the browser looks at a frame, the payload crosses the BFF boundary, the middleware pipeline runs, the orchestrator classifies it, the repositories write it to Table Storage, and an evidence frame goes straight to Blob Storage. Every failure mode along that path is documented with what the caregiver actually sees.</p>
+    <div class="meta-strip">
+      <span>Primary path: <code>ObserverHub</code> → <code>POST /api/observer/ingest</code></span>
+      <span>Poll interval 10 s (5–120 s)</span>
+      <span>Branch: master</span>
+      <span>Generated: 2026-08-13</span>
+    </div>
+  </div>
+</header>
+
+<nav class="depth">
+  <div class="inner">
+    <span class="label">Reading depth</span>
+    <span class="seg">
+      <button data-level="verybasic" aria-pressed="false">Very basic · 30 s</button>
+      <button data-level="basic" aria-pressed="true">Basic · overview</button>
+      <button data-level="complete" aria-pressed="false">Complete · full trace</button>
+    </span>
+    <span class="depth-hint">The sequence diagram switches depth with the prose.</span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ============================= VERY BASIC ============================= -->
+<section class="level" data-level="verybasic">
+  <div class="callout c-info">
+    <h4>The 30-second version</h4>
+    <p>Press <strong>Start monitoring</strong>. Every ten seconds the browser takes one camera frame, writes a sentence about it, and sends that sentence to the server. The server decides whether it matters, saves it, and the screen updates. If something looks wrong, the screen takes over with a full-page alert. If anything breaks, the loop keeps running and tells you which part failed.</p>
+  </div>
+
+  <figure>
+    <img src="assets/payload_lifecycle_verybasic.svg" alt="Caregiver presses start, browser grabs a frame and describes it, sends it to the API, the API saves it and answers, the timeline updates" />
+    <figcaption>One observation, six steps — <code>payload_lifecycle_verybasic.svg</code></figcaption>
+  </figure>
+
+  <div class="grid g3">
+    <div class="card">
+      <h3>Nothing leaves the room by default</h3>
+      <p>The camera frame is described <em>on the device</em>. Only the resulting sentence is sent. A picture is uploaded only when the server says the moment was significant.</p>
+    </div>
+    <div class="card">
+      <h3>Repeats are skipped</h3>
+      <p>If the picture has not changed, no work is done and nothing is sent. That is why the loop is cheap enough to leave running all shift.</p>
+    </div>
+    <div class="card">
+      <h3>It says when it is unhappy</h3>
+      <p>Lost connection, camera gone, model producing nothing usable, GPU running slow — each gets its own banner with its own wording, rather than one generic error.</p>
+    </div>
+  </div>
+
+  <h2>What you will see on screen</h2>
+  <div class="banner-demo bd-mock">⚠ MOCK DATA — shown whenever the app is running on stand-in inference. Impossible to miss, and impossible to turn off while mock mode is on.</div>
+  <div class="banner-demo bd-warn">⚠ Reconnecting to server — the last sync did not complete.</div>
+  <div class="banner-demo bd-err">⛔ Inference pipeline error — the loop hit something it could not recover from.</div>
+</section>
+
+<!-- ============================= BASIC ============================= -->
+<section class="level active" data-level="basic">
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#b-trace">The trace</a> ·
+    <a href="#b-seq">Sequence</a> ·
+    <a href="#b-fail">Failure modes</a> ·
+    <a href="#b-banners">Status banners</a> ·
+    <a href="#b-other">Other workflows</a>
+  </div>
+
+  <h2 id="b-trace">UI submit → storage, in nine steps</h2>
+  <ol class="trace">
+    <li>
+      <h4>The caregiver presses Start monitoring</h4>
+      <span class="where">ObserverHub.razor.cs · StartMonitoringAsync()</span>
+      <p>The loop first re-reads <code>/api/observer/state</code> to confirm the operator kill-switch is not set, then starts the camera preview and loads the selected vision model into a Web Worker.</p>
+    </li>
+    <li>
+      <h4>A frame is captured and diffed</h4>
+      <span class="where">inference-bridge.js (main thread — DOM access)</span>
+      <p>The frame is drawn to a canvas and compared with the previous one. An unchanged frame ends the cycle here: no model run, no network request.</p>
+    </li>
+    <li>
+      <h4>The model describes the frame</h4>
+      <span class="where">inference-worker.js (Web Worker)</span>
+      <p>A SmolVLM model generates one short sentence. Degenerate or empty output is rejected and the cycle is skipped with a reason the UI shows verbatim.</p>
+    </li>
+    <li class="tier-server">
+      <h4>The payload crosses the BFF boundary</h4>
+      <span class="where">POST /api/observer/ingest · Cookie + X-Correlation-ID + X-Session-ID</span>
+      <p>The client attaches no token — the session is an encrypted HttpOnly cookie the browser sends automatically. A per-load session id is threaded onto every call so the server can correlate a whole monitoring session.</p>
+    </li>
+    <li class="tier-server">
+      <h4>Middleware runs, in order</h4>
+      <span class="where">exception handler → HTTPS redirect → rate limiter → correlation → authn → authz</span>
+      <p>An expired cookie is answered with a bare <strong>401</strong> rather than an HTML redirect, which is what lets the client show "Reconnecting" instead of rendering a login page inside the dashboard.</p>
+    </li>
+    <li class="tier-server">
+      <h4>The orchestrator decides</h4>
+      <span class="where">ObservationService.IngestAsync()</span>
+      <p>Four gates in order: the feature flag, a single-flight concurrency gate, the telemetry sanitizer, then subject resolution. Significance and outlier status are decided <em>here</em> — never by the caller.</p>
+    </li>
+    <li class="tier-store">
+      <h4>Providers write</h4>
+      <span class="where">AzureObservationRepository · AzureSubjectRepository</span>
+      <p>The observation row is inserted into the UTC-date partition; the subject's last activity is merged. Both calls sit behind a Polly retry for transient storage faults.</p>
+    </li>
+    <li class="tier-store">
+      <h4>Evidence goes straight to blob storage</h4>
+      <span class="where">GET /api/blobs/sas → browser PUT</span>
+      <p>Only when the server's verdict is <em>significant</em>. The API mints a 30-minute SAS and the browser uploads the JPEG directly — the image never passes through the API.</p>
+    </li>
+    <li>
+      <h4>The caregiver sees the result</h4>
+      <span class="where">Timeline, alert banner, audio cue, full-screen overlay</span>
+      <p>An outlier raises a full-screen takeover with the captured frame. A significant event raises a Watch banner. Redundant or dropped cycles skip the follow-up refreshes entirely.</p>
+    </li>
+  </ol>
+
+  <h2 id="b-seq">Sequence</h2>
+  <figure>
+    <img src="assets/payload_lifecycle_basic.svg" alt="Sequence diagram covering capture, inference, the skip branch, ingest through the service to table storage, and the optional evidence upload" />
+    <figcaption>Payload lifecycle — <code>payload_lifecycle_basic.svg</code></figcaption>
+  </figure>
+
+  <h2 id="b-fail">Failure modes</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Failure</th><th>Where</th><th>What happens</th><th>What the caregiver sees</th></tr></thead>
+    <tbody>
+      <tr><td><strong>401</strong> — cookie expired</td><td>Authorization middleware</td><td>Status code, never an HTML redirect. The loop keeps running and retries on the next cycle.</td><td>"Reconnecting to server — last sync did not complete."</td></tr>
+      <tr><td><strong>429</strong> — inbound throttling</td><td>Rate limiter</td><td><span class="pill p-bad">Unreachable today</span> — the policy is registered but attached to nothing.</td><td>Nothing; no request is ever throttled.</td></tr>
+      <tr><td><strong>429 / 5xx</strong> — Azure Storage</td><td>Polly pipeline in both repositories</td><td>3 attempts, 200 ms exponential backoff, each retry logged with the attempt number.</td><td>Usually nothing — the retry absorbs it.</td></tr>
+      <tr><td><strong>429 / 5xx</strong> — model weight fetch</td><td>Worker <code>fetchWithRetry</code></td><td>3 retries, 600 ms exponential backoff, GET/HEAD only.</td><td>Nothing, unless every attempt fails: "Model unavailable".</td></tr>
+      <tr><td>Camera unavailable</td><td>Bridge</td><td>Monitoring stops immediately.</td><td>A persistent error toast; the loop is cancelled rather than spinning.</td></tr>
+      <tr><td>Model produces nothing usable</td><td>Worker quality gate</td><td>Cycle skipped; the verbatim reply is kept for display.</td><td>The model's own status text — never "check your lighting".</td></tr>
+      <tr><td>Previous cycle still running</td><td>Processing gate</td><td><strong>202 Accepted</strong> with <code>Dropped=true</code>.</td><td>"Dropped by API".</td></tr>
+      <tr><td>Azure OpenAI unavailable</td><td>Handoff Coach</td><td>Falls through to the deterministic template.</td><td>A brief, marked as not AI-generated.</td></tr>
+      <tr><td>PDF engine missing</td><td>QuestPDF native binary</td><td><strong>503</strong> with an explanation instead of a bare 500.</td><td>A message saying the PDF could not be generated on this server.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-banners">Status banners</h2>
+  <p>PoWatch never shows one generic error. Each condition has its own wording, because a caregiver acting on the wrong diagnosis wastes a shift.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Banner</th><th>Level</th><th>Raised when</th><th>Dismissible</th></tr></thead>
+    <tbody>
+      <tr><td><strong>⚠ MOCK DATA</strong> chip</td><td>Persistent</td><td>The resolved inference service implements <code>IMockable</code> — i.e. <code>UseMockAi</code> is on</td><td><span class="pill p-bad">No</span> — by design</td></tr>
+      <tr><td>Reconnecting to server</td><td>warn</td><td>An ingest or state call did not complete</td><td>Yes</td></tr>
+      <tr><td>Inference pipeline error</td><td>error</td><td>The loop threw something unrecoverable</td><td>Yes</td></tr>
+      <tr><td>GPU running fp32 fallback</td><td>warn</td><td>fp16 is unsupported on this adapter, so inference is slower</td><td>Yes</td></tr>
+      <tr><td>Timeline could not be loaded</td><td>warn</td><td>The archives read failed; it will retry on the next refresh</td><td>Yes</td></tr>
+      <tr><td>Threshold alert</td><td>alert</td><td>A rolling-window rule fired — 3 outliers in 10 min, or 10 events in 5 min</td><td>Acknowledge</td></tr>
+      <tr><td>Full-screen room alert</td><td>takeover</td><td>The server classified the observation as a clinical outlier</td><td>Yes, after acknowledgement</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-other">The other three workflows</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>Naming a subject</h3>
+      <p><code>/identity</code> → <code>PATCH /api/identity/subjects/{id}</code>. Renaming a provisional <code>Subject-N</code> rewrites its historical identity references so past events read with the real name.</p>
+    </div>
+    <div class="card">
+      <h3>Ending a shift</h3>
+      <p><code>/archives</code> → <code>POST …/handoff-brief</code> for the narrative, <code>GET …/handoff-report</code> for the PDF. The brief is grounded strictly in the shift window; drift context is attached only when the brief covers today.</p>
+    </div>
+    <div class="card">
+      <h3>Signing in</h3>
+      <p><code>/login</code> reads <code>/auth/config</code> to decide which buttons exist, then either challenges Entra or, in dev and test only, signs in a guest. The cookie is set server-side; the client only ever asks <code>/auth/me</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= COMPLETE ============================= -->
+<section class="level" data-level="complete">
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#c-seq">Full sequence</a> ·
+    <a href="#c-trace">Stage-by-stage trace</a> ·
+    <a href="#c-payload">Payload contract</a> ·
+    <a href="#c-gates">Gate order</a> ·
+    <a href="#c-fail">Failure modes in full</a> ·
+    <a href="#c-retry">Retry inventory</a> ·
+    <a href="#c-banners">Banner inventory</a> ·
+    <a href="#c-other">Secondary workflows</a>
+  </div>
+
+  <h2 id="c-seq">Full sequence</h2>
+  <figure>
+    <img src="assets/payload_lifecycle_complete.svg" alt="Complete sequence diagram from model load through the monitoring loop, every gate in the ingest path, the evidence upload, alert branches and follow-up refreshes" />
+    <figcaption>Complete payload lifecycle, with every gate and branch — <code>payload_lifecycle_complete.svg</code></figcaption>
+  </figure>
+
+  <h2 id="c-trace">Stage-by-stage trace</h2>
+
+  <h3>Stage 1 — Client, before any request</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Step</th><th>Code</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Page init</td><td><code>ObserverHub.OnInitializedAsync</code></td><td>Five independent loads run concurrently — runtime state, timeline, JS diagnostics, subjects, model registry — so first paint lands after the slowest, not the sum.</td></tr>
+      <tr><td>Preference restore</td><td><code>UserPreferencesService</code></td><td>Poll interval restored from localStorage, clamped to 5–120 s, falling back to the configured default.</td></tr>
+      <tr><td>Kiosk keep-alive</td><td><code>RunSessionKeepAliveAsync</code></td><td>A low-frequency background ping keeps the 24-hour sliding cookie warm so an idle wall display never lapses to <code>/login</code> mid-shift.</td></tr>
+      <tr><td>Start pressed</td><td><code>StartMonitoringAsync</code></td><td>Re-verifies <code>ObservationLoopEnabled</code>; cancels any in-flight inference from a prior session so it cannot finish and overwrite the new run's state.</td></tr>
+      <tr><td>Preview</td><td><code>powatchInference.startPreview</code></td><td>Attaches the camera stream to the video element. Failure here stops monitoring outright rather than looping on a dead stream.</td></tr>
+      <tr><td>Model load</td><td>Worker <code>LOAD_MODEL</code></td><td>Weights fetched from the Hugging Face Hub; the WebGPU → WASM fallback chain resolves the device and precision actually used.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Stage 2 — Each loop cycle, client side</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Gate</th><th>Outcome when it trips</th><th>Cost avoided</th></tr></thead>
+    <tbody>
+      <tr><td>Frame diff — has the image changed?</td><td><code>IsAvailable=false</code>, status "Frame unchanged"; <code>_skippedCycles++</code></td><td>A full model run <em>and</em> a round trip</td></tr>
+      <tr><td>Generation — did the model return anything?</td><td>Up to 4 attempts stepping device and precision, then skip</td><td>Sending a meaningless observation</td></tr>
+      <tr><td>Quality — is the output degenerate or repetitive?</td><td>Discard; keep the verbatim reply in <code>lastRejectedOutput</code></td><td>Polluting the clinical record</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>Why the skip statuses are worded so carefully</h4>
+    <p>The client matches on <em>whether the worker classified the outcome</em>, not on a status prefix. An earlier version keyed off the literal string "Low-quality", so a newly-added status fell through to the generic handler and reported "Sync blocked" — hiding the real reason. A separate earlier bug showed "Awaiting clearer frame" for what was actually a model-output rejection, blaming the camera for the model. A run skipping 100 % of its cycles looked like a lighting problem. Both are now reported verbatim.</p>
+  </div>
+
+  <h3>Stage 3 — Transport and middleware</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Layer</th><th>Behaviour on this request</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>CorrelationHandler</code> (client)</td><td>Adds <code>X-Correlation-ID</code> and the per-app-load <code>X-Session-ID</code>.</td></tr>
+      <tr><td>2</td><td>Browser</td><td>Attaches the <code>PoWatch.Auth</code> cookie automatically — <code>SameSite=Strict</code>, same origin, so no CORS preflight exists.</td></tr>
+      <tr><td>3</td><td><code>/health</code> rewrite</td><td>No match — passes through.</td></tr>
+      <tr><td>4</td><td><code>UseRouting</code></td><td>Selects the <code>/api/observer/ingest</code> endpoint and its metadata.</td></tr>
+      <tr><td>5</td><td><code>UseExceptionHandler</code></td><td>Armed; produces <code>ProblemDetails</code> with a <code>traceId</code> if anything downstream throws.</td></tr>
+      <tr><td>6</td><td><code>UseHttpsRedirection</code></td><td>Active outside Development only.</td></tr>
+      <tr><td>7</td><td><code>UseRateLimiter</code></td><td>Runs, selects no limiter — see the finding below.</td></tr>
+      <tr><td>8</td><td><code>CorrelationIdMiddleware</code></td><td>Echoes the correlation id on the response; pushes correlation, user and session onto the Serilog context; logs start and finish with elapsed ms.</td></tr>
+      <tr><td>9</td><td><code>UseAuthentication</code></td><td>Decrypts the cookie into a principal. A failure here yields no principal, not an exception.</td></tr>
+      <tr><td>10</td><td><code>UseAuthorization</code></td><td>Default policy: authenticated user required. On failure <code>OnRedirectToLogin</code> writes <strong>401</strong> — never an HTML redirect.</td></tr>
+      <tr><td>11</td><td>Log enrichment</td><td>Pushes <code>UserId</code> from the now-established principal and <code>SessionId</code> from <code>TraceIdentifier</code>.</td></tr>
+      <tr><td>12</td><td>Endpoint</td><td><code>ObserverEndpoints</code> logs the received activity and subject hint, then calls the service.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Stage 4 — Orchestrator</h3>
+  <pre><span class="c">ObservationService.IngestAsync(request, ct)</span>
+
+ 1. logger.PollStart(observedAt, subjectHint, activity)
+ 2. if (!ObservationLoopEnabled)          → Dropped: "Observation loop is disabled by feature flag."
+ 3. if (!processingGate.TryEnter())       → Dropped: "Frame dropped because previous inference is still running."
+ 4. try {
+ 5.   if (EnableTelemetrySanitizer)
+ 6.     if (!sanitizer.TrySanitize(req))   → Dropped: "Rejected by telemetry sanitizer: {reason}"
+ 7.   subject   = subjectRepository.GetOrCreateAsync(subjectHint)
+ 8.   isOutlier = !ClinicalTagParser.TryExtract(payload, out description)
+ 9.   verdict   = ActivitySignificanceClassifier.Classify(activity, description)
+10.   <span class="c">// a caller-supplied reason is an explicit assertion and wins over the classifier</span>
+11.   isSignificant = callerAssertedSignificance ? request.IsSignificant : verdict.IsSignificant
+12.   observedAtUtc = DateTimeOffset.UtcNow          <span class="c">// server-authoritative — no backdating</span>
+13.   Id            = IdempotencyKey ?? new          <span class="c">// stable identity for retries</span>
+14.   ImageReference = isSignificant &amp;&amp; SaveSignificantImages
+15.                    ? "significant-images/{yyyyMMdd}/{subjectId}/{guid:N}.jpg" : null
+16.   isRedundant = IsRedundantObservation(subject, activity, isOutlier)   <span class="c">// flagged, still persisted</span>
+17.   observationRepository.AddAsync(observation)
+18.   subjectRepository.UpdateLastActivityAsync(...)                       <span class="c">// Merge, disjoint columns</span>
+19.   triggeredAlerts = thresholdEvaluator.Evaluate(observation)
+20.   return Accepted + verdict + alerts
+21. } finally { processingGate.Exit(); }</pre>
+
+  <div class="callout c-info">
+    <h4>Two decisions the server refuses to delegate</h4>
+    <p><strong>Time.</strong> The client's <code>ObservedAtUtc</code> is accepted on the wire and then ignored; the row is stamped server-side so an observation cannot be backdated.</p>
+    <p><strong>Significance.</strong> The inference worker once set significance from caption length, which flagged every well-formed observation and made "Notable" meaningless. The classifier now decides from content. A caller that supplies its own reason still wins — an explicit reason is a deliberate assertion, which is what the dev-tool injectors and contract tests rely on.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>Why nothing is silently dropped any more</h4>
+    <p>Stable-state observations used to be discarded before persistence. Three things broke: drift detection missed stable subjects, archives never recorded them, and threshold rules never saw them. Redundancy is now a <em>flag on the persisted row</em> rather than a reason to discard it, so downstream consumers can filter while the record stays complete.</p>
+  </div>
+
+  <h3>Stage 5 — Providers and storage</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Provider</th><th>Operation</th><th>Keying</th><th>Resilience</th><th>Conflict behaviour</th></tr></thead>
+    <tbody>
+      <tr><td><code>AzureObservationRepository</code></td><td><code>AddEntityAsync</code></td><td>PK = UTC <code>yyyyMMdd</code>; RK = <code>{subjectId}_{eventId:N}</code></td><td>Polly: 3 attempts, 200 ms exponential, on 408/429/500/502/503/504</td><td><strong>409 is success</strong> — an idempotent duplicate, logged and ignored</td></tr>
+      <tr><td><code>AzureSubjectRepository</code></td><td><code>UpdateEntityAsync(Merge)</code></td><td>PK = <code>"Subjects"</code>; RK = <code>{subjectId}</code></td><td>Same Polly pipeline</td><td>404 ignored — the subject row is not yet created</td></tr>
+      <tr><td><code>AzureBlobSasProvider</code></td><td>Mint upload SAS</td><td><code>significant-images/{date}/{subjectId}/{guid}.jpg</code></td><td>—</td><td>30-minute expiry</td></tr>
+      <tr><td>Browser (<code>blob-upload.js</code>)</td><td><code>PUT</code> to the SAS URL</td><td>—</td><td>None — a failed upload is reported, not retried</td><td>Non-2xx throws with the response body attached</td></tr>
+      <tr><td><code>InMemory*Repository</code></td><td>Both of the above</td><td>Same shape</td><td>n/a</td><td>Selected automatically when no storage connection is configured</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-info">
+    <h4>Merge, not Replace, on the activity ping</h4>
+    <p><code>UpdateLastActivityAsync</code> writes only <code>LastActivity</code> and <code>LastActivityIsOutlier</code> with <code>TableUpdateMode.Merge</code>. A concurrent rename or identity merge writing <code>DisplayName</code> and <code>FirstSeenUtc</code> touches disjoint columns and is therefore not clobbered by the per-cycle activity ping.</p>
+  </div>
+
+  <h3>Stage 6 — Response handling and the follow-up reads</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Server verdict</th><th>Client reaction</th><th>Follow-up requests</th></tr></thead>
+    <tbody>
+      <tr><td><code>IsOutlier</code></td><td>Full-screen <code>RoomAlertOverlay</code> with the captured frame, subject, activity, local time; alert audio cue</td><td>Timeline + subjects refresh</td></tr>
+      <tr><td><code>IsSignificant</code></td><td>Watch-level banner with the server's reason</td><td>SAS request + direct blob PUT, then timeline + subjects refresh</td></tr>
+      <tr><td><code>Dropped</code></td><td>"Dropped by API"</td><td><span class="pill p-ok">None</span> — nothing changed server-side</td></tr>
+      <tr><td><code>SkippedAsRedundant</code></td><td>"Already synced · HH:mm:ss"</td><td><span class="pill p-ok">None</span></td></tr>
+      <tr><td>Normal</td><td>"Synced · HH:mm:ss"</td><td>Timeline + subjects refresh</td></tr>
+      <tr><td><code>TriggeredAlerts</code> non-empty</td><td>Accumulated into the threshold banner, deduplicated by rule and subject; a cue plays only on a <em>newly</em> raised alert</td><td>—</td></tr>
+      <tr><td>Null response (transport failure)</td><td>"API unavailable" + the Reconnecting health latch</td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Acknowledging an alert does more than clear a badge: <code>POST /api/observer/acknowledge</code> explicitly evicts the <code>HybridCache</code> live-status entry. Without that eviction the badge survived until the ~10-second cache expiry, so the operator pressed the button, nothing appeared to happen, and they pressed it again.</p>
+
+  <h2 id="c-payload">Payload contract</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Direction</th><th>Field</th><th>Set by</th><th>Trusted?</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="7">Request<br><code>IngestObservationRequestDto</code></td><td><code>SubjectHint</code></td><td>Worker</td><td>Sanitized, then used to resolve or create a subject</td></tr>
+      <tr><td><code>Activity</code></td><td>Worker</td><td>Sanitized; feeds the significance classifier</td></tr>
+      <tr><td><code>ClinicalPayload</code></td><td>Worker</td><td>Sanitized; parse failure <em>is</em> the outlier signal</td></tr>
+      <tr><td><code>IsSignificant</code></td><td>Caller</td><td>Only when accompanied by an explicit reason</td></tr>
+      <tr><td><code>SignificantReason</code></td><td>Caller</td><td>Presence is what makes the caller's verdict authoritative</td></tr>
+      <tr><td><code>ObservedAtUtc</code></td><td>Caller</td><td><span class="pill p-bad">Ignored</span> — the server stamps its own</td></tr>
+      <tr><td><code>IdempotencyKey</code></td><td>Caller</td><td>Becomes the event id, giving a retry a stable identity</td></tr>
+      <tr><td rowspan="10">Response<br><code>IngestObservationResultDto</code></td><td><code>Accepted</code> / <code>Dropped</code></td><td colspan="2">Whether the row was written</td></tr>
+      <tr><td><code>IsOutlier</code></td><td colspan="2">Drives the full-screen takeover</td></tr>
+      <tr><td><code>IsSignificant</code> / <code>SignificantReason</code></td><td colspan="2">Echoed so the client stops second-guessing the verdict</td></tr>
+      <tr><td><code>EventId</code></td><td colspan="2">Canonical id of the persisted row</td></tr>
+      <tr><td><code>SubjectId</code> / <code>SubjectDisplayName</code></td><td colspan="2">Resolved identity, which may be newly minted</td></tr>
+      <tr><td><code>ImageReference</code></td><td colspan="2">The blob path to upload to — non-null only when evidence capture applies</td></tr>
+      <tr><td><code>SkippedAsRedundant</code></td><td colspan="2">Persisted, but represents no change</td></tr>
+      <tr><td><code>TriggeredAlerts</code></td><td colspan="2">Rolling-window rules that fired on this event</td></tr>
+      <tr><td><code>Detail</code></td><td colspan="2">Human-readable outcome shown in the sync status line</td></tr>
+      <tr><td>HTTP status</td><td colspan="2"><strong>200</strong> when accepted, <strong>202</strong> when dropped — a drop is a valid outcome, not an error</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-gates">Gate order — the complete list</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Gate</th><th>Layer</th><th>Rejection</th><th>Visible to the caregiver?</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Operator kill-switch (<code>ObservationLoopEnabled</code>)</td><td>Client pre-check</td><td>Monitoring refuses to start</td><td>Yes — "Monitoring Disabled" toast</td></tr>
+      <tr><td>2</td><td>Camera stream present</td><td>Bridge</td><td>Monitoring cancelled</td><td>Yes — persistent error toast</td></tr>
+      <tr><td>3</td><td>Frame changed</td><td>Bridge</td><td>Cycle skipped silently</td><td>Status line only — "No sync needed"</td></tr>
+      <tr><td>4</td><td>Model produced output</td><td>Worker</td><td>4 fallback attempts, then skip</td><td>Yes — verbatim worker status</td></tr>
+      <tr><td>5</td><td>Output not degenerate</td><td>Worker</td><td>Discarded</td><td>Yes — the rejected reply is shown</td></tr>
+      <tr><td>6</td><td>Authenticated</td><td>Authorization middleware</td><td><strong>401</strong></td><td>Yes — "Reconnecting to server"</td></tr>
+      <tr><td>7</td><td>Rate limit</td><td>Rate limiter</td><td><span class="pill p-bad">Never trips</span></td><td>No</td></tr>
+      <tr><td>8</td><td><code>ObservationLoopEnabled</code>, server side</td><td>Service</td><td><strong>202</strong> + <code>Dropped</code></td><td>Yes — "Dropped by API"</td></tr>
+      <tr><td>9</td><td>Single-flight processing gate</td><td>Service</td><td><strong>202</strong> + <code>Dropped</code></td><td>Yes</td></tr>
+      <tr><td>10</td><td>Telemetry sanitizer</td><td>Service</td><td><strong>202</strong> + <code>Dropped</code> with the reason</td><td>Yes</td></tr>
+      <tr><td>11</td><td>Storage write</td><td>Repository</td><td>3 retries, then the exception surfaces</td><td>Only if all retries fail</td></tr>
+      <tr><td>12</td><td>Evidence upload</td><td>Browser → blob</td><td>Reported, not retried</td><td>Yes — an upload toast, Azurite-aware in dev</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-fail">Failure modes in full</h2>
+
+  <div class="callout c-bad">
+    <h4>401 — the one the kiosk actually hits</h4>
+    <p>An unattended wall display runs for a whole shift, so cookie lifetime is the real risk. Three mechanisms address it: a <strong>24-hour sliding</strong> expiry, a background keep-alive ping that slides the cookie while the display is idle, and a <strong>durable Data Protection keyring</strong> persisted to blob storage so an App Service recycle or scale-out event does not rotate the keys and invalidate every cookie at once. When a 401 does happen, <code>OnRedirectToLogin</code> writes the status code rather than redirecting — so the client shows "Reconnecting" and recovers on the next cycle, instead of rendering a login page inside the dashboard.</p>
+  </div>
+
+  <div class="callout c-bad">
+    <h4>429 — inbound throttling does not currently exist</h4>
+    <p><code>AddSlidingWindowLimiter("ApiPerIpPolicy", …)</code> registers a <strong>named</strong> policy — 60 requests per minute, 6 segments, queue of 5, <code>OnRejected</code> writing 429 — and <code>UseRateLimiter()</code> is in the pipeline. But no endpoint calls <code>.RequireRateLimiting("ApiPerIpPolicy")</code> and no <code>GlobalLimiter</code> is set, so the middleware selects no limiter and every request is admitted. The <code>OnRejected</code> handler is unreachable and no client code handles 429 from PoWatch's own API. <em>Outbound</em> 429s — from Azure Storage and the Hugging Face Hub — are handled properly, by the two retry policies below.</p>
+  </div>
+
+  <h3 id="c-retry">Retry inventory</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Path</th><th>Mechanism</th><th>Attempts</th><th>Backoff</th><th>Retries on</th><th>Safety</th></tr></thead>
+    <tbody>
+      <tr><td>Observation table writes/reads</td><td>Polly <code>ResiliencePipeline</code></td><td>3</td><td>200 ms exponential</td><td>408, 429, 500, 502, 503, 504</td><td>Writes are idempotent by construction — the row key is derived from a stable id</td></tr>
+      <tr><td>Subject table operations</td><td>Polly, same shape</td><td>3</td><td>200 ms exponential</td><td>408, 429, 500, 502, 503, 504</td><td>Merge writes touch disjoint columns</td></tr>
+      <tr><td>Model weight fetch</td><td>Worker <code>fetchWithRetry</code></td><td>3 retries (4 total)</td><td>600 ms exponential</td><td>429 and ≥500, plus network/TLS failures</td><td><strong>GET/HEAD only</strong> — a mutating request can never be replayed; 4xx fails fast</td></tr>
+      <tr><td>Generation</td><td>Runtime fallback chain</td><td>4</td><td>none</td><td>Throw or empty output</td><td>Inputs are rebuilt after every backend switch — reusing WebGPU tensors on WASM produced bare ONNX errors with no message</td></tr>
+      <tr><td>Azure OpenAI call</td><td><code>AddStandardResilienceHandler</code></td><td>handler defaults</td><td>handler defaults</td><td>Transient HTTP</td><td>Circuit breaker + total and per-attempt timeouts; 45 s client timeout</td></tr>
+      <tr><td>Evidence upload</td><td><span class="pill p-warn">None</span></td><td>1</td><td>—</td><td>—</td><td>A failed upload is reported to the operator; the observation row is already written and keeps its <code>ImageReference</code></td></tr>
+      <tr><td>SSE stream</td><td>Adaptive polling</td><td>continuous</td><td>3 s base, up to 15 s after consecutive empty polls</td><td>—</td><td>Batch capped at 500 events for backpressure</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>The one unretried write</h4>
+    <p>The evidence upload is the only mutating call with no retry. It is a direct browser-to-blob <code>PUT</code>, so a transient network blip loses the frame while the observation row survives with an <code>ImageReference</code> pointing at a blob that was never written. The <code>POST /api/blobs/integrity</code> endpoint exists precisely to detect that state after the fact.</p>
+  </div>
+
+  <h2 id="c-banners">Banner and status inventory</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Surface</th><th>Trigger</th><th>Wording</th><th>Lifetime</th></tr></thead>
+    <tbody>
+      <tr><td>MOCK DATA chip (topbar)</td><td>The resolved <code>IInferenceService</code> implements <code>IMockable</code></td><td>⚠ MOCK DATA, with the mock label in the tooltip</td><td>Permanent while mock mode is on — no dismiss control exists</td></tr>
+      <tr><td>Pipeline health latch — warn</td><td>Ingest returned null; state call failed; timeline load failed; GPU fell back to fp32</td><td>Condition-specific, e.g. "GPU running fp32 fallback — fp16 unsupported on this adapter (slower)."</td><td>Latched until dismissed; cleared on the next successful start</td></tr>
+      <tr><td>Pipeline health latch — error</td><td>The inference pipeline threw</td><td>"Inference pipeline error — {message}"</td><td>Latched until dismissed</td></tr>
+      <tr><td>Sync status line</td><td>Every cycle</td><td>Synced · / Already synced · / No sync needed / Dropped by API / Sync blocked / API unavailable / Camera unavailable / Disabled by operator</td><td>Replaced each cycle</td></tr>
+      <tr><td>Threshold alert banner</td><td>A rolling-window rule fired</td><td>The rule's configured description, e.g. "3 or more clinical outliers detected in 10 minutes."</td><td>Until acknowledged; deduplicated per rule and subject</td></tr>
+      <tr><td>Room alert overlay</td><td>Server classified the event as a clinical outlier</td><td>Subject, activity, reason, local time, and the captured frame</td><td>Full-screen takeover plus an audio cue</td></tr>
+      <tr><td>Toasts</td><td>Camera loss, model registry load failure, evidence upload failure, observer API failure</td><td>Each carries its own cause; the Azurite case names the Docker emulator explicitly</td><td>5–8 s, or persistent for camera loss</td></tr>
+      <tr><td>"All cycles rejected" state</td><td>≥3 cycles run and none produced structured output</td><td>Surfaces the model-output problem instead of a healthy-looking idle loop</td><td>Until a cycle succeeds</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>Mock status is a registration fact, not a string</h4>
+    <p>The chip is driven by whether the resolved service implements <code>IMockable</code> — <code>MockInferenceService</code> does, <code>WebGpuInferenceService</code> deliberately does not. That is the entire reason the otherwise-empty <code>WebGpuInferenceService</code> marker type still exists. A developer cannot ship mock output that looks real without also shipping the chip, because the same DI registration decides both.</p>
+  </div>
+
+  <h2 id="c-other">Secondary workflows</h2>
+
+  <h3>Ending a shift — handoff brief</h3>
+  <pre><span class="c">POST /api/archives/{date}/handoff-brief   { shiftWindow, audience, includeHighlights }</span>
+  → HandoffCoachEnabled?  no → 503
+  → audience validated against { NurseToNurse, Supervisor, FamilySafe }
+      FamilySafe &amp;&amp; !AllowFamilySafeSummary  → silently downgraded to NurseToNurse (logged)
+  → ReportService.BuildHandoffReportAsync(date, shift)
+      ShiftClock.WindowFor(localDate, shift) → half-open UTC window
+        Morning   06:00–14:00 local
+        Afternoon 14:00–22:00 local
+        Night     22:00 → 06:00 local <span class="c">the FOLLOWING morning</span>
+        FullDay   local midnight → local midnight
+      reads 1–2 UTC partitions, then trims to exact instants
+  → DriftRadarService, <span class="c">only when the brief covers today</span>
+  → IHandoffSummarizer.SummarizeAsync(context)
+      Azure OpenAI when enabled and configured, else template; any failure → template
+  → HandoffBriefDto { summary, priorityItems, followUps, sourceNotes, isAiGenerated }</pre>
+
+  <div class="callout c-info">
+    <h4>Two correctness details in this flow</h4>
+    <p><strong>The night shift crosses midnight.</strong> A brief for "the night of the 13th" must include the small hours of the 14th, because a night shift is one continuous stretch of work. Night is therefore defined as 22:00 → 30:00 on the local day.</p>
+    <p><strong>Drift context is date-scoped.</strong> Drift Radar always scores <em>today</em> against a multi-day baseline; it takes no date. Attaching it to a brief for an earlier date presented current behaviour as if it belonged to that shift, so a brief pulled up for last Tuesday carried today's drift alerts. It is now attached only when the brief covers the day in progress, and the prompt states explicitly that drift is not scoped to the shift window.</p>
+  </div>
+
+  <h3>Naming and merging identities</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Action</th><th>Route</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Pre-register a known person</td><td><code>POST /api/identity/subjects</code></td><td>Creates a <code>Known</code> profile without waiting for an observation</td></tr>
+      <tr><td>Name a provisional subject</td><td><code>PATCH /api/identity/subjects/{id}</code></td><td>Renames and rewrites historical identity references, so past events read with the real name</td></tr>
+      <tr><td>Merge two identities</td><td><code>POST /api/identity/merge</code></td><td>Rewrites the secondary's rows onto the primary; row keys change, so old rows are deleted after the new ones are written</td></tr>
+      <tr><td>Provisional reuse</td><td>automatic</td><td>A hint-less observation reuses a recent <code>Subject-N</code> within a 30-minute window, instead of minting a new "person" every cycle and filling the roster with un-nameable duplicates</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Signing in</h3>
+  <pre><span class="c">/login  (Blazor route, anonymous)</span>
+  → GET /auth/config
+      Production   : Microsoft only          (GuestEnabled forced false by !IsProduction)
+      Development  : Microsoft + Guest
+      Test         : Guest bypass / FakeAuth header
+  → GET /auth/login/microsoft  → Challenge(OIDC)  <span class="c">code + PKCE, scopes openid profile email</span>
+      404 when AzureAd:ClientId is unset — dev sign-in stays honest
+      IssuerValidator checks AzureAd:AllowedTenants when supplied
+  → OIDC signs into the cookie scheme; SaveTokens keeps tokens SERVER-side
+  → returnUrl passed through SafeLocalUrl()   <span class="c">only same-site absolute paths; rejects //host</span>
+  → client calls GET /auth/me and rebuilds its AuthenticationState</pre>
+</section>
+
+<footer>
+  <p><strong>PoWatch — User Workflow.</strong> Generated 2026-08-13 from the working tree on branch <code>master</code>. Diagram source: <code>DOCS/diagrams/payload_lifecycle_{verybasic,basic,complete}.mmd</code>, compiled to <code>DOCS/assets/payload_lifecycle_*.svg</code>.</p>
+  <p>Related: <a href="ARCHITECTURE_REPORT.html">Architecture Report</a> · <a href="AI_SERVICES_REPORT.html">AI Services Report</a> · <a href="ROLES_PERMISSIONS_MATRIX.html">Roles &amp; Permissions Matrix</a></p>
+</footer>
+</div>
+
+<script>
+(function(){
+  var buttons = document.querySelectorAll('nav.depth .seg button');
+  var sections = document.querySelectorAll('section.level');
+  function setLevel(lv){
+    buttons.forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.level === lv)); });
+    sections.forEach(function(s){ s.classList.toggle('active', s.dataset.level === lv); });
+    try { localStorage.setItem('powatch-doc-depth', lv); } catch(e){}
+    window.scrollTo({top:0, behavior:'instant'});
+  }
+  buttons.forEach(function(b){ b.addEventListener('click', function(){ setLevel(b.dataset.level); }); });
+  try { var saved = localStorage.getItem('powatch-doc-depth'); if (saved) setLevel(saved); } catch(e){}
+})();
+</script>
+</body>
+</html>

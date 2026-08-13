@@ -1,0 +1,31 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'15px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f7f9fd','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart TB
+    subgraph EDGE["Service 1 — Vision inference (client-side, always on)"]
+        direction LR
+        V1["ObserverHub<br/>every 10s"] --> V2["inference-worker.js<br/>transformers.js 3.8.1"]
+        V2 --> V3["SmolVLM / SmolVLM2<br/>5 models in model-registry.json"]
+        V3 --> V4["WebGPU fp16<br/>&rarr; WebGPU fp32<br/>&rarr; WASM q8/q4"]
+    end
+
+    subgraph SERVER["Service 2 — Handoff brief (server-side, opt-in)"]
+        direction LR
+        H1["POST /api/archives/{date}/handoff-brief"] --> H2{"AzureOpenAiEnabled<br/>AND Endpoint set?"}
+        H2 -->|yes| H3["AzureOpenAiHandoffSummarizer<br/>deployment gpt-5.4-nano<br/>max_tokens 600 · temp 0.3"]
+        H2 -->|no| H4["TemplateHandoffSummarizer<br/>deterministic, no model"]
+        H3 -.->|"endpoint/key missing · non-2xx<br/>empty body · unparseable JSON · exception"| H4
+    end
+
+    MOCK["Service 3 — MockInferenceService<br/>UseMockAi flag · raises MOCK DATA chip"]
+
+    ANTH["Anthropic / Claude<br/><b>NOT PRESENT</b> anywhere in the repo"]
+
+    classDef local fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef cloud fill:#f3e8fb,stroke:#5b2d82,color:#0a1424,stroke-width:2px;
+    classDef det fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef gate fill:#e8eefa,stroke:#4a6fa8,color:#0a1424,stroke-width:2px;
+    classDef absent fill:#fae3e3,stroke:#912323,color:#0a1424,stroke-width:2px,stroke-dasharray: 6 4;
+    class V1,V2,V3,V4 local;
+    class H1,H3 cloud;
+    class H2 gate;
+    class H4,MOCK det;
+    class ANTH absent;

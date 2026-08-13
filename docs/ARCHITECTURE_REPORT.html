@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch — Architecture Report</title>
+<style>
+:root{
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef3f9; --ink:#0a1424; --ink-2:#3c4a61;
+  --line:#d2dcea; --line-2:#b9c7dc; --accent:#1a3f7d; --accent-soft:#dce8fb;
+  --ok:#1d6b3f; --ok-soft:#e6f6ec; --warn:#8a6100; --warn-soft:#fdf0d5;
+  --bad:#8f2222; --bad-soft:#fae3e3; --info:#5b2d82; --info-soft:#f3e8fb;
+  --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --sans:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px 96px}
+header.masthead{background:linear-gradient(180deg,#12294f 0%,#1a3f7d 100%);color:#fff;padding:40px 0 34px}
+header.masthead .wrap{padding-bottom:0}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#a8c4ee;font-weight:700;margin:0 0 8px}
+header.masthead h1{margin:0 0 10px;font-size:34px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
+header.masthead p.lede{margin:0;max-width:74ch;color:#dce8fb;font-size:17px}
+.meta-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.meta-strip span{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:4px 12px;font-size:12.5px;color:#eaf1fd}
+nav.depth{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(10,20,36,.06)}
+nav.depth .inner{max-width:1220px;margin:0 auto;padding:10px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+nav.depth .label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.seg button{appearance:none;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-2);padding:8px 16px;cursor:pointer;border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg button:hover:not([aria-pressed="true"]){background:#e2eaf6;color:var(--ink)}
+.depth-hint{font-size:13px;color:var(--ink-2)}
+section.level{display:none;padding-top:28px}
+section.level.active{display:block}
+h2{font-size:25px;margin:38px 0 6px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:2px solid var(--accent-soft)}
+h3{font-size:19px;margin:28px 0 8px}
+h4{font-size:16px;margin:20px 0 6px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+p{margin:10px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(10,20,36,.05)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px}
+.stat .n{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.stat .k{font-size:12.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:4px}
+.stat .d{font-size:13px;color:var(--ink-2);margin-top:6px}
+.stat.ok{border-left-color:var(--ok)} .stat.ok .n{color:var(--ok)}
+.stat.warn{border-left-color:var(--warn)} .stat.warn .n{color:var(--warn)}
+.stat.bad{border-left-color:var(--bad)} .stat.bad .n{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--surface-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);position:sticky;top:52px}
+tbody tr:nth-child(even){background:#fafcfe}
+.scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+.scroll table{margin:0;border:0}
+.scroll th,.scroll td{border-left:0}
+code,.mono{font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#123}
+pre{background:#0f1d33;color:#e8f0fb;padding:14px 16px;border-radius:10px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+pre .c{color:#8fb4e8}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
+.p-ok{background:var(--ok-soft);color:var(--ok);border-color:#a6d4b8}
+.p-warn{background:var(--warn-soft);color:var(--warn);border-color:#e0c184}
+.p-bad{background:var(--bad-soft);color:var(--bad);border-color:#e0a5a5}
+.p-info{background:var(--info-soft);color:var(--info);border-color:#cfb0e4}
+.p-neutral{background:var(--surface-2);color:var(--ink-2);border-color:var(--line-2)}
+.callout{border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid;border-left-width:5px}
+.callout h4{margin:0 0 6px;text-transform:none;letter-spacing:0;font-size:15.5px;color:inherit}
+.callout p:last-child{margin-bottom:0}
+.c-bad{background:var(--bad-soft);border-color:#e0a5a5;color:#4a1010}
+.c-warn{background:var(--warn-soft);border-color:#e0c184;color:#432f00}
+.c-ok{background:var(--ok-soft);border-color:#a6d4b8;color:#0f3d23}
+.c-info{background:var(--accent-soft);border-color:#a8c4ee;color:#12294f}
+figure{margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}
+figure img{max-width:100%;height:auto;display:block;margin:0 auto}
+figcaption{font-size:13px;color:var(--ink-2);margin-top:12px;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+.chartbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.chartbox h4{margin-top:0}
+.chart-holder{position:relative;height:290px}
+.chart-fallback{font-size:13px;color:var(--ink-2);background:var(--surface-2);border:1px dashed var(--line-2);border-radius:8px;padding:10px 12px;margin-top:10px}
+ul,ol{padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+.tight li{margin:2px 0}
+ol.pipeline{list-style:none;padding-left:0;counter-reset:step}
+ol.pipeline li{counter-increment:step;position:relative;padding:12px 14px 12px 56px;margin:8px 0;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+ol.pipeline li::before{content:counter(step);position:absolute;left:14px;top:12px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+ol.pipeline li.anon::before{background:var(--warn)}
+ol.pipeline li strong{display:block;font-size:15px}
+ol.pipeline li span.why{display:block;font-size:13.5px;color:var(--ink-2);margin-top:4px}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.toc{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:18px 0}
+.toc a{color:var(--accent);text-decoration:none;font-weight:600}
+.toc a:hover{text-decoration:underline}
+@media print{ nav.depth{display:none} section.level{display:block !important} body{background:#fff} .card,figure,table{break-inside:avoid} }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">PoWatch · Generated documentation</p>
+    <h1>Architecture Report</h1>
+    <p class="lede">A C4-structured audit of PoWatch: system context, containers and components; the vertical-slice boundary from each Blazor <code>@page</code> to its Minimal API <code>MapGroup</code>; and the exact ASP.NET Core middleware ordering — including why the static-asset and SPA-fallback routes must opt out of the default-deny authorization policy.</p>
+    <div class="meta-strip">
+      <span>ASP.NET Core .NET 10</span>
+      <span>Hosted Blazor WebAssembly, single origin</span>
+      <span>Branch: master</span>
+      <span>Generated: 2026-08-13</span>
+    </div>
+  </div>
+</header>
+
+<nav class="depth">
+  <div class="inner">
+    <span class="label">Reading depth</span>
+    <span class="seg">
+      <button data-level="verybasic" aria-pressed="false">Very basic · 30 s</button>
+      <button data-level="basic" aria-pressed="true">Basic · overview</button>
+      <button data-level="complete" aria-pressed="false">Complete · full detail</button>
+    </span>
+    <span class="depth-hint">Prose, tables and the C4 diagram all switch to the depth you pick.</span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ============================= VERY BASIC ============================= -->
+<section class="level" data-level="verybasic">
+  <div class="callout c-info">
+    <h4>The 30-second version</h4>
+    <p>One web server does everything. It hands the browser a small app; the browser watches the room with its own camera and its own AI, then posts what it saw back to the same server. The server checks it, saves it to Azure Storage, and hands back timelines and reports. There is no second backend and no cross-origin traffic.</p>
+  </div>
+
+  <figure>
+    <img src="assets/architecture_flow_verybasic.svg" alt="Caregiver to browser app to API to storage, with results flowing back" />
+    <figcaption>The whole system in four boxes — <code>architecture_flow_verybasic.svg</code></figcaption>
+  </figure>
+
+  <div class="grid g4">
+    <div class="stat"><div class="n">1</div><div class="k">Deployable</div><div class="d">PoWatch.Api serves the app and the API</div></div>
+    <div class="stat"><div class="n">7</div><div class="k">Feature slices</div><div class="d">Each screen talks to its own route group</div></div>
+    <div class="stat ok"><div class="n">0</div><div class="k">CORS rules needed</div><div class="d">Everything is same-origin</div></div>
+    <div class="stat ok"><div class="n">0</div><div class="k">Tokens in the browser</div><div class="d">The session lives in a server-encrypted cookie</div></div>
+  </div>
+
+  <h2>Why it is shaped this way</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>One origin, one cookie</h3>
+      <p>Because the app and the API are the same website, the browser can hold an encrypted, HttpOnly cookie and never touch an access token. Nothing sensitive is reachable from JavaScript.</p>
+    </div>
+    <div class="card">
+      <h3>Locked by default</h3>
+      <p>Every route requires a signed-in user unless it explicitly says otherwise. A new feature that forgets to add a guard is still protected. The app's own files are the deliberate exception — they must load before anyone can sign in.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= BASIC ============================= -->
+<section class="level active" data-level="basic">
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#b-c4">C4 context &amp; containers</a> ·
+    <a href="#b-slices">Vertical slices</a> ·
+    <a href="#b-pipeline">Middleware order</a> ·
+    <a href="#b-data">Data &amp; storage</a> ·
+    <a href="#b-findings">Findings</a>
+  </div>
+
+  <h2 id="b-c4">C4 — context and containers</h2>
+
+  <figure>
+    <img src="assets/architecture_flow_basic.svg" alt="Browser containing the Blazor UI and inference worker, PoWatch.Api with middleware, slices and services, and the Azure dependencies" />
+    <figcaption>C4 Level 2 — containers and their principal dependencies — <code>architecture_flow_basic.svg</code></figcaption>
+  </figure>
+
+  <h3>Containers</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Container</th><th>Technology</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td>Blazor WebAssembly client</td><td>.NET 10 WASM, Radzen components, source-generated JSON</td><td>All UI. Holds no tokens; derives auth state from <code>/auth/me</code>.</td></tr>
+      <tr><td>Inference Web Worker</td><td>transformers.js 3.8.1 + ONNX Runtime, self-hosted</td><td>Runs the vision model off the main thread so the UI stays responsive.</td></tr>
+      <tr><td>PoWatch.Api</td><td>ASP.NET Core Minimal APIs, Kestrel</td><td>Serves the WASM app <em>and</em> the API from one origin. Owns auth, storage, telemetry, diagnostics.</td></tr>
+      <tr><td>PoWatch.Application</td><td>Class library</td><td>Feature services and strongly-typed options. No ASP.NET dependency.</td></tr>
+      <tr><td>PoWatch.Domain</td><td>Class library</td><td>Entities, strongly-typed ids, classifiers. No infrastructure dependency.</td></tr>
+      <tr><td>PoWatch.Infrastructure</td><td>Class library</td><td>Azure Table/Blob adapters, summarizers, diagnostics — every outbound port.</td></tr>
+      <tr><td>PoWatch.Shared</td><td>Class library</td><td>DTOs shared by client and server. Trim-analyzer clean.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>External dependencies</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Dependency</th><th>Purpose</th><th>Required to boot?</th></tr></thead>
+    <tbody>
+      <tr><td>Azure Table Storage / Azurite</td><td>Observations and subject profiles</td><td><span class="pill p-warn">No</span> — falls back to in-memory repositories when unconfigured</td></tr>
+      <tr><td>Azure Blob Storage</td><td>Evidence images, Data Protection keyring</td><td><span class="pill p-warn">No</span> — dev keyring falls back to the filesystem</td></tr>
+      <tr><td>Microsoft Entra ID</td><td>Interactive sign-in (OIDC code + PKCE)</td><td><span class="pill p-ok">No</span> — OIDC is only wired when <code>AzureAd:ClientId</code> is set</td></tr>
+      <tr><td>Azure Key Vault</td><td>Secrets as a configuration source</td><td><span class="pill p-ok">No</span> — flag-gated, defaults off in Production</td></tr>
+      <tr><td>Azure Monitor / App Insights</td><td>OTel trace export</td><td><span class="pill p-ok">No</span> — exporter added only when a connection string exists</td></tr>
+      <tr><td>Hugging Face Hub</td><td>Vision model weights, fetched by the browser</td><td><span class="pill p-bad">Yes, for inference</span> — the server boots fine without it</td></tr>
+      <tr><td>Azure OpenAI</td><td>Handoff brief generation</td><td><span class="pill p-ok">No</span> — off by default, template fallback</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-slices">Vertical slices — <code>@page</code> to <code>MapGroup</code></h2>
+  <p>Each screen owns a route group. The mapping is one-to-one except where a screen legitimately reads across slices.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Razor page</th><th>Route group(s)</th><th>Endpoints</th><th>Guard</th></tr></thead>
+    <tbody>
+      <tr><td><code>@page "/"</code> ObserverHub</td><td><code>/api/observer</code>, <code>/api/identity</code>, <code>/api/blobs</code></td><td>4 + 6 + 3</td><td><code>[Authorize]</code> + <code>RequireAuthorization()</code></td></tr>
+      <tr><td><code>@page "/archives"</code></td><td><code>/api/archives</code></td><td>3</td><td><code>[Authorize]</code> + <code>RequireAuthorization()</code></td></tr>
+      <tr><td><code>@page "/identity"</code> IdentityNexus</td><td><code>/api/identity</code></td><td>6</td><td><code>[Authorize]</code> + <code>RequireAuthorization()</code></td></tr>
+      <tr><td><code>@page "/diagnostics"</code></td><td><code>/api/diagnostics</code></td><td>2</td><td><code>[Authorize]</code> + <code>RequireAuthorization()</code></td></tr>
+      <tr><td><code>@page "/health"</code></td><td><code>/health</code> (content-negotiated)</td><td>1</td><td><span class="pill p-warn">Anonymous by design</span></td></tr>
+      <tr><td><code>@page "/login"</code></td><td><code>/auth</code></td><td>5</td><td><span class="pill p-warn">Anonymous by design</span></td></tr>
+      <tr><td><code>@page "/not-found"</code></td><td>—</td><td>0</td><td>—</td></tr>
+      <tr><td><em>no page</em></td><td><code>/fhir</code></td><td>2</td><td><code>RequireAuthorization()</code> + flag filter — a machine-facing slice</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-pipeline">Middleware order</h2>
+  <p>The order below is the executing order in <code>Program.cs</code>. Two placements are deliberate and load-bearing.</p>
+  <ol class="pipeline">
+    <li><strong><code>/health</code> content negotiation</strong><span class="why">Rewrites <code>GET /health</code> to <code>/index.html</code> when the client sends <code>Accept: text/html</code>, so a browser gets the Health page while probes still get JSON.</span></li>
+    <li><strong><code>UseRouting()</code> — called explicitly</strong><span class="why">Because step 1 must run <em>before</em> endpoint selection. Left implicit, the framework would insert routing at the head of the pipeline and the rewrite would have no effect.</span></li>
+    <li><strong><code>UseExceptionHandler</code></strong><span class="why">Writes a <code>ProblemDetails</code> body; the exception text is exposed only when <code>ExposeDebugDetailsInUi</code> is true.</span></li>
+    <li><strong><code>UseHttpsRedirection</code> — non-Development only</strong><span class="why">Dev binds HTTP only; unconditional use produced a warning on every request.</span></li>
+    <li><strong><code>UseRateLimiter</code></strong><span class="why">See the finding below — the registered policy is never attached to an endpoint.</span></li>
+    <li><strong><code>CorrelationIdMiddleware</code></strong><span class="why">Honours or mints <code>X-Correlation-ID</code>, echoes it, and pushes correlation, user and session onto the Serilog context.</span></li>
+    <li><strong><code>UseAuthentication</code> → <code>UseAuthorization</code></strong><span class="why">Cookie is the default scheme; OIDC becomes the default challenge only when a client id is configured.</span></li>
+    <li class="anon"><strong>Anonymous ops routes — <code>/health</code>, <code>/diag</code>, <code>/diag/boot</code></strong><span class="why">Reachable without a session so probes and operators can diagnose a degraded instance.</span></li>
+    <li class="anon"><strong><code>MapStaticAssets().AllowAnonymous()</code></strong><span class="why">This is the <code>/_framework</code> opt-out — see below.</span></li>
+    <li><strong>Feature route groups</strong><span class="why">Auth, Observer, Archives, Identity, FHIR, Diagnostics.</span></li>
+    <li class="anon"><strong><code>MapFallbackToFile("index.html").AllowAnonymous()</code></strong><span class="why">The SPA host page must load for signed-out users, or the client can never render <code>/login</code>.</span></li>
+  </ol>
+
+  <div class="callout c-info">
+    <h4>The <code>/_framework</code> opt-out, in one paragraph</h4>
+    <p>A <strong>fallback authorization policy</strong> makes every endpoint without explicit metadata require an authenticated cookie. The Blazor WebAssembly runtime — <code>/_framework/blazor.webassembly.js</code>, <code>dotnet.js</code>, the <code>.wasm</code> runtime and every assembly — is served by <code>MapStaticAssets()</code>, which would inherit that policy. The result would be circular: the browser cannot load the app that renders the login page, so nobody can ever sign in. <code>.AllowAnonymous()</code> on <code>MapStaticAssets()</code> and on <code>MapFallbackToFile()</code> breaks the circle. These two calls are the entire public static surface, and they are the correct place for the exception.</p>
+  </div>
+
+  <h2 id="b-data">Data &amp; storage shape</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Store</th><th>Partition key</th><th>Row key</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Table <code>PoWatchObservations</code></td><td>UTC date <code>yyyyMMdd</code></td><td><code>{subjectId}_{eventId:N}</code></td><td>Day-scoped reads are the dominant query. The row key is derived from the stable event id only, so an idempotent resubmit maps to the same row and the resulting 409 is treated as success.</td></tr>
+      <tr><td>Table <code>PoWatchSubjects</code></td><td>constant <code>"Subjects"</code></td><td><code>{subjectId}</code></td><td>The subject roster is small and always read whole.</td></tr>
+      <tr><td>Blob <code>significant-images</code></td><td colspan="2"><code>significant-images/{yyyyMMdd}/{subjectId}/{guid:N}.jpg</code></td><td>Evidence frames, uploaded by the browser straight to storage with a 30-minute SAS.</td></tr>
+      <tr><td>Blob <code>dataprotection-keys</code></td><td colspan="2"><code>keys.xml</code></td><td>Shared keyring so BFF cookies survive restarts and scale-out.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-findings">Findings</h2>
+  <div class="callout c-bad">
+    <h4>The rate limiter is registered but enforces nothing</h4>
+    <p><code>AddSlidingWindowLimiter("ApiPerIpPolicy", …)</code> registers a <strong>named</strong> policy, and <code>UseRateLimiter()</code> runs — but no endpoint calls <code>.RequireRateLimiting("ApiPerIpPolicy")</code> and no <code>GlobalLimiter</code> is configured. A named policy applies only where it is attached, so today the limiter admits every request. Separately, the policy is not partitioned by any key despite its name: were it attached as-is, the 60-requests-per-minute window would be shared by <em>all</em> callers rather than applied per IP.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4><code>PoWatchSubjects</code> uses a single constant partition</h4>
+    <p>Every subject row shares <code>PartitionKey = "Subjects"</code>. That is a reasonable trade for a facility-sized roster read whole on every dashboard poll, but it caps the table's scalability at one partition's throughput and makes the roster a hot spot under fleet-wide load.</p>
+  </div>
+  <div class="callout c-ok">
+    <h4>Layering is clean</h4>
+    <p>Domain depends on nothing; Application depends on Domain and its own contracts; Infrastructure implements those contracts; the API host composes them. Every outbound dependency is behind an interface with an in-memory alternative, which is why the app boots without Azure.</p>
+  </div>
+</section>
+
+<!-- ============================= COMPLETE ============================= -->
+<section class="level" data-level="complete">
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#c-l1">C4 L1 context</a> ·
+    <a href="#c-l2">C4 L2 containers</a> ·
+    <a href="#c-l3">C4 L3 components</a> ·
+    <a href="#c-vsa">Vertical slice audit</a> ·
+    <a href="#c-pipe">Middleware ordering audit</a> ·
+    <a href="#c-framework">/_framework opt-outs</a> ·
+    <a href="#c-cross">Cross-cutting concerns</a> ·
+    <a href="#c-data">Persistence</a> ·
+    <a href="#c-audit">Audit findings</a>
+  </div>
+
+  <figure>
+    <img src="assets/architecture_flow_complete.svg" alt="Full C4 Level 2 and 3 view: browser containers, the API host with its ordered middleware pipeline, vertical slices, application services, domain, infrastructure adapters and every Azure dependency" />
+    <figcaption>C4 Levels 2–3 with the ordered middleware pipeline — <code>architecture_flow_complete.svg</code></figcaption>
+  </figure>
+
+  <h2 id="c-l1">C4 Level 1 — System context</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Element</th><th>Type</th><th>Relationship to PoWatch</th></tr></thead>
+    <tbody>
+      <tr><td>Caregiver / observer</td><td>Person</td><td>Primary actor. Runs the observation loop, names subjects, generates handoff briefs.</td></tr>
+      <tr><td>PoWatch</td><td>Software system</td><td>Mobile-first room observation. One deployable, one origin.</td></tr>
+      <tr><td>Microsoft Entra ID</td><td>External system</td><td>OIDC authorization-code + PKCE sign-in. Issuer validated against <code>AzureAd:AllowedTenants</code> when supplied.</td></tr>
+      <tr><td>Azure Storage</td><td>External system</td><td>Tables (observations, subjects) and blobs (evidence, keyring). Azurite locally.</td></tr>
+      <tr><td>Azure Key Vault</td><td>External system</td><td>Optional configuration source, flag-gated; defaults off in Production so a missing role assignment cannot turn boot into a 500.30.</td></tr>
+      <tr><td>Azure Monitor / App Insights</td><td>External system</td><td>OpenTelemetry trace export; <code>cloud_RoleName</code> mapped from the entry assembly.</td></tr>
+      <tr><td>Azure OpenAI</td><td>External system</td><td>Optional handoff-brief generation.</td></tr>
+      <tr><td>Hugging Face Hub</td><td>External system</td><td>Serves ONNX vision-model weights directly to the browser.</td></tr>
+      <tr><td>FHIR R4 consumer</td><td>External system</td><td>Reads <code>/fhir/Observation</code> search and read endpoints.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-l2">C4 Level 2 — Containers</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Container</th><th>Technology</th><th>Runs in</th><th>Talks to</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Blazor WASM client</td><td>.NET 10, Radzen, <code>PoWatchJsonContext</code> source generation</td><td>Browser</td><td>PoWatch.Api (same origin), Blob Storage (SAS PUT)</td><td>Trim-analyzer clean; no reflection-heavy serialization; holds no tokens</td></tr>
+      <tr><td>Inference worker</td><td>ES module Web Worker, transformers.js 3.8.1 (vendored), ONNX Runtime WASM/WebGPU</td><td>Browser (off main thread)</td><td>Hugging Face Hub</td><td>Library and ORT wasm are same-origin and version-pinned by folder name</td></tr>
+      <tr><td>PoWatch.Api</td><td>ASP.NET Core Minimal APIs, Kestrel, Serilog, OpenTelemetry</td><td>Azure App Service or local</td><td>All Azure dependencies</td><td>Also the static host for the WASM app — hence no CORS anywhere</td></tr>
+      <tr><td>PoWatch.Application</td><td>netstandard-style class library</td><td>In-process</td><td>Contracts only</td><td>Nine services, seven options classes; no ASP.NET types</td></tr>
+      <tr><td>PoWatch.Domain</td><td>Class library</td><td>In-process</td><td>Nothing</td><td>Strongly-typed <code>SubjectId</code> / <code>ObservationEventId</code> with explicit boundary conversions</td></tr>
+      <tr><td>PoWatch.Infrastructure</td><td>Class library</td><td>In-process</td><td>Azure SDKs, HttpClient</td><td>Every adapter has an in-memory sibling selected at DI time</td></tr>
+      <tr><td>PoWatch.Shared</td><td>Class library</td><td>Both</td><td>—</td><td>The DTO contract; referenced by client and server alike</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-l3">C4 Level 3 — Components inside PoWatch.Api</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Slice</th><th><code>MapGroup</code></th><th>Endpoints</th><th>Application service</th><th>Infrastructure port</th></tr></thead>
+    <tbody>
+      <tr><td>Auth</td><td><code>/auth</code></td><td><code>GET /me</code>, <code>GET /config</code>, <code>GET /login/microsoft</code>, <code>GET /login/fake</code>, <code>POST /logout</code></td><td>—</td><td>Cookie + OIDC handlers, Data Protection keyring</td></tr>
+      <tr><td>Observer</td><td><code>/api/observer</code></td><td><code>POST /ingest</code>, <code>GET /state</code>, <code>GET /events</code> (SSE), <code>POST /acknowledge</code></td><td><code>ObservationService</code>, <code>AlertThresholdEvaluator</code></td><td><code>IObservationRepository</code>, <code>ISubjectRepository</code>, <code>IObservationProcessingGate</code>, <code>ITelemetryContentSanitizer</code>, <code>IAcknowledgementRegistry</code></td></tr>
+      <tr><td>Archives</td><td><code>/api/archives</code></td><td><code>GET /{date}</code>, <code>GET /{date}/handoff-report</code>, <code>POST /{date}/handoff-brief</code></td><td><code>ArchivesService</code>, <code>ReportService</code>, <code>HandoffCoachService</code>, <code>ShiftClock</code></td><td><code>IObservationRepository</code>, <code>IHandoffSummarizer</code>, QuestPDF renderer</td></tr>
+      <tr><td>Blobs</td><td><code>/api/blobs</code></td><td><code>GET /sas</code>, <code>GET /read</code>, <code>POST /integrity</code></td><td>—</td><td><code>IBlobSasProvider</code></td></tr>
+      <tr><td>Identity</td><td><code>/api/identity</code></td><td><code>POST /subjects</code>, <code>GET /subjects</code>, <code>PATCH /subjects/{id}</code>, <code>POST /merge</code>, <code>GET /subjects/live-status</code>, <code>GET /subjects/live-risk</code>, <code>GET /subjects/{id}/baseline</code></td><td><code>IdentityService</code>, <code>DriftRadarService</code>, <code>DriftMath</code></td><td><code>ISubjectRepository</code>, <code>IObservationRepository</code>, <code>HybridCache</code></td></tr>
+      <tr><td>FHIR</td><td><code>/fhir</code></td><td><code>GET /Observation</code>, <code>GET /Observation/{id}</code></td><td><code>FhirMappingService</code></td><td><code>IObservationRepository</code></td></tr>
+      <tr><td>Diagnostics</td><td><code>/api/diagnostics</code></td><td><code>GET /status</code>, <code>POST /reset</code></td><td>—</td><td><code>IDiagnosticsProvider</code>, <code>IStorageResetService</code></td></tr>
+      <tr><td>Ops roots</td><td>none (mapped on the app)</td><td><code>GET /health</code>, <code>GET /diag</code>, <code>GET /diag/boot</code>, <code>GET /openapi/v1.json</code>, <code>GET /scalar/v1</code></td><td>—</td><td>Health checks, <code>StartupReadiness</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="grid g2" style="margin-top:20px">
+    <div class="chartbox">
+      <h4>Endpoint count per slice</h4>
+      <div class="chart-holder"><canvas id="chartSlices"></canvas></div>
+      <div class="chart-fallback" data-fallback>Chart.js could not load (offline). The counts appear in the table above.</div>
+    </div>
+    <div class="card">
+      <h4>Raw data — slice size</h4>
+      <table>
+        <thead><tr><th>Slice</th><th>Endpoints</th><th>Anonymous</th></tr></thead>
+        <tbody>
+          <tr><td>Auth</td><td>5</td><td>5</td></tr>
+          <tr><td>Observer</td><td>4</td><td>0</td></tr>
+          <tr><td>Archives</td><td>3</td><td>0</td></tr>
+          <tr><td>Blobs</td><td>3</td><td>0</td></tr>
+          <tr><td>Identity</td><td>7</td><td>0</td></tr>
+          <tr><td>FHIR</td><td>2</td><td>0</td></tr>
+          <tr><td>Diagnostics</td><td>2</td><td>0</td></tr>
+          <tr><td>Ops roots</td><td>5</td><td>3</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 id="c-vsa">Vertical slice boundary audit</h2>
+  <p>The rule under audit: one screen, one route group, and no cross-slice service reuse that would let a change in one feature break another.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th><code>@page</code></th><th>Component</th><th>Primary <code>MapGroup</code></th><th>Secondary groups read</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td><code>ObserverHub.razor</code> (+ 3 partial code-behinds)</td><td><code>/api/observer</code></td><td><code>/api/identity</code> (subject roster, live status), <code>/api/blobs</code> (evidence SAS)</td><td><span class="pill p-warn">Justified crossing</span> — the live board legitimately renders roster state; both reads are query-only</td></tr>
+      <tr><td><code>/archives</code></td><td><code>Archives.razor</code></td><td><code>/api/archives</code></td><td><code>/api/blobs</code> (evidence read URLs)</td><td><span class="pill p-ok">Clean</span></td></tr>
+      <tr><td><code>/identity</code></td><td><code>IdentityNexus.razor</code></td><td><code>/api/identity</code></td><td>—</td><td><span class="pill p-ok">Clean</span></td></tr>
+      <tr><td><code>/diagnostics</code></td><td><code>Diagnostics.razor</code></td><td><code>/api/diagnostics</code></td><td>—</td><td><span class="pill p-ok">Clean</span></td></tr>
+      <tr><td><code>/health</code></td><td><code>Health.razor</code></td><td><code>/health</code></td><td>—</td><td><span class="pill p-ok">Clean</span> — one route serving two content types</td></tr>
+      <tr><td><code>/login</code></td><td><code>Login.razor</code></td><td><code>/auth</code></td><td>—</td><td><span class="pill p-ok">Clean</span></td></tr>
+      <tr><td><code>/not-found</code></td><td><code>NotFound.razor</code></td><td>—</td><td>—</td><td><span class="pill p-ok">Client-only</span></td></tr>
+      <tr><td><em>none</em></td><td>—</td><td><code>/fhir</code></td><td>—</td><td><span class="pill p-info">Machine-facing slice</span> — no UI is expected</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>One structural note on slice ownership</h4>
+    <p><code>BlobEndpoints</code> is mapped from inside <code>ArchivesEndpoints.MapArchivesFeature()</code> — the Archives slice registers the <code>/api/blobs</code> group as a nested concern — yet <code>ObserverHub</code> is the heaviest consumer of that group (it requests an upload SAS on every significant observation). The grouping is defensible (evidence blobs are archive artefacts) but the ownership does not match the traffic, and a future change to the Archives slice can silently move the blob routes.</p>
+  </div>
+
+  <h2 id="c-pipe">Middleware ordering audit</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Stage</th><th>Condition</th><th>Why here</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>0a</td><td>Serilog bootstrap logger</td><td>always</td><td>Captures startup errors before the host exists. A plain logger rather than a reloadable one, so repeated <code>WebApplicationFactory</code> host creation in integration tests cannot re-freeze a shared instance.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>0b</td><td>Kestrel port negotiation</td><td>always</td><td>Negotiates a free port when the configured one is held by a stale process, instead of failing the host with HTTP 500.30.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>0c</td><td>Key Vault configuration source</td><td><code>EnableKeyVault</code> &amp;&amp; valid URI</td><td>Must be added before feature flags are bound, or a flag stored as a secret is read as its default.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>0d</td><td>Options binding with <code>ValidateOnStart()</code></td><td>always</td><td>A bad table name, polling interval or Azure OpenAI range aborts boot with an actionable message rather than throwing lazily on first use.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>1</td><td><code>/health</code> HTML rewrite</td><td><code>GET</code> + <code>Accept: text/html</code></td><td><strong>Must precede routing.</strong> If routing ran first, the health endpoint would already be selected and rewriting the path would have no effect — a verified past failure.</td><td><span class="pill p-ok">Correct — and load-bearing</span></td></tr>
+      <tr><td>2</td><td><code>UseRouting()</code> — explicit</td><td>always</td><td>Called explicitly for exactly the reason above; the implicit insertion point would be ahead of step 1.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>3</td><td><code>MapOpenApi</code> / <code>MapScalarApiReference</code></td><td>always</td><td>Mapped early. Position does not affect their authorization, which is decided by endpoint metadata — they carry none, so the fallback policy protects them.</td><td><span class="pill p-warn">Works, but surprising</span> — the protection is implicit</td></tr>
+      <tr><td>4</td><td><code>UseExceptionHandler</code></td><td>always</td><td>Wraps everything downstream. Detail is gated on <code>ExposeDebugDetailsInUi</code>; <code>traceId</code> is always attached.</td><td><span class="pill p-warn">Ordering caveat</span> — it sits <em>after</em> the two <code>Map*</code> calls above, so an exception thrown inside the OpenAPI document pipeline is not wrapped by it</td></tr>
+      <tr><td>5</td><td><code>UseHttpsRedirection</code></td><td><code>!IsDevelopment()</code></td><td>Dev binds HTTP only; the middleware cannot resolve an HTTPS port there and warns on every request.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>6</td><td><code>UseRateLimiter</code></td><td>always</td><td>Before auth so an unauthenticated flood is shed cheaply — the right position.</td><td><span class="pill p-bad">Ineffective</span> — see findings</td></tr>
+      <tr><td>7</td><td><code>CorrelationIdMiddleware</code></td><td>always</td><td>After the limiter so shed requests cost nothing; before auth so even a 401 carries a correlation id.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>8</td><td><code>UseAuthentication</code></td><td>always</td><td>Establishes the principal.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>9</td><td><code>UseAuthorization</code></td><td>always</td><td>Immediately after authentication and before any endpoint executes.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>10</td><td>Log enrichment (<code>UserId</code>, <code>SessionId</code>)</td><td>always</td><td>After authentication, so the principal exists and the user id is real rather than <code>anonymous</code>.</td><td><span class="pill p-warn">Partly redundant</span> — <code>CorrelationIdMiddleware</code> already pushes both, but from an earlier point where the principal is not yet established</td></tr>
+      <tr><td>11</td><td><code>MapHealthChecks("/health")</code></td><td><code>AllowAnonymous</code></td><td>The machine contract that gates every production deploy.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>12</td><td><code>/diag</code>, <code>/diag/boot</code></td><td><code>AllowAnonymous</code></td><td>Dependency-light so they stay reachable when a downstream dependency is degraded.</td><td><span class="pill p-warn">See security finding</span></td></tr>
+      <tr><td>13</td><td><code>Cache-Control: no-cache</code> for <code>/js</code>, <code>/css</code></td><td>path prefix match</td><td>App-owned JS/CSS are <em>not</em> fingerprinted by the framework, so they must revalidate after a deployment. Framework assets are fingerprinted and deliberately excluded.</td><td><span class="pill p-ok">Correct and deliberate</span></td></tr>
+      <tr><td>14</td><td><code>MapStaticAssets().AllowAnonymous()</code></td><td>always</td><td>.NET 10 replacement for <code>UseBlazorFrameworkFiles()</code> + <code>UseStaticFiles()</code>; resolves fingerprinted names from <code>staticwebassets.endpoints.json</code>.</td><td><span class="pill p-ok">Correct — the <code>/_framework</code> opt-out</span></td></tr>
+      <tr><td>15</td><td>Feature route groups</td><td>always</td><td>Auth, Observer, Archives (+ Blobs), Identity, FHIR, Diagnostics.</td><td><span class="pill p-ok">Correct</span></td></tr>
+      <tr><td>16</td><td><code>MapFallbackToFile("index.html").AllowAnonymous()</code></td><td>always</td><td>Last, so it only catches genuinely unmatched paths.</td><td><span class="pill p-ok">Correct</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-framework">The <code>/_framework</code> opt-outs, in full</h2>
+
+  <div class="callout c-info">
+    <h4>What creates the need for an opt-out</h4>
+    <p><code>SetFallbackPolicy(RequireAuthenticatedUser, cookie-only)</code> is a <strong>default-deny</strong> posture: any endpoint that never declares authorization metadata inherits it. That is the right default — a future slice that forgets <code>.RequireAuthorization()</code> stays secure — but it also captures endpoints that are not feature endpoints at all.</p>
+  </div>
+
+  <h4>What the WASM boot actually requests, unauthenticated</h4>
+  <pre><span class="c">GET /                                  </span>→ MapFallbackToFile("index.html")   <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /_framework/blazor.webassembly.js  </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /_framework/dotnet.js              </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /_framework/dotnet.runtime.*.wasm  </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /_framework/*.wasm  (assemblies)   </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /css/app.css, /js/*.js             </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span> + no-cache
+<span class="c">GET /appsettings.json                  </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /model-registry.json               </span>→ MapStaticAssets()                 <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /auth/me                           </span>→ AuthEndpoints group               <span class="c">[AllowAnonymous]</span>
+<span class="c">GET /auth/config                       </span>→ AuthEndpoints group               <span class="c">[AllowAnonymous]</span></pre>
+
+  <p>Without the two <code>.AllowAnonymous()</code> calls, every line above returns <strong>401</strong> and the application is unreachable — including <code>/login</code>, which is a client-side route that only exists once the runtime has booted. The circularity is the whole argument: <em>authentication cannot gate the delivery of the code that performs authentication.</em></p>
+
+  <h4>What is deliberately <em>not</em> opted out</h4>
+  <ul>
+    <li><strong>Nothing under <code>/api</code> or <code>/fhir</code>.</strong> Every feature group calls <code>.RequireAuthorization()</code> explicitly, so none of them rely on the fallback policy at all.</li>
+    <li><strong><code>/openapi/v1.json</code> and <code>/scalar/v1</code>.</strong> They declare no metadata, so the fallback policy protects them. The API description is not public — correct, but implicit; an explicit <code>.RequireAuthorization()</code> would make the intent auditable.</li>
+    <li><strong>The no-cache middleware</strong> matches only <code>/js</code> and <code>/css</code>, never <code>/_framework</code> — framework assets carry content hashes in their names and are safe to cache hard.</li>
+  </ul>
+
+  <div class="callout c-warn">
+    <h4>Residual exposure from the static opt-out</h4>
+    <p><code>MapStaticAssets()</code> serves everything published under <code>wwwroot</code> anonymously, including <code>appsettings.json</code> and <code>appsettings.Development.json</code>. Today those files contain only client feature flags, which is fine. The guardrail worth stating explicitly: <strong>anything ever added to the client's <code>wwwroot/appsettings*.json</code> is world-readable</strong>, because it must be for the app to start.</p>
+  </div>
+
+  <h2 id="c-cross">Cross-cutting concerns</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Concern</th><th>Mechanism</th><th>Configuration</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Structured logging</td><td>Serilog, two-stage init</td><td>Console always; rolling file in Development only</td><td>App Service filesystem is ephemeral and a read-only CWD under ANCM could turn sink init into a boot-time throw</td></tr>
+      <tr><td>Tracing</td><td>OpenTelemetry, <code>AddSource("PoWatch.*")</code></td><td>Console exporter always; Azure Monitor when a connection string exists</td><td><code>service.name</code> resolved from the entry assembly so traces never record <code>unknown_service:dotnet</code></td></tr>
+      <tr><td>Correlation</td><td><code>X-Correlation-ID</code> honoured or minted; <code>X-Session-ID</code> from the client</td><td>always</td><td>The client mints one session id per app load and threads it onto every call</td></tr>
+      <tr><td>Caching</td><td><code>HybridCache</code></td><td>10 s local + distributed expiry</td><td>Used for the live-status board; explicitly evicted on acknowledgement so a pressed button visibly does something</td></tr>
+      <tr><td>Resilience — storage</td><td>Polly pipeline in both Azure repositories</td><td>3 attempts, 200 ms exponential, retry on 408/429/5xx</td><td>Both repositories now carry it; the subject repository previously had none</td></tr>
+      <tr><td>Resilience — HTTP</td><td><code>AddStandardResilienceHandler()</code></td><td>defaults + 45 s client timeout</td><td>Only on the Azure OpenAI client</td></tr>
+      <tr><td>Health</td><td><code>AddHealthChecks</code> + JSON writer</td><td><code>azure-storage</code> always; <code>azure-key-vault</code> when enabled</td><td>The JSON shape is the deploy gate contract and must not change</td></tr>
+      <tr><td>Readiness</td><td><code>StartupReadiness</code> + <code>HostStartupLog</code></td><td><code>/diag/boot</code> returns 200 or 503</td><td>Reports the last boot milestone reached — the fastest answer to "why did it not come ready?"</td></tr>
+      <tr><td>Session durability</td><td>Data Protection keyring</td><td>Blob in hosted environments (managed identity or connection string); filesystem locally</td><td>Stable application name so keys are shared across scaled-out instances</td></tr>
+      <tr><td>Error contract</td><td><code>AddProblemDetails</code> + global handler</td><td>detail gated by <code>ExposeDebugDetailsInUi</code></td><td><code>traceId</code> always present in extensions</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-data">Persistence detail</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Table</th><th>PartitionKey</th><th>RowKey</th><th>Properties</th></tr></thead>
+    <tbody>
+      <tr><td><code>PoWatchObservations</code></td><td>UTC <code>yyyyMMdd</code></td><td><code>{subjectId}_{eventId:N}</code></td><td><code>Id</code>, <code>ObservedAtUtc</code>, <code>SubjectId</code>, <code>SubjectDisplayName</code>, <code>Activity</code>, <code>ClinicalDescription</code>, <code>IsSignificant</code>, <code>SignificantReason</code>, <code>IsClinicalOutlier</code>, <code>ImageReference</code></td></tr>
+      <tr><td><code>PoWatchSubjects</code></td><td>constant <code>"Subjects"</code></td><td><code>{subjectId}</code></td><td><code>DisplayName</code>, <code>IdentityStatus</code>, <code>FirstSeenUtc</code>, <code>LastSeenUtc</code>, <code>LastActivity</code>, <code>LastActivityIsOutlier</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-info">
+    <h4>The UTC-partition / local-day problem, and how <code>ShiftClock</code> solves it</h4>
+    <p>Observations are partitioned by <strong>UTC</strong> date, but the Archives picker sends the caregiver's <strong>local</strong> calendar date and every timestamp renders with <code>ToLocalTime()</code>. Reading one UTC partition and labelling it with local times shifts the day by the UTC offset. <code>ShiftClock</code> converts a local day or shift into a half-open UTC instant window, reads the one or two partitions that span it, then trims to exact instants. The Night shift is defined as 22:00 → 06:00 the <em>following</em> morning, because a night shift is one continuous stretch of work.</p>
+  </div>
+
+  <h4>Idempotency on the ingest path</h4>
+  <p>A client-supplied <code>IdempotencyKey</code> becomes the event id, and the row key is derived from that id alone — never from the server timestamp. A retried submit therefore maps to the identical <code>(PartitionKey, RowKey)</code>, <code>AddEntityAsync</code> returns 409, and the repository treats that as success. The one edge case, documented in the source: a resubmit crossing UTC midnight lands in a different partition. Idempotency-key retries happen within seconds, so the window is negligible.</p>
+
+  <h2 id="c-audit">Audit findings</h2>
+
+  <div class="callout c-bad">
+    <h4>A1 · The rate limiter admits everything</h4>
+    <p><strong>Evidence:</strong> <code>Program.cs</code> registers <code>AddSlidingWindowLimiter("ApiPerIpPolicy", …)</code> and calls <code>UseRateLimiter()</code>. A repository-wide search finds <strong>no</strong> call to <code>RequireRateLimiting</code>, no <code>GlobalLimiter</code> assignment and no <code>PartitionedRateLimiter</code>.<br>
+    <strong>Effect:</strong> the middleware runs but selects no limiter, so the documented 60-requests-per-minute protection does not exist. The <code>OnRejected</code> handler that returns 429 is unreachable.<br>
+    <strong>Second-order:</strong> the policy is unpartitioned despite its name. Attaching it as written would create one global window shared by every caller — a single busy kiosk could shut out the whole facility.<br>
+    <strong>Fix:</strong> either set <code>rl.GlobalLimiter</code> to a <code>PartitionedRateLimiter</code> keyed on the remote IP, or attach <code>.RequireRateLimiting("ApiPerIpPolicy")</code> to the API groups <em>and</em> convert the policy to a partitioned one.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>A2 · Exception handler is registered after two <code>Map*</code> calls</h4>
+    <p><code>MapOpenApi</code> and <code>MapScalarApiReference</code> are mapped before <code>UseExceptionHandler</code> is added. Endpoint execution still happens at the end of the pipeline, so ordinary endpoint exceptions <em>are</em> caught; but any middleware these calls install ahead of the handler is outside its coverage. Moving <code>UseExceptionHandler</code> immediately after <code>UseRouting()</code> removes the ambiguity at no cost.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>A3 · Duplicated log-context enrichment</h4>
+    <p><code>CorrelationIdMiddleware</code> pushes <code>CorrelationId</code>, <code>UserId</code> and <code>SessionId</code>; a later inline middleware pushes <code>UserId</code> and <code>SessionId</code> again with different values (post-authentication principal, and <code>TraceIdentifier</code> as the session). Two scopes with the same property names nested inside one another make the effective value depend on sink behaviour. Keeping one enricher — placed after <code>UseAuthentication</code> — would be unambiguous.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>A4 · Subjects table uses a single constant partition</h4>
+    <p>Fine for a facility-sized roster read whole on every poll; a ceiling under fleet-wide load. Worth revisiting only if PoWatch becomes multi-tenant, at which point tenant id is the natural partition key.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>A5 · <code>/api/blobs/integrity</code> mints SAS URLs for arbitrary paths</h4>
+    <p>The endpoint accepts a caller-supplied array of blob paths and returns a signed read URL for each, with no check that the caller has any relationship to those blobs. Authentication is required, and today every authenticated user is a caregiver with legitimate access to all evidence — but the endpoint is a path-traversal-shaped surface within the container, and it is the one place in the API where a client freely chooses what gets signed.</p>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>A6 · What the audit found sound</h4>
+    <ul class="tight">
+      <li><strong>Layering.</strong> Domain has no outbound dependencies; Application depends only on Domain and its own contracts; Infrastructure implements them. Verified by project references.</li>
+      <li><strong>Default-deny authorization.</strong> A fallback policy protects anything that forgets to declare a guard, and the anonymous surface is small, explicit and justified.</li>
+      <li><strong>The FakeAuth scheme is excluded from the fallback policy.</strong> Including an always-succeeds scheme there would make <code>/auth/me</code> report an authenticated session before sign-in. The source calls this out explicitly.</li>
+      <li><strong>Graceful degradation everywhere.</strong> Storage, Key Vault, App Insights, Azure OpenAI and the PDF renderer each have a defined behaviour when absent — the app boots and reports, rather than failing to start.</li>
+      <li><strong>Fail-fast where it belongs.</strong> Options that must be right at boot use <code>ValidateDataAnnotations().ValidateOnStart()</code>.</li>
+      <li><strong>Same-origin by construction.</strong> No CORS policy exists anywhere, because none is needed.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <p><strong>PoWatch — Architecture Report.</strong> Generated 2026-08-13 from the working tree on branch <code>master</code>. Diagram source: <code>DOCS/diagrams/architecture_flow_{verybasic,basic,complete}.mmd</code>, compiled to <code>DOCS/assets/architecture_flow_*.svg</code>.</p>
+  <p>Related: <a href="AI_SERVICES_REPORT.html">AI Services Report</a> · <a href="ROLES_PERMISSIONS_MATRIX.html">Roles &amp; Permissions Matrix</a> · <a href="USER_WORKFLOW.html">User Workflow</a></p>
+</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  var buttons = document.querySelectorAll('nav.depth .seg button');
+  var sections = document.querySelectorAll('section.level');
+  function setLevel(lv){
+    buttons.forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.level === lv)); });
+    sections.forEach(function(s){ s.classList.toggle('active', s.dataset.level === lv); });
+    try { localStorage.setItem('powatch-doc-depth', lv); } catch(e){}
+    window.scrollTo({top:0, behavior:'instant'});
+    draw();
+  }
+  buttons.forEach(function(b){ b.addEventListener('click', function(){ setLevel(b.dataset.level); }); });
+  try { var saved = localStorage.getItem('powatch-doc-depth'); if (saved) setLevel(saved); } catch(e){}
+
+  var INK='#0a1424', INK2='#3c4a61', GRID='#dfe7f2';
+  var chart = null;
+  function draw(){
+    if (typeof window.Chart === 'undefined') {
+      document.querySelectorAll('[data-fallback]').forEach(function(f){ f.style.display='block'; });
+      return;
+    }
+    document.querySelectorAll('[data-fallback]').forEach(function(f){ f.style.display='none'; });
+    var el = document.getElementById('chartSlices');
+    if (!el || chart || !el.offsetParent) return;
+    chart = new Chart(el, {
+      type:'bar',
+      data:{ labels:['Auth','Observer','Archives','Blobs','Identity','FHIR','Diagnostics','Ops roots'],
+             datasets:[
+               { label:'Authenticated endpoints', data:[0,4,3,3,7,2,2,2], backgroundColor:'#1a3f7d', borderRadius:3 },
+               { label:'Anonymous endpoints',     data:[5,0,0,0,0,0,0,3], backgroundColor:'#8a6100', borderRadius:3 }
+             ] },
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{ labels:{color:INK, font:{size:12}} },
+                  tooltip:{ backgroundColor:'#12294f' } },
+        scales:{ x:{ stacked:true, beginAtZero:true, ticks:{color:INK2}, grid:{color:GRID} },
+                 y:{ stacked:true, ticks:{color:INK2}, grid:{display:false} } } }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw);
+  else draw();
+})();
+</script>
+</body>
+</html>

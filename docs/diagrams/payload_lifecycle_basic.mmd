@@ -1,0 +1,34 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'15px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','actorBkg':'#dce8fb','actorBorder':'#1a3f7d','actorTextColor':'#0a1424','signalColor':'#16305e','signalTextColor':'#0a1424','labelBoxBkgColor':'#fdf0d5','labelBoxBorderColor':'#8a6100','labelTextColor':'#0a1424','noteBkgColor':'#fff8e1','noteBorderColor':'#8a6100','noteTextColor':'#0a1424','sequenceNumberColor':'#ffffff'}}}%%
+sequenceDiagram
+    autonumber
+    actor U as Caregiver
+    participant UI as ObserverHub (Blazor WASM)
+    participant W as Inference Web Worker
+    participant API as Minimal API /api/observer
+    participant SVC as ObservationService
+    participant T as Table Storage
+    participant BL as Blob Storage
+
+    U->>UI: Start monitoring
+    UI->>W: captureAndInfer(prompt, frame, maxTokens)
+    W-->>UI: activity, clinicalPayload, confidence, subjectHint
+
+    alt frame unchanged or low-quality output
+        UI-->>U: cycle skipped, no request sent
+    else usable inference
+        UI->>API: POST /api/observer/ingest (cookie)
+        API->>SVC: IngestAsync(request)
+        SVC->>SVC: flag gate, concurrency gate, sanitizer
+        SVC->>SVC: resolve subject, classify significance
+        SVC->>T: write observation row
+        SVC->>T: merge subject last-activity
+        API-->>UI: 200 Ok / 202 Accepted (dropped)
+    end
+
+    opt result is significant
+        UI->>API: GET /api/blobs/sas?blobPath=...&upload=true
+        API-->>UI: SAS url (30 min)
+        UI->>BL: PUT jpeg direct to blob
+    end
+
+    UI-->>U: timeline, alert banner, audio cue

@@ -1,0 +1,27 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'15px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f7f9fd','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart TB
+    REQ["Incoming request"] --> AUTHN["UseAuthentication<br/>Cookie 'PoWatch.Auth' · OIDC · FakeAuth (Dev/Test)"]
+    AUTHN --> META{"Endpoint authorization metadata"}
+
+    META -->|"AllowAnonymous"| PUB["Public surface<br/>/auth/* · /health · /diag · /diag/boot<br/>static assets + /_framework + SPA fallback"]
+    META -->|"RequireAuthorization()"| DEF["Default policy<br/>RequireAuthenticatedUser()<br/>schemes: Cookie (+ FakeAuth in Dev/Test)"]
+    META -->|"none declared"| FALL["Fallback policy — default deny<br/>RequireAuthenticatedUser(), Cookie ONLY<br/>catches /openapi/v1.json and /scalar/v1"]
+
+    DEF --> CHK{"authenticated?"}
+    FALL --> CHK
+    CHK -->|no| D401["401 Unauthorized<br/>(status, never an HTML redirect)"]
+    CHK -->|yes| ALLOW["Handler runs"]
+
+    ALLOW --> FLAGS["Second gate: feature flags<br/>FhirExportEnabled · HandoffCoachEnabled<br/>DriftRadarEnabled &rarr; 503 · AllowDataReset &rarr; 404"]
+
+    NOROLE["No role requirement exists anywhere:<br/>no RequireRole, no policy with roles,<br/>no AuthorizeView Roles=, no [Authorize(Roles=)]"]
+    ALLOW --- NOROLE
+
+    classDef ok fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef deny fill:#fae3e3,stroke:#912323,color:#0a1424,stroke-width:2px;
+    classDef gate fill:#e8eefa,stroke:#4a6fa8,color:#0a1424,stroke-width:2px;
+    classDef note fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    class REQ,AUTHN,ALLOW ok;
+    class D401 deny;
+    class META,CHK,DEF,FALL gate;
+    class PUB,FLAGS,NOROLE note;

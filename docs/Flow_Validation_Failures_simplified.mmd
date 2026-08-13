@@ -1,9 +1,0 @@
-graph TD
-    A["Caregiver fills in a form"] --> B{"Entry complete and valid"}
-    B -- "no" --> C["Inline message points to the fix"]
-    C --> A
-    B -- "yes" --> D["Submit the action"]
-    D --> E{"Accepted"}
-    E -- "no" --> F["Friendly error notification"]
-    E -- "yes" --> G["Screen updates with the result"]
-    F --> A

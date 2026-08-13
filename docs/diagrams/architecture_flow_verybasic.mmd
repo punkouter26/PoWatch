@@ -1,0 +1,18 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'16px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f4f7fc','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart LR
+    P["Caregiver<br/>(browser)"]
+    C["Blazor WASM Client<br/>+ in-browser vision model"]
+    A["PoWatch.Api<br/>same-origin BFF"]
+    S[("Azure Table + Blob Storage")]
+
+    P -->|"watches the room"| C
+    C -->|"posts what it saw<br/>(cookie session)"| A
+    A -->|"writes / reads"| S
+    A -->|"timeline, archives, reports"| C
+
+    classDef person fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef app fill:#dce8fb,stroke:#1a3f7d,color:#0a1424,stroke-width:2px;
+    classDef store fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    class P person;
+    class C,A app;
+    class S store;

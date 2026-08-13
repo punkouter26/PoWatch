@@ -1,0 +1,19 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'16px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','edgeLabelBackground':'#ffffff'}}}%%
+flowchart LR
+    A["Request arrives"] --> B{"Signed in?"}
+    B -->|no| C["401"]
+    B -->|yes| D["Allowed — everything"]
+
+    E["Public on purpose:<br/>/health · /diag · /diag/boot<br/>/auth/* · app files"] --> D
+
+    N["There are no roles.<br/>Every signed-in user<br/>can do the same things."]
+    D --- N
+
+    classDef ok fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef deny fill:#fae3e3,stroke:#912323,color:#0a1424,stroke-width:2px;
+    classDef gate fill:#e8eefa,stroke:#4a6fa8,color:#0a1424,stroke-width:2px;
+    classDef note fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    class A,D ok;
+    class C deny;
+    class B gate;
+    class E,N note;

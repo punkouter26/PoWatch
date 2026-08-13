@@ -1,0 +1,136 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'14px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f7f9fd','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart TB
+    OPERATOR["<b>Caregiver / Observer</b><br/>C4 L1 Person"]
+
+    subgraph L2BROWSER["C4 L2 Container — Browser (device, untrusted)"]
+        direction TB
+        ROUTER["App.razor Router<br/>CascadingAuthenticationState"]
+        PAGES["Pages<br/>/ ObserverHub · /archives · /identity<br/>/diagnostics · /health · /login · /not-found"]
+        APICLIENT["PoWatchApiClient<br/>+ CorrelationHandler (X-Correlation-ID, X-Session-ID)<br/>source-generated JSON, trim-clean"]
+        AUTHPROV["BffAuthenticationStateProvider<br/>polls /auth/me"]
+        BRIDGE["inference-bridge.js<br/>camera, canvas, frame-diff (DOM thread)"]
+        WORKER["inference-worker.js (Web Worker)<br/>transformers.js 3.8.1 self-hosted<br/>ONNX Runtime · WebGPU &rarr; WASM fallback"]
+        BLOBJS["blob-upload.js<br/>PUT to SAS URL"]
+    end
+
+    subgraph L2API["C4 L2 Container — PoWatch.Api · ASP.NET Core .NET 10 · same origin"]
+        direction TB
+        subgraph PIPE["Middleware pipeline (execution order)"]
+            direction LR
+            M1["1 /health HTML rewrite"] --> M2["2 UseRouting"] --> M3["3 UseExceptionHandler<br/>ProblemDetails"] --> M4["4 UseHttpsRedirection<br/>non-Dev only"] --> M5["5 UseRateLimiter"] --> M6["6 CorrelationIdMiddleware"] --> M7["7 UseAuthentication"] --> M8["8 UseAuthorization"] --> M9["9 Log enrichment<br/>UserId · SessionId"]
+        end
+        subgraph SLICES["C4 L3 Components — vertical slices (MapGroup)"]
+            direction TB
+            E_AUTH["Auth · /auth<br/>AllowAnonymous"]
+            E_OBS["Observer · /api/observer<br/>RequireAuthorization"]
+            E_ARC["Archives · /api/archives<br/>RequireAuthorization"]
+            E_BLB["Blobs · /api/blobs<br/>RequireAuthorization"]
+            E_IDN["Identity · /api/identity<br/>RequireAuthorization"]
+            E_FHR["FHIR · /fhir<br/>RequireAuthorization + flag filter"]
+            E_DIA["Diagnostics · /api/diagnostics<br/>RequireAuthorization"]
+            E_OPS["Ops roots · /health /diag /diag/boot<br/>AllowAnonymous"]
+            E_STA["MapStaticAssets + MapFallbackToFile<br/>AllowAnonymous — covers /_framework"]
+        end
+        subgraph APPLAYER["PoWatch.Application — services + options"]
+            direction TB
+            S_OBS["ObservationService"]
+            S_IDN["IdentityService"]
+            S_ARC["ArchivesService"]
+            S_RPT["ReportService + ShiftClock"]
+            S_DRF["DriftRadarService + DriftMath"]
+            S_HND["HandoffCoachService"]
+            S_ALR["AlertThresholdEvaluator"]
+            S_FHR["FhirMappingService"]
+        end
+        DOMAIN["PoWatch.Domain<br/>ObservationEvent · SubjectProfile · DailyChapter<br/>SubjectId · ObservationEventId · classifiers"]
+        subgraph INFRA["PoWatch.Infrastructure — adapters"]
+            direction TB
+            R_OBS["AzureObservationRepository<br/>(InMemory fallback)"]
+            R_SUB["AzureSubjectRepository<br/>(InMemory fallback)"]
+            R_SAS["AzureBlobSasProvider"]
+            R_TPL["TemplateHandoffSummarizer"]
+            R_AOI["AzureOpenAiHandoffSummarizer<br/>resilience handler"]
+            R_DGN["LocalDiagnosticsProvider"]
+        end
+        CROSS["Cross-cutting<br/>Serilog · OpenTelemetry · HybridCache 10s<br/>DataProtection keyring · HealthChecks"]
+    end
+
+    subgraph L2AZ["C4 L2 Containers — Azure / external"]
+        direction TB
+        TBL[("Table Storage<br/>PoWatchObservations (PK = UTC yyyyMMdd)<br/>PoWatchSubjects (PK = 'Subjects')")]
+        BLOB[("Blob Storage<br/>significant-images<br/>dataprotection-keys")]
+        KV["Azure Key Vault<br/>flag-gated config source"]
+        ENTRA["Microsoft Entra ID<br/>OIDC code + PKCE"]
+        AOAI["Azure OpenAI<br/>chat completions"]
+        MON["Azure Monitor / App Insights<br/>OTel trace exporter"]
+        HF["Hugging Face Hub<br/>ONNX model weights"]
+        EHR["FHIR R4 consumer"]
+    end
+
+    OPERATOR --> ROUTER
+    ROUTER --> PAGES
+    PAGES --> APICLIENT
+    PAGES --> AUTHPROV
+    PAGES --> BRIDGE
+    BRIDGE <-->|"postMessage"| WORKER
+    WORKER -->|"weights, retry x3"| HF
+    PAGES --> BLOBJS
+    BLOBJS -->|"PUT jpeg, 30 min SAS"| BLOB
+
+    APICLIENT -->|"HTTPS · PoWatch.Auth cookie"| M1
+    AUTHPROV --> M1
+    M9 --> SLICES
+
+    E_AUTH --> ENTRA
+    E_OBS --> S_OBS
+    E_ARC --> S_ARC
+    E_ARC --> S_RPT
+    E_ARC --> S_HND
+    E_BLB --> R_SAS
+    E_IDN --> S_IDN
+    E_IDN --> S_DRF
+    E_FHR --> S_FHR
+    E_DIA --> R_DGN
+
+    S_OBS --> S_ALR
+    S_OBS --> DOMAIN
+    S_HND --> S_RPT
+    S_HND --> S_DRF
+    S_HND --> R_TPL
+    S_HND --> R_AOI
+    R_AOI -.->|"fallback on any failure"| R_TPL
+    R_AOI --> AOAI
+
+    S_OBS --> R_OBS
+    S_OBS --> R_SUB
+    S_IDN --> R_SUB
+    S_ARC --> R_OBS
+    S_RPT --> R_OBS
+    S_DRF --> R_OBS
+    S_FHR --> R_OBS
+
+    R_OBS --> TBL
+    R_SUB --> TBL
+    R_SAS --> BLOB
+    CROSS --> MON
+    CROSS --> KV
+    CROSS --> BLOB
+    E_FHR --> EHR
+    E_STA -->|"serves WASM + /_framework"| L2BROWSER
+
+    classDef person fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef browser fill:#fdf4e3,stroke:#8a6100,color:#0a1424;
+    classDef mw fill:#e8eefa,stroke:#4a6fa8,color:#0a1424;
+    classDef slice fill:#dce8fb,stroke:#1a3f7d,color:#0a1424,stroke-width:2px;
+    classDef svc fill:#eaf1fd,stroke:#2c5599,color:#0a1424;
+    classDef infra fill:#e9f0f7,stroke:#41618c,color:#0a1424;
+    classDef store fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef ext fill:#f3e8fb,stroke:#5b2d82,color:#0a1424,stroke-width:2px;
+    class OPERATOR person;
+    class ROUTER,PAGES,APICLIENT,AUTHPROV,BRIDGE,WORKER,BLOBJS browser;
+    class M1,M2,M3,M4,M5,M6,M7,M8,M9 mw;
+    class E_AUTH,E_OBS,E_ARC,E_BLB,E_IDN,E_FHR,E_DIA,E_OPS,E_STA slice;
+    class S_OBS,S_IDN,S_ARC,S_RPT,S_DRF,S_HND,S_ALR,S_FHR,DOMAIN svc;
+    class R_OBS,R_SUB,R_SAS,R_TPL,R_AOI,R_DGN,CROSS infra;
+    class TBL,BLOB store;
+    class KV,ENTRA,AOAI,MON,HF,EHR ext;

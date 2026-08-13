@@ -1,0 +1,14 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'16px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','actorBkg':'#dce8fb','actorBorder':'#1a3f7d','actorTextColor':'#0a1424','signalColor':'#16305e','signalTextColor':'#0a1424','labelBoxBkgColor':'#fdf0d5','labelBoxBorderColor':'#8a6100','labelTextColor':'#0a1424','noteBkgColor':'#fff8e1','noteBorderColor':'#8a6100','noteTextColor':'#0a1424','sequenceNumberColor':'#ffffff'}}}%%
+sequenceDiagram
+    autonumber
+    actor U as Caregiver
+    participant B as Browser app
+    participant A as PoWatch API
+    participant S as Storage
+
+    U->>B: Press Start monitoring
+    B->>B: Grab a camera frame and describe it
+    B->>A: Send the observation
+    A->>S: Save it
+    A-->>B: Saved — significant? outlier?
+    B-->>U: Timeline updates, alert if needed

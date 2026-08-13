@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch — AI Services Report</title>
+<style>
+:root{
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef3f9; --ink:#0a1424; --ink-2:#3c4a61;
+  --line:#d2dcea; --line-2:#b9c7dc; --accent:#1a3f7d; --accent-soft:#dce8fb;
+  --ok:#1d6b3f; --ok-soft:#e6f6ec; --warn:#8a6100; --warn-soft:#fdf0d5;
+  --bad:#8f2222; --bad-soft:#fae3e3; --info:#5b2d82; --info-soft:#f3e8fb;
+  --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --sans:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px 96px}
+header.masthead{background:linear-gradient(180deg,#12294f 0%,#1a3f7d 100%);color:#fff;padding:40px 0 34px;margin-bottom:0}
+header.masthead .wrap{padding-bottom:0}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#a8c4ee;font-weight:700;margin:0 0 8px}
+header.masthead h1{margin:0 0 10px;font-size:34px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
+header.masthead p.lede{margin:0;max-width:74ch;color:#dce8fb;font-size:17px}
+.meta-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.meta-strip span{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:4px 12px;font-size:12.5px;color:#eaf1fd}
+nav.depth{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(10,20,36,.06)}
+nav.depth .inner{max-width:1220px;margin:0 auto;padding:10px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+nav.depth .label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.seg button{appearance:none;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-2);padding:8px 16px;cursor:pointer;border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg button:hover:not([aria-pressed="true"]){background:#e2eaf6;color:var(--ink)}
+.depth-hint{font-size:13px;color:var(--ink-2)}
+section.level{display:none;padding-top:28px}
+section.level.active{display:block}
+h2{font-size:25px;margin:38px 0 6px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:2px solid var(--accent-soft)}
+h3{font-size:19px;margin:28px 0 8px}
+h4{font-size:16px;margin:20px 0 6px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+p{margin:10px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(10,20,36,.05)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px}
+.stat .n{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.stat .k{font-size:12.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:4px}
+.stat .d{font-size:13px;color:var(--ink-2);margin-top:6px}
+.stat.ok{border-left-color:var(--ok)} .stat.ok .n{color:var(--ok)}
+.stat.warn{border-left-color:var(--warn)} .stat.warn .n{color:var(--warn)}
+.stat.bad{border-left-color:var(--bad)} .stat.bad .n{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--surface-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);position:sticky;top:52px}
+tbody tr:nth-child(even){background:#fafcfe}
+.scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+.scroll table{margin:0;border:0}
+.scroll th,.scroll td{border-left:0}
+code,.mono{font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#123}
+pre{background:#0f1d33;color:#e8f0fb;padding:14px 16px;border-radius:10px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
+.p-ok{background:var(--ok-soft);color:var(--ok);border-color:#a6d4b8}
+.p-warn{background:var(--warn-soft);color:var(--warn);border-color:#e0c184}
+.p-bad{background:var(--bad-soft);color:var(--bad);border-color:#e0a5a5}
+.p-info{background:var(--info-soft);color:var(--info);border-color:#cfb0e4}
+.p-neutral{background:var(--surface-2);color:var(--ink-2);border-color:var(--line-2)}
+.callout{border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid;border-left-width:5px}
+.callout h4{margin:0 0 6px;text-transform:none;letter-spacing:0;font-size:15.5px;color:inherit}
+.callout p:last-child{margin-bottom:0}
+.c-bad{background:var(--bad-soft);border-color:#e0a5a5;color:#4a1010}
+.c-warn{background:var(--warn-soft);border-color:#e0c184;color:#432f00}
+.c-ok{background:var(--ok-soft);border-color:#a6d4b8;color:#0f3d23}
+.c-info{background:var(--accent-soft);border-color:#a8c4ee;color:#12294f}
+figure{margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}
+figure img{max-width:100%;height:auto;display:block;margin:0 auto}
+figcaption{font-size:13px;color:var(--ink-2);margin-top:12px;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+.chartbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.chartbox h4{margin-top:0}
+.chart-holder{position:relative;height:290px}
+.chart-fallback{font-size:13px;color:var(--ink-2);background:var(--surface-2);border:1px dashed var(--line-2);border-radius:8px;padding:10px 12px;margin-top:10px}
+ul,ol{padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+.tight li{margin:2px 0}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin:12px 0}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+.field input{font-family:var(--mono);font-size:14px;padding:7px 10px;border:1px solid var(--line-2);border-radius:6px;width:170px;background:#fff;color:var(--ink)}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.toc{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:18px 0}
+.toc a{color:var(--accent);text-decoration:none;font-weight:600}
+.toc a:hover{text-decoration:underline}
+.nowrap{white-space:nowrap}
+@media print{
+  nav.depth{display:none}
+  section.level{display:block !important}
+  body{background:#fff}
+  .card,figure,table{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">PoWatch · Generated documentation</p>
+    <h1>AI Services Report</h1>
+    <p class="lede">Every model-executing path in the PoWatch codebase: where inference runs, which models and versions are bound, what governs fallback, what it costs — and, explicitly, what the repository does not currently measure or price.</p>
+    <div class="meta-strip">
+      <span>Source of truth: repository <code style="background:none;border:0;color:inherit;padding:0">c:\Users\punko\Downloads\PoWatch</code></span>
+      <span>Branch: master</span>
+      <span>Generated: 2026-08-13</span>
+      <span>Target framework: .NET 10</span>
+    </div>
+  </div>
+</header>
+
+<nav class="depth">
+  <div class="inner">
+    <span class="label">Reading depth</span>
+    <span class="seg">
+      <button data-level="verybasic" aria-pressed="false">Very basic · 30 s</button>
+      <button data-level="basic" aria-pressed="true">Basic · overview</button>
+      <button data-level="complete" aria-pressed="false">Complete · full detail</button>
+    </span>
+    <span class="depth-hint">The whole page — prose, tables and diagrams — switches to the depth you pick.</span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ============================= VERY BASIC ============================= -->
+<section class="level" data-level="verybasic">
+
+  <div class="callout c-info">
+    <h4>The 30-second version</h4>
+    <p>PoWatch uses AI in <strong>two</strong> places. The one that matters runs <strong>on the caregiver's own device</strong> and is free. The other is a cloud service that writes shift handoff summaries — it is <strong>switched off by default</strong>, and when it is off (or breaks) a plain template writes the summary instead, so the feature never fails outright.</p>
+  </div>
+
+  <div class="grid g4">
+    <div class="stat ok"><div class="n">2</div><div class="k">AI services</div><div class="d">One in the browser, one in the cloud</div></div>
+    <div class="stat ok"><div class="n">$0</div><div class="k">Known spend today</div><div class="d">The cloud service is disabled by default</div></div>
+    <div class="stat bad"><div class="n">0</div><div class="k">Prices configured</div><div class="d">No pricing exists in the repo</div></div>
+    <div class="stat"><div class="n">No</div><div class="k">Anthropic / Claude</div><div class="d">Not used anywhere in this project</div></div>
+  </div>
+
+  <h2>What each one does</h2>
+
+  <figure>
+    <img src="assets/ai_topology_verybasic.svg" alt="Three AI lanes: browser vision model, cloud handoff writer with a template fallback, both feeding PoWatch" />
+    <figcaption>The AI landscape at a glance — <code>ai_topology_verybasic.svg</code></figcaption>
+  </figure>
+
+  <div class="grid g2">
+    <div class="card">
+      <h3>1 · Watching the room</h3>
+      <p>A small vision model runs <strong>inside the web browser</strong>, looking at a camera frame roughly every 10 seconds and writing one sentence about what it sees. Nothing is sent to an AI company. It costs nothing per use.</p>
+      <p><span class="pill p-ok">Always on</span> <span class="pill p-ok">Free</span> <span class="pill p-neutral">SmolVLM family</span></p>
+    </div>
+    <div class="card">
+      <h3>2 · Writing the shift handoff</h3>
+      <p>When a caregiver ends a shift, PoWatch can ask <strong>Azure OpenAI</strong> to turn the day's observations into a short brief. This is off unless someone deliberately turns it on and supplies an endpoint. If it is off, or if the call fails for any reason, a fixed template writes the same brief without any AI.</p>
+      <p><span class="pill p-warn">Off by default</span> <span class="pill p-info">Azure OpenAI</span> <span class="pill p-ok">Never fails outright</span></p>
+    </div>
+  </div>
+
+  <div class="callout c-bad">
+    <h4>The one thing to fix</h4>
+    <p>There is <strong>no pricing configuration and no token counting</strong> anywhere in the project. If the cloud service is switched on, nobody can say what it costs — not before, and not after the fact.</p>
+  </div>
+</section>
+
+<!-- ============================= BASIC ============================= -->
+<section class="level active" data-level="basic">
+
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#b-summary">Summary &amp; cost</a> ·
+    <a href="#b-matrix">Service &amp; model matrix</a> ·
+    <a href="#b-routes">Route bindings</a> ·
+    <a href="#b-fallback">Fallback policy</a> ·
+    <a href="#b-gaps">Gaps</a> ·
+    <a href="#b-visual">Visuals &amp; data</a>
+  </div>
+
+  <h2 id="b-summary">Summary &amp; cost</h2>
+
+  <div class="grid g4">
+    <div class="stat"><div class="n">2</div><div class="k">Model-executing services</div><div class="d">Client VLM · Azure OpenAI chat</div></div>
+    <div class="stat"><div class="n">2</div><div class="k">Model providers</div><div class="d">Hugging Face weights · Azure OpenAI</div></div>
+    <div class="stat"><div class="n">6</div><div class="k">Configured models</div><div class="d">5 browser VLMs + 1 AOAI deployment</div></div>
+    <div class="stat bad"><div class="n">0 / 6</div><div class="k">Models with a price</div><div class="d">No <code>AiPricing</code> section exists</div></div>
+  </div>
+
+  <div class="callout c-bad">
+    <h4>Projected monthly cost cannot be derived</h4>
+    <p>The report was asked to derive projected monthly cost from an <code>AiPricing</code> configuration. <strong>That configuration section does not exist in this repository.</strong> It appears in no <code>appsettings*.json</code>, no options class, no Bicep parameter and no environment sample. Every per-token price is therefore missing, and no monthly figure can be stated honestly. The Complete view lists exactly which prices would be needed and provides a calculator you can drive with your own contracted rates.</p>
+  </div>
+
+  <h3>What is actually being spent today</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Service</th><th>Where it runs</th><th>Billing unit</th><th>Enabled by default</th><th>Marginal cost</th></tr></thead>
+    <tbody>
+      <tr><td>Browser vision inference</td><td>Caregiver's device (WebGPU / WASM)</td><td>None — device compute</td><td><span class="pill p-ok">Yes</span></td><td><strong>$0.00</strong> per inference</td></tr>
+      <tr><td>Model weight download</td><td>Hugging Face Hub &rarr; browser</td><td>Bandwidth (HF-side, not billed to PoWatch)</td><td><span class="pill p-ok">Yes</span></td><td><strong>$0.00</strong> to this project</td></tr>
+      <tr><td>Azure OpenAI handoff brief</td><td>PoWatch.Api &rarr; Azure OpenAI</td><td>Per input + output token</td><td><span class="pill p-bad">No</span> — <code>AzureOpenAiEnabled=false</code></td><td><span class="pill p-bad">Unpriced</span></td></tr>
+      <tr><td>Template handoff brief</td><td>PoWatch.Api (in-process)</td><td>None — deterministic strings</td><td><span class="pill p-ok">Yes</span> (the default binding)</td><td><strong>$0.00</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>Anthropic presence: confirmed absent</h4>
+    <p>A repository-wide search for <code>anthropic</code>, <code>claude</code>, <code>@anthropic-ai</code> and any <code>claude-*</code> model identifier across <code>src/</code>, <code>tests/</code>, <code>infra/</code> and <code>Directory.Packages.props</code> returns <strong>no matches</strong>. There is no Anthropic SDK reference, no API endpoint, no model id and no configuration placeholder. Azure OpenAI is the only hosted LLM provider in the codebase.</p>
+  </div>
+
+  <h2 id="b-matrix">Service &amp; model matrix</h2>
+
+  <figure>
+    <img src="assets/ai_topology_basic.svg" alt="Two AI service lanes with their model sets, gates and fallbacks, plus the absent Anthropic node" />
+    <figcaption>Service topology with gates and fallbacks — <code>ai_topology_basic.svg</code></figcaption>
+  </figure>
+
+  <h3>Browser vision models — <code>wwwroot/model-registry.json</code></h3>
+  <p>The registry is the single source of truth shared by the C# model picker and the inference worker. The operator selects one; <code>smolvlm2-256m</code> is the default.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Key</th><th>Model id</th><th>Configured precision</th><th>Fallback 1</th><th>Fallback 2</th></tr></thead>
+    <tbody>
+      <tr><td><code>smolvlm2-256m</code> <span class="pill p-ok">default</span></td><td>HuggingFaceTB/SmolVLM2-256M-Video-Instruct</td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td></tr>
+      <tr><td><code>smolvlm-256m</code></td><td>HuggingFaceTB/SmolVLM-256M-Instruct</td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td></tr>
+      <tr><td><code>smolvlm-500m</code></td><td>HuggingFaceTB/SmolVLM-500M-Instruct</td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td></tr>
+      <tr><td><code>smolvlm2-500m</code></td><td>HuggingFaceTB/SmolVLM2-500M-Video-Instruct</td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td></tr>
+      <tr><td><code>smolvlm-2b</code></td><td>HuggingFaceTB/SmolVLM-Instruct</td><td>WebGPU <code>q4f16</code></td><td>WebGPU <code>q4</code></td><td>WASM <code>q4</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Azure OpenAI — <code>AzureOpenAi</code> section</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Setting</th><th>Committed value</th><th>Validation</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><code>Endpoint</code></td><td><em>empty</em></td><td>none</td><td><span class="pill p-warn">Must be supplied at deploy time</span></td></tr>
+      <tr><td><code>ApiKey</code></td><td><em>empty</em></td><td>none</td><td><span class="pill p-ok">Correct — belongs in Key Vault</span></td></tr>
+      <tr><td><code>DeploymentName</code></td><td><code>gpt-5.4-nano</code></td><td><code>[Required]</code></td><td><span class="pill p-neutral">Configured</span></td></tr>
+      <tr><td><code>ApiVersion</code></td><td><code>2024-02-01</code></td><td><code>[Required]</code></td><td><span class="pill p-neutral">Configured</span></td></tr>
+      <tr><td><code>MaxCompletionTokens</code></td><td><code>600</code></td><td><code>[Range(1, 128000)]</code></td><td><span class="pill p-neutral">Sent as <code>max_tokens</code></span></td></tr>
+      <tr><td><code>Temperature</code></td><td><code>0.3</code></td><td><code>[Range(0.0, 2.0)]</code></td><td><span class="pill p-neutral">Configured</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-routes">Route bindings &amp; triggers</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Route</th><th>AI service reached</th><th>Trigger</th><th>Gate</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /api/archives/{date}/handoff-brief</code></td><td><code>IHandoffSummarizer</code> &rarr; Azure OpenAI <em>or</em> template</td><td>Operator presses <em>Generate brief</em> on <code>/archives</code></td><td><code>HandoffCoachEnabled</code> &rarr; 503</td></tr>
+      <tr><td><code>POST /api/observer/ingest</code></td><td>None server-side — consumes the browser model's output</td><td>Monitoring loop tick, default every 10 s</td><td><code>ObservationLoopEnabled</code></td></tr>
+      <tr><td><code>GET /api/archives/{date}/handoff-report</code></td><td>None — QuestPDF renderer over deterministic data</td><td>Operator downloads the PDF</td><td>503 when the native renderer is unavailable</td></tr>
+      <tr><td>JS bridge <code>powatchInference.captureAndInfer</code></td><td>Browser VLM in a Web Worker</td><td>Every loop tick, after a frame-diff check</td><td>Frame-diff and output-quality gates</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-fallback">Fallback policy</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Client — three nested fallbacks</h3>
+      <ol class="tight">
+        <li><strong>Load:</strong> WebGPU at the configured dtype &rarr; WebGPU at the fallback dtype &rarr; WASM.</li>
+        <li><strong>Runtime:</strong> up to <strong>4</strong> generate attempts, stepping device and precision on an empty result or a throw.</li>
+        <li><strong>Network:</strong> weight fetches retry <strong>3×</strong> with 600 ms exponential backoff — GET/HEAD only, and only on 429 or 5xx.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Server — bind-time plus run-time</h3>
+      <ol class="tight">
+        <li><strong>Bind time:</strong> DI resolves the template summarizer unless <code>AzureOpenAiEnabled</code> is true <em>and</em> <code>Endpoint</code> is non-empty.</li>
+        <li><strong>Run time:</strong> the Azure path falls back to the template on a missing key, a non-2xx status, empty content, unparseable JSON, or any non-cancellation exception.</li>
+        <li><strong>Transport:</strong> <code>AddStandardResilienceHandler()</code> (retry, circuit breaker, timeouts) with a 45 s client timeout.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2 id="b-gaps">Gaps</h2>
+  <div class="callout c-bad">
+    <h4>Unmeasured: time-to-first-token and throughput</h4>
+    <p><strong>Neither service measures TTFT, and neither measures throughput.</strong> The browser path records total wall-clock time per inference and a client-side p95 over the last 100 cycles; it never observes the first token, and it never counts tokens, so tokens-per-second cannot be computed. The Azure OpenAI path records <em>no</em> latency at all and discards the response's <code>usage</code> object — only <code>choices[0].message.content</code> is deserialized — so prompt and completion token counts are never captured on either side.</p>
+  </div>
+  <div class="callout c-bad">
+    <h4>Missing: all per-token pricing</h4>
+    <p>No <code>AiPricing</code> configuration exists. Input price, output price and cached-input price for <code>gpt-5.4-nano</code> are all absent, and there is no fallback price table in code. Combined with the missing token counts above, cost cannot be projected <em>or</em> reconciled after the fact.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>Dead configuration in the Handoff Coach</h4>
+    <p><code>HandoffCoach:MaxPromptSignificantEvents</code> (20) and <code>MaxPromptOutlierEvents</code> (10) are bound, defaulted and unit-tested, but <strong>no code path reads them</strong>. The prompt builder hard-codes <code>.Take(5)</code> for both lists and <code>.Take(3)</code> for drift alerts. Raising either setting changes nothing.</p>
+  </div>
+
+  <h2 id="b-visual">Visualizations &amp; raw data</h2>
+  <p>Every chart below is paired with the table it was built from, so the figures stay checkable without a JavaScript runtime.</p>
+
+  <div class="grid g2">
+    <div class="chartbox">
+      <h4>Service inventory by execution location</h4>
+      <div class="chart-holder"><canvas id="chartInventory"></canvas></div>
+      <div class="chart-fallback" data-fallback>Chart.js could not load (offline). The table beside this chart carries the same data.</div>
+    </div>
+    <div class="card">
+      <h4>Raw data — inventory</h4>
+      <table>
+        <thead><tr><th>Execution location</th><th>Count</th><th>Members</th></tr></thead>
+        <tbody>
+          <tr><td>Client (device)</td><td>1</td><td>Browser VLM via inference worker</td></tr>
+          <tr><td>Server &rarr; cloud provider</td><td>1</td><td>AzureOpenAiHandoffSummarizer</td></tr>
+          <tr><td>Server, deterministic</td><td>1</td><td>TemplateHandoffSummarizer</td></tr>
+          <tr><td>Mock / demo</td><td>1</td><td>MockInferenceService (<code>UseMockAi</code>)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="chartbox">
+      <h4>Output token ceilings per request path</h4>
+      <div class="chart-holder"><canvas id="chartTokens"></canvas></div>
+      <div class="chart-fallback" data-fallback>Chart.js could not load (offline). See the adjacent table.</div>
+    </div>
+    <div class="card">
+      <h4>Raw data — token ceilings</h4>
+      <table>
+        <thead><tr><th>Path</th><th>Ceiling</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Browser VLM — deployed default</td><td>48</td><td><code>wwwroot/appsettings.json</code> <code>MaxInferenceTokens</code></td></tr>
+          <tr><td>Browser VLM — code default</td><td>96</td><td><code>ClientFeatureFlagsOptions</code></td></tr>
+          <tr><td>Browser VLM — hard maximum</td><td>256</td><td><code>Math.Clamp(…, 32, 256)</code> at the call site</td></tr>
+          <tr><td>Azure OpenAI completion</td><td>600</td><td><code>AzureOpenAi:MaxCompletionTokens</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= COMPLETE ============================= -->
+<section class="level" data-level="complete">
+
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#c-inventory">Full inventory</a> ·
+    <a href="#c-cost">Cost model &amp; missing prices</a> ·
+    <a href="#c-models">Model / version matrix</a> ·
+    <a href="#c-routes">Route bindings</a> ·
+    <a href="#c-params">Parameters</a> ·
+    <a href="#c-caps">Capabilities</a> ·
+    <a href="#c-triggers">Triggers</a> ·
+    <a href="#c-fallback">Fallback policies</a> ·
+    <a href="#c-gaps">Gaps &amp; instrumentation</a> ·
+    <a href="#c-visual">Visuals &amp; raw data</a>
+  </div>
+
+  <h2 id="c-inventory">Full service inventory</h2>
+
+  <figure>
+    <img src="assets/ai_topology_complete.svg" alt="Complete AI topology: client inference lane with load, generation and quality gates; server summarisation lane with binding and parse gates; mock lane; and the measurement and cost gap panel" />
+    <figcaption>Complete AI topology, including the measurement and cost gaps — <code>ai_topology_complete.svg</code></figcaption>
+  </figure>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Service</th><th>Implementation</th><th>Provider</th><th>Executes a model?</th><th>Registration</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Room vision inference</td><td><code>wwwroot/js/inference-worker.js</code> + <code>inference-bridge.js</code></td><td>On-device (transformers.js 3.8.1 / ONNX Runtime); weights from Hugging Face Hub</td><td><span class="pill p-ok">Yes</span></td><td>Web Worker, driven from <code>ObserverHub</code> over the <code>powatchInference</code> JS bridge</td></tr>
+      <tr><td>2</td><td>Handoff brief — AI</td><td><code>AzureOpenAiHandoffSummarizer</code></td><td>Azure OpenAI (chat completions REST)</td><td><span class="pill p-ok">Yes</span></td><td><code>AddHttpClient&lt;…&gt;().AddStandardResilienceHandler()</code>, resolved through <code>IHandoffSummarizer</code></td></tr>
+      <tr><td>3</td><td>Handoff brief — template</td><td><code>TemplateHandoffSummarizer</code></td><td>None — deterministic C# templates</td><td><span class="pill p-bad">No</span></td><td><code>AddScoped</code>; the default <code>IHandoffSummarizer</code> and the internal fallback of #2</td></tr>
+      <tr><td>4</td><td>Mock inference marker</td><td><code>MockInferenceService : IInferenceService, IMockable</code></td><td>None</td><td><span class="pill p-bad">No</span></td><td>Registered when <code>FeatureFlags:UseMockAi = true</code>; its presence raises the persistent MOCK DATA chip</td></tr>
+      <tr><td>5</td><td>Real inference marker</td><td><code>WebGpuInferenceService : IInferenceService</code></td><td>None</td><td><span class="pill p-bad">No</span></td><td>Deliberately empty marker type — its <em>absence</em> of <code>IMockable</code> is what hides the MOCK DATA chip</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-info">
+    <h4>Provider count, stated precisely</h4>
+    <p><strong>Model-executing services: 2.</strong> <strong>Hosted inference providers: 1</strong> (Azure OpenAI). <strong>Model-weight distributors: 1</strong> (Hugging Face Hub — it serves ONNX weights to the browser but performs no inference). <strong>Deterministic generators: 1.</strong> <strong>Marker/mock registrations: 2.</strong></p>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>Anthropic presence — explicit confirmation</h4>
+    <p>Searched case-insensitively for <code>anthropic</code>, <code>claude</code>, <code>@anthropic-ai</code>, <code>claude-*</code> and <code>us.anthropic.*</code> across <code>src/</code>, <code>tests/</code>, <code>infra/</code> and <code>Directory.Packages.props</code>. <strong>Zero matches.</strong> The only file that matched a broader provider search was <code>ort-wasm-simd-threaded.jsep.wasm</code>, a compiled ONNX Runtime binary with no relation to Anthropic. Conclusion: <strong>Anthropic is not present in this codebase</strong> as a dependency, endpoint, model identifier or configuration placeholder.</p>
+  </div>
+
+  <h2 id="c-cost">Cost model &amp; missing prices</h2>
+
+  <div class="callout c-bad">
+    <h4>The <code>AiPricing</code> configuration section does not exist</h4>
+    <p>Verified absent from: <code>src/PoWatch.Api/appsettings.json</code>, <code>appsettings.Development.json</code>, <code>appsettings.Production.json</code>, <code>appsettings.Test.json</code>, <code>src/PoWatch.Client/wwwroot/appsettings*.json</code>, every class under <code>PoWatch.Application/Options/</code>, <code>infra/main.bicep</code> and its parameter files, and <code>.env.example</code>. No options type binds it and no service reads it. <strong>Projected monthly cost cannot be derived from configuration, because there is no configuration to derive it from.</strong></p>
+  </div>
+
+  <h3>Every per-token price that is missing</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Model / deployment</th><th>Price dimension</th><th>Expected config key</th><th>Value found</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="4"><code>gpt-5.4-nano</code> (Azure OpenAI deployment)</td><td>Input tokens</td><td><code>AiPricing:gpt-5.4-nano:InputPerMillion</code></td><td>—</td><td><span class="pill p-bad">Missing</span></td></tr>
+      <tr><td>Output tokens</td><td><code>AiPricing:gpt-5.4-nano:OutputPerMillion</code></td><td>—</td><td><span class="pill p-bad">Missing</span></td></tr>
+      <tr><td>Cached input tokens</td><td><code>AiPricing:gpt-5.4-nano:CachedInputPerMillion</code></td><td>—</td><td><span class="pill p-bad">Missing</span></td></tr>
+      <tr><td>Currency / billing region</td><td><code>AiPricing:Currency</code></td><td>—</td><td><span class="pill p-bad">Missing</span></td></tr>
+      <tr><td><code>SmolVLM2-256M-Video-Instruct</code></td><td>Per-token</td><td>n/a — device compute</td><td>n/a</td><td><span class="pill p-ok">Not applicable · $0</span></td></tr>
+      <tr><td><code>SmolVLM-256M-Instruct</code></td><td>Per-token</td><td>n/a — device compute</td><td>n/a</td><td><span class="pill p-ok">Not applicable · $0</span></td></tr>
+      <tr><td><code>SmolVLM-500M-Instruct</code></td><td>Per-token</td><td>n/a — device compute</td><td>n/a</td><td><span class="pill p-ok">Not applicable · $0</span></td></tr>
+      <tr><td><code>SmolVLM2-500M-Video-Instruct</code></td><td>Per-token</td><td>n/a — device compute</td><td>n/a</td><td><span class="pill p-ok">Not applicable · $0</span></td></tr>
+      <tr><td><code>SmolVLM-Instruct</code> (2.2 B)</td><td>Per-token</td><td>n/a — device compute</td><td>n/a</td><td><span class="pill p-ok">Not applicable · $0</span></td></tr>
+      <tr><td>Hugging Face Hub weight egress</td><td>Per GB</td><td>n/a — borne by the Hub</td><td>n/a</td><td><span class="pill p-warn">Not billed, but a hard runtime dependency</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Cost calculator — supply your own contracted rates</h3>
+  <p>The structure of the cost is fully determined by the code even though the prices are not. One brief is exactly one chat completion: two messages, output capped at <code>MaxCompletionTokens</code>. Enter your rates below to project a monthly figure; the defaults are zero because <strong>the repository supplies no price</strong>.</p>
+
+  <div class="controls">
+    <div class="field"><label for="inBriefs">Briefs per month</label><input id="inBriefs" type="number" min="0" step="1" value="300" /></div>
+    <div class="field"><label for="inPromptTok">Prompt tokens / brief</label><input id="inPromptTok" type="number" min="0" step="10" value="900" /></div>
+    <div class="field"><label for="inOutTok">Output tokens / brief</label><input id="inOutTok" type="number" min="0" step="10" value="600" /></div>
+    <div class="field"><label for="inPriceIn">Input $ / 1M tokens</label><input id="inPriceIn" type="number" min="0" step="0.01" value="0" /></div>
+    <div class="field"><label for="inPriceOut">Output $ / 1M tokens</label><input id="inPriceOut" type="number" min="0" step="0.01" value="0" /></div>
+  </div>
+  <div class="grid g3">
+    <div class="stat"><div class="n" id="outMonthly">$0.00</div><div class="k">Projected monthly</div><div class="d" id="outPriceNote">No price configured — this is your input, not the repo's</div></div>
+    <div class="stat"><div class="n" id="outPerBrief">$0.000000</div><div class="k">Per brief</div><div class="d">Prompt + completion combined</div></div>
+    <div class="stat"><div class="n" id="outTokens">0</div><div class="k">Tokens / month</div><div class="d">Ceiling, assuming every brief hits the cap</div></div>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>Why the prompt-token figure is an estimate, not a measurement</h4>
+    <p>The prompt is built deterministically by <code>BuildUserPrompt</code> and is <em>bounded</em>: a fixed system prompt, seven summary lines, at most 5 outlier lines, at most 5 significant-event lines, and at most 3 drift lines. Its size is therefore predictable within a narrow range — but the code never counts tokens and never reads the response's <code>usage</code> object, so no measured value exists anywhere in the system. Treat 900 as an order-of-magnitude placeholder and replace it once token accounting is added.</p>
+  </div>
+
+  <h4>Formula, as implemented</h4>
+  <pre>monthlyCost = briefsPerMonth
+            × ( promptTokens  × inputPricePerMillion  / 1e6
+              + outputTokens  × outputPricePerMillion / 1e6 )
+
+where  outputTokens ≤ AzureOpenAi:MaxCompletionTokens  (= 600)
+       promptTokens  = f(system prompt, 7 summary lines,
+                         ≤5 outliers, ≤5 significant, ≤3 drift)
+       inputPricePerMillion  = MISSING   ← no AiPricing section
+       outputPricePerMillion = MISSING   ← no AiPricing section</pre>
+
+  <h2 id="c-models">Service / model / version matrix — configured vs fallback</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Service</th><th>Model / deployment</th><th>Version pin</th><th>Configured runtime</th><th>Fallback 1</th><th>Fallback 2</th><th>Loader</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="5">Browser vision</td><td><code>HuggingFaceTB/SmolVLM2-256M-Video-Instruct</code></td><td>Repo <code>main</code> — <strong>no revision pin</strong></td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td><td><code>AutoModelForImageTextToText</code></td></tr>
+      <tr><td><code>HuggingFaceTB/SmolVLM-256M-Instruct</code></td><td>Repo <code>main</code> — <strong>no revision pin</strong></td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td><td><code>AutoModelForImageTextToText</code></td></tr>
+      <tr><td><code>HuggingFaceTB/SmolVLM-500M-Instruct</code></td><td>Repo <code>main</code> — <strong>no revision pin</strong></td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td><td><code>AutoModelForImageTextToText</code></td></tr>
+      <tr><td><code>HuggingFaceTB/SmolVLM2-500M-Video-Instruct</code></td><td>Repo <code>main</code> — <strong>no revision pin</strong></td><td>WebGPU <code>fp16</code></td><td>WebGPU <code>fp32</code></td><td>WASM <code>q8</code></td><td><code>AutoModelForImageTextToText</code></td></tr>
+      <tr><td><code>HuggingFaceTB/SmolVLM-Instruct</code> (2.2 B)</td><td>Repo <code>main</code> — <strong>no revision pin</strong></td><td>WebGPU <code>q4f16</code></td><td>WebGPU <code>q4</code></td><td>WASM <code>q4</code></td><td><code>AutoModelForImageTextToText</code></td></tr>
+      <tr><td>Handoff brief — AI</td><td>Deployment <code>gpt-5.4-nano</code></td><td>API version <code>2024-02-01</code> (pinned in config)</td><td>Azure OpenAI chat completions</td><td colspan="2"><code>TemplateHandoffSummarizer</code> (deterministic)</td><td>REST over typed <code>HttpClient</code></td></tr>
+      <tr><td>Handoff brief — template</td><td>None</td><td>n/a</td><td>In-process C#</td><td colspan="2">None — this <em>is</em> the terminal fallback</td><td>n/a</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>Two version-pinning observations</h4>
+    <p><strong>Runtime is pinned; weights are not.</strong> The transformers.js library and its ONNX Runtime WASM are vendored at version <code>3.8.1</code> under <code>wwwroot/lib/transformers-3.8.1/</code> and served same-origin — a deliberate supply-chain control, and the folder name carries the pin. Model <em>weights</em>, however, are fetched from the Hugging Face Hub with no <code>revision</code> parameter, so an upstream repository update changes what the browser executes without any change to this codebase.</p>
+    <p><strong><code>modelClass</code> is read but never set.</strong> The worker branches on <code>cfg.modelClass === 'causal-lm'</code> to choose <code>AutoModelForCausalLM</code>, but no entry in <code>model-registry.json</code> defines the field, so all five models take the <code>AutoModelForImageTextToText</code> branch. The branch is presently unreachable.</p>
+  </div>
+
+  <h2 id="c-routes">Route bindings</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Route / entry point</th><th>Group</th><th>Handler</th><th>AI reached</th><th>Auth</th><th>Feature gate</th><th>Failure response</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /api/archives/{date}/handoff-brief</code></td><td><code>/api/archives</code></td><td><code>HandoffCoachService.GenerateBriefAsync</code></td><td><span class="pill p-info">Azure OpenAI or template</span></td><td>Required</td><td><code>HandoffCoachEnabled</code></td><td>503 when the flag is off; 400 on a bad date; never 5xx from the model itself — it degrades to the template</td></tr>
+      <tr><td><code>POST /api/observer/ingest</code></td><td><code>/api/observer</code></td><td><code>ObservationService.IngestAsync</code></td><td><span class="pill p-neutral">Consumer only</span></td><td>Required</td><td><code>ObservationLoopEnabled</code></td><td>202 Accepted with <code>Dropped=true</code> for every rejection path</td></tr>
+      <tr><td><code>GET /api/archives/{date}/handoff-report</code></td><td><code>/api/archives</code></td><td><code>ReportService</code> + <code>HandoffReportRenderer</code> (QuestPDF)</td><td><span class="pill p-bad">None</span></td><td>Required</td><td>none</td><td>503 with an explanation when the native Skia binary is unavailable (e.g. win-arm64)</td></tr>
+      <tr><td><code>GET /api/identity/subjects/live-risk</code></td><td><code>/api/identity</code></td><td><code>DriftRadarService</code></td><td><span class="pill p-bad">None</span> — pure statistics (<code>DriftMath</code>)</td><td>Required</td><td><code>DriftRadarEnabled</code></td><td>503 when the flag is off</td></tr>
+      <tr><td>JS <code>powatchInference.captureAndInfer</code></td><td>n/a — in-browser</td><td><code>inference-worker.js</code></td><td><span class="pill p-ok">Browser VLM</span></td><td>n/a</td><td>Frame-diff + quality gates</td><td>Returns <code>IsAvailable=false</code> with a classified status string; the cycle is skipped and no request is sent</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-params">Inference parameters</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Parameter</th><th>Browser VLM</th><th>Azure OpenAI</th><th>Where it is set</th></tr></thead>
+    <tbody>
+      <tr><td>Max output tokens</td><td><code>48</code> deployed / <code>96</code> code default, clamped to <code>32…256</code></td><td><code>600</code></td><td>Client: <code>FeatureFlags:MaxInferenceTokens</code> + <code>Math.Clamp</code>. Server: <code>AzureOpenAi:MaxCompletionTokens</code></td></tr>
+      <tr><td>Temperature</td><td><span class="pill p-neutral">Not set</span> — library default (greedy)</td><td><code>0.3</code></td><td><code>AzureOpenAi:Temperature</code>, <code>[Range(0,2)]</code></td></tr>
+      <tr><td>top_p / top_k / sampling</td><td><span class="pill p-neutral">Not set</span></td><td><span class="pill p-neutral">Not set</span></td><td>Neither call site passes them</td></tr>
+      <tr><td>Streaming</td><td><span class="pill p-bad">No</span> — a single <code>generate()</code> await</td><td><span class="pill p-bad">No</span> — one buffered POST</td><td>This is why TTFT is unobservable on both paths</td></tr>
+      <tr><td>Response format / JSON mode</td><td>n/a — free text, parsed by <code>ClinicalTagParser</code></td><td><span class="pill p-warn">Prompt-enforced only</span> — no <code>response_format</code> is sent; the schema is stated in the system prompt and the reply is fence-stripped and hand-parsed</td><td><code>BuildSystemPrompt</code> / <code>ParseStructuredOutput</code></td></tr>
+      <tr><td>Prompt</td><td>Fixed: <em>"What is the person in this image doing? …"</em></td><td>System schema + grounded shift data; times rendered in local time, names humanized</td><td><code>ObserverHub.State.razor.cs</code> / <code>AzureOpenAiHandoffSummarizer</code></td></tr>
+      <tr><td>Timeout</td><td>Unbounded for <code>RUN_INFERENCE</code>; status queries carry explicit timeouts</td><td>45 s <code>HttpClient.Timeout</code> plus the standard resilience handler's own timeouts</td><td><code>postToWorker</code> / <code>AddHttpClient</code></td></tr>
+      <tr><td>Poll interval</td><td><code>10 s</code> default, operator-tunable <code>5…120 s</code>, persisted to localStorage</td><td>n/a — user-triggered</td><td><code>ObserverOptions:PollingIntervalSeconds</code> + client preference</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-caps">Capabilities</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Capability</th><th>Browser VLM</th><th>Azure OpenAI</th><th>Template</th></tr></thead>
+    <tbody>
+      <tr><td>Modality</td><td>Image + text &rarr; text</td><td>Text &rarr; text</td><td>Structured data &rarr; text</td></tr>
+      <tr><td>Streaming output</td><td><span class="pill p-bad">No</span></td><td><span class="pill p-bad">No</span></td><td>n/a</td></tr>
+      <tr><td>Tool / function calling</td><td><span class="pill p-bad">No</span></td><td><span class="pill p-bad">No</span></td><td>n/a</td></tr>
+      <tr><td>Structured output enforcement</td><td><span class="pill p-bad">No</span> — regex/tag parsing</td><td><span class="pill p-warn">Prompt only</span></td><td><span class="pill p-ok">Guaranteed by construction</span></td></tr>
+      <tr><td>Embeddings / retrieval</td><td><span class="pill p-bad">No</span></td><td><span class="pill p-bad">No</span></td><td>n/a</td></tr>
+      <tr><td>Offline operation</td><td><span class="pill p-warn">After first load</span> — weights must be fetched once</td><td><span class="pill p-bad">No</span></td><td><span class="pill p-ok">Yes</span></td></tr>
+      <tr><td>Data leaves the device</td><td><span class="pill p-ok">No</span> — frames never leave the browser for inference</td><td><span class="pill p-warn">Yes</span> — aggregated shift data (times, activity strings, humanized names) is sent</td><td><span class="pill p-ok">No</span></td></tr>
+      <tr><td>Deterministic</td><td>Greedy decoding, but device/precision fallback can change output</td><td><span class="pill p-bad">No</span> — temperature 0.3</td><td><span class="pill p-ok">Yes</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-triggers">Triggers</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Trigger</th><th>Kind</th><th>Frequency</th><th>Service invoked</th><th>Pre-conditions checked first</th></tr></thead>
+    <tbody>
+      <tr><td>Monitoring loop tick</td><td>Timer, client-side</td><td>Every <code>PollingIntervalSeconds</code> (default 10 s)</td><td>Browser VLM</td><td><code>ObservationLoopEnabled</code>; model loaded; camera stream active; frame differs from the previous frame</td></tr>
+      <tr><td>Operator presses <em>Generate brief</em></td><td>User action</td><td>Typically once per shift</td><td>Azure OpenAI <em>or</em> template</td><td><code>HandoffCoachEnabled</code>; valid ISO date; audience allowed (<code>FamilySafe</code> needs <code>AllowFamilySafeSummary</code>)</td></tr>
+      <tr><td>Model selection change</td><td>User action</td><td>Rare</td><td>Browser VLM (reload)</td><td>Key exists in <code>model-registry.json</code></td></tr>
+      <tr><td>Power-preference change</td><td>User action</td><td>Rare</td><td>Browser VLM (reload)</td><td>—</td></tr>
+      <tr><td>Empty or degenerate generation</td><td>Automatic recovery</td><td>Up to 4 attempts per cycle</td><td>Browser VLM (re-load on a lower tier)</td><td>A remaining fallback stage exists</td></tr>
+      <tr><td>Transient weight-fetch failure</td><td>Automatic recovery</td><td>Up to 3 retries</td><td>Hugging Face Hub</td><td>Method is GET/HEAD; status is 429 or ≥500</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="c-fallback">Fallback policies, end to end</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Layer</th><th>Trigger</th><th>Action</th><th>Terminal state</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Weight fetch</td><td><code>TypeError: Failed to fetch</code>, HTTP 429, HTTP ≥ 500</td><td>Retry up to 3× with 600 ms exponential backoff; GET/HEAD only, so no mutating request can be replayed</td><td>Load fails with the last error; the UI reports "Model unavailable"</td></tr>
+      <tr><td>2</td><td>Model load</td><td>WebGPU unavailable or the dtype fails to initialise</td><td>WebGPU @ <code>webgpuDtype</code> &rarr; WebGPU @ <code>webgpuDtypeFallback</code> &rarr; WASM @ <code>wasmDtype</code></td><td>WASM at the quantized dtype</td></tr>
+      <tr><td>3</td><td>Generation</td><td><code>generate()</code> throws, or returns empty</td><td>Up to 4 attempts, stepping <code>nextRuntimeFallback()</code>; inputs are rebuilt after every backend switch</td><td>Cycle reported as skipped with a diagnostic; no request is sent</td></tr>
+      <tr><td>4</td><td>Output quality</td><td>Degenerate/repetitive text detected</td><td>Discard the output, surface the verbatim reply in <code>lastRejectedOutput</code></td><td>Cycle skipped; the UI reports the model-output reason rather than blaming the camera</td></tr>
+      <tr><td>5</td><td>Summarizer binding</td><td><code>AzureOpenAiEnabled=false</code> <em>or</em> <code>Endpoint</code> empty</td><td>DI resolves <code>TemplateHandoffSummarizer</code> — the Azure client is never constructed</td><td>Template brief, <code>IsAiGenerated=false</code></td></tr>
+      <tr><td>6</td><td>Azure call — config</td><td><code>Endpoint</code> or <code>ApiKey</code> blank at call time</td><td>Log a warning, delegate to the template</td><td>Template brief</td></tr>
+      <tr><td>7</td><td>Azure call — transport</td><td>Timeout, connection failure, circuit open</td><td><code>AddStandardResilienceHandler</code> retries and breaks; the exception handler then delegates to the template</td><td>Template brief</td></tr>
+      <tr><td>8</td><td>Azure call — response</td><td>Non-2xx, empty <code>content</code>, or JSON that will not parse</td><td>Log the status and body, delegate to the template</td><td>Template brief</td></tr>
+      <tr><td>9</td><td>Feature flag</td><td><code>HandoffCoachEnabled=false</code></td><td>Endpoint returns 503 before any service runs</td><td>503 Service Unavailable</td></tr>
+      <tr><td>10</td><td>Audience policy</td><td><code>FamilySafe</code> requested while <code>AllowFamilySafeSummary=false</code></td><td>Downgrade to <code>NurseToNurse</code> and log a warning</td><td>Brief generated for the safer audience</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>Net effect of the fallback chain</h4>
+    <p>The handoff-brief feature has <strong>no failure mode that returns an error to the caregiver</strong> once the feature flag is on. Every AI failure path terminates in the deterministic template. The trade-off worth knowing: because <code>IsAiGenerated</code> is the only signal distinguishing the two, a silent, persistent Azure OpenAI outage is visible only in that boolean and in the logs.</p>
+  </div>
+
+  <h2 id="c-gaps">Gaps &amp; instrumentation</h2>
+
+  <h3>What is measured today</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Metric</th><th>Where</th><th>Exported to telemetry?</th></tr></thead>
+    <tbody>
+      <tr><td><code>LoadDurationMs</code> — model load wall time</td><td>Client, <code>InferenceDiagnosticsSnapshot</code></td><td><span class="pill p-bad">No</span> — browser-local HUD only</td></tr>
+      <tr><td><code>LastInferenceMs</code> — total generate wall time</td><td>Client snapshot</td><td><span class="pill p-bad">No</span></td></tr>
+      <tr><td><code>InferenceCount</code></td><td>Client snapshot</td><td><span class="pill p-bad">No</span></td></tr>
+      <tr><td>p95 latency over the last 100 cycles</td><td><code>ObserverHub</code>, fixed-buffer in-place sort</td><td><span class="pill p-bad">No</span></td></tr>
+      <tr><td><code>Device</code> / <code>Dtype</code> / <code>Fp16FallbackUsed</code></td><td>Client snapshot</td><td><span class="pill p-bad">No</span></td></tr>
+      <tr><td>Skipped vs structured cycle counts</td><td><code>ObserverHub</code></td><td><span class="pill p-bad">No</span></td></tr>
+      <tr><td>Azure OpenAI call latency</td><td colspan="2"><span class="pill p-bad">Not measured at all</span></td></tr>
+      <tr><td>Prompt / completion token counts</td><td colspan="2"><span class="pill p-bad">Not captured — the <code>usage</code> object is never deserialized</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Flagged gaps</h3>
+  <div class="callout c-bad">
+    <h4>1 · TTFT is unmeasured on both services</h4>
+    <p>Neither path streams, so there is no first-token event to observe. The browser worker awaits a single <code>generate()</code> call; the server posts one buffered request and reads the whole body. Adding TTFT requires switching to a streaming API on at least one path — a real change, not an instrumentation tweak.</p>
+  </div>
+  <div class="callout c-bad">
+    <h4>2 · Throughput is unmeasured on both services</h4>
+    <p>Tokens-per-second cannot be computed because token counts are never produced. The client knows only elapsed milliseconds; the server discards <code>usage</code>. This is the single highest-value instrumentation gap: fixing it would simultaneously unblock throughput metrics <em>and</em> after-the-fact cost reconciliation.</p>
+  </div>
+  <div class="callout c-bad">
+    <h4>3 · No pricing configuration</h4>
+    <p>See the cost section above. <code>AiPricing</code> does not exist; four price dimensions are missing for the one billable model.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>4 · Two Handoff Coach settings are inert</h4>
+    <p><code>MaxPromptSignificantEvents</code> (20) and <code>MaxPromptOutlierEvents</code> (10) are bound, defaulted, unit-tested — and read by nothing. The prompt builder uses literal <code>.Take(5)</code> for both lists. An operator tuning these would see no change in prompt size or cost.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>5 · Model weights are unpinned</h4>
+    <p>The runtime is version-pinned and self-hosted; the weights are not. An upstream Hugging Face repository change silently alters what the browser executes.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>6 · Client diagnostics never reach server telemetry</h4>
+    <p>Every inference measurement lives in the browser HUD. Serilog and the OpenTelemetry pipeline see none of it, so fleet-wide inference health cannot be observed from Azure Monitor.</p>
+  </div>
+
+  <h2 id="c-visual">Visualizations paired with raw data</h2>
+
+  <div class="grid g2">
+    <div class="chartbox">
+      <h4>Fallback depth per configured model</h4>
+      <div class="chart-holder"><canvas id="chartFallback"></canvas></div>
+      <div class="chart-fallback" data-fallback>Chart.js could not load (offline). The table beside this chart carries the same data.</div>
+    </div>
+    <div class="card">
+      <h4>Raw data — fallback stages</h4>
+      <table>
+        <thead><tr><th>Model</th><th>Load stages</th><th>Runtime attempts</th><th>Total recovery steps</th></tr></thead>
+        <tbody>
+          <tr><td>smolvlm2-256m</td><td>3</td><td>4</td><td>7</td></tr>
+          <tr><td>smolvlm-256m</td><td>3</td><td>4</td><td>7</td></tr>
+          <tr><td>smolvlm-500m</td><td>3</td><td>4</td><td>7</td></tr>
+          <tr><td>smolvlm2-500m</td><td>3</td><td>4</td><td>7</td></tr>
+          <tr><td>smolvlm-2b</td><td>3</td><td>4</td><td>7</td></tr>
+          <tr><td>gpt-5.4-nano (AOAI)</td><td>1 (bind-time)</td><td>4 (resilience + parse)</td><td>5</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="chartbox">
+      <h4>Instrumentation coverage — measured vs missing</h4>
+      <div class="chart-holder"><canvas id="chartCoverage"></canvas></div>
+      <div class="chart-fallback" data-fallback>Chart.js could not load (offline). See the adjacent table.</div>
+    </div>
+    <div class="card">
+      <h4>Raw data — coverage</h4>
+      <table>
+        <thead><tr><th>Signal</th><th>Browser VLM</th><th>Azure OpenAI</th></tr></thead>
+        <tbody>
+          <tr><td>Wall-clock latency</td><td>Measured (client only)</td><td><strong>Missing</strong></td></tr>
+          <tr><td>TTFT</td><td><strong>Missing</strong></td><td><strong>Missing</strong></td></tr>
+          <tr><td>Token counts</td><td><strong>Missing</strong></td><td><strong>Missing</strong></td></tr>
+          <tr><td>Throughput (tok/s)</td><td><strong>Missing</strong></td><td><strong>Missing</strong></td></tr>
+          <tr><td>Error / fallback rate</td><td>Measured (client only)</td><td>Logged, not metered</td></tr>
+          <tr><td>Cost per call</td><td>n/a ($0)</td><td><strong>Missing</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="chartbox">
+      <h4>Monthly cost sensitivity — driven by the calculator above</h4>
+      <div class="chart-holder"><canvas id="chartCost"></canvas></div>
+      <div class="chart-fallback" data-fallback>Chart.js could not load (offline). The formula and inputs above define the same result.</div>
+    </div>
+    <div class="card">
+      <h4>Raw data — cost inputs</h4>
+      <table>
+        <thead><tr><th>Input</th><th>Value</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Output token cap</td><td>600</td><td><span class="pill p-ok">From config</span></td></tr>
+          <tr><td>Prompt token estimate</td><td>your input</td><td><span class="pill p-warn">Estimated — never measured</span></td></tr>
+          <tr><td>Briefs / month</td><td>your input</td><td><span class="pill p-warn">Not modelled in code</span></td></tr>
+          <tr><td>Input price</td><td>your input</td><td><span class="pill p-bad">Missing from repo</span></td></tr>
+          <tr><td>Output price</td><td>your input</td><td><span class="pill p-bad">Missing from repo</span></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:13px;color:var(--ink-2);margin-bottom:0">The chart plots projected monthly cost across a range of brief volumes at the rates you entered. With the repository's own configuration — no prices at all — every point on this curve is <strong>$0.00 and unknowable</strong>.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><strong>PoWatch — AI Services Report.</strong> Generated 2026-08-13 from the working tree on branch <code>master</code>. Diagram sources live in <code>DOCS/diagrams/*.mmd</code> and are compiled to <code>DOCS/assets/*.svg</code> with <code>@mermaid-js/mermaid-cli</code>. Every claim above was read out of the source; where the repository is silent, this report says so rather than guessing.</p>
+  <p>Related: <a href="ARCHITECTURE_REPORT.html">Architecture Report</a> · <a href="ROLES_PERMISSIONS_MATRIX.html">Roles &amp; Permissions Matrix</a> · <a href="USER_WORKFLOW.html">User Workflow</a></p>
+</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  // ---- depth switcher -------------------------------------------------
+  var buttons = document.querySelectorAll('nav.depth .seg button');
+  var sections = document.querySelectorAll('section.level');
+  function setLevel(lv){
+    buttons.forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.level === lv)); });
+    sections.forEach(function(s){ s.classList.toggle('active', s.dataset.level === lv); });
+    try { localStorage.setItem('powatch-doc-depth', lv); } catch(e){}
+    window.scrollTo({top:0, behavior:'instant'});
+    if (window.__drawCharts) window.__drawCharts();
+  }
+  buttons.forEach(function(b){ b.addEventListener('click', function(){ setLevel(b.dataset.level); }); });
+  try {
+    var saved = localStorage.getItem('powatch-doc-depth');
+    if (saved) setLevel(saved);
+  } catch(e){}
+
+  // ---- charts ---------------------------------------------------------
+  var INK = '#0a1424', INK2 = '#3c4a61', GRID = '#dfe7f2';
+  var PALETTE = ['#1a3f7d','#1d6b3f','#8a6100','#5b2d82','#8f2222','#2f7f9e'];
+  var drawn = {};
+
+  function haveChart(){ return typeof window.Chart !== 'undefined'; }
+
+  function baseOpts(extra){
+    var o = {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:INK, font:{family:'Segoe UI, Arial, sans-serif', size:12} } },
+                tooltip:{ backgroundColor:'#12294f', titleColor:'#fff', bodyColor:'#eaf1fd' } },
+      scales:{ x:{ ticks:{color:INK2}, grid:{color:GRID} }, y:{ ticks:{color:INK2}, grid:{color:GRID}, beginAtZero:true } }
+    };
+    return Object.assign(o, extra || {});
+  }
+
+  function make(id, cfg){
+    var el = document.getElementById(id);
+    if (!el || drawn[id]) return;
+    if (!el.offsetParent) return;      // hidden section — draw when it becomes visible
+    drawn[id] = new Chart(el, cfg);
+  }
+
+  function drawCharts(){
+    if (!haveChart()) return;
+    make('chartInventory', {
+      type:'doughnut',
+      data:{ labels:['Client (device)','Server → cloud','Server, deterministic','Mock / demo'],
+             datasets:[{ data:[1,1,1,1], backgroundColor:PALETTE.slice(0,4), borderColor:'#fff', borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+                plugins:{ legend:{ position:'right', labels:{color:INK, font:{size:12}} } } }
+    });
+
+    make('chartTokens', {
+      type:'bar',
+      data:{ labels:['VLM deployed','VLM code default','VLM hard max','Azure OpenAI'],
+             datasets:[{ label:'Max output tokens', data:[48,96,256,600], backgroundColor:PALETTE[0], borderRadius:4 }] },
+      options: baseOpts()
+    });
+
+    make('chartFallback', {
+      type:'bar',
+      data:{ labels:['smolvlm2-256m','smolvlm-256m','smolvlm-500m','smolvlm2-500m','smolvlm-2b','gpt-5.4-nano'],
+             datasets:[
+               { label:'Load / bind stages', data:[3,3,3,3,3,1], backgroundColor:PALETTE[0], borderRadius:3 },
+               { label:'Runtime recovery attempts', data:[4,4,4,4,4,4], backgroundColor:PALETTE[2], borderRadius:3 }
+             ] },
+      options: baseOpts({ scales:{ x:{stacked:true, ticks:{color:INK2}, grid:{color:GRID}},
+                                   y:{stacked:true, beginAtZero:true, ticks:{color:INK2}, grid:{color:GRID}} } })
+    });
+
+    make('chartCoverage', {
+      type:'bar',
+      data:{ labels:['Latency','TTFT','Token counts','Throughput','Error rate','Cost / call'],
+             datasets:[
+               { label:'Browser VLM (1 = measured)', data:[1,0,0,0,1,1], backgroundColor:PALETTE[1], borderRadius:3 },
+               { label:'Azure OpenAI (1 = measured)', data:[0,0,0,0,0.5,0], backgroundColor:PALETTE[4], borderRadius:3 }
+             ] },
+      options: baseOpts({ scales:{ x:{ticks:{color:INK2},grid:{color:GRID}},
+                                   y:{beginAtZero:true, max:1, ticks:{color:INK2, stepSize:0.5}, grid:{color:GRID}} } })
+    });
+
+    drawCost();
+  }
+  window.__drawCharts = drawCharts;
+
+  // ---- cost calculator -------------------------------------------------
+  var costChart = null;
+  function readNum(id){ var v = parseFloat((document.getElementById(id)||{}).value); return isFinite(v) && v >= 0 ? v : 0; }
+  function fmt(n, dp){ return '$' + n.toLocaleString(undefined, {minimumFractionDigits:dp, maximumFractionDigits:dp}); }
+
+  function recompute(){
+    var briefs = readNum('inBriefs'), pTok = readNum('inPromptTok'), oTok = readNum('inOutTok');
+    var pIn = readNum('inPriceIn'), pOut = readNum('inPriceOut');
+    var perBrief = (pTok * pIn / 1e6) + (oTok * pOut / 1e6);
+    var monthly  = perBrief * briefs;
+    var tokens   = (pTok + oTok) * briefs;
+    var el;
+    if ((el = document.getElementById('outMonthly')))  el.textContent  = fmt(monthly, 2);
+    if ((el = document.getElementById('outPerBrief'))) el.textContent  = fmt(perBrief, 6);
+    if ((el = document.getElementById('outTokens')))   el.textContent  = tokens.toLocaleString();
+    if ((el = document.getElementById('outPriceNote'))) {
+      el.textContent = (pIn === 0 && pOut === 0)
+        ? 'No price configured in the repo — enter your contracted rates'
+        : 'Using the rates you entered — not a repository value';
+    }
+    drawCost();
+  }
+
+  function drawCost(){
+    if (!haveChart()) return;
+    var el = document.getElementById('chartCost');
+    if (!el || !el.offsetParent) return;
+    var pTok = readNum('inPromptTok'), oTok = readNum('inOutTok');
+    var pIn = readNum('inPriceIn'), pOut = readNum('inPriceOut');
+    var perBrief = (pTok * pIn / 1e6) + (oTok * pOut / 1e6);
+    var volumes = [50,100,200,300,500,750,1000,1500,2000];
+    var data = volumes.map(function(v){ return +(perBrief * v).toFixed(4); });
+    if (costChart) { costChart.data.datasets[0].data = data; costChart.update(); return; }
+    costChart = new Chart(el, {
+      type:'line',
+      data:{ labels:volumes.map(String),
+             datasets:[{ label:'Projected monthly cost ($)', data:data, borderColor:PALETTE[0],
+                         backgroundColor:'rgba(26,63,125,.12)', fill:true, tension:.25, pointRadius:3 }] },
+      options: baseOpts({ scales:{ x:{ title:{display:true, text:'Briefs per month', color:INK2}, ticks:{color:INK2}, grid:{color:GRID} },
+                                   y:{ title:{display:true, text:'USD / month', color:INK2}, beginAtZero:true, ticks:{color:INK2}, grid:{color:GRID} } } })
+    });
+  }
+
+  ['inBriefs','inPromptTok','inOutTok','inPriceIn','inPriceOut'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', recompute);
+  });
+
+  function boot(){
+    if (!haveChart()) {
+      document.querySelectorAll('[data-fallback]').forEach(function(f){ f.style.display = 'block'; });
+      recomputeNumbersOnly();
+      return;
+    }
+    document.querySelectorAll('[data-fallback]').forEach(function(f){ f.style.display = 'none'; });
+    drawCharts();
+    recompute();
+  }
+  function recomputeNumbersOnly(){
+    var briefs = readNum('inBriefs'), pTok = readNum('inPromptTok'), oTok = readNum('inOutTok');
+    var pIn = readNum('inPriceIn'), pOut = readNum('inPriceOut');
+    var perBrief = (pTok * pIn / 1e6) + (oTok * pOut / 1e6);
+    var el;
+    if ((el = document.getElementById('outMonthly')))  el.textContent = fmt(perBrief * briefs, 2);
+    if ((el = document.getElementById('outPerBrief'))) el.textContent = fmt(perBrief, 6);
+    if ((el = document.getElementById('outTokens')))   el.textContent = ((pTok + oTok) * briefs).toLocaleString();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

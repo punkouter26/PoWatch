@@ -1,0 +1,19 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'16px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','edgeLabelBackground':'#ffffff'}}}%%
+flowchart LR
+    A["Watching the room<br/><b>runs in the browser</b><br/>SmolVLM · free"]
+    B["Writing the handoff brief<br/><b>runs on the server</b><br/>Azure OpenAI · off by default"]
+    C["Template brief<br/><b>no model at all</b><br/>always works"]
+
+    A --> D["PoWatch"]
+    B -->|"if it fails"| C
+    B --> D
+    C --> D
+
+    classDef local fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef cloud fill:#f3e8fb,stroke:#5b2d82,color:#0a1424,stroke-width:2px;
+    classDef det fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef app fill:#dce8fb,stroke:#1a3f7d,color:#0a1424,stroke-width:2px;
+    class A local;
+    class B cloud;
+    class C det;
+    class D app;

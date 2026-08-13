@@ -1,0 +1,103 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'14px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','actorBkg':'#dce8fb','actorBorder':'#1a3f7d','actorTextColor':'#0a1424','signalColor':'#16305e','signalTextColor':'#0a1424','labelBoxBkgColor':'#fdf0d5','labelBoxBorderColor':'#8a6100','labelTextColor':'#0a1424','noteBkgColor':'#fff8e1','noteBorderColor':'#8a6100','noteTextColor':'#0a1424','sequenceNumberColor':'#ffffff'}}}%%
+sequenceDiagram
+    autonumber
+    actor U as Caregiver
+    participant UI as ObserverHub.razor.cs
+    participant BR as inference-bridge.js
+    participant W as inference-worker.js
+    participant HF as Hugging Face Hub
+    participant MW as Middleware pipeline
+    participant EP as ObserverEndpoints
+    participant SVC as ObservationService
+    participant SAN as TelemetryContentSanitizer
+    participant SUB as ISubjectRepository
+    participant REP as IObservationRepository
+    participant ALR as AlertThresholdEvaluator
+    participant T as Azure Table Storage
+    participant BL as Azure Blob Storage
+
+    Note over U,UI: Session already authenticated — PoWatch.Auth HttpOnly cookie, 24h sliding
+    U->>UI: StartMonitoringAsync()
+    UI->>UI: RefreshStateAsync() — verify ObservationLoopEnabled
+    UI->>BR: powatchInference.startPreview(videoEl)
+    BR->>W: LOAD_MODEL(modelKey from model-registry.json)
+    W->>HF: fetch config + tokenizer + ONNX weights (retry x3, 600ms backoff)
+    HF-->>W: weights
+    W->>W: WebGPU fp16 -> fp32 -> WASM q8 fallback chain
+    W-->>BR: STATE_UPDATE(loadState=ready, device, dtype)
+
+    loop every PollingIntervalSeconds (default 10s)
+        UI->>BR: captureAndInfer(prompt, videoEl, maxNewTokens 32..256)
+        BR->>BR: draw frame to canvas, frame-diff vs previous
+        alt frame unchanged
+            BR-->>UI: IsAvailable=false, "Frame unchanged"
+            UI->>UI: _skippedCycles++, no HTTP request
+        else changed frame
+            BR->>W: RUN_INFERENCE(base64 frame, prompt)
+            W->>W: generate(max_new_tokens) — on failure step the fallback chain (4 attempts)
+            W-->>BR: raw text + generationDiagnostic
+            BR->>BR: reject degenerate/repetitive output
+            BR-->>UI: activity, clinicalPayload, confidence, subjectHint, capturedImageDataUrl
+
+            UI->>MW: POST /api/observer/ingest + Cookie + X-Correlation-ID + X-Session-ID
+            MW->>MW: exception handler -> HTTPS redirect (non-Dev) -> rate limiter -> correlation id
+            MW->>MW: UseAuthentication (cookie / OIDC / FakeAuth) -> UseAuthorization (default policy)
+            alt cookie missing or expired
+                MW-->>UI: 401 (OnRedirectToLogin returns status, never HTML)
+                UI-->>U: "Reconnecting to server" pipeline health latch
+            else authenticated
+                MW->>EP: route to /api/observer group
+                EP->>SVC: IngestAsync(IngestObservationRequestDto)
+                alt ObservationLoopEnabled = false
+                    SVC-->>EP: Accepted=false, Dropped=true
+                else loop enabled
+                    SVC->>SVC: IObservationProcessingGate.TryEnter()
+                    alt previous cycle still running
+                        SVC-->>EP: Dropped — "previous inference still running"
+                    else gate acquired
+                        SVC->>SAN: TrySanitize(request)
+                        alt rejected
+                            SAN-->>SVC: reason
+                            SVC-->>EP: Dropped — "Rejected by telemetry sanitizer"
+                        else clean
+                            SVC->>SUB: GetOrCreateAsync(subjectHint)
+                            SUB->>T: read/insert PoWatchSubjects (PK 'Subjects', RK subjectId)
+                            SUB-->>SVC: SubjectProfile
+                            SVC->>SVC: ClinicalTagParser -> outlier? · ActivitySignificanceClassifier -> significant?
+                            SVC->>SVC: server-authoritative ObservedAtUtc · RowKey = subjectId_eventId
+                            SVC->>REP: AddAsync(observation)
+                            REP->>T: AddEntity (PK = UTC yyyyMMdd) — 409 treated as idempotent success
+                            SVC->>SUB: UpdateLastActivityAsync (Merge, disjoint columns)
+                            SVC->>ALR: Evaluate(observation) — rolling-window rules
+                            ALR-->>SVC: triggered alerts
+                            SVC-->>EP: Accepted, IsSignificant, IsOutlier, ImageReference, TriggeredAlerts
+                        end
+                    end
+                end
+                EP-->>UI: 200 Ok (accepted) or 202 Accepted (dropped)
+            end
+
+            opt result.IsSignificant and not dropped/redundant
+                UI->>MW: GET /api/blobs/sas?blobPath=...&upload=true
+                MW->>EP: BlobEndpoints
+                EP-->>UI: BlobAccessDescriptorDto (SAS, expires +30 min)
+                UI->>BL: PUT image/jpeg direct to container (browser to storage)
+            end
+
+            alt result.IsOutlier
+                UI-->>U: full-screen RoomAlertOverlay + audio cue
+            else result.IsSignificant
+                UI-->>U: Watch-level banner
+            else
+                UI-->>U: Normal state
+            end
+
+            opt persisted something new
+                UI->>MW: GET /api/observer/events (SSE) and /api/identity/subjects/live-status (cached 10s)
+                MW-->>UI: timeline + subject glance grid
+            end
+        end
+    end
+
+    U->>UI: StopMonitoring
+    UI->>BR: cancelInFlight + stopMonitor

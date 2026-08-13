@@ -1,0 +1,69 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'14px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f7f9fd','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart TB
+    subgraph CLIENTAI["Client-side inference — PoWatch.Client (browser, zero marginal cost)"]
+        direction TB
+        TRIG1["Trigger: monitoring loop tick<br/>PollingIntervalSeconds = 10 (5..120, persisted per operator)"]
+        GATE1{"frame-diff:<br/>changed?"}
+        REG["model-registry.json — single source of truth<br/>smolvlm2-256m · smolvlm-256m · smolvlm-500m<br/>smolvlm2-500m · smolvlm-2b"]
+        LOAD["AutoModelForImageTextToText.from_pretrained<br/>(AutoModelForCausalLM when modelClass=causal-lm)"]
+        FB1["Load fallback chain<br/>webgpu/webgpuDtype &rarr; webgpu/webgpuDtypeFallback &rarr; wasm/wasmDtype"]
+        GEN["generate({ max_new_tokens: clamp(MaxInferenceTokens, 32, 256) })<br/>no temperature / top_p / sampling params set"]
+        FB2["Runtime fallback: up to 4 attempts,<br/>stepping device+dtype on empty output or throw"]
+        QUAL{"degenerate or<br/>empty output?"}
+        SUPPLY["Supply chain: transformers.js + ORT wasm vendored<br/>under wwwroot/lib/transformers-3.8.1 (pinned, same origin)<br/>weights still fetched from HF Hub with retry x3"]
+        OUT1["Structured payload &rarr; POST /api/observer/ingest"]
+        SKIP1["Cycle skipped — never leaves the device"]
+    end
+
+    subgraph SERVERAI["Server-side summarisation — PoWatch.Infrastructure.Runtime"]
+        direction TB
+        TRIG2["Trigger: operator presses Generate brief<br/>POST /api/archives/{date}/handoff-brief"]
+        FLAG1{"FeatureFlags:<br/>HandoffCoachEnabled?"}
+        ORCH["HandoffCoachService<br/>audience: NurseToNurse | Supervisor | FamilySafe*<br/>*gated by HandoffCoach:AllowFamilySafeSummary"]
+        GROUND["Grounding: ReportService window (ShiftClock)<br/>+ DriftRadarService (today only)<br/>no free-form user text reaches the model"]
+        BIND{"AzureOpenAiEnabled<br/>AND Endpoint non-empty?<br/>(DI-time binding)"}
+        AOAI["AzureOpenAiHandoffSummarizer<br/>POST {Endpoint}/openai/deployments/{DeploymentName}<br/>/chat/completions?api-version={ApiVersion}<br/>header api-key · HttpClient timeout 45s<br/>AddStandardResilienceHandler (retry + breaker + timeout)"]
+        PARAMS["Request parameters<br/>max_tokens = MaxCompletionTokens (600)<br/>temperature = Temperature (0.3)<br/>2 messages: system schema + grounded user prompt"]
+        PARSE{"2xx AND non-empty AND<br/>parses to the JSON schema?"}
+        TPL["TemplateHandoffSummarizer<br/>deterministic templates · IsAiGenerated = false"]
+        OUT2["HandoffBriefDto<br/>summary · priorityItems · followUps · sourceNotes"]
+        FLAG503["503 Service Unavailable"]
+    end
+
+    subgraph MOCKAI["Mock lane — PoWatch.Client"]
+        MOCKSVC["MockInferenceService (IMockable)<br/>registered when FeatureFlags:UseMockAi = true<br/>raises the persistent MOCK DATA chip"]
+    end
+
+    subgraph GAPS["Measurement and cost gaps"]
+        G1["TTFT: NOT measured on either service"]
+        G2["Throughput / tokens-per-second: NOT measured"]
+        G3["Token counts: NOT captured — the Azure OpenAI<br/>'usage' object is never deserialized"]
+        G4["AiPricing configuration section: DOES NOT EXIST<br/>projected monthly cost cannot be derived"]
+        G5["Anthropic / Claude: absent — no package,<br/>no endpoint, no model id anywhere in the repo"]
+    end
+
+    TRIG1 --> GATE1
+    GATE1 -->|no| SKIP1
+    GATE1 -->|yes| REG --> LOAD --> FB1 --> GEN --> FB2 --> QUAL
+    SUPPLY -.-> LOAD
+    QUAL -->|yes| SKIP1
+    QUAL -->|no| OUT1
+
+    TRIG2 --> FLAG1
+    FLAG1 -->|no| FLAG503
+    FLAG1 -->|yes| ORCH --> GROUND --> BIND
+    BIND -->|yes| AOAI --> PARAMS --> PARSE
+    BIND -->|no| TPL
+    PARSE -->|yes| OUT2
+    PARSE -->|no| TPL --> OUT2
+
+    classDef local fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef cloud fill:#f3e8fb,stroke:#5b2d82,color:#0a1424,stroke-width:2px;
+    classDef det fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef gate fill:#e8eefa,stroke:#4a6fa8,color:#0a1424,stroke-width:2px;
+    classDef gap fill:#fae3e3,stroke:#912323,color:#0a1424,stroke-width:2px;
+    class TRIG1,REG,LOAD,FB1,GEN,FB2,SUPPLY,OUT1,SKIP1 local;
+    class TRIG2,AOAI,PARAMS,ORCH,GROUND,OUT2 cloud;
+    class TPL,MOCKSVC det;
+    class GATE1,QUAL,FLAG1,BIND,PARSE,FLAG503 gate;
+    class G1,G2,G3,G4,G5 gap;

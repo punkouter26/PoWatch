@@ -1,0 +1,42 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, Arial, sans-serif','fontSize':'15px','primaryColor':'#dce8fb','primaryTextColor':'#0a1424','primaryBorderColor':'#1a3f7d','lineColor':'#16305e','textColor':'#0a1424','clusterBkg':'#f4f7fc','clusterBorder':'#8fa8cc','edgeLabelBackground':'#ffffff'}}}%%
+flowchart TB
+    subgraph BROWSER["Browser (device)"]
+        UI["Blazor WebAssembly UI<br/>ObserverHub / Archives / Identity / Diagnostics"]
+        WORKER["Inference Web Worker<br/>transformers.js 3.8.1 · WebGPU &rarr; WASM"]
+    end
+
+    subgraph HOST["PoWatch.Api — ASP.NET Core (.NET 10), single origin"]
+        MW["Middleware pipeline<br/>errors &rarr; HTTPS &rarr; rate limit &rarr; correlation &rarr; authn/authz"]
+        SLICES["Minimal API slices<br/>/auth · /api/observer · /api/archives<br/>/api/identity · /api/blobs · /fhir · /api/diagnostics"]
+        APPL["Application services<br/>Observation · Identity · Archives · Report<br/>DriftRadar · HandoffCoach"]
+    end
+
+    subgraph AZURE["Azure"]
+        TBL[("Table Storage<br/>PoWatchObservations<br/>PoWatchSubjects")]
+        BLOB[("Blob Storage<br/>significant-images<br/>dataprotection-keys")]
+        ENTRA["Microsoft Entra ID<br/>OIDC"]
+        AOAI["Azure OpenAI<br/>(optional, flag-gated)"]
+    end
+
+    HF["Hugging Face Hub<br/>model weights"]
+
+    UI -->|"capture &amp; infer"| WORKER
+    WORKER -->|"weights on first load"| HF
+    UI -->|"HTTPS + HttpOnly cookie"| MW
+    MW --> SLICES
+    SLICES --> APPL
+    APPL --> TBL
+    APPL --> BLOB
+    UI -.->|"direct PUT with short-lived SAS"| BLOB
+    MW -->|"sign-in challenge"| ENTRA
+    APPL -.->|"handoff brief, when enabled"| AOAI
+    HOST -->|"serves the WASM app"| BROWSER
+
+    classDef browser fill:#fdf0d5,stroke:#8a6100,color:#0a1424,stroke-width:2px;
+    classDef server fill:#dce8fb,stroke:#1a3f7d,color:#0a1424,stroke-width:2px;
+    classDef store fill:#e6f6ec,stroke:#1d6b3f,color:#0a1424,stroke-width:2px;
+    classDef ext fill:#f3e8fb,stroke:#5b2d82,color:#0a1424,stroke-width:2px;
+    class UI,WORKER browser;
+    class MW,SLICES,APPL server;
+    class TBL,BLOB store;
+    class ENTRA,AOAI,HF ext;

@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch — Roles &amp; Permissions Matrix</title>
+<style>
+:root{
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef3f9; --ink:#0a1424; --ink-2:#3c4a61;
+  --line:#d2dcea; --line-2:#b9c7dc; --accent:#1a3f7d; --accent-soft:#dce8fb;
+  --ok:#1d6b3f; --ok-soft:#e6f6ec; --warn:#8a6100; --warn-soft:#fdf0d5;
+  --bad:#8f2222; --bad-soft:#fae3e3; --info:#5b2d82; --info-soft:#f3e8fb;
+  --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --sans:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px;margin:0 auto;padding:0 24px 96px}
+header.masthead{background:linear-gradient(180deg,#12294f 0%,#1a3f7d 100%);color:#fff;padding:40px 0 34px}
+header.masthead .wrap{padding-bottom:0}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#a8c4ee;font-weight:700;margin:0 0 8px}
+header.masthead h1{margin:0 0 10px;font-size:34px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
+header.masthead p.lede{margin:0;max-width:76ch;color:#dce8fb;font-size:17px}
+.meta-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.meta-strip span{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:4px 12px;font-size:12.5px;color:#eaf1fd}
+nav.depth{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(10,20,36,.06)}
+nav.depth .inner{max-width:1320px;margin:0 auto;padding:10px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+nav.depth .label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.seg button{appearance:none;border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-2);padding:8px 16px;cursor:pointer;border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg button:hover:not([aria-pressed="true"]){background:#e2eaf6;color:var(--ink)}
+.seg.env button[aria-pressed="true"]{background:#1d6b3f}
+.depth-hint{font-size:13px;color:var(--ink-2)}
+section.level{display:none;padding-top:28px}
+section.level.active{display:block}
+h2{font-size:25px;margin:38px 0 6px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:2px solid var(--accent-soft)}
+h3{font-size:19px;margin:28px 0 8px}
+h4{font-size:16px;margin:20px 0 6px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+p{margin:10px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(10,20,36,.05)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px}
+.stat .n{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.stat .k{font-size:12.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:4px}
+.stat .d{font-size:13px;color:var(--ink-2);margin-top:6px}
+.stat.ok{border-left-color:var(--ok)} .stat.ok .n{color:var(--ok)}
+.stat.warn{border-left-color:var(--warn)} .stat.warn .n{color:var(--warn)}
+.stat.bad{border-left-color:var(--bad)} .stat.bad .n{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--surface-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+tbody tr:nth-child(even){background:#fafcfe}
+.scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+.scroll table{margin:0;border:0}
+code,.mono{font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#123}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
+.p-ok{background:var(--ok-soft);color:var(--ok);border-color:#a6d4b8}
+.p-warn{background:var(--warn-soft);color:var(--warn);border-color:#e0c184}
+.p-bad{background:var(--bad-soft);color:var(--bad);border-color:#e0a5a5}
+.p-info{background:var(--info-soft);color:var(--info);border-color:#cfb0e4}
+.p-neutral{background:var(--surface-2);color:var(--ink-2);border-color:var(--line-2)}
+.callout{border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid;border-left-width:5px}
+.callout h4{margin:0 0 6px;text-transform:none;letter-spacing:0;font-size:15.5px;color:inherit}
+.callout p:last-child{margin-bottom:0}
+.c-bad{background:var(--bad-soft);border-color:#e0a5a5;color:#4a1010}
+.c-warn{background:var(--warn-soft);border-color:#e0c184;color:#432f00}
+.c-ok{background:var(--ok-soft);border-color:#a6d4b8;color:#0f3d23}
+.c-info{background:var(--accent-soft);border-color:#a8c4ee;color:#12294f}
+figure{margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}
+figure img{max-width:100%;height:auto;display:block;margin:0 auto}
+figcaption{font-size:13px;color:var(--ink-2);margin-top:12px;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+ul,ol{padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+.tight li{margin:2px 0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.toc{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:18px 0}
+.toc a{color:var(--accent);text-decoration:none;font-weight:600}
+.toc a:hover{text-decoration:underline}
+
+/* ---- matrix ---- */
+.matrix-controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:16px 0}
+.matrix-controls .grp{display:flex;align-items:center;gap:10px}
+.matrix-controls .grp > span.lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)}
+.chk{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--ink);cursor:pointer;user-select:none}
+.chk input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.matrix-controls input[type=search]{font-size:14px;padding:7px 11px;border:1px solid var(--line-2);border-radius:6px;min-width:230px;font-family:inherit;background:#fff;color:var(--ink)}
+.matrix-wrap{overflow:auto;max-height:78vh;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table.matrix{border-collapse:separate;border-spacing:0;font-size:13.5px;margin:0;width:100%}
+table.matrix th,table.matrix td{border:0;border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:7px 10px;white-space:nowrap}
+table.matrix thead th{position:sticky;top:0;z-index:3;background:#e7eef8;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:#12294f;border-bottom:2px solid var(--line-2);text-align:center;vertical-align:bottom}
+table.matrix thead th.rowhead{z-index:5;left:0;text-align:left;background:#dfe8f5}
+table.matrix tbody th.rowhead{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;font-weight:600;font-family:var(--mono);font-size:12.5px;box-shadow:1px 0 0 var(--line)}
+table.matrix tbody tr:nth-child(even) th.rowhead{background:#fafcfe}
+table.matrix tbody tr:hover th.rowhead,table.matrix tbody tr:hover td{background:#eef4fd}
+table.matrix td{text-align:center;font-weight:700;font-size:12px;letter-spacing:.03em}
+table.matrix tbody tr.groupsep th,table.matrix tbody tr.groupsep td{background:#12294f;color:#fff;font-family:var(--sans);font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;box-shadow:none}
+.cell-allow{background:var(--ok-soft);color:#12572f}
+.cell-deny{background:var(--bad-soft);color:#7d1c1c}
+.cell-flag{background:var(--warn-soft);color:#6d4d00}
+.cell-na{background:#f2f4f7;color:#8a93a1;font-weight:400}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;align-items:center}
+.legend b{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:5px;border:1px solid rgba(0,0,0,.12)}
+.collapsed-note{font-size:13px;color:var(--ink-2);background:var(--warn-soft);border:1px solid #e0c184;border-left:4px solid var(--warn);border-radius:8px;padding:8px 12px;margin:10px 0}
+.riskrow{border-left:4px solid var(--bad)}
+@media print{ nav.depth,.matrix-controls{display:none} section.level{display:block !important} .matrix-wrap{max-height:none;overflow:visible} body{background:#fff} }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">PoWatch · Generated documentation</p>
+    <h1>Roles &amp; Permissions Matrix</h1>
+    <p class="lede">Every route in PoWatch mapped against every principal that can exist, in every environment — derived from the authorization metadata, authentication schemes and feature flags in the source, not from intent. Includes an explicit list of the endpoints that carry no authorization check.</p>
+    <div class="meta-strip">
+      <span>35 routes audited</span>
+      <span>3 environments</span>
+      <span>BFF cookie · OIDC · dev guest bypass</span>
+      <span>Generated: 2026-08-13</span>
+    </div>
+  </div>
+</header>
+
+<nav class="depth">
+  <div class="inner">
+    <span class="label">Reading depth</span>
+    <span class="seg">
+      <button data-level="verybasic" aria-pressed="false">Very basic · 30 s</button>
+      <button data-level="basic" aria-pressed="true">Basic · overview</button>
+      <button data-level="complete" aria-pressed="false">Complete · full matrix</button>
+    </span>
+    <span class="depth-hint">The Complete view carries the interactive Principal × Environment grid.</span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ============================= VERY BASIC ============================= -->
+<section class="level" data-level="verybasic">
+  <div class="callout c-info">
+    <h4>The 30-second version</h4>
+    <p>PoWatch has exactly <strong>two</strong> levels of access: <em>signed in</em> and <em>not signed in</em>. There are no roles — no admin, no supervisor, no read-only. Anyone who can sign in can do everything, including deleting all data where that switch is left on.</p>
+  </div>
+
+  <figure>
+    <img src="assets/authz_flow_verybasic.svg" alt="Request arrives, is it signed in, yes means everything is allowed, no means 401; a note says there are no roles" />
+    <figcaption>The whole access-control model — <code>authz_flow_verybasic.svg</code></figcaption>
+  </figure>
+
+  <div class="grid g4">
+    <div class="stat ok"><div class="n">2</div><div class="k">Access levels</div><div class="d">Signed in, or not</div></div>
+    <div class="stat bad"><div class="n">0</div><div class="k">Roles enforced</div><div class="d">Roles exist in the data but guard nothing</div></div>
+    <div class="stat warn"><div class="n">12</div><div class="k">Public routes</div><div class="d">9 have to be public; 3 are worth a look</div></div>
+    <div class="stat ok"><div class="n">23</div><div class="k">Protected routes</div><div class="d">Every API route requires sign-in</div></div>
+  </div>
+
+  <h2>The three things worth knowing</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>Locked by default</h3>
+      <p>If a developer adds a new route and forgets to protect it, it is <strong>still protected</strong>. The framework denies anything that does not explicitly opt out.</p>
+    </div>
+    <div class="card">
+      <h3>Guest sign-in cannot reach production</h3>
+      <p>The "Continue as Guest" path is blocked three separate ways in production — the flag, an environment check, and a startup exception. It is not one switch away from being live.</p>
+    </div>
+    <div class="card">
+      <h3>Two diagnostic pages are public</h3>
+      <p><code>/diag</code> and <code>/diag/boot</code> answer anyone, in any environment. The values are masked, but they confirm the environment name, storage state and boot progress to a stranger.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= BASIC ============================= -->
+<section class="level active" data-level="basic">
+  <div class="toc">
+    <strong>On this page:</strong>
+    <a href="#b-principals">Principals</a> ·
+    <a href="#b-envs">Environments</a> ·
+    <a href="#b-model">The guard model</a> ·
+    <a href="#b-public">Public surface</a> ·
+    <a href="#b-roles">Roles</a> ·
+    <a href="#b-findings">Security findings</a>
+  </div>
+
+  <h2 id="b-principals">Principals that can exist</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Principal</th><th>How it is obtained</th><th>Scheme</th><th>Exists in</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Anonymous</strong></td><td>No credential</td><td>—</td><td>All environments</td></tr>
+      <tr><td><strong>Entra user</strong></td><td><code>GET /auth/login/microsoft</code> &rarr; OIDC code + PKCE &rarr; cookie</td><td><code>Cookies</code> (OIDC signs into it)</td><td>Any environment with <code>AzureAd:ClientId</code> configured</td></tr>
+      <tr><td><strong>Guest (cookie)</strong></td><td><code>GET /auth/login/fake?user=&amp;roles=</code> &rarr; direct <code>SignInAsync</code></td><td><code>Cookies</code></td><td>Development, Test — 404 in Production</td></tr>
+      <tr><td><strong>FakeAuth (header)</strong></td><td><code>X-Fake-User</code> / <code>X-Fake-Roles</code> request headers</td><td><code>FakeAuth</code></td><td>Development, Test — the scheme is not registered in Production, and registering it there throws at startup</td></tr>
+      <tr><td><strong>Machine probe</strong></td><td>No credential; App Service health probe, CI deploy gate, curl</td><td>—</td><td>All environments</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-envs">Environment posture</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Setting</th><th>Development</th><th>Test</th><th>Production</th></tr></thead>
+    <tbody>
+      <tr><td><code>DeveloperBypassAuth</code></td><td><span class="pill p-warn">true</span></td><td><span class="pill p-warn">true</span></td><td><span class="pill p-ok">false</span></td></tr>
+      <tr><td><code>DeveloperEnableMicrosoftLogin</code></td><td><span class="pill p-neutral">true</span></td><td><span class="pill p-neutral">unset (false)</span></td><td><span class="pill p-ok">false</span></td></tr>
+      <tr><td><code>AllowDataReset</code></td><td><span class="pill p-warn">true</span></td><td><span class="pill p-warn">true</span></td><td><span class="pill p-ok">false</span></td></tr>
+      <tr><td><code>ExposeDebugDetailsInUi</code></td><td><span class="pill p-warn">true</span></td><td><span class="pill p-warn">true</span></td><td><span class="pill p-ok">false</span></td></tr>
+      <tr><td><code>EnableKeyVault</code></td><td><span class="pill p-neutral">true</span></td><td><span class="pill p-neutral">false</span></td><td><span class="pill p-neutral">false</span> by default</td></tr>
+      <tr><td><code>FhirExportEnabled</code></td><td colspan="3"><span class="pill p-neutral">true</span> — base configuration, not overridden anywhere</td></tr>
+      <tr><td><code>HandoffCoachEnabled</code> / <code>DriftRadarEnabled</code></td><td colspan="3"><span class="pill p-neutral">true</span> — base configuration</td></tr>
+      <tr><td>FakeAuth scheme registered</td><td><span class="pill p-warn">yes</span></td><td><span class="pill p-warn">yes</span></td><td><span class="pill p-ok">no — startup throws if attempted</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-model">The guard model</h2>
+  <figure>
+    <img src="assets/authz_flow_basic.svg" alt="Authentication then authorization metadata branching into anonymous, default policy and fallback policy, then feature-flag gates" />
+    <figcaption>How a request is authorized — <code>authz_flow_basic.svg</code></figcaption>
+  </figure>
+
+  <div class="grid g3">
+    <div class="card">
+      <h3>Default policy</h3>
+      <p>Applied by every <code>.RequireAuthorization()</code>. Requires an authenticated user. Accepts the cookie scheme, plus <code>FakeAuth</code> only when the dev bypass is on.</p>
+    </div>
+    <div class="card">
+      <h3>Fallback policy</h3>
+      <p>Applied to any endpoint that declares nothing. <strong>Cookie only</strong> — <code>FakeAuth</code> is deliberately excluded so an always-succeeds guest cannot auto-authenticate anonymous endpoints such as <code>/auth/me</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Feature flags as a second gate</h3>
+      <p>After authorization succeeds, flags can still refuse: FHIR and Handoff Coach and Drift Radar return <strong>503</strong>; the storage reset returns <strong>404</strong>, so its existence is not confirmed to a caller.</p>
+    </div>
+  </div>
+
+  <h2 id="b-public">The public surface, in full</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Route</th><th>Why it is anonymous</th><th>Assessment</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /auth/me</code></td><td>Must report the <em>anonymous</em> state before sign-in</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>GET /auth/config</code></td><td>The login page must know which buttons to render</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>GET /auth/login/microsoft</code></td><td>Sign-in cannot require prior sign-in</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>GET /auth/login/fake</code></td><td>Same; 404 unless dev bypass is on and the environment is not Production</td><td><span class="pill p-ok">Required, correctly fenced</span></td></tr>
+      <tr><td><code>POST /auth/logout</code></td><td>Signing out an already-expired session must not 401</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td>Static assets incl. <code>/_framework/*</code></td><td>The runtime that renders <code>/login</code> must load first</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>MapFallbackToFile("index.html")</code></td><td>The SPA host page must load for signed-out users</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>GET /health</code></td><td>App Service probe and CI deploy gate read it unauthenticated</td><td><span class="pill p-warn">Justified — but it enumerates dependency names and statuses</span></td></tr>
+      <tr><td><code>GET /diag</code></td><td>Operator diagnosis without a session</td><td><span class="pill p-bad">Flagged</span></td></tr>
+      <tr><td><code>GET /diag/boot</code></td><td>Answer "why did it not come ready?" when the app is degraded</td><td><span class="pill p-bad">Flagged</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="b-roles">Roles</h2>
+  <div class="callout c-bad">
+    <h4>Roles are carried everywhere and enforced nowhere</h4>
+    <p>Role claims are minted in two places — the <code>roles</code> query parameter on <code>/auth/login/fake</code> and the <code>X-Fake-Roles</code> header on the <code>FakeAuth</code> scheme — and they are surfaced to the client in <code>AuthStateDto.Roles</code>. But a repository-wide search finds <strong>no</strong> <code>RequireRole</code>, <strong>no</strong> policy with a role requirement, <strong>no</strong> <code>[Authorize(Roles = …)]</code> and <strong>no</strong> <code>&lt;AuthorizeView Roles="…"&gt;</code>. Every one of the four client <code>[Authorize]</code> attributes and all three <code>&lt;AuthorizeView&gt;</code> blocks are bare.</p>
+    <p><strong>Consequence:</strong> every authenticated principal has identical authority. A guest signed in with <code>?roles=ReadOnly</code> can rename subjects, merge identities and — where the flag permits — delete all stored data. This is why the role columns in the Complete matrix collapse by default: they carry no information.</p>
+  </div>
+
+  <h2 id="b-findings">Security findings</h2>
+  <div class="callout c-bad">
+    <h4>S1 · <code>GET /diag</code> is unauthenticated in Production</h4>
+    <p>Returns a diagnostics snapshot: masked endpoint, masked API key, storage connection status, CPU load and memory. The masking is real, but the endpoint still confirms to an unauthenticated caller that the host is a PoWatch instance, whether its storage is reachable, and how loaded it is. It duplicates <code>GET /api/diagnostics/status</code>, which <em>is</em> protected — the same data behind two different postures.</p>
+  </div>
+  <div class="callout c-bad">
+    <h4>S2 · <code>GET /diag/boot</code> is unauthenticated in Production</h4>
+    <p>Returns the environment name, the last startup milestone reached and per-dependency readiness, and answers <strong>503</strong> when unhealthy. Keeping it dependency-light and anonymous is a deliberate operational choice with a real justification; it is also unauthenticated infrastructure reconnaissance. Restricting it by network rule rather than by policy would preserve the operational value.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>S3 · <code>POST /api/blobs/integrity</code> signs arbitrary paths</h4>
+    <p>Authenticated, but it accepts a caller-chosen array of blob paths and returns a signed read URL for each with no ownership or prefix check. Any signed-in user can request a SAS for any path in the container.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>S4 · OpenAPI and Scalar are protected only implicitly</h4>
+    <p><code>/openapi/v1.json</code> and <code>/scalar/v1</code> declare no authorization metadata, so the fallback policy protects them. The outcome is right; the intent is invisible. An explicit <code>.RequireAuthorization()</code> would make it auditable and would survive a future change to the fallback policy.</p>
+  </div>
+  <div class="callout c-ok">
+    <h4>S5 · What is genuinely well built</h4>
+    <ul class="tight">
+      <li><strong>Triple-fenced guest bypass.</strong> The flag, an <code>IsProduction()</code> check on the endpoint, and a startup <code>InvalidOperationException</code> if the scheme is ever registered in Production.</li>
+      <li><strong>FakeAuth excluded from the fallback policy</strong>, so an always-succeeds scheme cannot silently authenticate anonymous endpoints.</li>
+      <li><strong>Open-redirect protection.</strong> <code>SafeLocalUrl</code> accepts only same-site absolute paths and rejects protocol-relative <code>//host</code> forms.</li>
+      <li><strong>Cookie hardening.</strong> HttpOnly, <code>SameSite=Strict</code>, <code>Secure=Always</code>, encrypted with a durable shared Data Protection keyring.</li>
+      <li><strong>XHR-correct challenges.</strong> 401 and 403 status codes instead of HTML redirects, so the BFF client never receives a login page as an API response.</li>
+      <li><strong>Issuer validation</strong> against <code>AzureAd:AllowedTenants</code> when a list is supplied.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================= COMPLETE ============================= -->
+<section class="level" data-level="complete">
+  <h2>Interactive access-control grid</h2>
+  <p>Rows are code-derived routes; columns are principals. Pick an environment to re-evaluate every cell against that environment's flags and registered schemes. Columns that carry no distinct authority — every role column, because no role is ever checked — collapse automatically.</p>
+
+  <div class="matrix-controls">
+    <div class="grp">
+      <span class="lbl">Environment</span>
+      <span class="seg env" id="envSeg">
+        <button data-env="Development" aria-pressed="false">Development</button>
+        <button data-env="Test" aria-pressed="false">Test</button>
+        <button data-env="Production" aria-pressed="true">Production</button>
+      </span>
+    </div>
+    <div class="grp">
+      <label class="chk"><input type="checkbox" id="chkCollapse" checked /> Collapse unused columns</label>
+      <label class="chk"><input type="checkbox" id="chkRiskOnly" /> Show flagged routes only</label>
+    </div>
+    <div class="grp">
+      <input type="search" id="matrixFilter" placeholder="Filter routes, e.g. identity" aria-label="Filter routes" />
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><b style="background:#e6f6ec"></b>ALLOW — reachable and handled</span>
+    <span><b style="background:#fdf0d5"></b>GATED — authorized, then refused by a feature flag</span>
+    <span><b style="background:#fae3e3"></b>DENY — 401, 403 or 404</span>
+    <span><b style="background:#f2f4f7"></b>N/A — this principal cannot exist in this environment</span>
+  </div>
+
+  <div id="collapseNote" class="collapsed-note"></div>
+
+  <div class="matrix-wrap">
+    <table class="matrix" id="matrixTable">
+      <thead><tr id="matrixHead"></tr></thead>
+      <tbody id="matrixBody"></tbody>
+    </table>
+  </div>
+
+  <div class="grid g4" style="margin-top:18px">
+    <div class="stat" id="statTotal"><div class="n">—</div><div class="k">Routes</div><div class="d">In the current view</div></div>
+    <div class="stat ok" id="statAuth"><div class="n">—</div><div class="k">Require sign-in</div><div class="d">Explicit or via fallback policy</div></div>
+    <div class="stat warn" id="statAnon"><div class="n">—</div><div class="k">Anonymous</div><div class="d">No authorization check at all</div></div>
+    <div class="stat bad" id="statFlag"><div class="n">—</div><div class="k">Flagged</div><div class="d">Needs a decision</div></div>
+  </div>
+
+  <h2>Full authorization flow</h2>
+  <figure>
+    <img src="assets/authz_flow_complete.svg" alt="Complete authorization flow: principal acquisition per environment, per-request authorization with default and fallback policies, the resolved surface, and the audit findings panel" />
+    <figcaption>Principal acquisition, per-request authorization and the resolved surface — <code>authz_flow_complete.svg</code></figcaption>
+  </figure>
+
+  <h2>Endpoints with no authorization check</h2>
+  <p>Twelve endpoints carry <code>AllowAnonymous</code> or are served by an anonymous static-asset mapping. Nine are structurally required; three are judgement calls.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Route</th><th>Declared as</th><th>Discloses</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /auth/me</code></td><td>group <code>.AllowAnonymous()</code></td><td>Whether the caller is signed in, and their own name/email/roles</td><td><span class="pill p-ok">Required</span> — reports the anonymous state by design; reveals nothing about other users</td></tr>
+      <tr><td><code>GET /auth/config</code></td><td>group <code>.AllowAnonymous()</code></td><td>Whether Microsoft and guest sign-in are enabled, and the environment name</td><td><span class="pill p-warn">Required, mild leak</span> — the environment name is echoed to anyone</td></tr>
+      <tr><td><code>GET /auth/login/microsoft</code></td><td>group <code>.AllowAnonymous()</code></td><td>Whether a client id is configured (404 when not)</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>GET /auth/login/fake</code></td><td>group <code>.AllowAnonymous()</code></td><td>Nothing in Production — hard 404</td><td><span class="pill p-ok">Required, triple-fenced</span></td></tr>
+      <tr><td><code>POST /auth/logout</code></td><td>group <code>.AllowAnonymous()</code></td><td>Nothing</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td><code>GET /health</code></td><td><code>.AllowAnonymous()</code></td><td>Overall status, the name and status of each registered check, and per-check duration</td><td><span class="pill p-warn">Justified</span> — the probe and deploy gate contract. Dependency <em>names</em> leak; values do not.</td></tr>
+      <tr><td class="riskrow"><code>GET /diag</code></td><td><code>.AllowAnonymous()</code></td><td>Masked endpoint, masked API key, storage connection status, CPU load, memory</td><td><span class="pill p-bad">Flagged</span> — duplicates the protected <code>/api/diagnostics/status</code></td></tr>
+      <tr><td class="riskrow"><code>GET /diag/boot</code></td><td><code>.AllowAnonymous()</code></td><td>Environment name, last boot milestone, storage configured/ready, Key Vault enabled and whether a URI is set</td><td><span class="pill p-bad">Flagged</span> — restrict by network rule rather than removing it</td></tr>
+      <tr><td><code>GET /_framework/*</code></td><td><code>MapStaticAssets().AllowAnonymous()</code></td><td>Client assemblies — which are shipped to every user anyway</td><td><span class="pill p-ok">Required</span> — see the Architecture Report</td></tr>
+      <tr><td><code>GET /css/*</code>, <code>/js/*</code>, <code>/lib/*</code></td><td><code>MapStaticAssets().AllowAnonymous()</code></td><td>Client code</td><td><span class="pill p-ok">Required</span></td></tr>
+      <tr><td class="riskrow"><code>GET /appsettings.json</code> (client)</td><td><code>MapStaticAssets().AllowAnonymous()</code></td><td>Client feature flags: <code>UseMockAi</code>, polling interval, <code>MaxInferenceTokens</code>, <code>EnableHud</code>, <code>ExposeDebugDetailsInUi</code></td><td><span class="pill p-warn">Structural</span> — harmless today, but anything added here is world-readable</td></tr>
+      <tr><td><code>GET /</code> and unmatched paths</td><td><code>MapFallbackToFile("index.html").AllowAnonymous()</code></td><td>The SPA host page</td><td><span class="pill p-ok">Required</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Role capability matrix</h2>
+  <p>The roles below are the ones the codebase can actually mint. The matrix is deliberately uniform — that uniformity <em>is</em> the finding.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Capability</th><th>Anonymous</th><th>Any authenticated user</th><th>Role <code>Admin</code></th><th>Role <code>Nurse</code></th><th>Role <code>Supervisor</code></th></tr></thead>
+    <tbody>
+      <tr><td>Read the live board and timeline</td><td>No</td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Ingest observations</td><td>No</td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Rename and merge subject identities</td><td>No</td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Generate handoff briefs and PDFs</td><td>No</td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Mint blob SAS URLs (read and upload)</td><td>No</td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Export clinical data over FHIR</td><td>No</td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Read the diagnostics snapshot</td><td>Yes, via <code>/diag</code></td><td><strong>Yes</strong></td><td>Same</td><td>Same</td><td>Same</td></tr>
+      <tr><td>Delete all observations, subjects and blobs</td><td>No</td><td><strong>Yes</strong> where <code>AllowDataReset</code> is on</td><td>Same</td><td>Same</td><td>Same</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-warn">
+    <h4>If roles are to become real, three places must change together</h4>
+    <ol class="tight">
+      <li><strong>Claim source.</strong> Entra sign-in requests only <code>openid profile email</code> and does not map app roles, so a real Entra principal arrives with <em>no</em> role claims at all. Only the dev/test paths can mint them today.</li>
+      <li><strong>Server guards.</strong> Policies would need to be defined and attached per group — destructive operations (<code>/merge</code>, <code>PATCH /subjects</code>, <code>/reset</code>) are the natural first candidates.</li>
+      <li><strong>Client guards.</strong> The four <code>[Authorize]</code> attributes and three <code>&lt;AuthorizeView&gt;</code> blocks would need <code>Roles</code>, remembering that client guards are cosmetic — the server guard is the control.</li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <p><strong>PoWatch — Roles &amp; Permissions Matrix.</strong> Generated 2026-08-13 from the working tree on branch <code>master</code>. Every cell is derived from endpoint authorization metadata, registered authentication schemes and the environment's committed feature flags. Diagram source: <code>DOCS/diagrams/authz_flow_*.mmd</code>.</p>
+  <p>Related: <a href="ARCHITECTURE_REPORT.html">Architecture Report</a> · <a href="AI_SERVICES_REPORT.html">AI Services Report</a> · <a href="USER_WORKFLOW.html">User Workflow</a></p>
+</footer>
+</div>
+
+<script>
+(function(){
+  // ---------- depth switching ----------
+  var buttons = document.querySelectorAll('nav.depth .seg:not(.env) button');
+  var sections = document.querySelectorAll('section.level');
+  function setLevel(lv){
+    buttons.forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.level === lv)); });
+    sections.forEach(function(s){ s.classList.toggle('active', s.dataset.level === lv); });
+    try { localStorage.setItem('powatch-doc-depth', lv); } catch(e){}
+    window.scrollTo({top:0, behavior:'instant'});
+    render();
+  }
+  buttons.forEach(function(b){ b.addEventListener('click', function(){ setLevel(b.dataset.level); }); });
+  try { var saved = localStorage.getItem('powatch-doc-depth'); if (saved) setLevel(saved); } catch(e){}
+
+  // ---------- model ----------
+  // Environment posture, taken from the committed appsettings files.
+  var ENVS = {
+    Development: { bypass:true,  reset:true,  entraConfigured:false, note:'AzureAd:ClientId is empty in appsettings.Development.json, so Microsoft sign-in 404s until an operator supplies one.' },
+    Test:        { bypass:true,  reset:true,  entraConfigured:false, note:'appsettings.Test.json clears KeyVault:Uri and leaves AzureAd unset; the suite signs in through the FakeAuth header scheme.' },
+    Production:  { bypass:false, reset:false, entraConfigured:true,  note:'appsettings.Production.json forces every developer affordance off. Registering FakeAuth here throws at startup.' }
+  };
+
+  // Principals. `roleCol` marks columns that exist only to demonstrate that roles are never checked.
+  var PRINCIPALS = [
+    { id:'anon',   label:'Anonymous',        sub:'no credential' },
+    { id:'entra',  label:'Entra user',       sub:'OIDC → cookie' },
+    { id:'guest',  label:'Guest',            sub:'/auth/login/fake' },
+    { id:'fake',   label:'FakeAuth header',  sub:'X-Fake-User' },
+    { id:'probe',  label:'Machine probe',    sub:'unauthenticated' },
+    { id:'rAdmin', label:'Role: Admin',      sub:'never checked', roleCol:true },
+    { id:'rNurse', label:'Role: Nurse',      sub:'never checked', roleCol:true },
+    { id:'rSup',   label:'Role: Supervisor', sub:'never checked', roleCol:true }
+  ];
+
+  // guard: 'anon' | 'auth' (RequireAuthorization) | 'fallback' (no metadata → fallback policy)
+  // gate:  optional function(env) → null | {code, why}
+  var ROUTES = [
+    { group:'Auth — /auth (AllowAnonymous group)' },
+    { r:'GET /auth/me', guard:'anon' },
+    { r:'GET /auth/config', guard:'anon' },
+    { r:'GET /auth/login/microsoft', guard:'anon',
+      gate:function(e){ return ENVS[e].entraConfigured ? null : {code:'404', why:'AzureAd:ClientId not configured'}; } },
+    { r:'GET /auth/login/fake', guard:'anon',
+      gate:function(e){ return ENVS[e].bypass ? null : {code:'404', why:'guest sign-in unavailable in this environment'}; } },
+    { r:'POST /auth/logout', guard:'anon' },
+
+    { group:'Observer — /api/observer (RequireAuthorization)' },
+    { r:'POST /api/observer/ingest', guard:'auth' },
+    { r:'GET /api/observer/state', guard:'auth' },
+    { r:'GET /api/observer/events  (SSE)', guard:'auth' },
+    { r:'POST /api/observer/acknowledge', guard:'auth' },
+
+    { group:'Archives — /api/archives (RequireAuthorization)' },
+    { r:'GET /api/archives/{date}', guard:'auth' },
+    { r:'GET /api/archives/{date}/handoff-report', guard:'auth' },
+    { r:'POST /api/archives/{date}/handoff-brief', guard:'auth', flagName:'HandoffCoachEnabled' },
+
+    { group:'Blobs — /api/blobs (RequireAuthorization)' },
+    { r:'GET /api/blobs/sas', guard:'auth' },
+    { r:'GET /api/blobs/read', guard:'auth' },
+    { r:'POST /api/blobs/integrity', guard:'auth', risk:'Signs any caller-supplied blob path — no ownership check.' },
+
+    { group:'Identity — /api/identity (RequireAuthorization)' },
+    { r:'POST /api/identity/subjects', guard:'auth' },
+    { r:'GET /api/identity/subjects', guard:'auth' },
+    { r:'PATCH /api/identity/subjects/{subjectId}', guard:'auth' },
+    { r:'POST /api/identity/merge', guard:'auth' },
+    { r:'GET /api/identity/subjects/live-status', guard:'auth' },
+    { r:'GET /api/identity/subjects/live-risk', guard:'auth', flagName:'DriftRadarEnabled' },
+    { r:'GET /api/identity/subjects/{subjectId}/baseline', guard:'auth' },
+
+    { group:'FHIR — /fhir (RequireAuthorization + endpoint filter)' },
+    { r:'GET /fhir/Observation', guard:'auth', flagName:'FhirExportEnabled' },
+    { r:'GET /fhir/Observation/{id}', guard:'auth', flagName:'FhirExportEnabled' },
+
+    { group:'Diagnostics — /api/diagnostics (RequireAuthorization)' },
+    { r:'GET /api/diagnostics/status', guard:'auth' },
+    { r:'POST /api/diagnostics/reset', guard:'auth',
+      gate:function(e){ return ENVS[e].reset ? null : {code:'404', why:'AllowDataReset is false'}; },
+      risk:'Deletes all observations, subjects and blobs. No role guard — any authenticated user where the flag is on.' },
+
+    { group:'Ops roots — mapped on the app' },
+    { r:'GET /health', guard:'anon', risk:'Enumerates registered dependency check names and statuses to anyone.' },
+    { r:'GET /diag', guard:'anon', risk:'Unauthenticated: masked endpoint and key, storage status, CPU, memory.' },
+    { r:'GET /diag/boot', guard:'anon', risk:'Unauthenticated: environment name, boot milestone, dependency readiness.' },
+    { r:'GET /openapi/v1.json', guard:'fallback', risk:'Protected only by the fallback policy — the intent is not declared.' },
+    { r:'GET /scalar/v1', guard:'fallback', risk:'Protected only by the fallback policy — the intent is not declared.' },
+
+    { group:'Static host — MapStaticAssets / MapFallbackToFile' },
+    { r:'GET /_framework/*  (WASM runtime)', guard:'anon' },
+    { r:'GET /css/*, /js/*, /lib/*', guard:'anon' },
+    { r:'GET /appsettings.json  (client)', guard:'anon', risk:'World-readable by necessity — never put a secret here.' },
+    { r:'GET /  and unmatched paths', guard:'anon' }
+  ];
+
+  // Which principals can exist at all in a given environment.
+  function principalExists(pid, env){
+    var e = ENVS[env];
+    switch(pid){
+      case 'anon':  return true;
+      case 'probe': return true;
+      case 'entra': return e.entraConfigured;
+      case 'guest': return e.bypass;
+      case 'fake':  return e.bypass;
+      default:      return e.bypass;   // role columns can only be minted through the dev/test paths
+    }
+  }
+  function isAuthenticated(pid){ return pid !== 'anon' && pid !== 'probe'; }
+
+  // Evaluate one cell.
+  function evaluate(route, pid, env){
+    if (!principalExists(pid, env)) return { k:'na', t:'n/a', tip:'This principal cannot exist in ' + env + '.' };
+
+    // Anonymous routes: reachable by everyone, subject to their own gates.
+    if (route.guard === 'anon'){
+      var g = route.gate ? route.gate(env) : null;
+      if (g) return { k:'deny', t:g.code, tip:g.why };
+      return { k:'allow', t:'ALLOW', tip:'AllowAnonymous — no authorization check.' };
+    }
+
+    // Fallback-policy routes are cookie-only: the header FakeAuth principal does NOT satisfy them.
+    if (route.guard === 'fallback'){
+      if (!isAuthenticated(pid)) return { k:'deny', t:'401', tip:'Fallback policy requires an authenticated cookie.' };
+      if (pid === 'fake') return { k:'deny', t:'401', tip:'The fallback policy is cookie-only; FakeAuth is deliberately excluded.' };
+      return { k:'allow', t:'ALLOW', tip:'Satisfied by the cookie scheme via the fallback policy.' };
+    }
+
+    // RequireAuthorization → default policy.
+    if (!isAuthenticated(pid)) return { k:'deny', t:'401', tip:'Default policy requires an authenticated user.' };
+    var gate = route.gate ? route.gate(env) : null;
+    if (gate) return { k:'deny', t:gate.code, tip:gate.why };
+    if (route.flagName) return { k:'flag', t:'ALLOW*', tip:'Allowed while ' + route.flagName + ' is true; 503 when the flag is off.' };
+    return { k:'allow', t:'ALLOW', tip:'Default policy satisfied.' };
+  }
+
+  // ---------- rendering ----------
+  var currentEnv = 'Production';
+  var head = document.getElementById('matrixHead');
+  var bodyEl = document.getElementById('matrixBody');
+  var noteEl = document.getElementById('collapseNote');
+
+  function visiblePrincipals(){
+    var collapse = document.getElementById('chkCollapse').checked;
+    return PRINCIPALS.filter(function(p){
+      if (!principalExists(p.id, currentEnv)) return !collapse;   // hide impossible principals when collapsing
+      if (p.roleCol && collapse) return false;                     // hide role columns when collapsing
+      return true;
+    });
+  }
+
+  function render(){
+    if (!head || !bodyEl) return;
+    var host = document.querySelector('section.level[data-level="complete"]');
+    if (!host || !host.classList.contains('active')) return;
+
+    var collapse = document.getElementById('chkCollapse').checked;
+    var riskOnly = document.getElementById('chkRiskOnly').checked;
+    var q = (document.getElementById('matrixFilter').value || '').trim().toLowerCase();
+    var cols = visiblePrincipals();
+
+    head.innerHTML = '<th class="rowhead">Route</th>' + cols.map(function(p){
+      return '<th>' + p.label + '<br><span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10.5px;color:#4a5b74">' + p.sub + '</span></th>';
+    }).join('') + '<th>Note</th>';
+
+    var rows = '', nTotal = 0, nAuth = 0, nAnon = 0, nFlag = 0;
+    ROUTES.forEach(function(route){
+      if (route.group){
+        if (riskOnly || q) return;
+        rows += '<tr class="groupsep"><th class="rowhead" colspan="' + (cols.length + 2) + '">' + route.group + '</th></tr>';
+        return;
+      }
+      if (riskOnly && !route.risk) return;
+      if (q && route.r.toLowerCase().indexOf(q) === -1) return;
+
+      nTotal++;
+      if (route.guard === 'anon') nAnon++; else nAuth++;
+      if (route.risk) nFlag++;
+
+      var cells = cols.map(function(p){
+        var v = evaluate(route, p.id, currentEnv);
+        return '<td class="cell-' + v.k + '" title="' + v.tip.replace(/"/g,'&quot;') + '">' + v.t + '</td>';
+      }).join('');
+
+      var note = route.risk
+        ? '<span class="pill p-bad">Flagged</span> ' + route.risk
+        : (route.flagName ? '<span class="pill p-warn">Flag-gated</span> ' + route.flagName : '');
+
+      rows += '<tr' + (route.risk ? ' class="riskrow"' : '') + '><th class="rowhead">' + route.r + '</th>'
+            + cells
+            + '<td style="text-align:left;white-space:normal;font-weight:400;font-size:12.5px;min-width:280px">' + note + '</td></tr>';
+    });
+    bodyEl.innerHTML = rows;
+
+    var hiddenRoles = collapse ? PRINCIPALS.filter(function(p){ return p.roleCol; }).length : 0;
+    var hiddenEnv = collapse ? PRINCIPALS.filter(function(p){ return !p.roleCol && !principalExists(p.id, currentEnv); }).length : 0;
+    var parts = [];
+    if (hiddenRoles) parts.push('<strong>' + hiddenRoles + ' role columns collapsed</strong> — no endpoint in the codebase checks a role, so every role column is identical to “any authenticated user”.');
+    if (hiddenEnv)  parts.push('<strong>' + hiddenEnv + ' principal column(s) collapsed</strong> — they cannot exist in ' + currentEnv + '.');
+    parts.push(ENVS[currentEnv].note);
+    noteEl.innerHTML = parts.join(' ');
+
+    set('statTotal', nTotal); set('statAuth', nAuth); set('statAnon', nAnon); set('statFlag', nFlag);
+  }
+
+  function set(id, v){ var el = document.getElementById(id); if (el) el.querySelector('.n').textContent = v; }
+
+  var envSeg = document.getElementById('envSeg');
+  if (envSeg){
+    envSeg.addEventListener('click', function(ev){
+      var b = ev.target.closest('button'); if (!b) return;
+      currentEnv = b.dataset.env;
+      envSeg.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+      render();
+    });
+  }
+  ['chkCollapse','chkRiskOnly'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.addEventListener('change', render);
+  });
+  var filt = document.getElementById('matrixFilter');
+  if (filt) filt.addEventListener('input', render);
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
+  else render();
+})();
+</script>
+</body>
+</html>

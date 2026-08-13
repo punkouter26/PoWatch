@@ -25,4 +25,21 @@ dotnet test PoWatch.slnx
 dotnet run --project src/PoWatch.Api/PoWatch.Api.csproj
 ```
 
-Architecture details, route maps, data schemas, and flow diagrams live in `docs/`. `AGENT.MD` remains the operational context layer for autonomous coding agents.
+## Documentation
+
+Generated reports live in `docs/`. Each one has a reading-depth switch — **Very basic** (30 seconds), **Basic** (the important parts), **Complete** (full implementation detail) — that also swaps the embedded diagram for a matching level of detail.
+
+| Report | Covers |
+| --- | --- |
+| [`docs/ARCHITECTURE_REPORT.html`](docs/ARCHITECTURE_REPORT.html) | C4 L1–L3, vertical-slice boundaries (`@page` → `MapGroup`), middleware ordering, and why the static-asset routes opt out of the default-deny policy |
+| [`docs/AI_SERVICES_REPORT.html`](docs/AI_SERVICES_REPORT.html) | Every model-executing path, model/version and fallback matrices, parameters, triggers, cost model, and the measurement gaps |
+| [`docs/ROLES_PERMISSIONS_MATRIX.html`](docs/ROLES_PERMISSIONS_MATRIX.html) | Interactive Principal × Environment access grid, plus every endpoint that carries no authorization check |
+| [`docs/USER_WORKFLOW.html`](docs/USER_WORKFLOW.html) | One observation traced UI → API → middleware → orchestrator → providers → Table/Blob storage, with failure modes and status banners |
+
+Diagram sources are Mermaid files in `docs/diagrams/`, compiled to SVG in `docs/assets/`:
+
+```powershell
+npx @mermaid-js/mermaid-cli -i docs/diagrams/architecture_flow_complete.mmd -o docs/assets/architecture_flow_complete.svg -b transparent
+```
+
+Deployment runbooks live in `docs/technical/`. `AGENT.md` remains the operational context layer for autonomous coding agents.

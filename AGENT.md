@@ -38,6 +38,7 @@ persists them to Azure Table + Blob Storage.
 ├── AGENT.md
 ├── Directory.Build.props          # compiler contract
 ├── Directory.Packages.props       # central package versions
+├── docs/                          # generated reports (HTML) + diagrams/ (.mmd) + assets/ (.svg)
 ├── SCRIPTS/
 ├── infra/                         # Bicep — resource groups PoShared / PoWatch
 ├── src/
