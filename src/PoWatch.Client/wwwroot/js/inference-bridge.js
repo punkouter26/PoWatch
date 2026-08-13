@@ -22,7 +22,7 @@
 
   function getWorker() {
     if (!_worker) {
-      _worker = new Worker('/js/inference-worker.js', { type: 'module' });
+      _worker = new Worker('/js/inference-worker.js?v=20260813-generate-fallback', { type: 'module' });
       _worker.onmessage = (e) => {
         const { id, type, ...rest } = e.data;
         // Unsolicited state broadcasts from the worker (e.g. during model loading)

@@ -178,6 +178,12 @@
                         <p class="inference-stall-label">The model actually replied:</p>
                         <pre class="inference-stall-raw" data-test="inference-stall-raw">@lastRejectedOutput</pre>
                     }
+                    else if (lastInferenceStatus.StartsWith("Inference error", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <p class="inference-stall-label" data-test="inference-stall-error">
+                            The model did not finish generating — the engine threw before any text came back.
+                        </p>
+                    }
                     else
                     {
                         @* An empty reply is a different failure from a rejected one and needs its own

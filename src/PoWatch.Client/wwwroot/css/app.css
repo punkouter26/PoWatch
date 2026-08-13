@@ -221,19 +221,13 @@ code,
     background: linear-gradient(180deg, rgba(15, 11, 31, 0.92) 0%, rgba(10, 8, 23, 0.94) 100%) !important;
 }
 
+/* The "watching" state is a steady glow, not a pulsing one. It used to animate
+   (activeGlow, 2s infinite), but this panel holds the live camera feed, so the glow
+   cycled directly against the video and read as a flicker on an always-on display.
+   Static matches .po-panel--active, which has always shown active this way. */
 .panel--active {
     border-color: rgba(56, 255, 168, 0.6) !important;
-    animation: activeGlow 2s ease-in-out infinite;
-}
-
-@keyframes activeGlow {
-    0%, 100% {
-        box-shadow: 0 0 0 2px rgba(56, 255, 168, 0.16), 0 0 24px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
-    }
-
-    50% {
-        box-shadow: 0 0 0 2px rgba(56, 255, 168, 0.32), 0 0 36px rgba(56, 255, 168, 0.16), 0 16px 36px rgba(0, 0, 0, 0.28);
-    }
+    box-shadow: 0 0 0 2px rgba(56, 255, 168, 0.16), 0 0 24px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
 }
 
 .panel-header {

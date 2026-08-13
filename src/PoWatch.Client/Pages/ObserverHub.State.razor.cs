@@ -37,7 +37,7 @@ public partial class ObserverHub
     private bool _settingsOpen;
     private ElementReference liveCameraFeed;
     private CancellationTokenSource? monitorCts;
-    private string selectedModelKey = "smolvlm-256m";
+    private string selectedModelKey = "smolvlm2-256m";
     private DateTimeOffset? monitoringStartedAtUtc;
     private DateTimeOffset? lastSyncAtUtc;
     private string lastSyncStatus = "Standby";

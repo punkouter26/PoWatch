@@ -322,7 +322,8 @@ public partial class ObserverHub
             var isFrameSkip = inference.Status.StartsWith("Frame unchanged", StringComparison.OrdinalIgnoreCase);
             var isModelOutputSkip =
                 inference.Status.StartsWith("Low-quality", StringComparison.OrdinalIgnoreCase) ||
-                inference.Status.StartsWith("Model returned an empty response", StringComparison.OrdinalIgnoreCase);
+                inference.Status.StartsWith("Model returned an empty response", StringComparison.OrdinalIgnoreCase) ||
+                inference.Status.StartsWith("Inference error:", StringComparison.OrdinalIgnoreCase);
 
             if (isFrameSkip || isModelOutputSkip)
             {

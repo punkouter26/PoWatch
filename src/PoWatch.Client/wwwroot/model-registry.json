@@ -1,5 +1,13 @@
 [
   {
+    "key": "smolvlm2-256m",
+    "id": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+    "label": "SmolVLM2 256M",
+    "webgpuDtype": "fp16",
+    "webgpuDtypeFallback": "fp32",
+    "wasmDtype": "q8"
+  },
+  {
     "key": "smolvlm-256m",
     "id": "HuggingFaceTB/SmolVLM-256M-Instruct",
     "label": "SmolVLM 256M",
@@ -11,14 +19,6 @@
     "key": "smolvlm-500m",
     "id": "HuggingFaceTB/SmolVLM-500M-Instruct",
     "label": "SmolVLM 500M",
-    "webgpuDtype": "fp16",
-    "webgpuDtypeFallback": "fp32",
-    "wasmDtype": "q8"
-  },
-  {
-    "key": "smolvlm2-256m",
-    "id": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
-    "label": "SmolVLM2 256M",
     "webgpuDtype": "fp16",
     "webgpuDtypeFallback": "fp32",
     "wasmDtype": "q8"

@@ -32,7 +32,7 @@ let _RawImage = null;
 let _loadState = 'idle'; // 'idle' | 'loading' | 'ready' | 'error'
 let _loadError = null;
 let _loadPromise = null;
-let _activeModelKey = 'smolvlm-256m';
+let _activeModelKey = 'smolvlm2-256m';
 
 // Inference diagnostics
 let _device = null;
@@ -51,6 +51,7 @@ let _inferenceCount = 0;
 let _lastInferenceMs = null;
 let _lastInferenceTimestamp = null;
 let _lastInferenceOutput = null;
+let _inferLock = Promise.resolve();
 
 // Cached single WebGPU adapter probe — avoids multiple requestAdapter() calls.
 let _webGpuProbePromise = null;
@@ -168,6 +169,94 @@ async function ensureModelLoaded() {
   }
 }
 
+function describeError(err) {
+  if (err == null) return 'unknown';
+  if (typeof err === 'string' && err.trim()) return err.trim();
+  if (typeof err === 'number' || typeof err === 'bigint') return String(err);
+  const message = typeof err.message === 'string' ? err.message.trim() : '';
+  if (message) return message;
+  try {
+    const asString = String(err);
+    if (asString && asString !== '[object Object]') return asString;
+  } catch {
+    // ignore
+  }
+  return 'unknown';
+}
+
+async function prepareInputs(base64Frame, prompt) {
+  const image = await _RawImage.fromURL(base64Frame);
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'image' },
+        { type: 'text', text: prompt },
+      ],
+    },
+  ];
+  const text = _processor.apply_chat_template(messages, { add_generation_prompt: true });
+  return _processor(text, [image]);
+}
+
+function decodeGenerated(generatedIds, inputs) {
+  const newTokenIds = generatedIds.slice(null, [inputs.input_ids.dims[1], null]);
+  let output = _processor.batch_decode(newTokenIds, { skip_special_tokens: true })[0].trim();
+  let generationDiagnostic = null;
+
+  if (output.length === 0) {
+    let fullDecoded = '';
+    try {
+      fullDecoded = (_processor.batch_decode(generatedIds, { skip_special_tokens: true })[0] ?? '').trim();
+    } catch (err) {
+      fullDecoded = `<full decode failed: ${describeError(err)}>`;
+    }
+
+    const inputLen = inputs.input_ids.dims[1];
+    const genDims = Array.isArray(generatedIds.dims) ? generatedIds.dims.join('x') : String(generatedIds.dims);
+    generationDiagnostic =
+      `inputTokens=${inputLen} generatedDims=${genDims} ` +
+      `slicedChars=0 fullDecodeChars=${fullDecoded.length} device=${_device} dtype=${_dtype}` +
+      (fullDecoded.length > 0 ? ` | fullDecode="${fullDecoded.slice(0, 400)}"` : '');
+
+    if (fullDecoded.length > 0) {
+      const assistantSplit = fullDecoded.split(/Assistant:\s*/i);
+      const recovered = (assistantSplit.length > 1 ? assistantSplit[assistantSplit.length - 1] : '').trim();
+      if (recovered.length > 0) output = recovered;
+    }
+  }
+
+  return { output, generationDiagnostic };
+}
+
+function nextRuntimeFallback() {
+  const cfg = _MODELS[_activeModelKey];
+  if (_runtimeFallbackStage === 0 && _device === 'webgpu' && cfg?.webgpuDtypeFallback) {
+    return { device: 'webgpu', dtype: cfg.webgpuDtypeFallback };
+  }
+  if (_runtimeFallbackStage <= 1 && cfg?.wasmDtype && _device !== 'wasm') {
+    return { device: 'wasm', dtype: cfg.wasmDtype };
+  }
+  // A wasm session created as a fallback from a failed WebGPU run can still be unusable.
+  // Reload it once with freshly prepared tensors before giving up.
+  if (_runtimeFallbackStage <= 2 && cfg?.wasmDtype) {
+    return { device: 'wasm', dtype: cfg.wasmDtype };
+  }
+  return null;
+}
+
+async function reloadModel(device, dtype) {
+  const cfg = _MODELS[_activeModelKey];
+  self.postMessage({ type: 'STATE_UPDATE', loadState: 'loading' });
+  const { AutoModelForImageTextToText, AutoModelForCausalLM } = await import(_TRANSFORMERS_URL);
+  const RetryModelClass = cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM : AutoModelForImageTextToText;
+  _model = await RetryModelClass.from_pretrained(cfg.id, { device, dtype });
+  _device = device;
+  _dtype = typeof dtype === 'string' ? dtype : 'mixed';
+  _fp16FallbackUsed = device === 'webgpu';
+  self.postMessage({ type: 'STATE_UPDATE', loadState: 'ready' });
+}
+
 async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   if (!base64Frame) {
     return {
@@ -199,108 +288,55 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
     };
   }
 
-  const image = await _RawImage.fromURL(base64Frame);
-  const messages = [
-    {
-      role: 'user',
-      content: [
-        { type: 'image' },
-        { type: 'text', text: prompt },
-      ],
-    },
-  ];
-
-  const text = _processor.apply_chat_template(messages, { add_generation_prompt: true });
-  const inputs = await _processor(text, [image]);
-
   const inferStart = performance.now();
   const safeMaxNewTokens = Number.isFinite(maxNewTokens)
     ? Math.min(256, Math.max(32, Math.trunc(maxNewTokens)))
     : 96;
-  const generatedIds = await _model.generate({
-    ...inputs,
-    max_new_tokens: safeMaxNewTokens,
-  });
+
+  // Rebuild tensors after every backend switch. Reusing WebGPU inputs on wasm (or a poisoned
+  // session) is how generate() started throwing a bare ONNX code with no .message — the UI then
+  // reported "Inference error: unknown" and pretended the model returned empty text.
+  let inputs = await prepareInputs(base64Frame, prompt);
+  let generatedIds = null;
+  let generateError = null;
+  let output = '';
+  let generationDiagnostic = null;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    generateError = null;
+    generatedIds = null;
+    try {
+      generatedIds = await _model.generate({
+        ...inputs,
+        max_new_tokens: safeMaxNewTokens,
+      });
+    } catch (err) {
+      generateError = describeError(err);
+    }
+
+    if (generatedIds) {
+      const decoded = decodeGenerated(generatedIds, inputs);
+      output = decoded.output;
+      generationDiagnostic = decoded.generationDiagnostic;
+      if (output.length > 0) break;
+    }
+
+    const fallback = nextRuntimeFallback();
+    if (!fallback) break;
+
+    _runtimeFallbackStage += 1;
+    try {
+      await reloadModel(fallback.device, fallback.dtype);
+      inputs = await prepareInputs(base64Frame, prompt);
+    } catch (err) {
+      generateError = `Fallback to ${fallback.device}/${fallback.dtype} failed: ${describeError(err)}`;
+      break;
+    }
+  }
+
   _lastInferenceMs = Math.round(performance.now() - inferStart);
   _lastInferenceTimestamp = new Date().toISOString();
   _inferenceCount++;
-
-  // Decode only the newly generated tokens, not the prompt prefix
-  const newTokenIds = generatedIds.slice(null, [inputs.input_ids.dims[1], null]);
-  let output = _processor.batch_decode(newTokenIds, { skip_special_tokens: true })[0].trim();
-
-  // An empty generation is the signature failure of SmolVLM at fp16 on WebGPU: the model loads and
-  // runs (burning the full inference time) but the logits go NaN, so every token decodes to nothing.
-  // webgpuDtypeFallback previously only covered LOAD exceptions, so this case never recovered — it
-  // fed the quality gate an empty string, which surfaced as "unstructured output skipped" and
-  // silently starved the ingest pipeline. Retry once at the declared fallback precision.
-  while (output.length === 0 && _runtimeFallbackStage < 3) {
-    const cfg = _MODELS[_activeModelKey];
-
-    // Choose the next rung of the chain: reduced precision on WebGPU, then the wasm backend, which
-    // is numerically independent of the GPU path and is what actually rescues a NaN-producing GPU.
-    let nextDevice = null;
-    let nextDtype = null;
-    if (_runtimeFallbackStage === 0 && _device === 'webgpu' && cfg?.webgpuDtypeFallback) {
-      nextDevice = 'webgpu';
-      nextDtype = cfg.webgpuDtypeFallback;
-    } else if (_runtimeFallbackStage <= 1 && cfg?.wasmDtype) {
-      nextDevice = 'wasm';
-      nextDtype = cfg.wasmDtype;
-    }
-
-    _runtimeFallbackStage = nextDevice === 'wasm' ? 2 : _runtimeFallbackStage + 1;
-    if (!nextDevice) {
-      _runtimeFallbackStage = 3;
-      break;
-    }
-
-    self.postMessage({ type: 'STATE_UPDATE', loadState: 'loading' });
-    const { AutoModelForImageTextToText, AutoModelForCausalLM } = await import(_TRANSFORMERS_URL);
-    const RetryModelClass = cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM : AutoModelForImageTextToText;
-    _model = await RetryModelClass.from_pretrained(cfg.id, { device: nextDevice, dtype: nextDtype });
-    _device = nextDevice;
-    _dtype = typeof nextDtype === 'string' ? nextDtype : 'mixed';
-    _fp16FallbackUsed = nextDevice === 'webgpu';
-    self.postMessage({ type: 'STATE_UPDATE', loadState: 'ready' });
-
-    const retryIds = await _model.generate({ ...inputs, max_new_tokens: safeMaxNewTokens });
-    output = _processor
-      .batch_decode(retryIds.slice(null, [inputs.input_ids.dims[1], null]), { skip_special_tokens: true })[0]
-      .trim();
-  }
-
-  // An empty decode has two very different causes that looked identical: the model genuinely
-  // emitted nothing, or generate() returned ONLY the new tokens (not prompt+new) so slicing at
-  // input_ids.dims[1] cut past the end and threw the answer away. Decode the untrimmed sequence:
-  // if THAT has content, the slice is the bug, and the recovered text is the real answer.
-  let generationDiagnostic = null;
-  if (output.length === 0) {
-    let fullDecoded = '';
-    try {
-      fullDecoded = (_processor.batch_decode(generatedIds, { skip_special_tokens: true })[0] ?? '').trim();
-    } catch (err) {
-      fullDecoded = `<full decode failed: ${err?.message ?? 'unknown'}>`;
-    }
-
-    const inputLen = inputs.input_ids.dims[1];
-    const genDims = Array.isArray(generatedIds.dims) ? generatedIds.dims.join('x') : String(generatedIds.dims);
-    generationDiagnostic =
-      `inputTokens=${inputLen} generatedDims=${genDims} ` +
-      `slicedChars=0 fullDecodeChars=${fullDecoded.length} device=${_device} dtype=${_dtype}` +
-      (fullDecoded.length > 0 ? ` | fullDecode="${fullDecoded.slice(0, 400)}"` : '');
-
-    // Recover the answer when the untrimmed decode carries text the slice discarded. The chat
-    // template echoes the prompt, so take whatever follows the final Assistant turn.
-    if (fullDecoded.length > 0) {
-      const assistantSplit = fullDecoded.split(/Assistant:\s*/i);
-      const recovered = (assistantSplit.length > 1 ? assistantSplit[assistantSplit.length - 1] : '').trim();
-      if (recovered.length > 0) {
-        output = recovered;
-      }
-    }
-  }
-
   _lastInferenceOutput = output;
 
   // Distinguish "the model said nothing" from "the model said something we rejected". These had
@@ -308,18 +344,21 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   if (output.length === 0) {
     return {
       isAvailable: false,
-      status: _runtimeFallbackStage > 0
-        ? `Model returned an empty response (retried on ${_device}/${_dtype})`
-        : 'Model returned an empty response',
+      status: generateError
+        ? `Inference error: ${generateError}`
+        : (_runtimeFallbackStage > 0
+          ? `Model returned an empty response (retried on ${_device}/${_dtype})`
+          : 'Model returned an empty response'),
       rawOutput: '',
-      generationDiagnostic,
+      generationDiagnostic: generationDiagnostic
+        || (generateError ? `generateFailed device=${_device} dtype=${_dtype} error=${generateError}` : null),
       subjectHint: null,
       activity: 'Unavailable',
       clinicalPayload: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
-      confidenceLabel: 'Empty',
+      confidenceLabel: generateError ? 'Unavailable' : 'Empty',
     };
   }
 
@@ -524,13 +563,15 @@ self.onmessage = async (e) => {
 
   switch (type) {
     case 'RUN_INFERENCE': {
+      const run = _inferLock.then(() => runInference(payload.base64Frame, payload.prompt, payload.maxNewTokens));
+      _inferLock = run.then(() => undefined, () => undefined);
       let result;
       try {
-        result = await runInference(payload.base64Frame, payload.prompt, payload.maxNewTokens);
+        result = await run;
       } catch (err) {
         result = {
           isAvailable: false,
-          status: `Inference error: ${err?.message ?? 'unknown'}`,
+          status: `Inference error: ${describeError(err)}`,
           subjectHint: null,
           activity: 'Unavailable',
           clinicalPayload: '',
