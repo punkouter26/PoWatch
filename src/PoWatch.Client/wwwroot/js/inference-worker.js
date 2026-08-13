@@ -13,6 +13,47 @@ const _TRANSFORMERS_VERSION = '3.8.1';
 const _TRANSFORMERS_BASE = new URL(`../lib/transformers-${_TRANSFORMERS_VERSION}/`, import.meta.url);
 const _TRANSFORMERS_URL = new URL('transformers.min.js', _TRANSFORMERS_BASE).href;
 
+// Transient-network retry. Model WEIGHTS still come from the HF hub (inherent to a browser VLM, §7),
+// and on some networks those connections are reset mid-request — a TLS-inspecting proxy or a flaky
+// route drops roughly a quarter of them. A single load issues many fetches (config, processor,
+// tokenizer and several ONNX files, the largest ~190 MB) and transformers.js does not retry, so ONE
+// reset failed the whole load: the UI showed "Model unavailable: Failed to fetch" and the observation
+// loop skipped 100% of cycles while looking healthy. Wrapping the worker's global fetch is the only
+// place the library's internal requests can be reached from here.
+// Only idempotent methods are retried, so this can never re-send a mutating request.
+const _FETCH_RETRIES = 3;
+const _FETCH_BACKOFF_MS = 600;
+const _nativeFetch = self.fetch.bind(self);
+
+async function fetchWithRetry(input, init) {
+  const method = (init?.method ?? (typeof input === 'object' && input !== null ? input.method : null) ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') return _nativeFetch(input, init);
+
+  let lastError = null;
+  for (let attempt = 0; attempt <= _FETCH_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, _FETCH_BACKOFF_MS * 2 ** (attempt - 1)));
+    }
+    try {
+      const response = await _nativeFetch(input, init);
+      // 429 and 5xx are transient upstream states. A 4xx is a real answer — a missing or renamed
+      // model file must fail fast, not burn three backoffs before reporting the same thing.
+      if (response.status === 429 || response.status >= 500) {
+        lastError = new Error(`HTTP ${response.status}`);
+        continue;
+      }
+      return response;
+    } catch (err) {
+      // A reset, DNS failure or TLS failure all surface as TypeError("Failed to fetch").
+      if (init?.signal?.aborted) throw err;
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error('Failed to fetch');
+}
+
+self.fetch = fetchWithRetry;
+
 // Single source of truth for the model registry (rule 1.5): /model-registry.json, shared verbatim with
 // the C# model picker. modelClass drives the loader (causal-lm vs image-text-to-text); the webgpu/wasm
 // dtype fields drive the fallback chain (§7). To add a model, edit ONLY the JSON — no code in three places.
@@ -275,9 +316,16 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   try {
     await ensureModelLoaded();
   } catch (err) {
+    // "Failed to fetch" is what the browser reports for a reset, DNS or TLS failure alike, and on its
+    // own it reads as an app bug rather than what it is — the model weights could not be downloaded.
+    // Say so, and say that it was already retried, so the next step is the network and not this loop.
+    const detail = describeError(err);
+    const isNetworkFailure = /failed to fetch|networkerror|network error|load failed/i.test(detail);
     return {
       isAvailable: false,
-      status: `Model unavailable: ${err?.message ?? 'load failed'}`,
+      status: isNetworkFailure
+        ? `Model unavailable: could not download model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
+        : `Model unavailable: ${detail}`,
       subjectHint: null,
       activity: 'Unavailable',
       clinicalPayload: '',
