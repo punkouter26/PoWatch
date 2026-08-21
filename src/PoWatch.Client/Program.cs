@@ -39,4 +39,8 @@ else
 // Persists per-operator preferences (model, polling, theme override) to localStorage.
 builder.Services.AddScoped<UserPreferencesService>();
 
+// The shared VLM list (wwwroot/model-registry.json), read by the Live Room picker and the System
+// page's per-model self-test. Scoped so the fetch happens once per app load, not once per page.
+builder.Services.AddScoped<ModelRegistryService>();
+
 await builder.Build().RunAsync();

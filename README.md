@@ -35,8 +35,11 @@ Generated reports live in `docs/`. Each one has a reading-depth switch — **Ver
 | [`docs/AI_SERVICES_REPORT.html`](docs/AI_SERVICES_REPORT.html) | Every model-executing path, model/version and fallback matrices, parameters, triggers, cost model, and the measurement gaps |
 | [`docs/ROLES_PERMISSIONS_MATRIX.html`](docs/ROLES_PERMISSIONS_MATRIX.html) | Interactive Principal × Environment access grid, plus every endpoint that carries no authorization check |
 | [`docs/USER_WORKFLOW.html`](docs/USER_WORKFLOW.html) | One observation traced UI → API → middleware → orchestrator → providers → Table/Blob storage, with failure modes and status banners |
+| [`docs/VISUAL_ARCHITECTURE_DASHBOARD.html`](docs/VISUAL_ARCHITECTURE_DASHBOARD.html) | Single-page synthesis — embedded C4, three pipeline sequences, an ERD, and plain-English narrative cards paired with each visual |
 
-Diagram sources are Mermaid files in `docs/diagrams/`, compiled to SVG in `docs/assets/`:
+All five reports share the three-tier reading model — Executive (30 s), Architectural, Implementation — and the same design language. Visual standards follow the [cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design) conventions: clearly bordered tiered sections, a sticky reading switch, paired data tables next to every chart, and inline Mermaid blocks rendered from the source files in `docs/diagrams/`.
+
+Diagram sources are Mermaid files in `docs/diagrams/`, compiled to SVG in `docs/assets/`. The Visual Architecture Dashboard additionally embeds interactive Mermaid directly in the page, so the dashboard loads a single CDN script and renders C4, sequences and the ERD at runtime:
 
 ```powershell
 npx @mermaid-js/mermaid-cli -i docs/diagrams/architecture_flow_complete.mmd -o docs/assets/architecture_flow_complete.svg -b transparent

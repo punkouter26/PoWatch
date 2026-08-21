@@ -7,6 +7,7 @@
 @inject IOptions<ClientFeatureFlagsOptions> ClientFlags
 @inject NotificationService NotificationService
 @inject DialogService DialogService
+@inject PoWatch.Client.Services.ModelRegistryService ModelRegistry
 @implements IDisposable
 
 <PageTitle>PoWatch | System</PageTitle>
@@ -108,6 +109,110 @@
         }
     </RadzenCard>
 
+    @* Per-model self-test. The Health card above reports on whatever model the Live Room happens
+       to have loaded; this one answers the question that comes before that — which of the registry
+       models will actually load and generate on THIS device. Each row drives the real worker path
+       (load → generate) against one fixed synthetic frame, so the numbers are comparable between
+       models and between machines. *@
+    <RadzenCard class="panel" data-test="model-selftest-card">
+        <header class="panel-header">
+            <h1>Model self-test</h1>
+            <p>Load each vision model on this device and describe one fixed test image. Use it to find which models this machine can actually run.</p>
+        </header>
+
+        <div class="model-test-toolbar">
+            <RadzenButton Text="Test every model" ButtonStyle="ButtonStyle.Primary"
+                          Click="TestAllModelsAsync" Disabled="modelTestRunning || modelTests.Count == 0"
+                          data-test="model-selftest-run-all" />
+            @if (modelTestRunning)
+            {
+                <span class="model-test-hint model-test-hint--busy">Testing @runningModelLabel — this can take several minutes on a first run.</span>
+            }
+            else
+            {
+                <span class="model-test-hint">A first run downloads the model weights, so it is slow and needs a network connection. Later runs read the browser cache. Testing unloads whatever model the Live Room had open.</span>
+            }
+        </div>
+
+        @if (modelTests.Count == 0)
+        {
+            <div class="inference-status status-error" data-test="model-selftest-registry-error">
+                <div class="status-indicator">
+                    <span class="status-dot status-error"></span>
+                    <span class="status-label status-error">MODEL LIST UNAVAILABLE</span>
+                </div>
+                <div class="status-sub">The model registry could not be read, so there is nothing to test. See the browser console for the underlying error.</div>
+            </div>
+        }
+
+        <div class="model-test-list">
+            @foreach (var row in modelTests)
+            {
+                var result = row.Result;
+                var stateClass = row.Running ? "status-loading"
+                    : result is null ? "status-idle"
+                    : result.Ok ? "status-ready" : "status-error";
+
+                <div class="model-test-row @stateClass" data-test="model-selftest-row">
+                    <div class="model-test-row-head">
+                        <div class="status-indicator">
+                            <span class="status-dot @stateClass"></span>
+                            <span class="model-test-name">@row.Label</span>
+                        </div>
+                        <span class="status-label @stateClass">
+                            @(row.Running ? "TESTING…"
+                              : result is null ? "NOT TESTED"
+                              : result.Ok ? "RUNS HERE" : "FAILED")
+                        </span>
+                        <RadzenButton Text="Test" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                      Click="@(() => TestOneModelAsync(row.Key))" Disabled="modelTestRunning" />
+                    </div>
+
+                    <div class="model-id-text">@row.ModelId</div>
+
+                    @if (result is not null)
+                    {
+                        <div class="hud-grid diagnostics-grid model-test-grid">
+                            <div><label>Runs on</label><span>@DescribeBackend(result)</span></div>
+                            <div><label>Downloaded</label><span>@FormatBytes(result.BytesFetched)</span></div>
+                            <div><label>Load time</label><span>@FormatDuration(result.LoadMs)</span></div>
+                            <div><label>One inference</label><span>@FormatDuration(result.InferenceMs)</span></div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(result.Error))
+                        {
+                            <div class="status-error-detail">@result.Error</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(result.RawOutput))
+                        {
+                            <div class="raw-output-container">
+                                <label class="raw-output-label">What the model said about the test image</label>
+                                <pre class="raw-output-pre">@result.RawOutput</pre>
+                            </div>
+                        }
+
+                        @if (result.Ok && !string.IsNullOrWhiteSpace(result.PipelineStatus) && result.PipelineStatus != "OK")
+                        {
+                            @* Engine pass, recording fail. Worth showing plainly: it means the hardware is
+                               fine and the model is simply too small to satisfy the observation loop's
+                               quality gates, which is a model choice, not a machine problem. *@
+                            <div class="status-sub">The engine works. This reply would not have been recorded: @result.PipelineStatus</div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+
+        @if (lastTestFrameDataUrl is not null)
+        {
+            <div class="model-test-fixture">
+                <label class="raw-output-label">The test image every model was shown</label>
+                <img src="@lastTestFrameDataUrl" alt="Synthetic test scene: a person lying on a bed in a room with a window" />
+            </div>
+        }
+    </RadzenCard>
+
     @* Gated on the SERVER's developer-mode signal, matching the Live Room's "Clear data" button.
    This used to read the client-only ExposeDebugDetailsInUi flag, which the WASM app never
    picks up (it does not load the Development appsettings) — so the same destructive action
@@ -158,9 +263,28 @@
     private bool resetBusy;
     private StorageResetResultDto? resetResult;
 
+    // ── Per-model self-test ──────────────────────────────────────────────────────────────────
+    // One row per registry model. The worker holds a single model at a time, so tests run strictly
+    // one after another and `modelTestRunning` disables every button for the duration; two
+    // concurrent tests would fight over the same slot and report each other's numbers.
+    private sealed class ModelTestRow
+    {
+        public required string Key { get; init; }
+        public required string Label { get; init; }
+        public string? ModelId { get; set; }
+        public bool Running { get; set; }
+        public ModelSelfTestResult? Result { get; set; }
+    }
+
+    private List<ModelTestRow> modelTests = [];
+    private bool modelTestRunning;
+    private string runningModelLabel = string.Empty;
+    private string? lastTestFrameDataUrl;
+
     protected override async Task OnInitializedAsync()
     {
         _autoRefreshIntervalSeconds = ClientFlags.Value.DiagnosticsAutoRefreshIntervalSeconds;
+        await LoadModelTestRowsAsync();
         await LoadAsync();
         // Auto-refresh is the default (consolidation #8) — a health page that shows stale
         // numbers until someone clicks Refresh reads as broken.
@@ -227,6 +351,13 @@
 
     private async Task RefreshInferenceDiagnosticsAsync()
     {
+        // A model self-test can block the worker inside a multi-second ONNX session build, which is
+        // long enough for this query's 5 s bridge timeout to expire. Answering that with
+        // "WORKER NOT REACHABLE" would be a lie told at exactly the moment the operator is watching,
+        // so hold the last known snapshot until the test finishes.
+        if (modelTestRunning)
+            return;
+
         try
         {
             inferenceDiag = await JS.TryInvokeAsync<InferenceDiagnosticsDto>("powatchInference.getInferenceDiagnostics");
@@ -299,6 +430,131 @@
             resetBusy = false;
         }
     }
+
+    /// <summary>
+    /// Build one row per registry model. Shares <see cref="ModelRegistryService"/> with the Live
+    /// Room's picker so the two screens can never disagree about which models exist (rule 1.5).
+    /// </summary>
+    private async Task LoadModelTestRowsAsync()
+    {
+        try
+        {
+            var entries = await ModelRegistry.GetAsync();
+            modelTests = entries
+                .Select(e => new ModelTestRow { Key = e.Key, Label = e.Label, ModelId = e.Id })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            // The card renders its own "model list unavailable" state from the empty list; the cause
+            // goes to the console rather than a toast, which would fire on every visit.
+            Console.Error.WriteLine($"[PoWatch] Model self-test could not read the registry: {ex.GetType().Name}: {ex.Message}");
+            modelTests = [];
+        }
+    }
+
+    private async Task TestOneModelAsync(string modelKey)
+    {
+        if (modelTestRunning)
+            return;
+
+        var row = modelTests.FirstOrDefault(r => r.Key == modelKey);
+        if (row is null)
+            return;
+
+        modelTestRunning = true;
+        runningModelLabel = row.Label;
+        row.Running = true;
+        row.Result = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await InvokeModelTestAsync(modelKey);
+            row.Result = result;
+            row.ModelId = result?.ModelId ?? row.ModelId;
+            if (!string.IsNullOrWhiteSpace(result?.TestFrameDataUrl))
+                lastTestFrameDataUrl = result.TestFrameDataUrl;
+        }
+        finally
+        {
+            row.Running = false;
+            modelTestRunning = false;
+            runningModelLabel = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Test every model, in registry order, one at a time. Sequential on purpose: the worker holds a
+    /// single model, and running two at once on a laptop is also the fastest way to exhaust its GPU
+    /// memory and fail a model that would otherwise pass.
+    /// </summary>
+    private async Task TestAllModelsAsync()
+    {
+        foreach (var row in modelTests.ToList())
+        {
+            await TestOneModelAsync(row.Key);
+        }
+    }
+
+    private async Task<ModelSelfTestResult?> InvokeModelTestAsync(string modelKey)
+    {
+        try
+        {
+            // The explicit CancellationToken.None overload opts out of JSInterop's default async
+            // timeout. A first-time load of the 2.2B model pulls well over a gigabyte, and timing it
+            // out would report a slow-but-working machine as a failure — the exact wrong answer for
+            // a page whose whole job is telling those two apart.
+            return await JS.InvokeAsync<ModelSelfTestResult>(
+                "powatchInference.runModelTest", CancellationToken.None, modelKey);
+        }
+        catch (JSException ex)
+        {
+            return new ModelSelfTestResult { ModelKey = modelKey, Stage = "bridge", Error = ex.Message };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ModelSelfTestResult { ModelKey = modelKey, Stage = "bridge", Error = ex.Message };
+        }
+    }
+
+    /// <summary>Which backend carried the run, in the terms that decide whether it is usable.</summary>
+    private static string DescribeBackend(ModelSelfTestResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.Device))
+            return result.WebGpuPresent ? "Did not load (GPU available)" : "Did not load (no GPU)";
+
+        var backend = result.Device.Equals("webgpu", StringComparison.OrdinalIgnoreCase)
+            ? "Graphics card"
+            : "Processor (slower)";
+        var precision = string.IsNullOrWhiteSpace(result.Dtype) ? string.Empty : $" · {result.Dtype}";
+        var fallback = result.Fp16FallbackUsed ? " · reduced precision" : string.Empty;
+        return $"{backend}{precision}{fallback}";
+    }
+
+    /// <summary>
+    /// Download size in the units a person judges a laptop by. Uses 1024-based units to match what
+    /// the browser's own network panel reports, so the two numbers agree.
+    /// </summary>
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes <= 0)
+            return "—";
+        if (bytes < 1024L * 1024L)
+            return $"{bytes / 1024d:N0} KB";
+        if (bytes < 1024L * 1024L * 1024L)
+            return $"{bytes / (1024d * 1024d):N0} MB";
+        return $"{bytes / (1024d * 1024d * 1024d):N2} GB";
+    }
+
+    /// <summary>Milliseconds below ten seconds, seconds above — a five-digit millisecond count reads as noise.</summary>
+    private static string FormatDuration(int? milliseconds)
+        => milliseconds is not { } ms
+            ? "—"
+            : ms < 10_000
+                ? $"{ms:N0} ms"
+                : $"{ms / 1000d:N1} s";
 
     private sealed class InferenceDiagnosticsDto
     {

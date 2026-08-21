@@ -21,7 +21,7 @@ public enum AlertLevel
 public partial class ObserverHub
 {
     [Inject] private IOptions<ClientFeatureFlagsOptions> FeatureFlags { get; set; } = default!;
-    [Inject] private HttpClient Http { get; set; } = default!;
+    [Inject] private ModelRegistryService ModelRegistry { get; set; } = default!;
 
     private sealed record ModelOption(string Value, string Label);
     // Populated in OnInitializedAsync from the shared /model-registry.json (single source of truth shared

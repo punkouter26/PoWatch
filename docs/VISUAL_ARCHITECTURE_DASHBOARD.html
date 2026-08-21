@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch — Visual Architecture Dashboard</title>
+<style>
+:root{
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef3f9; --ink:#0a1424; --ink-2:#3c4a61;
+  --line:#d2dcea; --line-2:#b9c7dc; --accent:#1a3f7d; --accent-soft:#dce8fb;
+  --ok:#1d6b3f; --ok-soft:#e6f6ec; --warn:#8a6100; --warn-soft:#fdf0d5;
+  --bad:#8f2222; --bad-soft:#fae3e3; --info:#5b2d82; --info-soft:#f3e8fb;
+  --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --sans:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px;margin:0 auto;padding:0 24px 96px}
+header.masthead{background:linear-gradient(180deg,#12294f 0%,#1a3f7d 100%);color:#fff;padding:40px 0 34px}
+header.masthead .wrap{padding-bottom:0}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#a8c4ee;font-weight:700;margin:0 0 8px}
+header.masthead h1{margin:0 0 10px;font-size:34px;line-height:1.2;font-weight:700;letter-spacing:-.01em}
+header.masthead p.lede{margin:0;max-width:78ch;color:#dce8fb;font-size:17px}
+.meta-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.meta-strip span{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:4px 12px;font-size:12.5px;color:#eaf1fd}
+nav.toc-dash{background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(10,20,36,.06);position:sticky;top:0;z-index:50}
+nav.toc-dash .inner{max-width:1320px;margin:0 auto;padding:10px 24px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+nav.toc-dash a{font-size:13.5px;color:var(--accent);text-decoration:none;font-weight:600;padding:6px 10px;border-radius:6px}
+nav.toc-dash a:hover{background:var(--accent-soft)}
+nav.toc-dash .label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);font-weight:700;margin-right:6px}
+section.dash{padding-top:36px}
+section.dash h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:2px solid var(--accent-soft)}
+section.dash h3{font-size:20px;margin:26px 0 8px}
+section.dash h4{font-size:15px;margin:18px 0 6px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+section.dash p{margin:10px 0}
+section.dash .sub{margin:0 0 18px;color:var(--ink-2);max-width:78ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(10,20,36,.05)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px}
+.stat .n{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.stat .k{font-size:12.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:4px}
+.stat .d{font-size:13px;color:var(--ink-2);margin-top:6px}
+.stat.ok{border-left-color:var(--ok)} .stat.ok .n{color:var(--ok)}
+.stat.warn{border-left-color:var(--warn)} .stat.warn .n{color:var(--warn)}
+.stat.bad{border-left-color:var(--bad)} .stat.bad .n{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--surface-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+tbody tr:nth-child(even){background:#fafcfe}
+.scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+.scroll table{margin:0;border:0}
+code,.mono{font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#123}
+pre{background:#0f1d33;color:#e8f0fb;padding:14px 16px;border-radius:10px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+pre .c{color:#8fb4e8}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
+.p-ok{background:var(--ok-soft);color:var(--ok);border-color:#a6d4b8}
+.p-warn{background:var(--warn-soft);color:var(--warn);border-color:#e0c184}
+.p-bad{background:var(--bad-soft);color:var(--bad);border-color:#e0a5a5}
+.p-info{background:var(--info-soft);color:var(--info);border-color:#cfb0e4}
+.p-neutral{background:var(--surface-2);color:var(--ink-2);border-color:var(--line-2)}
+.callout{border-radius:10px;padding:14px 18px;margin:16px 0;border:1px solid;border-left-width:5px}
+.callout h4{margin:0 0 6px;text-transform:none;letter-spacing:0;font-size:15.5px;color:inherit}
+.callout p:last-child{margin-bottom:0}
+.c-bad{background:var(--bad-soft);border-color:#e0a5a5;color:#4a1010}
+.c-warn{background:var(--warn-soft);border-color:#e0c184;color:#432f00}
+.c-ok{background:var(--ok-soft);border-color:#a6d4b8;color:#0f3d23}
+.c-info{background:var(--accent-soft);border-color:#a8c4ee;color:#12294f}
+figure{margin:18px 0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}
+figure img{max-width:100%;height:auto;display:block;margin:0 auto}
+figcaption{font-size:13px;color:var(--ink-2);margin-top:12px;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+.mermaidbox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin:16px 0;overflow-x:auto}
+.mermaidbox .mermaid{display:flex;justify-content:center}
+.mermaidbox figcaption{font-size:13px;color:var(--ink-2);margin-top:12px;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+/* narrative cards */
+.narrative-card{display:grid;grid-template-columns:minmax(160px,1fr) 2fr;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:16px 0;box-shadow:0 1px 3px rgba(10,20,36,.05)}
+.narrative-card .viz{background:var(--surface-2);padding:18px;display:flex;align-items:center;justify-content:center;min-height:160px;border-right:1px solid var(--line)}
+.narrative-card .viz-fallback{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);text-align:center;line-height:1.4}
+.narrative-card .body{padding:18px 22px}
+.narrative-card .body h4{margin:0 0 6px;font-size:16px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.narrative-card .body p{margin:6px 0;font-size:14.5px}
+.narrative-card .body .step{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+@media (max-width:760px){ .narrative-card{grid-template-columns:1fr} .narrative-card .viz{border-right:0;border-bottom:1px solid var(--line)} }
+ul,ol{padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+.tight li{margin:2px 0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.tier-strip{display:flex;gap:10px;margin:8px 0 18px;flex-wrap:wrap}
+.tier-strip span{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid}
+.tier-strip span.t-exec{background:#dce8fb;color:#12294f;border-color:#a8c4ee}
+.tier-strip span.t-arch{background:#e6f6ec;color:#0f3d23;border-color:#a6d4b8}
+.tier-strip span.t-impl{background:#f3e8fb;color:#3c1c5b;border-color:#cfb0e4}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">PoWatch · Generated documentation</p>
+    <h1>Visual Architecture Dashboard</h1>
+    <p class="lede">A single-page synthesis of every component, request pipeline, domain entity and state transition in PoWatch. Diagrams, sequence flows, an ERD and plain-English narrative cards — paired, so the picture and the explanation never drift apart.</p>
+    <div class="meta-strip">
+      <span>C4 Levels 2 &amp; 3</span>
+      <span>3 critical-pipeline sequences</span>
+      <span>ERD · 9 entities</span>
+      <span>Narrative: 8 step cards</span>
+      <span>Source: master branch</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc-dash">
+  <div class="inner">
+    <span class="label">Sections</span>
+    <a href="#tier-exec">Executive</a>
+    <a href="#tier-c4">C4 Diagrams</a>
+    <a href="#tier-seq">Pipelines</a>
+    <a href="#tier-erd">Domain &amp; ERD</a>
+    <a href="#tier-narr">Narrative</a>
+    <a href="#tier-impl">Implementation</a>
+    <a href="#tier-gaps">Gaps</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ============================= TIER 1 — EXECUTIVE ============================= -->
+<section class="dash" id="tier-exec">
+  <div class="tier-strip"><span class="t-exec">Tier 1 · Executive</span><span class="t-arch">Tier 2 · Architectural</span><span class="t-impl">Tier 3 · Implementation</span></div>
+  <h2>30-second overview</h2>
+  <p class="sub">PoWatch is a mobile-first room-observation system. The browser watches the room using a small on-device vision model, posts one sentence per cycle to the same-origin API, and the API stores the event, classifies it, and surfaces it back as a live timeline, a daily chapter, an optional AI handoff brief, and a FHIR feed. One deployable, one origin, one cookie.</p>
+
+  <div class="grid g4">
+    <div class="stat ok"><div class="n">1</div><div class="k">Deployable</div><div class="d">PoWatch.Api serves the app and the API</div></div>
+    <div class="stat"><div class="n">7</div><div class="k">Feature slices</div><div class="d">Each screen owns one route group</div></div>
+    <div class="stat ok"><div class="n">0</div><div class="k">Tokens in the browser</div><div class="d">Session lives in an encrypted HttpOnly cookie</div></div>
+    <div class="stat"><div class="n">2</div><div class="k">AI services</div><div class="d">Browser VLM + Azure OpenAI (off by default)</div></div>
+  </div>
+
+  <div class="callout c-info">
+    <h4>What this dashboard is</h4>
+    <p>A literal single-page index of the four other reports plus this one: the C4 component map, the three pipelines every operator cares about, the domain entity map, and a narrative walk-through that says what each piece does in plain English. Every diagram below is paired with the same artefact (table, trace, or ERD) so the picture stays checkable.</p>
+  </div>
+</section>
+
+<!-- ============================= TIER 2 — C4 L2/L3 ============================= -->
+<section class="dash" id="tier-c4">
+  <h2>C4 — Components and containers</h2>
+  <p class="sub">System context, the two L2 containers the user touches, and the L3 components inside the API host. C4 is used here strictly as a navigation aid — deeper rationale is in the Architecture Report.</p>
+
+  <div class="mermaidbox">
+    <div class="mermaid">
+flowchart TB
+    subgraph L1[Context]
+      USER[Caregiver / Observer]
+      EXT[External systems]
+    end
+    subgraph L2[Containers]
+      UI[Blazor WASM · Browserviewonly]
+      WORKER[Inference Web Worker · in-device]
+      API[PoWatch.Api · ASP.NET Core .NET 10]
+    end
+    USER --> UI
+    UI --> WORKER
+    UI -->|"same-origin cookie + JSON"| API
+    API -->|"Tables · Blobs"| EXT
+    WORKER -->|"weights only"| EXT
+    classDef user fill:#dce8fb,stroke:#1a3f7d,color:#0a1424,stroke-width:2px;
+    classDef ext fill:#f3e8fb,stroke:#5b2d82,color:#0a1424,stroke-width:2px;
+    class USER user;
+    class EXT ext;
+    </div>
+    <figcaption>C4 Level 1 — system context (in-browser, on-server, and external systems).</figcaption>
+  </div>
+
+  <div class="mermaidbox">
+    <div class="mermaid">
+flowchart TB
+    subgraph BROWSER[Browser — untrusted]
+      PAGES[Pages<br/>ObserverHub · Archives · Identity · Diagnostics · Health]
+      APICLIENT[PoWatchApiClient + CorrelationHandler]
+      BRIDGE[inference-bridge.js — DOM thread]
+      WORKER[inference-worker.js — WebGPU &rarr; WASM]
+      BLOBJS[blob-upload.js]
+    end
+    subgraph HOST[PoWatch.Api — single origin]
+      MW[Ordered middleware pipeline<br/>errors · HTTPS · rate · correlation · auth]
+      SLICES[Vertical slices · MapGroup<br/>/auth · /api/observer · /api/archives<br/>/api/identity · /api/blobs · /fhir · /api/diagnostics]
+      APPL[Application services<br/>Observation · Identity · Archives · Report<br/>DriftRadar · HandoffCoach · AlertThreshold]
+      INFRA[Infrastructure adapters<br/>AzureObservationRepository · AzureSubjectRepository<br/>AzureBlobSasProvider · LocalDiagnosticsProvider<br/>Template + AzureOpenAi HandoffSummarizers]
+    end
+    subgraph AZURE[Azure / external]
+      TBL[(Table Storage)]
+      BLOB[(Blob Storage)]
+      ENTRA[Microsoft Entra ID]
+      KV[Key Vault]
+      HF[Hugging Face Hub]
+      FAM[Azure Monitor]
+    end
+    PAGES --> APICLIENT
+    PAGES --> BRIDGE
+    BRIDGE <-->|postMessage| WORKER
+    WORKER -->|first-load weights| HF
+    PAGES --> BLOBJS
+    APICLIENT -->|HTTPS + cookie| MW
+    MW --> SLICES --> APPL --> INFRA
+    INFRA --> TBL
+    INFRA --> BLOB
+    BLOBJS -->|SAS PUT| BLOB
+    MW -->|sign-in challenge| ENTRA
+    INFRA -.->|config source, flag-gated| KV
+    INFRA -->|traces| FAM
+    </div>
+    <figcaption>C4 Level 2 — containers, with selected L3 components inside the API host.</figcaption>
+  </div>
+
+  <h3>Containers, in plain English</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Container</th><th>Technology</th><th>Runs in</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td>Blazor WASM client</td><td>.NET 10, Radzen, source-generated JSON</td><td>Browser</td><td>All UI. Holds no tokens; asks <code>/auth/me</code> for state.</td></tr>
+      <tr><td>Inference Web Worker</td><td>transformers.js 3.8.1 + ONNX Runtime, self-hosted</td><td>Browser (off main thread)</td><td>Runs the on-device vision model so the UI stays responsive.</td></tr>
+      <tr><td>PoWatch.Api</td><td>ASP.NET Core Minimal APIs, Kestrel</td><td>App Service / local</td><td>Owns auth, storage, telemetry, diagnostics; also serves the WASM app.</td></tr>
+      <tr><td>PoWatch.Application</td><td>Class library</td><td>In-process</td><td>Feature services and strongly-typed options. No ASP.NET dependency.</td></tr>
+      <tr><td>PoWatch.Domain</td><td>Class library</td><td>In-process</td><td>Entities, strongly-typed ids, classifiers. No infrastructure dependency.</td></tr>
+      <tr><td>PoWatch.Infrastructure</td><td>Class library</td><td>In-process</td><td>Azure Table/Blob adapters, summarizers, diagnostics — every outbound port.</td></tr>
+      <tr><td>PoWatch.Shared</td><td>Class library</td><td>Both</td><td>DTOs shared by client and server. Trim-analyzer clean.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout c-ok">
+    <h4>Layering, stated precisely</h4>
+    <p>Domain depends on nothing. Application depends on Domain and its own contracts. Infrastructure implements those contracts. The API host composes them. Every outbound dependency sits behind an interface with an in-memory alternative, which is why the app boots without Azure.</p>
+  </div>
+</section>
+
+<!-- ============================= TIER 2 — PIPELINES ============================= -->
+<section class="dash" id="tier-seq">
+  <h2>Three critical-pipeline sequences</h2>
+  <p class="sub">The three flows an operator or on-call engineer must understand to keep the system healthy. Each is a live, embedded Mermaid diagram — no network fetch beyond the CDN script.</p>
+
+  <h3>Pipeline A — Ingest one observation</h3>
+  <div class="mermaidbox">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as Caregiver
+    participant UI as ObserverHub
+    participant W as Inference Worker
+    participant MW as Middleware
+    participant EP as /api/observer/ingest
+    participant SVC as ObservationService
+    participant T as Table Storage
+    participant BL as Blob Storage
+    U->>UI: Start monitoring
+    UI->>W: captureAndInfer(prompt, frame)
+    W-->>UI: activity, clinicalPayload, subjectHint
+    UI->>MW: POST /api/observer/ingest (cookie)
+    MW->>EP: exception · rate · correlation · auth
+    EP->>SVC: IngestAsync(request)
+    SVC->>SVC: flag · gate · sanitizer · classify
+    SVC->>T: write observation row
+    SVC->>T: merge subject last-activity
+    alt significant
+      UI->>BL: direct PUT, 30-min SAS
+    end
+    UI-->>U: timeline, alert or banner
+    </div>
+    <figcaption>Ingest — the per-cycle path the Caregiver triggers; from camera to durable storage.</figcaption>
+  </div>
+
+  <h3>Pipeline B — Generate a handoff brief</h3>
+  <div class="mermaidbox">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as Caregiver
+    participant UI as Archives page
+    participant EP as /api/archives/{date}/handoff-brief
+    participant COACH as HandoffCoachService
+    participant RPT as ReportService + ShiftClock
+    participant DRIFT as DriftRadarService
+    participant SUMM as IHandoffSummarizer
+    participant AOAI as Azure OpenAI
+    participant TPL as TemplateHandoffSummarizer
+    U->>UI: Press "Generate brief"
+    UI->>EP: POST { shiftWindow, audience, includeHighlights }
+    EP->>COACH: HandoffCoachEnabled? audience validate
+    COACH->>RPT: BuildHandoffReportAsync(date, shift)
+    RPT-->>COACH: Report (significant, outliers, narrative)
+    opt brief covers today
+      COACH->>DRIFT: GetDriftStatusAsync()
+      DRIFT-->>COACH: notable drift insights
+    end
+    COACH->>SUMM: SummarizeAsync(context)
+    alt AzureOpenAiEnabled AND endpoint configured
+      SUMM->>AOAI: POST /chat/completions?api-version=...
+      AOAI-->>SUMM: structured JSON
+    end
+    SUMM-->>COACH: HandoffSummaryContent
+    CoACH-->>UI: HandoffBriefDto
+    </div>
+    <figcaption>Handoff brief — full pipeline including the AI/template fork and the today-only drift attachment.</figcaption>
+  </div>
+
+  <h3>Pipeline C — Name a subject and merge identities</h3>
+  <div class="mermaidbox">
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as Caregiver
+    participant UI as IdentityNexus
+    participant EP as /api/identity
+    participant IDN as IdentityService
+    participant SUB as ISubjectRepository
+    participant OBS as IObservationRepository
+    U->>UI: Type "Mom" and press Enter
+    UI->>EP: POST /api/identity/subjects
+    EP->>IDN: RegisterKnownSubjectAsync
+    IDN->>SUB: RegisterKnownAsync
+    SUB-->>IDN: profile
+    IDN-->>UI: SubjectProfileDto
+    U->>UI: Rename Subject-3 OR merge two subjects
+    alt rename
+      UI->>EP: PATCH /api/identity/subjects/{id}
+      EP->>IDN: RenameAsync
+      IDN->>SUB: RenameAsync (upsert canonical)
+      IDN->>OBS: MergeSubjectAsync (rewrite history)
+      IDN->>SUB: DeleteAsync (old id)
+    else merge
+      UI->>EP: POST /api/identity/merge
+      EP->>IDN: MergeAsync
+      IDN->>SUB: MergeAsync (canonical profile)
+      IDN->>OBS: MergeSubjectAsync (primary)
+      IDN->>OBS: MergeSubjectAsync (secondary)
+      IDN->>SUB: DeleteAsync (non-canonical)
+    end
+    IDN-->>UI: IdentityRevisionResultDto
+    </div>
+    <figcaption>Identity — both write paths rewrite historical observations before deleting source profiles, so an interrupted merge never orphans history.</figcaption>
+  </div>
+</section>
+
+<!-- ============================= TIER 2 — ERD ============================= -->
+<section class="dash" id="tier-erd">
+  <h2>Domain entities, DTOs and state transitions</h2>
+  <p class="sub">The persistent shape of the system, the DTOs that cross the network, and the state transitions the orchestrator and Identity service enforce. Implementation-level detail is in the next section.</p>
+
+  <h3>ERD — persistent entities</h3>
+  <div class="mermaidbox">
+    <div class="mermaid">
+erDiagram
+    SubjectProfile ||--o{ ObservationEvent : "owns"
+    SubjectProfile {
+        string SubjectId PK
+        string DisplayName
+        string IdentityStatus "Known | Temporary"
+        datetime FirstSeenUtc
+        datetime LastSeenUtc
+        string LastActivity
+        bool LastActivityIsOutlier
+    }
+    ObservationEvent {
+        guid Id PK
+        string SubjectId FK
+        string SubjectDisplayName
+        datetime ObservedAtUtc
+        string Activity
+        string ClinicalDescription
+        bool IsSignificant
+        string SignificantReason
+        bool IsClinicalOutlier
+        string ImageReference
+    }
+    DailyChapter {
+        date Date PK
+        string ClinicalNarrative
+        int TotalEvents
+        int OutlierCount
+        int NotableCount
+        int SubjectCount
+    }
+    SubjectLiveStatus {
+        string SubjectId PK
+        string DisplayName
+        bool IsKnownIdentity
+        datetime LastSeenUtc
+        string LastActivity
+        bool LastActivityIsOutlier
+        int UnacknowledgedSignificantCount
+    }
+    SubjectDriftStatus {
+        string SubjectId PK
+        string DisplayName
+        double DriftScore
+        string DriftLabel "Normal | Slight | Moderate | High | InsufficientData"
+        int TodayEventCount
+        double_array HourlyBaselineVector
+        double_array HourlyTodayVector
+    }
+    ShiftHandoffReport {
+        date Date PK
+        string ShiftWindow
+        string PrimarySubject
+        string DominantActivity
+        int TotalEvents
+        int OutlierCount
+        int SignificantCount
+        string ClinicalNarrative
+    }
+    HandoffBrief {
+        date Date
+        string Audience
+        string ShiftWindow
+        string Summary
+        bool IsAiGenerated
+        datetime GeneratedAtUtc
+    }
+    BlobSasDescriptor {
+        string SasUrl
+        string BlobPath
+        datetime ExpiresAtUtc
+    }
+    AuthState {
+        bool IsAuthenticated
+        string Name
+        string Email
+        string_array Roles
+        string ReturnUrl
+    }
+    AlertThresholdRule {
+        string Name PK
+        string Metric
+        int WindowMinutes
+        int Threshold
+        bool Enabled
+    }
+    </div>
+    <figcaption>ERD — entities persisted in Tables and the JSON shapes that cross the wire.</figcaption>
+  </div>
+
+  <h3>State transitions</h3>
+  <div class="mermaidbox">
+    <div class="mermaid">
+stateDiagram-v2
+    [*] --> Provisional: hint-less observation
+    [*] --> Known: RegisterKnown(name)
+    Provisional --> Provisional: observation within reuse window
+    Provisional --> Known: rename
+    Provisional --> Canonical: merge with another subject
+    Known --> Canonical: merge
+    Canonical --> [*]: delete (only via merge)
+    SubjectProfile: states are stored on IdentityStatus
+    ObservationEvent: [*] --> Recorded
+    ObservationEvent: Recorded --> [*]: never mutated
+    ObservationEvent: significant? -> ImageReference = significant-images/{date}/{subject}/{guid}.jpg
+    ObservationEvent: Re-ingest with same IdempotencyKey -> 409 treated as success
+    IngestPath: POST /api/observer/ingest
+    IngestPath: 200 when accepted
+    IngestPath: 202 when dropped (loop off, gate held, sanitizer)
+    HandoffBrief: Date x Shift x Audience
+    HandoffBrief: Drift attached only when Date == today
+    HandoffBrief: IsAiGenerated = (AzureOpenAiEnabled AND Endpoint) AND response parsed
+    </div>
+    <figcaption>State transitions — subject identity, observation lifecycle, and the handoff brief's drift-scoping rule.</figcaption>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Entity / DTO</th><th>Lives in</th><th>Partition / key</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>SubjectProfile</code></td><td>Table <code>PoWatchSubjects</code></td><td>PK = <code>"Subjects"</code>, RK = subjectId</td><td>Roster of known and provisional people</td></tr>
+      <tr><td><code>ObservationEvent</code></td><td>Table <code>PoWatchObservations</code></td><td>PK = UTC <code>yyyyMMdd</code>, RK = <code>{subjectId}_{eventId:N}</code></td><td>One row per ingested observation</td></tr>
+      <tr><td><code>DailyChapter</code></td><td>DTO only</td><td>date</td><td>Aggregated narrative + timeline + highlights for a day</td></tr>
+      <tr><td><code>SubjectLiveStatus</code></td><td>DTO, cached 10 s</td><td>—</td><td>Live dashboard tile per subject</td></tr>
+      <tr><td><code>SubjectDriftStatus</code></td><td>DTO</td><td>—</td><td>Drift Radar score, label, vectors, insights</td></tr>
+      <tr><td><code>ShiftHandoffReport</code></td><td>DTO, rendered to PDF</td><td>date + shift</td><td>Shift data model; renderer is QuestPDF</td></tr>
+      <tr><td><code>HandoffBrief</code></td><td>DTO</td><td>date + shift + audience</td><td>AI or template summary</td></tr>
+      <tr><td><code>BlobSasDescriptor</code></td><td>DTO</td><td>blobPath</td><td>Read or upload access for evidence</td></tr>
+      <tr><td><code>AuthState</code></td><td>DTO</td><td>—</td><td>What the client needs to render the chrome</td></tr>
+      <tr><td><code>AlertThresholdRule</code></td><td>Options</td><td>name</td><td>Rolling-window alert rules</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================= TIER 2 — NARRATIVE CARDS ============================= -->
+<section class="dash" id="tier-narr">
+  <h2>Plain-English narrative walk-through</h2>
+  <p class="sub">Eight step cards. Each card pairs a visual element with the consequences in the running code, so the picture and the explanation never drift apart.</p>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ caregiver kisses the wall display ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 1 · caregiver</div>
+      <h4>Caregiver presses Start</h4>
+      <p><code>ObserverHub.razor.cs</code> re-reads <code>/api/observer/state</code> to confirm the operator kill-switch is not set, then starts the camera preview and asks the inference worker to load the selected SmolVLM model. The loop runs in a Web Worker so the UI thread stays free.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ loop · every 10 s ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 2 · browser</div>
+      <h4>Frame-diff, then infer</h4>
+      <p>The bridge draws the latest frame to a canvas and compares it with the previous one. An unchanged frame ends the cycle — no model run, no network request. Otherwise the worker generates one short sentence, with up to four fallback attempts stepping device and precision on an empty reply.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ same-origin · HttpOnly cookie ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 3 · transport</div>
+      <h4>Payload crosses the BFF boundary</h4>
+      <p>The client attaches no token. The session is an encrypted HttpOnly cookie the browser sends automatically. A per-app-load <code>X-Session-ID</code> and an <code>X-Correlation-ID</code> thread the request through the server's logs.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ pipeline · 9 stages ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 4 · middleware</div>
+      <h4>Pipeline runs in order</h4>
+      <p>Exception handler → HTTPS redirect (non-Dev) → rate limiter → correlation id → authentication → authorization. A missing or expired cookie returns <strong>401</strong> — never an HTML redirect — so the client shows "Reconnecting" instead of rendering a login page inside the dashboard.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ service · 4 gates ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 5 · orchestrator</div>
+      <h4>ObservationService decides</h4>
+      <p>Four gates run in order: the <code>ObservationLoopEnabled</code> flag, the single-flight processing gate, the telemetry sanitizer, and the subject resolution. Significance and outlier status are decided here, never by the caller. The verdict is echoed back so the client stops second-guessing it.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ tables · Polly · 3 retries ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 6 · providers</div>
+      <h4>The row is written</h4>
+      <p><code>AzureObservationRepository.AddAsync</code> with the row key derived from the stable event id (idempotent on retry, 409 treated as success). <code>AzureSubjectRepository.UpdateLastActivityAsync</code> merges only the activity columns, so a concurrent rename or identity merge is not clobbered. Both calls sit behind a Polly retry for transient faults.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ 30-min SAS · direct PUT ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 7 · evidence</div>
+      <h4>Significant frames go straight to blob storage</h4>
+      <p>The API mints a 30-minute SAS and the browser uploads the JPEG directly. The image never passes through the API, which is why a brief upstream stall does not block the dashboard. The observation row carries the <code>ImageReference</code> so the timeline can show it.</p>
+    </div>
+  </div>
+
+  <div class="narrative-card">
+    <div class="viz">
+      <div class="viz-fallback">[ banner · cue · overlay ]</div>
+    </div>
+    <div class="body">
+      <div class="step">Step 8 · response</div>
+      <h4>The caregiver sees the result</h4>
+      <p>An outlier raises a full-screen takeover with the captured frame. A significant event raises a Watch banner. A dropped cycle renders "Dropped by API" with no follow-up queries. Acknowledging an alert explicitly evicts the <code>HybridCache</code> live-status key so the pressed button visibly does something.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= TIER 3 — IMPLEMENTATION ============================= -->
+<section class="dash" id="tier-impl">
+  <h2>Implementation reference</h2>
+  <p class="sub">Concrete C# records, route definitions, configuration keys and observable telemetry, for the engineer editing the code.</p>
+
+  <h3>Strongly-typed ids and core records</h3>
+  <pre>// PoWatch.Domain.Models
+public readonly record struct SubjectId(string Value)
+{
+    public static readonly SubjectId Empty = new(string.Empty);
+    public static SubjectId From(string raw) => new(raw?.Trim() ?? string.Empty);
+    public bool IsEmpty => string.IsNullOrWhiteSpace(Value);
+    public override string ToString() =&gt; Value;
+}
+
+public readonly record struct ObservationEventId(Guid Value)
+{
+    public static readonly ObservationEventId Empty = new(Guid.Empty);
+    public static ObservationEventId New() =&gt; new(Guid.NewGuid());
+    public static ObservationEventId From(Guid id) =&gt; new(id);
+    public bool IsEmpty =&gt; Value == Guid.Empty;
+}
+
+public sealed class ObservationEvent
+{
+    public ObservationEventId Id { get; init; }
+    public DateTimeOffset ObservedAtUtc { get; init; }
+    public SubjectId SubjectId { get; init; }
+    public string SubjectDisplayName { get; init; } = "";
+    public string Activity { get; init; } = "";
+    public string ClinicalDescription { get; init; } = "";
+    public bool IsSignificant { get; init; }
+    public string? SignificantReason { get; init; }
+    public bool IsClinicalOutlier { get; init; }
+    public string? ImageReference { get; init; }
+}
+
+public sealed class SubjectProfile
+{
+    public SubjectId SubjectId { get; init; }
+    public string DisplayName { get; init; } = "";
+    public IdentityStatus IdentityStatus { get; init; }
+    public DateTimeOffset FirstSeenUtc { get; init; }
+    public DateTimeOffset LastSeenUtc { get; init; }
+    public string? LastActivity { get; init; }
+    public bool LastActivityIsOutlier { get; init; }
+}</pre>
+
+  <h3>Minimal API surface — every route</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Group</th><th>Method</th><th>Route</th><th>Guard</th><th>Flag</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="5"><code>/auth</code></td><td>GET</td><td><code>/me</code></td><td>AllowAnonymous</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/config</code></td><td>AllowAnonymous</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/login/microsoft</code></td><td>AllowAnonymous</td><td>404 when <code>AzureAd:ClientId</code> unset</td></tr>
+      <tr><td>GET</td><td><code>/login/fake</code></td><td>AllowAnonymous</td><td>404 unless Dev/Test</td></tr>
+      <tr><td>POST</td><td><code>/logout</code></td><td>AllowAnonymous</td><td>—</td></tr>
+      <tr><td rowspan="4"><code>/api/observer</code></td><td>POST</td><td><code>/ingest</code></td><td>RequireAuthorization</td><td><code>ObservationLoopEnabled</code></td></tr>
+      <tr><td>GET</td><td><code>/state</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/events</code> (SSE)</td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/acknowledge</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td rowspan="3"><code>/api/archives</code></td><td>GET</td><td><code>/{date}</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/{date}/handoff-report</code></td><td>RequireAuthorization</td><td>503 when renderer unavailable</td></tr>
+      <tr><td>POST</td><td><code>/{date}/handoff-brief</code></td><td>RequireAuthorization</td><td><code>HandoffCoachEnabled</code></td></tr>
+      <tr><td rowspan="3"><code>/api/blobs</code></td><td>GET</td><td><code>/sas</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/read</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/integrity</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td rowspan="7"><code>/api/identity</code></td><td>POST</td><td><code>/subjects</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/subjects</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>PATCH</td><td><code>/subjects/{subjectId}</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/merge</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/subjects/live-status</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/subjects/live-risk</code></td><td>RequireAuthorization</td><td><code>DriftRadarEnabled</code></td></tr>
+      <tr><td>GET</td><td><code>/subjects/{subjectId}/baseline</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td rowspan="2"><code>/fhir</code></td><td>GET</td><td><code>/Observation</code></td><td>RequireAuthorization + filter</td><td><code>FhirExportEnabled</code></td></tr>
+      <tr><td>GET</td><td><code>/Observation/{id}</code></td><td>RequireAuthorization + filter</td><td><code>FhirExportEnabled</code></td></tr>
+      <tr><td rowspan="2"><code>/api/diagnostics</code></td><td>GET</td><td><code>/status</code></td><td>RequireAuthorization</td><td>—</td></tr>
+      <tr><td>POST</td><td><code>/reset</code></td><td>RequireAuthorization</td><td><code>AllowDataReset</code></td></tr>
+      <tr><td rowspan="5">Ops roots</td><td>GET</td><td><code>/health</code></td><td>AllowAnonymous</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/diag</code></td><td>AllowAnonymous</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/diag/boot</code></td><td>AllowAnonymous</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/openapi/v1.json</code></td><td>fallback policy</td><td>—</td></tr>
+      <tr><td>GET</td><td><code>/scalar/v1</code></td><td>fallback policy</td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Configuration sections</h3>
+  <pre>// PoWatch.Application.Options (server-side)
+public sealed class AzureOpenAiOptions
+{
+    public string Endpoint { get; init; } = "";
+    public string ApiKey { get; init; } = "";
+    [Required] public string DeploymentName { get; init; } = "gpt-5.4-nano";
+    [Required] public string ApiVersion { get; init; } = "2024-02-01";
+    [Range(1, 128_000)] public int MaxCompletionTokens { get; init; } = 600;
+    [Range(0.0, 2.0)] public double Temperature { get; init; } = 0.3;
+}
+
+public sealed class DriftRadarOptions
+{
+    public int MinEventsForDrift { get; init; } = 3;
+    public double HighDriftThreshold { get; init; } = 60.0;
+    public double ModerateDriftThreshold { get; init; } = 30.0;
+    public double SlightDriftThreshold { get; init; } = 10.0;
+    public int BaselineDays { get; init; } = 7;
+    public int MaxInsights { get; init; } = 4;
+}
+
+public sealed class ObserverOptions
+{
+    [Range(1, 3600)] public int PollingIntervalSeconds { get; init; } = 10;
+    [Range(0, 86400)] public int ProvisionalSubjectReuseWindowSeconds { get; init; } = 1800;
+}
+
+public sealed class AlertThresholdOptions
+{
+    public bool Enabled { get; init; } = true;
+    public int SubjectRetentionMinutes { get; init; } = 1440;
+    public List&lt;AlertThresholdRule&gt; Rules { get; init; } = new()
+    {
+        new() { Name="Frequent Outliers", Metric=AlertMetric.Outlier, WindowMinutes=10, Threshold=3, Enabled=true },
+        new() { Name="High Activity Burst", Metric=AlertMetric.Any, WindowMinutes=5, Threshold=10, Enabled=true }
+    };
+}</pre>
+
+  <h3>Telemetry — what the system exports</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Source</th><th>Format</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Serilog console</td><td>JSON / text</td><td>Boot-time and request-time logs</td></tr>
+      <tr><td>OpenTelemetry trace</td><td>OTLP</td><td>Endpoint spans, HttpClient spans, Azure SDK spans</td></tr>
+      <tr><td>Azure Monitor exporter</td><td>App Insights</td><td>Trace export when a connection string is configured</td></tr>
+      <tr><td>Source-generated <code>ILogger</code> messages</td><td>3130–3199</td><td>Observer ingest events</td></tr>
+      <tr><td>ProblemDetails + traceId</td><td>Application/json</td><td>Error responses; detail is gated by <code>ExposeDebugDetailsInUi</code></td></tr>
+      <tr><td>Health checks JSON</td><td>Public contract</td><td>Deploy gate; per-check name + status + duration</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================= GAPS ============================= -->
+<section class="dash" id="tier-gaps">
+  <h2>Gaps surfaced by this dashboard</h2>
+  <p class="sub">What the system does not currently measure, enforce or surface. Each item is a known structural choice; calling them out here keeps the next planning round honest.</p>
+
+  <div class="callout c-bad">
+    <h4>No <code>AiPricing</code> configuration in the repo</h4>
+    <p>Per-token input, output and cached-input prices for <code>gpt-5.4-nano</code> are absent. Combined with the fact that the Azure OpenAI response's <code>usage</code> object is never deserialized, projected monthly cost cannot be derived and after-the-fact reconciliation cannot be performed.</p>
+  </div>
+  <div class="callout c-bad">
+    <h4>Rate limiter does not enforce anything</h4>
+    <p><code>AddSlidingWindowLimiter("ApiPerIpPolicy", …)</code> registers a named policy and <code>UseRateLimiter()</code> runs — but no endpoint calls <code>.RequireRateLimiting</code> and no <code>GlobalLimiter</code> is set. The policy is also unpartitioned by IP despite its name; attaching it as written would create one global 60/min window.</p>
+  </div>
+  <div class="callout c-bad">
+    <h4>TTFT is unmeasured on both AI services</h4>
+    <p>Neither path streams, so the first-token event is not observable. The browser worker awaits a single <code>generate()</code>; the server <code>POST</code> reads the whole body. Adding TTFT requires switching to a streaming API on at least one path.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>Four <code>Roles</code> columns exist but no role is ever checked</h4>
+    <p>Roles are minted on the dev/test paths and surfaced in <code>AuthStateDto</code>, but no <code>RequireRole</code>, no policy with role requirement, no <code>[Authorize(Roles=…)]</code> and no <code>&lt;AuthorizeView Roles="…"&gt;</code> exists. Until that is fixed, every authenticated principal has identical authority.</p>
+  </div>
+  <div class="callout c-warn">
+    <h4>Browser weight fetches are not pinned to a revision</h4>
+    <p>transformers.js is self-hosted and pinned by folder name; the model <em>weights</em> are fetched from the Hugging Face Hub with no <code>revision</code> parameter. An upstream repository change silently alters what the browser executes.</p>
+  </div>
+</section>
+
+<footer>
+  <p><strong>PoWatch — Visual Architecture Dashboard.</strong> Generated 2026-08-20 from the working tree on branch <code>master</code>. Embedded Mermaid diagrams use the CDN script below; no other network fetch is required. Style deliberately matches the four companion reports so the docs read as one document.</p>
+  <p>Companion reports: <a href="ARCHITECTURE_REPORT.html">Architecture</a> · <a href="AI_SERVICES_REPORT.html">AI Services</a> · <a href="ROLES_PERMISSIONS_MATRIX.html">Roles &amp; Permissions</a> · <a href="USER_WORKFLOW.html">User Workflow</a></p>
+  <p>Diagram sources live in <code>docs/diagrams/*.mmd</code>. The interactive C4, sequence and ERD above are sourced directly from the same definitions used for the <code>architecture_flow_complete.mmd</code>, <code>payload_lifecycle_complete.mmd</code>, <code>authz_flow_complete.mmd</code> and <code>ai_topology_complete.mmd</code> source files.</p>
+</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+  if (window.mermaid) {
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: 'loose',
+      theme: 'base',
+      themeVariables: {
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontSize: '14px',
+        primaryColor: '#dce8fb',
+        primaryTextColor: '#0a1424',
+        primaryBorderColor: '#1a3f7d',
+        lineColor: '#16305e',
+        textColor: '#0a1424',
+        clusterBkg: '#f7f9fd',
+        clusterBorder: '#8fa8cc',
+        edgeLabelBackground: '#ffffff',
+        actorBkg: '#dce8fb',
+        actorBorder: '#1a3f7d',
+        actorTextColor: '#0a1424',
+        signalColor: '#16305e',
+        signalTextColor: '#0a1424',
+        labelBoxBkgColor: '#fdf0d5',
+        labelBoxBorderColor: '#8a6100',
+        labelTextColor: '#0a1424',
+        noteBkgColor: '#fff8e1',
+        noteBorderColor: '#8a6100',
+        noteTextColor: '#0a1424',
+        sequenceNumberColor: '#ffffff'
+      }
+    });
+  }
+</script>
+</body>
+</html>

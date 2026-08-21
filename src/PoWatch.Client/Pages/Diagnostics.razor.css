@@ -150,6 +150,82 @@
     word-break: break-word;
 }
 
+/* ═══ Per-model self-test card ═════════════════════════════════════════════ */
+
+.model-test-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.model-test-hint {
+    flex: 1 1 22rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--rz-text-secondary-color);
+}
+
+.model-test-hint--busy {
+    color: var(--rz-warning);
+}
+
+.model-test-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Reuses the .status-* state classes from the inference card above, so a row reads the same as the
+   engine block it reports on — one vocabulary for one concept. */
+.model-test-row {
+    padding: var(--space-4);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+}
+
+.model-test-row.status-ready   { border-color: var(--rz-success); background: var(--state-success-bg, transparent); }
+.model-test-row.status-loading { border-color: var(--rz-warning); background: var(--state-warning-bg, transparent); }
+.model-test-row.status-error   { border-color: var(--rz-danger);  background: var(--state-danger-bg, transparent); }
+.model-test-row.status-idle    { border-color: var(--color-border-subtle); }
+
+.model-test-row-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.model-test-name {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* Push the Test button to the trailing edge, keeping the verdict beside the name. ::deep is
+   required: the button is markup rendered by RadzenButton, so it never carries this component's
+   CSS-isolation scope attribute and a plain descendant selector would silently match nothing. */
+.model-test-row-head ::deep .rz-button {
+    margin-left: auto;
+}
+
+.model-test-grid {
+    margin-top: var(--space-3);
+}
+
+.model-test-fixture {
+    margin-top: var(--space-4);
+}
+
+.model-test-fixture img {
+    display: block;
+    width: 192px;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+}
+
 /* Danger Zone panel */
 
 .panel--danger {
@@ -203,5 +279,10 @@
     .raw-output-pre {
         max-height: 180px;
         overflow: auto;
+    }
+
+    .model-test-row-head ::deep .rz-button {
+        margin-left: 0;
+        width: 100%;
     }
 }

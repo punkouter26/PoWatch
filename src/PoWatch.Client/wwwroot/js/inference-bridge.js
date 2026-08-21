@@ -22,7 +22,7 @@
 
   function getWorker() {
     if (!_worker) {
-      _worker = new Worker('/js/inference-worker.js?v=20260813-generate-fallback', { type: 'module' });
+      _worker = new Worker('/js/inference-worker.js?v=20260820-model-selftest', { type: 'module' });
       _worker.onmessage = (e) => {
         const { id, type, ...rest } = e.data;
         // Unsolicited state broadcasts from the worker (e.g. during model loading)
@@ -141,6 +141,53 @@
     context?.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL('image/jpeg', 0.85);
   }
+
+  // ---------------------------------------------------------------------------
+  // Model self-test fixture (System page)
+  // ---------------------------------------------------------------------------
+
+  // A fixed, synthetic room scene drawn on the main thread, where canvas lives. It is used instead
+  // of the webcam on purpose: every model then sees byte-identical input, so two runs are
+  // comparable, and the System page never has to raise a camera-permission prompt on a page that
+  // shows no preview. The literal colours here are a test fixture, not themed UI — they must stay
+  // constant across light and dark so the comparison holds.
+  const _TEST_FRAME_EDGE = 384;
+
+  function buildTestFrame() {
+    const canvas = document.createElement('canvas');
+    canvas.width = _TEST_FRAME_EDGE;
+    canvas.height = _TEST_FRAME_EDGE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    ctx.fillStyle = '#d8d4cc';                       // wall
+    ctx.fillRect(0, 0, 384, 384);
+    ctx.fillStyle = '#8d7f6d';                       // floor
+    ctx.fillRect(0, 250, 384, 134);
+    ctx.fillStyle = '#bcd6e8';                       // window
+    ctx.fillRect(250, 40, 100, 90);
+    ctx.strokeStyle = '#5b5348';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(250, 40, 100, 90);
+    ctx.fillStyle = '#e9e6e0';                       // bed
+    ctx.fillRect(30, 200, 210, 90);
+    ctx.fillStyle = '#7a8ea0';
+    ctx.fillRect(30, 235, 210, 55);
+    ctx.fillStyle = '#c98b6a';                       // person: head
+    ctx.beginPath();
+    ctx.arc(75, 185, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3f5c78';                       // person: torso on the bed
+    ctx.fillRect(95, 205, 120, 34);
+
+    return canvas.toDataURL('image/jpeg', 0.9);
+  }
+
+  // Kept close to the real observation prompt so the reply the test shows is the kind of reply the
+  // observation loop would get. It is not the same constant — the real one lives in C# with the
+  // reasoning for its wording, and a shared copy would drift silently.
+  const _TEST_PROMPT =
+    'What is the person in this image doing? Answer with one short sentence describing only what you can see.';
 
   function classifyMotion(diff) {
     if (diff >= 0.18) return 'High';
@@ -293,6 +340,26 @@
         previewWidth: activePreviewElement?.videoWidth ?? 0,
         previewHeight: activePreviewElement?.videoHeight ?? 0,
       };
+    },
+
+    // Per-model self-test for the System page. No timeout is passed: a first-time load of the 2.2B
+    // model downloads well over a gigabyte, and a timeout here would report a slow-but-working
+    // laptop as a failure. The card disables its buttons for the duration instead.
+    async runModelTest(modelKey) {
+      const testFrameDataUrl = buildTestFrame();
+      if (!testFrameDataUrl) {
+        return { modelKey, ok: false, stage: 'fixture', error: 'Could not draw the test image in this browser' };
+      }
+      const res = await postToWorker('MODEL_TEST', {
+        modelKey,
+        base64Frame: testFrameDataUrl,
+        prompt: _TEST_PROMPT,
+        maxNewTokens: 48,
+      });
+      // The worker owns the model state and has just unloaded whatever it tested, so the cached
+      // state must follow it back to 'idle' — otherwise the Live Room reads a stale 'ready'.
+      _cachedLoadState = 'idle';
+      return { ...res.result, testFrameDataUrl };
     },
 
     setModel(modelKey) {

@@ -4,8 +4,6 @@ using Microsoft.JSInterop;
 using PoWatch.Client.Services;
 using PoWatch.Shared.Models;
 using Radzen;
-using System.Net.Http;
-using System.Net.Http.Json;
 
 namespace PoWatch.Client.Pages;
 
@@ -56,17 +54,11 @@ public partial class ObserverHub
     {
         try
         {
-            var entries = await Http.GetFromJsonAsync("model-registry.json", PoWatchJsonContext.Default.ModelRegistryEntryArray);
-            if (entries is { Length: > 0 })
-            {
-                ModelOptions = entries.Select(e => new ModelOption(e.Key, e.Label)).ToList();
-                if (!ModelOptions.Any(o => o.Value == selectedModelKey))
-                    selectedModelKey = ModelOptions[0].Value;
-                return;
-            }
-
-            // 200 but empty/malformed — surface it rather than silently blanking the picker.
-            Console.Error.WriteLine("[PoWatch] model-registry.json loaded but contained no entries.");
+            var entries = await ModelRegistry.GetAsync();
+            ModelOptions = entries.Select(e => new ModelOption(e.Key, e.Label)).ToList();
+            if (!ModelOptions.Any(o => o.Value == selectedModelKey))
+                selectedModelKey = ModelOptions[0].Value;
+            return;
         }
         catch (Exception ex)
         {

@@ -25,6 +25,13 @@ const _FETCH_RETRIES = 3;
 const _FETCH_BACKOFF_MS = 600;
 const _nativeFetch = self.fetch.bind(self);
 
+// Bytes the model loader actually pulled over the wire, accumulated here because transformers.js
+// issues its own requests internally and reports no sizes. The System page's per-model self-test
+// resets this before a load and reads it after, so "is this model too big for this laptop?" is
+// answered with a measured number rather than a guess. Content-Length is still present on
+// browser-cache hits, so a repeat run reports the same figure without re-downloading.
+let _bytesFetched = 0;
+
 async function fetchWithRetry(input, init) {
   const method = (init?.method ?? (typeof input === 'object' && input !== null ? input.method : null) ?? 'GET').toUpperCase();
   if (method !== 'GET' && method !== 'HEAD') return _nativeFetch(input, init);
@@ -41,6 +48,10 @@ async function fetchWithRetry(input, init) {
       if (response.status === 429 || response.status >= 500) {
         lastError = new Error(`HTTP ${response.status}`);
         continue;
+      }
+      if (method === 'GET' && response.ok) {
+        const declaredLength = Number(response.headers.get('content-length'));
+        if (Number.isFinite(declaredLength) && declaredLength > 0) _bytesFetched += declaredLength;
       }
       return response;
     } catch (err) {
@@ -134,6 +145,36 @@ function probeWebGpu() {
     })();
   }
   return _webGpuProbePromise;
+}
+
+// Drop the loaded model and every derived diagnostic, leaving _activeModelKey alone. SET_MODEL,
+// SET_POWER_PREFERENCE and the per-model self-test all need exactly this, and they had drifted into
+// three hand-maintained copies of the same seventeen assignments — adding a field to one and not the
+// others is how a stale device/dtype survives a model switch and misreports on the System page.
+// Disposing releases the ONNX session (and its GPU buffers) instead of waiting for the collector,
+// which matters when the self-test loads five models back to back on a laptop.
+async function unloadModel() {
+  const previousModel = _model;
+  _model = null;
+  _processor = null;
+  _RawImage = null;
+  _loadState = 'idle';
+  _loadError = null;
+  _loadPromise = null;
+  _device = null;
+  _dtype = null;
+  _fp16FallbackUsed = false;
+  _runtimeFallbackStage = 0;
+  _loadStartMs = null;
+  _loadEndMs = null;
+  _inferenceCount = 0;
+  _lastInferenceMs = null;
+  _lastInferenceTimestamp = null;
+  _lastInferenceOutput = null;
+
+  if (previousModel && typeof previousModel.dispose === 'function') {
+    try { await previousModel.dispose(); } catch { /* best effort — the reference is already gone */ }
+  }
 }
 
 async function ensureModelLoaded() {
@@ -604,6 +645,111 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
   };
 }
 
+// Per-model self-test for the System page. Loads ONE registry model and runs a single generation
+// against a fixed frame supplied by the bridge, then reports what actually happened on THIS device:
+// which backend was chosen, which dtype survived the fallback chain, how many bytes came down, how
+// long the load and the generation took, and the verbatim reply.
+//
+// It deliberately drives the real path — ensureModelLoaded() and runInference(), the same two calls
+// the observation loop makes — rather than a private loader. A test with its own code path can pass
+// while the loop still fails, which is the opposite of what someone checking "will this run on my
+// laptop?" needs.
+//
+// The worker holds one model at a time, so the test necessarily evicts whatever was loaded. The
+// previously selected key is restored UNLOADED before returning, so the Live Room reloads its own
+// model on next use instead of silently inheriting the test's.
+async function runModelTest(modelKey, base64Frame, prompt, maxNewTokens) {
+  const cfg = _MODELS[modelKey];
+  const result = {
+    modelKey,
+    modelId: cfg?.id ?? modelKey,
+    label: cfg?.label ?? modelKey,
+    ok: false,
+    stage: 'registry',
+    error: null,
+    device: null,
+    dtype: null,
+    fp16FallbackUsed: false,
+    webGpuPresent: typeof navigator !== 'undefined' && !!navigator.gpu,
+    gpuAdapterName: null,
+    loadMs: null,
+    inferenceMs: null,
+    totalMs: null,
+    bytesFetched: 0,
+    rawOutput: '',
+    pipelineStatus: null,
+  };
+
+  if (!cfg) {
+    result.error = `Unknown model key '${modelKey}' — not in model-registry.json`;
+    return result;
+  }
+
+  const previousKey = _activeModelKey;
+  const startedMs = performance.now();
+
+  await unloadModel();
+  _activeModelKey = modelKey;
+  _bytesFetched = 0;
+
+  result.stage = 'load';
+  try {
+    await ensureModelLoaded();
+  } catch (err) {
+    // ensureModelLoaded already wrapped the network retries, so a fetch failure here means the
+    // weights are genuinely unreachable — say that instead of the bare browser message.
+    const detail = describeError(err);
+    result.error = /failed to fetch|networkerror|network error|load failed/i.test(detail)
+      ? `Could not download the model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
+      : detail;
+    result.bytesFetched = _bytesFetched;
+    result.totalMs = Math.round(performance.now() - startedMs);
+    result.gpuAdapterName = _gpuAdapterName;
+    await unloadModel();
+    _activeModelKey = previousKey;
+    self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
+    return result;
+  }
+
+  result.stage = 'inference';
+  let inference = null;
+  try {
+    inference = await runInference(base64Frame, prompt, maxNewTokens);
+  } catch (err) {
+    result.error = describeError(err);
+  }
+
+  // Read the backend AFTER generating: the runtime fallback chain can move the model from webgpu to
+  // wasm mid-run, and reporting the load-time choice would hide exactly the escalation the operator
+  // needs to see.
+  result.device = _device;
+  result.dtype = _dtype;
+  result.fp16FallbackUsed = _fp16FallbackUsed;
+  result.gpuAdapterName = _gpuAdapterName;
+  result.loadMs = (_loadStartMs !== null && _loadEndMs !== null) ? Math.round(_loadEndMs - _loadStartMs) : null;
+  result.inferenceMs = _lastInferenceMs;
+  result.bytesFetched = _bytesFetched;
+  result.rawOutput = _lastInferenceOutput ?? '';
+  result.pipelineStatus = inference?.status ?? null;
+  result.totalMs = Math.round(performance.now() - startedMs);
+
+  // Pass means the ENGINE works: the model loaded and generated text. The quality gates that reject
+  // an unstructured or short caption are a property of the prompt and the model's size, not of
+  // whether this device can run it — a 256M captioner routinely produces a perfectly good sentence
+  // that the LABEL gate declines. Gating the self-test on them would report a working laptop as
+  // broken, so the gate's verdict is carried separately in pipelineStatus instead.
+  result.ok = result.rawOutput.length > 0;
+  result.stage = 'done';
+  if (!result.ok && !result.error) {
+    result.error = inference?.status ?? 'The model loaded but generated no text';
+  }
+
+  await unloadModel();
+  _activeModelKey = previousKey;
+  self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
+  return result;
+}
+
 // Message handler — each request carries a unique `id` so the bridge can
 // match responses to the correct awaiting Promise.
 self.onmessage = async (e) => {
@@ -633,6 +779,40 @@ self.onmessage = async (e) => {
       break;
     }
 
+    case 'MODEL_TEST': {
+      // Shares _inferLock with RUN_INFERENCE: the test swaps the loaded model out from under the
+      // worker, so it must never overlap an observation cycle.
+      const test = _inferLock.then(() => runModelTest(
+        payload.modelKey, payload.base64Frame, payload.prompt, payload.maxNewTokens));
+      _inferLock = test.then(() => undefined, () => undefined);
+      let testResult;
+      try {
+        testResult = await test;
+      } catch (err) {
+        testResult = {
+          modelKey: payload.modelKey,
+          modelId: payload.modelKey,
+          label: payload.modelKey,
+          ok: false,
+          stage: 'error',
+          error: describeError(err),
+          device: null,
+          dtype: null,
+          fp16FallbackUsed: false,
+          webGpuPresent: typeof navigator !== 'undefined' && !!navigator.gpu,
+          gpuAdapterName: null,
+          loadMs: null,
+          inferenceMs: null,
+          totalMs: null,
+          bytesFetched: 0,
+          rawOutput: '',
+          pipelineStatus: null,
+        };
+      }
+      self.postMessage({ id, type: 'MODEL_TEST_RESULT', result: testResult });
+      break;
+    }
+
     case 'GET_STATE': {
       self.postMessage({ id, type: 'STATE', loadState: _loadState });
       break;
@@ -641,22 +821,7 @@ self.onmessage = async (e) => {
     case 'SET_MODEL': {
       if (_MODELS[payload.modelKey] && _activeModelKey !== payload.modelKey) {
         _activeModelKey = payload.modelKey;
-        _model = null;
-        _processor = null;
-        _RawImage = null;
-        _loadState = 'idle';
-        _loadError = null;
-        _loadPromise = null;
-        _device = null;
-        _dtype = null;
-        _fp16FallbackUsed = false;
-        _runtimeFallbackStage = 0;
-        _loadStartMs = null;
-        _loadEndMs = null;
-        _inferenceCount = 0;
-        _lastInferenceMs = null;
-        _lastInferenceTimestamp = null;
-        _lastInferenceOutput = null;
+        await unloadModel();
         self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
       }
       self.postMessage({ id, type: 'MODEL_SET' });
@@ -674,22 +839,7 @@ self.onmessage = async (e) => {
         _gpuPowerPreference = pref;
         // Reset GPU probe and model load state so next inference uses the new adapter
         _webGpuProbePromise = null;
-        _model = null;
-        _processor = null;
-        _RawImage = null;
-        _loadState = 'idle';
-        _loadError = null;
-        _loadPromise = null;
-        _device = null;
-        _dtype = null;
-        _fp16FallbackUsed = false;
-        _runtimeFallbackStage = 0;
-        _loadStartMs = null;
-        _loadEndMs = null;
-        _inferenceCount = 0;
-        _lastInferenceMs = null;
-        _lastInferenceTimestamp = null;
-        _lastInferenceOutput = null;
+        await unloadModel();
         self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
       }
       self.postMessage({ id, type: 'POWER_PREFERENCE_SET' });

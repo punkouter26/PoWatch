@@ -201,6 +201,39 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
+    public async Task The_system_page_offers_a_self_test_for_every_registered_model()
+    {
+        if (PlaywrightFixture.BaseUrl is null) return;
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await page.GoToAsync("/diagnostics", "System");
+
+        await Assertions.Expect(page.GetByTestId("model-selftest-card")).ToBeVisibleAsync();
+
+        // The card and the Live Room picker must offer the same models — they read one registry
+        // (rule 1.5), and a row missing here would mean a model nobody can check before selecting it.
+        var registered = await page.EvaluateAsync<int>(
+            "async () => (await (await fetch('/model-registry.json')).json()).length");
+
+        Assert.True(registered > 0, "model-registry.json returned no models.");
+        await Assertions.Expect(page.GetByTestId("model-selftest-row")).ToHaveCountAsync(registered);
+    }
+
+    [Fact]
+    public async Task An_untested_model_says_so_rather_than_looking_broken()
+    {
+        if (PlaywrightFixture.BaseUrl is null) return;
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await page.GoToAsync("/diagnostics", "System");
+
+        // A fresh row is "NOT TESTED", never "FAILED". The distinction is the whole point of the
+        // card: an operator deciding which model their machine can run must be able to tell
+        // "not checked yet" from "checked and it does not work here".
+        var firstRow = page.GetByTestId("model-selftest-row").First;
+        await Assertions.Expect(firstRow).ToContainTextAsync("NOT TESTED");
+        await Assertions.Expect(firstRow.GetByRole(AriaRole.Button, new() { Name = "Test" })).ToBeVisibleAsync();
+    }
+
+    [Fact]
     public async Task Only_one_page_is_headed_Health()
     {
         if (PlaywrightFixture.BaseUrl is null) return;

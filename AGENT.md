@@ -140,6 +140,16 @@ Directory depth stays shallow — at most two levels inside a project.
   `import()`. To upgrade: vendor a new dist folder and bump `_TRANSFORMERS_VERSION` in
   `inference-worker.js`. (Model *weights* are still fetched from the HF hub on first use — inherent
   to a browser VLM.)
+- **The System page self-tests models through the real path, not a copy.** `/diagnostics` has a
+  per-model card that loads each registry model and generates once against a fixed synthetic frame,
+  reporting backend, dtype, bytes downloaded, load time and the verbatim reply — the answer to
+  "which of these will run on this machine". It drives `ensureModelLoaded()` + `runInference()`, the
+  same two calls the observation loop makes; a test with its own loader could pass while the loop
+  still fails. Its pass condition is "loaded and generated text", deliberately NOT the quality gates
+  below: a 256M captioner routinely produces a good sentence the gates decline, and failing the
+  hardware check for that would report a working laptop as broken. The worker holds one model at a
+  time, so tests run strictly sequentially and unload afterwards.
+
 - **The worker's quality gates can silently starve the pipeline.** `inference-worker.js` rejects
   model replies that are unstructured, echo the prompt, are too short/repetitive, or end mid-clause.
   Every rejection returns `isAvailable: false`, which `ObserverHub` treats as a skip — so nothing is
