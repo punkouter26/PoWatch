@@ -145,16 +145,16 @@ public sealed class ArchivesServiceTests
         bool isSignificant = false,
         string? reason = null,
         bool isOutlier = false) => new()
-    {
-        SubjectId = SubjectId.From(subject),
-        SubjectDisplayName = subject,
-        Activity = activity,
-        ClinicalDescription = activity,
-        IsSignificant = isSignificant || isOutlier,
-        SignificantReason = reason,
-        IsClinicalOutlier = isOutlier,
-        ObservedAtUtc = at
-    };
+        {
+            SubjectId = SubjectId.From(subject),
+            SubjectDisplayName = subject,
+            Activity = activity,
+            ClinicalDescription = activity,
+            IsSignificant = isSignificant || isOutlier,
+            SignificantReason = reason,
+            IsClinicalOutlier = isOutlier,
+            ObservedAtUtc = at
+        };
 
     private sealed class FakeObservationRepository(IEnumerable<ObservationEvent> items) : IObservationRepository
     {

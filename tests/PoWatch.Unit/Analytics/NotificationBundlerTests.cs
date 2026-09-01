@@ -127,11 +127,11 @@ public sealed class NotificationBundlerTests
         var clock = FixedClock();
         var bundler = new NotificationBundler(windowSeconds: 60, maxPending: 2, clock: clock);
 
-        bundler.Push(MakeResult("routine",  "s1"));
+        bundler.Push(MakeResult("routine", "s1"));
         // A different severity flushes the prior tier (see severity-change test) — pending now
         // only holds the notable. Add a third tier to actually saturate the pending list.
         bundler.Push(MakeResult("notable", "s2"));
-        bundler.Push(MakeResult("urgent",  "s3"));
+        bundler.Push(MakeResult("urgent", "s3"));
         bundler.Push(MakeResult("outlier", "s4")); // any tier that finds no merge target
 
         // All four tiers are now in the ready queue (each tier change flushes the prior one).
