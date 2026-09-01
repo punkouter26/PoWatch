@@ -529,6 +529,47 @@
 .model-stat--warn { border-color: var(--state-warning-border); }
 .model-stat--warn .model-stat-value { color: var(--state-warning-fg); }
 
+/* ═══ Standby chip slot in the hero (#7) ═════════════════════════════════════ */
+.room-status-standby {
+    margin-top: var(--space-2);
+}
+
+/* ═══ Pattern comparison panel on Archives (#8) ══════════════════════════════ */
+.pattern-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.pattern-select {
+    background: var(--color-surface-1);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+    min-width: 12rem;
+}
+
+.pattern-empty {
+    padding: var(--space-4);
+    color: var(--color-text-muted);
+    text-align: center;
+    font-size: var(--text-sm);
+}
+
+.panel-pattern {
+    grid-column: span 12;
+}
+
+@media (min-width: 1400px) {
+    .panel-pattern {
+        grid-column: span 12;
+    }
+}
+
 /* Inference stall banner — shown when every cycle's model reply is rejected, so a run that
    records nothing can no longer read as a healthy idle loop. */
 .inference-stall {

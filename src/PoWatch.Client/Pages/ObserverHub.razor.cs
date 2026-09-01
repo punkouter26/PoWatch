@@ -44,6 +44,14 @@ public partial class ObserverHub
         // this low-frequency ping keeps the sliding session warm so the wall display never lapses.
         _keepAliveCts = new CancellationTokenSource();
         _ = Task.Run(() => RunSessionKeepAliveAsync(_keepAliveCts.Token));
+
+        // Build the heatmap from the timeline we just loaded. The strip is a pure derivation,
+        // so it is rebuilt every time the timeline refreshes rather than polling the API again.
+        RebuildHeatmap();
+        RefreshStandbyStatus();
+        // Start the standby watchdog only if monitoring is already running; otherwise the
+        // Start button flips it on (see StartMonitoringAsync). Either path keeps the chip in sync.
+        if (monitoring) StartStandbyWatchdog();
     }
 
     // Load the model list from the shared /model-registry.json (single source of truth shared with the
@@ -159,6 +167,10 @@ public partial class ObserverHub
         _ = Task.Run(() => RunMonitorLoopAsync(monitorCts.Token));
         // No per-second heartbeat here: the running clock is owned by the isolated
         // <LiveDurationTimer> component, so the whole telemetry grid no longer re-renders every second.
+
+        // Standby watchdog (#7): only after Start, because an operator who has not yet hit Start
+        // should not see "Standby · waiting for motion" — they should see "Ready to watch".
+        StartStandbyWatchdog();
     }
 
     private async Task StopMonitoringAsync()
@@ -180,6 +192,19 @@ public partial class ObserverHub
 
         await JS.TryInvokeVoidAsync("powatchInference.stopMonitor");
         await RefreshDiagnosticsAsync();
+
+        StopStandbyWatchdog();
+        RefreshStandbyStatus();
+
+        // Flush any pending bundles so the final toast of the session is never dropped.
+        var leftover = _alertBundler.Flush();
+        if (leftover.Count > 0)
+        {
+            _renderedBundles.InsertRange(0, leftover);
+            if (_renderedBundles.Count > MaxRenderedBundles)
+                _renderedBundles.RemoveRange(MaxRenderedBundles, _renderedBundles.Count - MaxRenderedBundles);
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -440,6 +465,18 @@ public partial class ObserverHub
             await AnnounceAsync(result.SubjectDisplayName, string.IsNullOrWhiteSpace(inference.SubjectHint));
         }
 
+        // Bundling (#6): collapse rapid-fire events of the same tier into a single toast. Runs
+        // before the threshold-alert path so a single underlying event can drive at most one toast
+        // even when several thresholds fire on the same ingest.
+        if (result is not null && !result.Dropped && !result.SkippedAsRedundant)
+        {
+            PushBundledAlert(result);
+        }
+
+        // Standby (#7): if the camera frame changed enough to count as "motion", reset the idle timer
+        // so the watchdog does not park the model on a busy room.
+        if (inference.MotionScore >= 6) _standby.RecordMotion();
+
         // Accumulate threshold alerts for the banner
         if (result is not null && result.TriggeredAlerts.Count > 0 && FeatureFlags.Value.AlertThresholdsEnabled)
         {
@@ -463,8 +500,12 @@ public partial class ObserverHub
         {
             await RefreshTimelineAsync();
             await LoadSubjectsAsync();
+            // Heatmap (#2) is a pure derivation off the timeline we just refreshed; rebuild now
+            // so the strip never lags the activity panel by more than one cycle.
+            RebuildHeatmap();
         }
 
+        RefreshStandbyStatus();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -492,6 +533,7 @@ public partial class ObserverHub
         if (result is not null && !result.Dropped && !result.SkippedAsRedundant)
         {
             await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Desk Work");
+            PushBundledAlert(result);
         }
 
         if (result is not null && !muted && !result.SkippedAsRedundant)
@@ -500,6 +542,9 @@ public partial class ObserverHub
         }
 
         await RefreshTimelineAsync();
+        RebuildHeatmap();
+        _standby.RecordMotion();
+        RefreshStandbyStatus();
     }
 
     private async Task InjectOutlierAsync()
@@ -520,6 +565,7 @@ public partial class ObserverHub
         if (result is not null && !result.Dropped)
         {
             await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Clinical outlier");
+            PushBundledAlert(result);
 
             // Drive the full-screen takeover from the dev-tool injector too, so the alert flow is testable.
             lastAlertLevel = AlertLevel.Urgent;
@@ -540,6 +586,9 @@ public partial class ObserverHub
         }
 
         await RefreshTimelineAsync();
+        RebuildHeatmap();
+        _standby.RecordMotion();
+        RefreshStandbyStatus();
     }
 
     // Lightweight, oscillator-synthesized interaction cue (audit #8). Best-effort: audio must never

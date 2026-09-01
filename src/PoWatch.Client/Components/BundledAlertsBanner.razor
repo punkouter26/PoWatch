@@ -1,0 +1,60 @@
+@using PoWatch.Shared.Models
+
+@* Renders the bundled alert stack — one entry per severity-tier instead of one entry per
+   raw ingest verdict. The bundler collapses "3 movements in 2 minutes" into a single
+   "3 routine movements" toast, so the banner does not become its own notification fatigue. *@
+
+@if (Bundles.Count > 0)
+{
+    <div class="bundled-alerts" role="region" aria-live="polite" aria-label="Recent bundled alerts" data-test="bundled-alerts">
+        @foreach (var bundle in Bundles)
+        {
+            var severityClass = $"bundled-alert--{bundle.Severity}";
+            var icon = bundle.Severity switch
+            {
+                "urgent" => "⚠",
+                "notable" => "•",
+                _ => "·"
+            };
+            var ageLabel = AgeLabel(bundle.LastEventUtc);
+
+            <div class="bundled-alert @severityClass" data-test="bundled-alert" data-severity="@bundle.Severity">
+                <span class="bundled-alert-icon" aria-hidden="true">@icon</span>
+                <div class="bundled-alert-body">
+                    <div class="bundled-alert-headline">@bundle.Headline</div>
+                    @if (!string.IsNullOrWhiteSpace(bundle.Detail))
+                    {
+                        <div class="bundled-alert-detail">@bundle.Detail</div>
+                    }
+                    <div class="bundled-alert-meta">@ageLabel · @(bundle.Count)x</div>
+                </div>
+                @if (OnDismiss.HasDelegate)
+                {
+                    <button class="bundled-alert-dismiss" @onclick="() => OnDismiss.InvokeAsync(bundle)"
+                            aria-label="Dismiss this alert">×</button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>The bundles to render. The component is pure presentational — the caller
+    /// (the Live Room) owns the bundler and decides when to add/remove from this list.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<BundledAlertDto> Bundles { get; set; } = [];
+
+    /// <summary>Optional dismiss callback. When set, every bundle gets a × button. The
+    /// component itself never mutates state.</summary>
+    [Parameter]
+    public EventCallback<BundledAlertDto> OnDismiss { get; set; }
+
+    private static string AgeLabel(DateTimeOffset lastEventUtc)
+    {
+        var delta = DateTimeOffset.UtcNow - lastEventUtc;
+        if (delta.TotalSeconds < 5) return "just now";
+        if (delta.TotalSeconds < 60) return $"{(int)delta.TotalSeconds}s ago";
+        if (delta.TotalMinutes < 60) return $"{(int)delta.TotalMinutes}m ago";
+        return lastEventUtc.ToLocalTime().ToString("HH:mm");
+    }
+}

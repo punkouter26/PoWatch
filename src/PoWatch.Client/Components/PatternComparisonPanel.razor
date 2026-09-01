@@ -1,0 +1,78 @@
+@using PoWatch.Shared.Models
+
+@* Pattern comparison panel — side-by-side 24-hour bars for "today" vs the rolling baseline.
+   The bars share one y-scale (max of both) so a quiet day next to a noisy baseline is
+   visually obvious without needing a number. The plain-language summary underneath is
+   what the caregiver reads; the chart is for the curious. *@
+
+@if (Comparison is null)
+{
+    <div class="pattern-empty">No baseline yet — check back after a few days of activity.</div>
+}
+else
+{
+    <div class="pattern-panel" data-test="pattern-comparison" aria-label="Pattern comparison for @Comparison.DisplayName">
+        <div class="pattern-header">
+            <div>
+                <span class="pattern-name">@Comparison.DisplayName</span>
+                <span class="pattern-summary">@Comparison.Summary</span>
+            </div>
+            <span class="pattern-drift pattern-drift--@DriftClass(Comparison.DriftLabel, Comparison.DriftScore)">
+                @Comparison.DriftLabel · @Comparison.DriftScore.ToString("0")
+            </span>
+        </div>
+
+        <div class="pattern-bars" role="list">
+            @for (var h = 0; h < 24; h++)
+            {
+                var baseline = Comparison.Baseline[h];
+                var today = Comparison.Today[h];
+                var baselineHeight = (int)Math.Round(baseline * 100);
+                var todayHeight = (int)Math.Round(today * 100);
+                var isCurrentHour = h == CurrentHour;
+
+                <div class="pattern-bar-pair @(isCurrentHour ? "pattern-bar-pair--current" : null)" role="listitem" data-test="pattern-bar-pair" data-hour="@h"
+                     title="@HourTitle(h, baseline, today)">
+                    <span class="pattern-bar pattern-bar--today" style="height:@(FormatPercent(todayHeight))" aria-hidden="true"></span>
+                    <span class="pattern-bar pattern-bar--baseline" style="height:@(FormatPercent(baselineHeight))" aria-hidden="true"></span>
+                    @if (h % 6 == 0)
+                    {
+                        <span class="pattern-hour-label">@(h == 0 ? "00" : h.ToString())</span>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="pattern-legend" aria-hidden="true">
+            <span class="pattern-legend-item"><span class="pattern-legend-swatch pattern-legend-swatch--today"></span>Today</span>
+            <span class="pattern-legend-item"><span class="pattern-legend-swatch pattern-legend-swatch--baseline"></span>7-day baseline</span>
+            <span class="pattern-legend-item pattern-direction--@Comparison.Direction">Direction: @Comparison.Direction</span>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>The comparison payload produced by <see cref="PatternComparator"/>.</summary>
+    [Parameter]
+    public PatternComparisonDto? Comparison { get; set; }
+
+    /// <summary>Current local hour — used to highlight the "now" column.</summary>
+    [Parameter]
+    public int CurrentHour { get; set; } = DateTime.Now.Hour;
+
+    private static string FormatPercent(int pct) => pct <= 0 ? "2%" : $"{pct}%";
+
+    private static string DriftClass(string label, double score)
+    {
+        if (score >= 60) return "high";
+        if (score >= 30) return "medium";
+        return "low";
+    }
+
+    private static string HourTitle(int hour, double baseline, double today)
+    {
+        var b = (int)Math.Round(baseline * 100);
+        var t = (int)Math.Round(today * 100);
+        return $"{hour:00}:00 — today {t}%, baseline {b}%";
+    }
+}

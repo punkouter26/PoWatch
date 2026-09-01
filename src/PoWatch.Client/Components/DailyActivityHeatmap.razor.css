@@ -1,0 +1,163 @@
+/* Daily-activity heatmap — three-tier stacked bars over 24 hours.
+   All values come from design tokens; no inline colours. */
+
+.heatmap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
+}
+
+.heatmap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.heatmap-title {
+    font-size: var(--text-sm);
+    color: var(--color-text-bright);
+    font-weight: 600;
+}
+
+.heatmap-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+
+.heatmap-strip {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    gap: 2px;
+    align-items: end;
+    height: 5.5rem;
+}
+
+.heatmap-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    height: 100%;
+    position: relative;
+    transition: transform var(--motion-quick);
+}
+
+.heatmap-cell:hover {
+    transform: translateY(-1px);
+}
+
+.heatmap-bar-stack {
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+    width: 100%;
+    height: 100%;
+    background: var(--color-surface-1);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle);
+}
+
+.heatmap-bar {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    transition: opacity var(--transition-base);
+}
+
+.heatmap-bar--routine {
+    background: var(--color-accent);
+    opacity: 0.45;
+}
+
+.heatmap-bar--notable {
+    background: var(--state-warning-fg);
+    opacity: 0.85;
+}
+
+.heatmap-bar--urgent {
+    background: var(--state-danger-fg);
+    opacity: 0.95;
+}
+
+.heatmap-cell--future .heatmap-bar-stack {
+    opacity: 0.18;
+}
+
+.heatmap-cell--current .heatmap-bar-stack {
+    outline: 2px solid var(--color-border-strong);
+    outline-offset: -2px;
+}
+
+.heatmap-hour-label {
+    font-size: 0.6rem;
+    color: var(--color-text-muted);
+    line-height: 1;
+}
+
+.heatmap-count {
+    position: absolute;
+    top: -0.4rem;
+    right: -0.4rem;
+    background: var(--color-surface-strong);
+    color: var(--color-text-bright);
+    font-size: 0.6rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-subtle);
+    pointer-events: none;
+}
+
+.heatmap-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+
+.heatmap-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.heatmap-legend-swatch {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.heatmap-legend-swatch--routine {
+    background: var(--color-accent);
+    opacity: 0.45;
+}
+
+.heatmap-legend-swatch--notable {
+    background: var(--state-warning-fg);
+    opacity: 0.85;
+}
+
+.heatmap-legend-swatch--urgent {
+    background: var(--state-danger-fg);
+    opacity: 0.95;
+}
+
+@media (max-width: 640px) {
+    .heatmap-strip {
+        height: 4rem;
+    }
+
+    .heatmap-legend {
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+}

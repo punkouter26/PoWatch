@@ -1,0 +1,34 @@
+@using PoWatch.Shared.Models
+
+@* Standby status chip — sits in the Live Room hero area and on the System page.
+   Surfaces the current mode (awake / standby) and how long the room has been still,
+   so the caregiver sees the difference between "model is thinking" and "model is
+   asleep, waiting for motion". *@
+
+@if (Status is not null)
+{
+    var modeClass = Status.Mode == "standby" ? "standby-chip--standby" : "standby-chip--awake";
+    var modeLabel = Status.Mode == "standby" ? "Standby" : "Awake";
+    var modeIcon = Status.Mode == "standby" ? "🌙" : "👁";
+    var elapsed = Status.SecondsSinceMotion < 60
+        ? $"{(int)Status.SecondsSinceMotion}s still"
+        : Status.SecondsSinceMotion < 3600
+            ? $"{(int)(Status.SecondsSinceMotion / 60)}m still"
+            : $"{(int)(Status.SecondsSinceMotion / 3600)}h still";
+
+    <div class="standby-chip @modeClass" data-test="standby-chip" data-mode="@Status.Mode" aria-live="polite">
+        <span class="standby-chip-icon" aria-hidden="true">@modeIcon</span>
+        <span class="standby-chip-label">@modeLabel</span>
+        <span class="standby-chip-meta" title="How long the room has been still">@elapsed</span>
+        @if (Status.Mode == "standby" && Status.MotionProbeActive)
+        {
+            <span class="standby-chip-pulse" aria-hidden="true"></span>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Snapshot of the standby controller. Null hides the chip (e.g. standby is disabled).</summary>
+    [Parameter]
+    public StandbyStatusDto? Status { get; set; }
+}

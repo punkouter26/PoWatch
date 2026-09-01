@@ -22,6 +22,15 @@
                   OnAcknowledge="AcknowledgeAlertOverlay"
                   OnViewSubject="ViewAlertSubject" />
 
+@* Bundled alerts (#6): one entry per severity tier instead of one per raw event. Sits above
+   the threshold-alert strip so the loudest things float to the top, but still below the
+   full-screen takeover which is reserved for critical events. *@
+@if (_renderedBundles.Count > 0)
+{
+    <PoWatch.Client.Components.BundledAlertsBanner Bundles="_renderedBundles"
+                                                   OnDismiss="DismissBundledAlert" />
+}
+
 @* Consolidation #7: ONE inline alert strip for every non-critical warning (pipeline health +
    threshold alerts share the same visual language); the full-screen overlay above is reserved
    for critical events. *@
@@ -79,6 +88,15 @@
             <p class="room-status-eyebrow">@(thinking ? "Checking…" : monitoring ? "Live · watching" : "Standby")</p>
             <h1 class="room-status-headline">@RoomStatusHeadline</h1>
             <p class="room-status-subline">@RoomStatusSubline</p>
+            @* Standby chip (#7): lives next to the hero subline so the operator sees the mode
+               transition happen, not just the model being quiet. Hidden when standby is off
+               so the UI matches the configured behaviour, not a hard-coded visual. *@
+            @if (_standbyEnabled && _standbyStatus is not null)
+            {
+                <div class="room-status-standby">
+                    <PoWatch.Client.Components.StandbyStatusChip Status="_standbyStatus" />
+                </div>
+            }
         </div>
         <div class="room-status-actions">
             @if (!monitoring && !thinking)
@@ -95,6 +113,14 @@
                           Click="StartHandoff" data-test="hero-handoff" title="Generate a one-tap handoff brief for the next caregiver" />
         </div>
     </section>
+
+    @* Daily activity heatmap (#2): 24-hour density strip rendered between the hero and the
+       activity grid. Pure derivation — it never makes an API call of its own. *@
+    <PoWatch.Client.Components.DailyActivityHeatmap Buckets="_heatmapBuckets"
+                                                    Title="@HeatmapTitle"
+                                                    Meta="@HeatmapMeta"
+                                                    NowLocal="DateTime.Now"
+                                                    DisplayCap="_heatmapDisplayCap" />
 
     <div class="sector-grid observer-grid @(monitoring ? "observer-grid--active" : string.Empty)">
         <RadzenCard class="@("panel panel-main" + (monitoring ? " panel--active" : string.Empty))">

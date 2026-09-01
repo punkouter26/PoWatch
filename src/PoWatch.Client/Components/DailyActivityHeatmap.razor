@@ -1,0 +1,114 @@
+@using PoWatch.Shared.Models
+
+@* 24-hour density strip rendered across the top of the Live Room.
+   Each hour is a vertical bar composed of three stacked intensities:
+   routine (cool), notable (warm), urgent (hot). The strip is the single
+   quickest answer to "when was today busy?" — readable in a glance. *@
+
+<div class="heatmap" data-test="daily-activity-heatmap" aria-label="Activity density across today">
+    <div class="heatmap-header">
+        <span class="heatmap-title">@Title</span>
+        <span class="heatmap-meta">@Meta</span>
+    </div>
+
+    <div class="heatmap-strip" role="list">
+        @for (var h = 0; h < 24; h++)
+        {
+            var routine = Buckets.Routine[h];
+            var notable = Buckets.Notable[h];
+            var urgent = Buckets.Urgent[h];
+            var total = routine + notable + urgent;
+
+            var routineIntensity = Normalise(routine, DisplayCap);
+            var notableIntensity = Normalise(notable, DisplayCap);
+            var urgentIntensity = Normalise(urgent, DisplayCap);
+
+            var nowHour = NowLocal.Hour;
+            var isPast = h < nowHour;
+            var isCurrent = h == nowHour;
+            var isFuture = h > nowHour;
+
+            <div class="heatmap-cell @HeatmapCellClass(isPast, isCurrent, isFuture)"
+                 role="listitem"
+                 data-test="heatmap-cell"
+                 data-hour="@h"
+                 title="@HourTitle(h, routine, notable, urgent)">
+                <div class="heatmap-bar-stack" aria-hidden="true">
+                    @if (urgent > 0)
+                    {
+                        <span class="heatmap-bar heatmap-bar--urgent" style="height:@(FormatPercent(urgentIntensity))"></span>
+                    }
+                    @if (notable > 0)
+                    {
+                        <span class="heatmap-bar heatmap-bar--notable" style="height:@(FormatPercent(notableIntensity))"></span>
+                    }
+                    @if (routine > 0)
+                    {
+                        <span class="heatmap-bar heatmap-bar--routine" style="height:@(FormatPercent(routineIntensity))"></span>
+                    }
+                </div>
+                <span class="heatmap-hour-label" aria-hidden="@(h % 3 == 0 ? "false" : "true")">
+                    @(h % 3 == 0 ? h.ToString("00") : string.Empty)
+                </span>
+                @if (total > 0)
+                {
+                    <span class="heatmap-count" aria-hidden="true">@total</span>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="heatmap-legend" aria-hidden="true">
+        <span class="heatmap-legend-item"><span class="heatmap-legend-swatch heatmap-legend-swatch--routine"></span>Routine</span>
+        <span class="heatmap-legend-item"><span class="heatmap-legend-swatch heatmap-legend-swatch--notable"></span>Notable</span>
+        <span class="heatmap-legend-item"><span class="heatmap-legend-swatch heatmap-legend-swatch--urgent"></span>Urgent</span>
+    </div>
+</div>
+
+@code {
+    /// <summary>Per-hour tier counts. The renderer never recomputes this — it only displays it.</summary>
+    [Parameter, EditorRequired]
+    public DailyActivityBucketsDto Buckets { get; set; } = new();
+
+    /// <summary>Header label; defaults to the bucket date formatted short.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>Optional caption shown next to the title (e.g. "12 events · peak at 14:00").</summary>
+    [Parameter]
+    public string? Meta { get; set; }
+
+    /// <summary>Current local time. Rendered as a vertical "now" marker and used to dim future hours.</summary>
+    [Parameter]
+    public DateTime NowLocal { get; set; } = DateTime.Now;
+
+    /// <summary>Cap applied to a single bucket so one very busy hour doesn't wash out the rest of the strip.</summary>
+    [Parameter]
+    public int DisplayCap { get; set; } = 6;
+
+    protected override void OnParametersSet()
+    {
+        Title ??= Buckets.Date.ToString("ddd d MMM");
+    }
+
+    private static double Normalise(int count, int cap) =>
+        cap <= 0 ? 0d : Math.Min(1d, (double)count / cap);
+
+    private static string FormatPercent(double v) =>
+        v <= 0 ? "0%" : $"{v * 100:0}%";
+
+    private static string HeatmapCellClass(bool isPast, bool isCurrent, bool isFuture) =>
+        isCurrent ? "heatmap-cell--current" :
+        isFuture ? "heatmap-cell--future" :
+        "heatmap-cell--past";
+
+    private static string HourTitle(int hour, int routine, int notable, int urgent)
+    {
+        var total = routine + notable + urgent;
+        if (total == 0) return $"{hour:00}:00 — no activity";
+        var breakdown = urgent > 0 ? $"{urgent} urgent, {notable} notable, {routine} routine"
+            : notable > 0 ? $"{notable} notable, {routine} routine"
+            : $"{routine} routine";
+        return $"{hour:00}:00 — {breakdown}";
+    }
+}

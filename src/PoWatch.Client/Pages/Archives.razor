@@ -1,6 +1,7 @@
 @page "/archives"
 @attribute [Authorize]
 @using PoWatch.Shared.Models
+@using PoWatch.Shared.Services.Analytics
 @using Microsoft.JSInterop
 @using Microsoft.Extensions.Options
 @using PoWatch.Client.Shared
@@ -259,6 +260,50 @@
         <ActivityTimeline Items="@(chapter?.Timeline ?? [])" ShowSubjectBadge="true"
                           EmptyMessage="No events recorded for this day." />
     </RadzenCard>
+
+    @* Pattern comparison (#8): surfaces the same drift radar the People page already uses, but
+       here as a single dedicated panel next to the day timeline so the operator can see "today
+       vs usual" without navigating away. Auto-picks the most-observed subject for the day; if
+       there are multiple, the picker lets the operator flip between them. *@
+    <RadzenCard class="panel panel-pattern">
+        <header class="panel-header">
+            <h2>Pattern comparison</h2>
+            <p>Today versus the usual week — when this person's day looks different from the baseline.</p>
+        </header>
+
+        @if (chapter is null || chapter.Timeline.Count == 0)
+        {
+            <p class="pattern-empty">No people seen today yet — start watching to build a baseline.</p>
+        }
+        else
+        {
+            var distinctSubjects = chapter.Timeline
+                .GroupBy(e => e.SubjectId)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .ToList();
+
+            <div class="pattern-toolbar">
+                <label class="visually-hidden" for="pattern-subject-picker">Person to compare</label>
+                <select id="pattern-subject-picker" class="pattern-select"
+                        @bind="patternSubjectId" @bind:after="LoadPatternAsync">
+                    @foreach (var id in distinctSubjects)
+                    {
+                        <option value="@id">@PoWatch.Client.Services.DisplayText.SubjectName(id, isKnownIdentity: false)</option>
+                    }
+                </select>
+            </div>
+
+            @if (_patternLoading)
+            {
+                <p class="pattern-empty">Loading baseline…</p>
+            }
+            else
+            {
+                <PoWatch.Client.Components.PatternComparisonPanel Comparison="_patternComparison" />
+            }
+        }
+    </RadzenCard>
 </div>
 
 @code {
@@ -283,6 +328,38 @@
     private bool generatingBrief;
     private string briefAudience = "NurseToNurse";
     private ElementReference _pageRef;
+
+    // Pattern comparison (#8): the panel on this page that pairs today's hourly activity with the
+    // rolling 7-day baseline. The comparison itself is a pure derivation produced by
+    // PoWatch.Shared.Services.Analytics.PatternComparator; this state is just the wiring.
+    private string? patternSubjectId;
+    private PatternComparisonDto? _patternComparison;
+    private bool _patternLoading;
+
+    /// <summary>Fetch the baseline for the currently-selected subject and derive the comparison.</summary>
+    private async Task LoadPatternAsync()
+    {
+        if (string.IsNullOrWhiteSpace(patternSubjectId))
+        {
+            _patternComparison = null;
+            return;
+        }
+
+        _patternLoading = true;
+        try
+        {
+            var baseline = await ApiClient.GetSubjectBaselineAsync(patternSubjectId, days: 7);
+            _patternComparison = baseline is null ? null : PatternComparator.Compare(baseline);
+        }
+        catch
+        {
+            // Non-critical — the panel just keeps its previous state.
+        }
+        finally
+        {
+            _patternLoading = false;
+        }
+    }
 
     // One-tap handoff entry (Win #5): "End shift" on the Live Room navigates here with ?handoff=1&shift=<auto>.
     [Parameter, SupplyParameterFromQuery(Name = "handoff")] public string? HandoffQuery { get; set; }
@@ -421,7 +498,25 @@
             await JS.InvokeVoidAsync("localStorage.setItem", "powatch:archivesDate", selectedDate?.ToString("O") ?? string.Empty);
             evidenceUrls.Clear();
             imageLoadStatus.Clear();
-            
+
+            // Pattern comparison (#8): the panel auto-picks the most-observed subject for the day.
+            // We seed the picker here so it does not lag the timeline by a click.
+            if (chapter?.Timeline is { Count: > 0 })
+            {
+                patternSubjectId = chapter.Timeline
+                    .GroupBy(e => e.SubjectId)
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => g.Key)
+                    .FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(patternSubjectId))
+                {
+                    await LoadPatternAsync();
+                }
+            }
+            else
+            {
+                _patternComparison = null;
+            }
             var itemsWithImages = chapter?.Highlights?
                 .Where(x => !string.IsNullOrWhiteSpace(x.ImageReference))
                 .ToList() ?? [];

@@ -1,0 +1,88 @@
+/* Bundled alerts — calmer than the existing toast spam. Three tiers only.
+   Colour comes from design tokens, never inline. */
+
+.bundled-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.bundled-alert {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-3);
+    align-items: flex-start;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
+    transition: opacity var(--transition-base), transform var(--motion-quick);
+    animation: bundled-alert-in var(--motion-enter);
+}
+
+@keyframes bundled-alert-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.bundled-alert--urgent {
+    border-color: var(--state-danger-border);
+    background: var(--state-danger-bg);
+}
+
+.bundled-alert--notable {
+    border-color: var(--state-warning-border);
+    background: var(--state-warning-bg);
+}
+
+.bundled-alert--routine {
+    border-color: var(--color-border-subtle);
+    background: var(--color-surface-2);
+}
+
+.bundled-alert-icon {
+    font-size: var(--text-lg);
+    color: var(--color-text-bright);
+    line-height: 1;
+    margin-top: 2px;
+}
+
+.bundled-alert--urgent .bundled-alert-icon { color: var(--state-danger-fg); }
+.bundled-alert--notable .bundled-alert-icon { color: var(--state-warning-fg); }
+
+.bundled-alert-body {
+    min-width: 0;
+}
+
+.bundled-alert-headline {
+    font-size: var(--text-base);
+    color: var(--color-text-bright);
+    font-weight: 600;
+}
+
+.bundled-alert-detail {
+    margin-top: var(--space-1);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+}
+
+.bundled-alert-meta {
+    margin-top: var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+}
+
+.bundled-alert-dismiss {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-lg);
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 var(--space-1);
+}
+
+.bundled-alert-dismiss:hover {
+    color: var(--color-text-bright);
+}

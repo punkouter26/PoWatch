@@ -1,0 +1,56 @@
+/* Standby status chip — quiet visual language so it never competes with the alert takeover. */
+
+.standby-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
+    font-size: var(--text-xs);
+    color: var(--color-text-primary);
+    position: relative;
+    line-height: 1;
+}
+
+.standby-chip--awake {
+    border-color: var(--state-success-border);
+    background: var(--state-success-bg);
+    color: var(--state-success-fg);
+}
+
+.standby-chip--standby {
+    border-color: var(--color-accent-soft);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+}
+
+.standby-chip-icon {
+    font-size: var(--text-sm);
+    line-height: 1;
+}
+
+.standby-chip-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.standby-chip-meta {
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.standby-chip-pulse {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-full);
+    background: var(--color-accent);
+    animation: standby-chip-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes standby-chip-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.85); }
+    50%      { opacity: 1.0; transform: scale(1.0); }
+}

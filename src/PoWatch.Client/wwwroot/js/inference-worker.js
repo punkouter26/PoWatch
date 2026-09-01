@@ -191,7 +191,7 @@ async function ensureModelLoaded() {
   self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
 
   _loadPromise = (async () => {
-    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, RawImage, env } = await import(_TRANSFORMERS_URL);
+    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, Florence2ForConditionalGeneration, Qwen2VLForConditionalGeneration, RawImage, env } = await import(_TRANSFORMERS_URL);
     env.useFSCache = false;
     // Load the ONNX Runtime wasm from the same vendored, pinned directory (offline supply chain, §7)
     // instead of letting transformers.js fetch it from its default CDN.
@@ -207,7 +207,13 @@ async function ensureModelLoaded() {
     const cfg = _MODELS[_activeModelKey];
     // Some VLM architectures (e.g. FastVLM / llava_qwen2) expose themselves as causal-LM heads rather
     // than the image-text-to-text auto class. Pick the loader per model so new families drop in cleanly.
-    const ModelClass = cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM : AutoModelForImageTextToText;
+    // Florence-2 has its own class (Florence2ForConditionalGeneration) — the generic auto class
+    // resolves to the wrong architecture for it.
+    const ModelClass =
+      cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM
+      : cfg.modelClass === 'florence2' ? Florence2ForConditionalGeneration
+      : cfg.modelClass === 'qwen2vl' ? Qwen2VLForConditionalGeneration
+      : AutoModelForImageTextToText;
     _processor = await AutoProcessor.from_pretrained(cfg.id);
 
     if (hasWebGpu) {
@@ -268,6 +274,16 @@ function describeError(err) {
 
 async function prepareInputs(base64Frame, prompt) {
   const image = await _RawImage.fromURL(base64Frame);
+  const cfg = _MODELS[_activeModelKey];
+
+  // Florence-2 is task-prompt driven, not conversational: it expects a task token like
+  // <CAPTION> via construct_prompts(), and a chat template would be ignored or garbled.
+  if (cfg.modelClass === 'florence2') {
+    const task = '<MORE_DETAILED_CAPTION>';
+    const prompts = _processor.construct_prompts(task);
+    return _processor(image, prompts);
+  }
+
   const messages = [
     {
       role: 'user',
@@ -330,8 +346,12 @@ function nextRuntimeFallback() {
 async function reloadModel(device, dtype) {
   const cfg = _MODELS[_activeModelKey];
   self.postMessage({ type: 'STATE_UPDATE', loadState: 'loading' });
-  const { AutoModelForImageTextToText, AutoModelForCausalLM } = await import(_TRANSFORMERS_URL);
-  const RetryModelClass = cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM : AutoModelForImageTextToText;
+  const { AutoModelForImageTextToText, AutoModelForCausalLM, Florence2ForConditionalGeneration, Qwen2VLForConditionalGeneration } = await import(_TRANSFORMERS_URL);
+  const RetryModelClass =
+    cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM
+    : cfg.modelClass === 'florence2' ? Florence2ForConditionalGeneration
+    : cfg.modelClass === 'qwen2vl' ? Qwen2VLForConditionalGeneration
+    : AutoModelForImageTextToText;
   _model = await RetryModelClass.from_pretrained(cfg.id, { device, dtype });
   _device = device;
   _dtype = typeof dtype === 'string' ? dtype : 'mixed';
@@ -825,6 +845,16 @@ self.onmessage = async (e) => {
         self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
       }
       self.postMessage({ id, type: 'MODEL_SET' });
+      break;
+    }
+
+    case 'UNLOAD_MODEL': {
+      // Standby / wake-on-motion: drop the loaded model and derived diagnostics without
+      // changing _activeModelKey, so the next RUN_INFERENCE call picks up the same model.
+      // Releases the ONNX session + GPU buffers immediately rather than waiting for GC.
+      await unloadModel();
+      self.postMessage({ id, type: 'MODEL_UNLOADED' });
+      self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
       break;
     }
 

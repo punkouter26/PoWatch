@@ -388,5 +388,37 @@
         activeStream = null;
       }
     },
+
+    // ─── Standby / wake-on-motion ───────────────────────────────────────────────
+    // The probe samples the current preview frame at the same 160x90 used by the
+    // observation loop's own frame-diff, but does NOT spawn an inference cycle. The
+    // C# StandbyController decides what to do with the score; the JS side just
+    // reports the camera's view cheaply.
+
+    async probeMotion(videoElement) {
+      try {
+        const diff = computeFrameDiff(videoElement);
+        return {
+          ok: true,
+          diff,
+          score: Math.round(diff * 100),
+          level: classifyMotion(diff),
+        };
+      } catch (err) {
+        return { ok: false, error: String(err?.message ?? err) };
+      }
+    },
+
+    async unloadModel() {
+      // Asks the worker to release the model + GPU buffers. Safe to call when no model is
+      // loaded — unloadModel() in the worker is idempotent. The bridge intentionally does
+      // NOT stop the webcam here; the wake probe still needs the preview frames.
+      try {
+        await postToWorker('UNLOAD_MODEL', {}, 5000);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err?.message ?? err) };
+      }
+    },
   };
 })();

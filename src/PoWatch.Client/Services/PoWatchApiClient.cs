@@ -106,4 +106,15 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         if (!response.IsSuccessStatusCode) return null;
         return await response.Content.ReadFromJsonAsync(Json.StorageResetResultDto, cancellationToken);
     }
+
+    /// <summary>
+    /// Fetch the per-subject 7-day behavioural baseline. The endpoint already returns
+    /// both the baseline vector and the today vector, so the client-side pattern comparison
+    /// panel can render directly from this single call.
+    /// </summary>
+    public async Task<SubjectBaselineDto?> GetSubjectBaselineAsync(string subjectId, int days = 7, CancellationToken cancellationToken = default)
+    {
+        var path = $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}/baseline?days={days}";
+        return await httpClient.GetFromJsonAsync(path, Json.SubjectBaselineDto, cancellationToken);
+    }
 }

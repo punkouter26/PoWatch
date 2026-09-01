@@ -38,5 +38,23 @@
     "webgpuDtype": "q4f16",
     "webgpuDtypeFallback": "q4",
     "wasmDtype": "q4"
+  },
+  {
+    "key": "florence2-base-ft",
+    "id": "onnx-community/Florence-2-base-ft",
+    "label": "Florence-2 base-ft",
+    "modelClass": "florence2",
+    "webgpuDtype": "fp32",
+    "webgpuDtypeFallback": "fp32",
+    "wasmDtype": "q8"
+  },
+  {
+    "key": "qwen2-vl-2b",
+    "id": "onnx-community/Qwen2-VL-2B-Instruct",
+    "label": "Qwen2-VL 2B",
+    "modelClass": "qwen2vl",
+    "webgpuDtype": "q4f16",
+    "webgpuDtypeFallback": "q4",
+    "wasmDtype": "q4"
   }
 ]
