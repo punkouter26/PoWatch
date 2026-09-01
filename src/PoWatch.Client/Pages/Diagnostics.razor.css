@@ -257,6 +257,26 @@
 }
 
 @media (max-width: 760px) {
+    /* Mobile density (UI review option 9): the System page used to be ~1600px tall on a
+       390×844 phone — three stacked cards each carrying generous desktop paddings. Tighten
+       the shells; the content stays complete, it just stops burning a screen-third on air. */
+    .panel-header {
+        padding: var(--space-3) var(--space-4) var(--space-2);
+        margin-bottom: var(--space-2);
+    }
+
+    ::deep .rz-card.panel {
+        padding: var(--space-3);
+    }
+
+    .hud-grid.diagnostics-grid {
+        gap: var(--space-2);
+    }
+
+    .model-test-toolbar {
+        gap: var(--space-2);
+    }
+
     .diagnostics-toolbar {
         gap: 0.55rem;
     }

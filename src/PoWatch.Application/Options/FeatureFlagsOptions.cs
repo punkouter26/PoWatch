@@ -20,8 +20,8 @@ public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
     /// <summary>When true, the FHIR R4 Observation export endpoint is available.</summary>
     public bool FhirExportEnabled { get; init; } = true;
 
-    /// <summary>When true, the behavioral baseline and drift scoring background service runs nightly.</summary>
-    public bool BaselineEnabled { get; init; } = true;
+    // NOTE: the old BaselineEnabled flag ("nightly drift baseline service") is removed — no such
+    // background service exists; drift is computed on demand by DriftRadarService per request.
 
     /// <summary>When true and AzureOpenAi:Endpoint is configured, the Handoff Coach uses Azure OpenAI for brief generation.</summary>
     public bool AzureOpenAiEnabled { get; init; } = false;

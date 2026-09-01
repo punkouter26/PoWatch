@@ -9,14 +9,17 @@ namespace PoWatch.Application.Services;
 
 /// <summary>
 /// Evaluates configured alert threshold rules against a per-subject in-memory rolling event window.
-/// Thread-safe singleton using pure ConcurrentDictionary operations with Channel-based ingestion.
-/// Window entries expire automatically on each evaluation pass.
+/// Thread-safe singleton: one ConcurrentDictionary entry per subject, each entry prunes its own
+/// ring of events under a per-window lock on every write. There is deliberately NO background
+/// sweeper — a stale subject window costs one small object, and the previous design walked every
+/// key in the dictionary on every ingest (O(subjects) per event, with per-key locks) to reclaim
+/// memory that a single-room app never accumulates.
 /// </summary>
 public sealed class AlertThresholdEvaluator(
     IOptions<AlertThresholdOptions> options,
     ILogger<AlertThresholdEvaluator> logger)
 {
-    // Key: subjectId — Value: timestamped event entries within the widest configured window
+    // Key: subjectId — Value: timestamped event entries within the widest configured window.
     private readonly ConcurrentDictionary<string, SubjectWindow> _windows = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -35,40 +38,38 @@ public sealed class AlertThresholdEvaluator(
         var now = observation.ObservedAtUtc;
         var maxWindowMinutes = enabledRules.Max(r => r.WindowMinutes);
         var cutoff = now.AddMinutes(-maxWindowMinutes);
-        var subjectRetentionMinutes = Math.Max(maxWindowMinutes, options.Value.SubjectRetentionMinutes);
-        var staleSubjectCutoff = now.AddMinutes(-subjectRetentionMinutes);
 
-        // Get or create subject window atomically
+        // Get or create subject window atomically; AddEvent prunes entries older than the
+        // widest rule window, so no window ever grows without bound.
         var window = _windows.AddOrUpdate(
             observation.SubjectId,
             _ => new SubjectWindow(now, observation),
             (_, existing) => existing.AddEvent(now, observation, cutoff));
 
-        // Evict stale windows concurrently
-        EvictStaleWindows(staleSubjectCutoff, observation.SubjectId);
+        // Amortised safety valve: if a long-running deployment somehow accumulates a large
+        // number of one-off subject windows, drop the stale ones on the ingest that noticed
+        // — instead of paying a sweep on every single event.
+        if (_windows.Count > MaxTrackedSubjects)
+            EvictStaleWindows(now.AddMinutes(-maxWindowMinutes));
 
         // Evaluate rules using the current window state
-        var triggered = EvaluateRules(window, enabledRules, observation.SubjectId, now);
-
-        return triggered;
+        return EvaluateRules(window, enabledRules, observation.SubjectId, now);
     }
 
-    private void EvictStaleWindows(DateTimeOffset staleSubjectCutoff, string currentSubjectId)
-    {
-        foreach (var key in _windows.Keys)
-        {
-            if (key.Equals(currentSubjectId, StringComparison.OrdinalIgnoreCase))
-                continue;
+    /// <summary>Soft cap before the amortised eviction pass runs. Generous on purpose.</summary>
+    private const int MaxTrackedSubjects = 128;
 
-            if (_windows.TryGetValue(key, out var window) && window.IsStale(staleSubjectCutoff))
+    private void EvictStaleWindows(DateTimeOffset staleCutoff)
+    {
+        foreach (var (key, window) in _windows)
+        {
+            if (window.IsStale(staleCutoff))
             {
-                if (_windows.TryRemove(key, out var evicted))
-                {
-                    logger.LogDebug(
-                        "Evicted stale alert threshold window. SubjectId={SubjectId} RetentionCutoff={Cutoff}",
-                        key,
-                        staleSubjectCutoff);
-                }
+                _windows.TryRemove(key, out _);
+                logger.LogDebug(
+                    "Evicted stale alert threshold window. SubjectId={SubjectId} Cutoff={Cutoff}",
+                    key,
+                    staleCutoff);
             }
         }
     }

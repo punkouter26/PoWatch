@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using PoWatch.Application.Contracts;
+using PoWatch.Application.Mappers;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
 
@@ -171,8 +172,11 @@ public sealed class IdentityService(
         logger.LogDebug("Live dashboard status requested.");
 
         var profiles = await subjectRepository.GetAllAsync(cancellationToken);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
+        // The caregiver's LOCAL calendar day via ShiftClock — not the UTC partition key. Reading
+        // today's UTC partition shifted "unacknowledged from today" by the UTC offset, dropping the
+        // local evening and pulling in the small hours that belong to yesterday.
+        var today = ShiftClock.Today();
+        var todayEvents = await ShiftClock.LoadLocalDayAsync(observationRepository, today, cancellationToken);
 
         var result = new List<SubjectLiveStatusDto>(profiles.Count);
 
@@ -185,20 +189,7 @@ public sealed class IdentityService(
 
             var recentEvents = subjectEvents
                 .Take(10)
-                .Select(e => new ObservationEventDto
-                {
-                    Id = (Guid)e.Id,
-                    ObservedAtUtc = e.ObservedAtUtc,
-                    SubjectId = e.SubjectId,
-                    SubjectDisplayName = e.SubjectDisplayName,
-                    Activity = e.Activity,
-                    ClinicalDescription = e.ClinicalDescription,
-                    IsSignificant = e.IsSignificant,
-                    SignificantReason = e.SignificantReason,
-                    IsClinicalOutlier = e.IsClinicalOutlier,
-                    ImageReference = e.ImageReference
-                })
-                .ToList();
+                .ToDtos();
 
             result.Add(new SubjectLiveStatusDto
             {

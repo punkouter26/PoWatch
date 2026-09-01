@@ -27,12 +27,11 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="PoWatch.Client.styles.css" rel="stylesheet" />
     <script type="importmap"></script>
-    <!-- Local JS bridges (audit #10): loaded with defer in <head> so they're guaranteed
-         to be evaluated before Blazor's first OnAfterRenderAsync fires. Previously these
-         lived at the end of <body>, which meant Blazor's JSInterop calls in OnAfterRenderAsync
-         ran before the scripts attached their globals (`powatchInference`, `powatchAudio`,
-         etc.) and threw an "unhandled error" overlay on every first paint. Defer preserves
-         execution order while still running before Blazor's first render commit. -->
+    <!-- All app-specific JS bridges load in <head> with defer: defer scripts execute after the
+         document is parsed but before DOMContentLoaded, so the globals (`powatchInference`,
+         `powatchAudio`, …) are attached before Blazor's first OnAfterRenderAsync interop call.
+         NOTE: theme-controller.js runs on this same deferred schedule — before Blazor boots and
+         paints the app shell, so there is no theme flash, but it is NOT synchronous. -->
     <script src="js/theme-controller.js" defer></script>
     <script src="js/storage.js" defer></script>
     <script src="js/preferences.js" defer></script>
@@ -57,8 +56,7 @@
         <span class="dismiss">🗙</span>
     </div>
     <!-- All app-specific JS bridges now load in <head> with defer (see above). Only the
-         Radzen vendor bundle and Blazor runtime remain in <body>. theme-controller.js sets
-         data-theme on <html> synchronously (it has no defer), so the page never flashes. -->
+         Radzen vendor bundle and Blazor runtime remain in <body>. -->
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js" defer></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>

@@ -15,7 +15,6 @@ public sealed class ObservationService(
     ITelemetryContentSanitizer telemetryContentSanitizer,
     AlertThresholdEvaluator thresholdEvaluator,
     IOptions<FeatureFlagsOptions> featureFlags,
-    IOptions<ObserverOptions> observerOptions,
     ILogger<ObservationService> logger)
 {
     public async Task<IngestObservationResultDto> IngestAsync(IngestObservationRequestDto request, CancellationToken cancellationToken)
@@ -158,7 +157,8 @@ public sealed class ObservationService(
         ObservationLoopEnabled = featureFlags.Value.ObservationLoopEnabled,
         SaveSignificantImages = featureFlags.Value.SaveSignificantImages,
         DeveloperModeEnabled = featureFlags.Value.DeveloperBypassAuth,
-        PollIntervalSeconds = observerOptions.Value.PollingIntervalSeconds,
+        AlertThresholdsEnabled = featureFlags.Value.AlertThresholdsEnabled,
+        PollIntervalSeconds = featureFlags.Value.PollingIntervalSeconds,
         CapturedAtUtc = DateTimeOffset.UtcNow,
         Status = !featureFlags.Value.ObservationLoopEnabled
             ? "Disabled"

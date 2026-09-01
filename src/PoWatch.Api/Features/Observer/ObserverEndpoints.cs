@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
@@ -63,24 +62,10 @@ internal static class ObserverEndpoints
             .Produces<ObserverRuntimeStateDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-        // SSE streaming with backpressure support
-        group.MapGet("/events", (
-            [Microsoft.AspNetCore.Mvc.FromQuery] DateTimeOffset? since,
-            [Microsoft.AspNetCore.Mvc.FromQuery] int? batchSize,
-            IObservationRepository observationRepository,
-            ILoggerFactory loggerFactory,
-            CancellationToken ct) =>
-        {
-            var logger = loggerFactory.CreateLogger("PoWatch.ObserverEventStream");
-            var cursor = since ?? DateTimeOffset.UtcNow.AddMinutes(-5);
-            var maxBatchSize = Math.Min(batchSize ?? 50, 500); // Cap at 500 events per batch
-
-            logger.LogDebug("SSE stream opened. Cursor={Cursor} BatchSize={BatchSize}", cursor, maxBatchSize);
-
-            return TypedResults.ServerSentEvents(PsePollAsync(observationRepository, cursor, maxBatchSize, logger, ct));
-        })
-        .WithName("ObserverEventStream")
-        .WithSummary("Subscribe to a real-time SSE stream of observation events with backpressure support.");
+        // NOTE: the SSE endpoint (GET /api/observer/events) was removed — no client, page, or test
+        // ever consumed it. The Live Room refreshes via per-cycle ingest responses plus explicit
+        // timeline/subject re-fetches, so the stream was a dead transport polling Table Storage
+        // every 3s per hypothetical subscriber.
 
         // Acknowledgment endpoint for significant events
         group.MapPost("/acknowledge", async (
@@ -114,80 +99,5 @@ internal static class ObserverEndpoints
         .WithSummary("Acknowledge one or more significant events to mark them as reviewed.");
 
         return app;
-    }
-
-    /// <summary>
-    /// SSE poll with backpressure-aware batching.
-    /// Respects the batchSize parameter to prevent overwhelming slow clients.
-    /// Automatically adjusts poll interval based on client consumption rate.
-    /// </summary>
-    private static async IAsyncEnumerable<ObservationEventDto> PsePollAsync(
-        IObservationRepository observationRepository,
-        DateTimeOffset cursor,
-        int maxBatchSize,
-        ILogger logger,
-        [EnumeratorCancellation] CancellationToken ct)
-    {
-        var basePollIntervalMs = 3000; // 3 seconds base
-        var consecutiveEmptyPolls = 0;
-        var maxPollIntervalMs = 15000; // Max 15 seconds between polls
-
-        while (!ct.IsCancellationRequested)
-        {
-            IReadOnlyList<ObservationEventDto> entries;
-            try
-            {
-                var date = DateOnly.FromDateTime(cursor.UtcDateTime);
-                var events = await observationRepository.GetByDateAsync(date, ct).ConfigureAwait(false);
-
-                // GetByDateAsync already returns events sorted ascending by ObservedAtUtc (both the Azure
-                // and in-memory repos), so the previous second .OrderBy here was redundant work repeated
-                // every 3s per connected client. Filter by cursor and cap only.
-                entries = events
-                    .Where(e => e.ObservedAtUtc > cursor)
-                    .Take(maxBatchSize) // Respect batch size limit
-                    .Select(e => new ObservationEventDto
-                    {
-                        Id = (Guid)e.Id,
-                        ObservedAtUtc = e.ObservedAtUtc,
-                        SubjectId = e.SubjectId,
-                        SubjectDisplayName = e.SubjectDisplayName,
-                        Activity = e.Activity,
-                        ClinicalDescription = e.ClinicalDescription,
-                        IsSignificant = e.IsSignificant,
-                        SignificantReason = e.SignificantReason,
-                        IsClinicalOutlier = e.IsClinicalOutlier,
-                        ImageReference = e.ImageReference
-                    })
-                    .ToList();
-
-                consecutiveEmptyPolls = entries.Count == 0 ? consecutiveEmptyPolls + 1 : 0;
-            }
-            catch (OperationCanceledException)
-            {
-                yield break;
-            }
-
-            foreach (var entry in entries)
-            {
-                cursor = entry.ObservedAtUtc;
-                yield return entry;
-            }
-
-            // Adaptive poll interval: increase delay when no events, decrease when events are flowing
-            var pollIntervalMs = consecutiveEmptyPolls > 0
-                ? Math.Min(basePollIntervalMs * (consecutiveEmptyPolls + 1), maxPollIntervalMs)
-                : basePollIntervalMs;
-
-            try
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(pollIntervalMs), ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                logger.LogDebug("SSE stream closed. Cursor={Cursor} TotalEventsSent={Total}", cursor, entries.Count);
-                yield break;
-            }
-        }
     }
 }

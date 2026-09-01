@@ -112,7 +112,9 @@ public sealed class ObservationServiceTests
     [Fact]
     public void GetRuntimeState_UsesConfiguredPollingInterval()
     {
-        var service = BuildService(new OpenGate(), out _, out _, new FeatureFlagsOptions(), new ObserverOptions
+        // The poll interval now lives in the SHARED feature flags (one setting read by both the
+        // API and the Blazor client) — ObserverOptions no longer carries a duplicate copy.
+        var service = BuildService(new OpenGate(), out _, out _, new FeatureFlagsOptions
         {
             PollingIntervalSeconds = 3
         });
@@ -126,8 +128,7 @@ public sealed class ObservationServiceTests
         IObservationProcessingGate gate,
         out FakeObservationRepository observations,
         out FakeSubjectRepository subjects,
-        FeatureFlagsOptions? flags = null,
-        ObserverOptions? observerOptions = null)
+        FeatureFlagsOptions? flags = null)
     {
         observations = new FakeObservationRepository();
         subjects = new FakeSubjectRepository();
@@ -141,7 +142,6 @@ public sealed class ObservationServiceTests
                 Microsoft.Extensions.Options.Options.Create(new PoWatch.Application.Options.AlertThresholdOptions()),
                 NullLogger<AlertThresholdEvaluator>.Instance),
             Options.Create(flags ?? new FeatureFlagsOptions()),
-            Options.Create(observerOptions ?? new ObserverOptions()),
             NullLogger<ObservationService>.Instance);
     }
 

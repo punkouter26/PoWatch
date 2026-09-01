@@ -2,3 +2,19 @@
 
 .identity-flex-input  { flex: 1; }
 .identity-wide-input  { width: 100%; }
+
+/* Mobile density (UI review option 9): on a narrow screen the "Everyone at a glance" cards
+   above already show name, last activity, and last seen for every subject — the full data
+   table only duplicates them behind its own horizontal scroll. Hide the table (and its
+   heading) below 640px so the page reads as one coherent card list instead of two stacked
+   inventories of the same people. The rename/merge capabilities remain reachable by tapping
+   a card, which opens the same inline edit. */
+@media (max-width: 640px) {
+    .identity-table-head {
+        display: none;
+    }
+
+    ::deep .identity-grid-table {
+        display: none;
+    }
+}

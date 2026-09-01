@@ -4,16 +4,13 @@ using PoWatch.Shared.Models;
 namespace PoWatch.Application.Services;
 
 /// <summary>
-/// Shared drift math used by both <see cref="BaselineService"/> (single-subject) and
-/// <see cref="DriftRadarService"/> (bulk multi-subject). Single source of truth for
-/// hourly-vector construction and cosine-similarity drift scoring.
+/// Shared drift math used by <see cref="DriftRadarService"/> (bulk multi-subject and the
+/// per-subject baseline). Single source of truth for hourly-vector construction and
+/// cosine-similarity drift scoring.
 /// </summary>
 public static class DriftMath
 {
-    // Default threshold constants for drift classification
-    public const double SlightDriftThreshold = 10;
-    public const double ModerateDriftThreshold = 30;
-    public const double HighDriftThreshold = 60;
+    /// <summary>Extreme is deliberately NOT configurable — no operator ever wanted "more extreme".</summary>
     public const double ExtremeDriftThreshold = 80;
 
     /// <summary>
@@ -61,19 +58,9 @@ public static class DriftMath
     }
 
     /// <summary>
-    /// Classifies a drift score into a human-readable label.
-    /// </summary>
-    public static string ClassifyDrift(double score) => score switch
-    {
-        >= ExtremeDriftThreshold => DriftLabels.Extreme,
-        >= HighDriftThreshold => DriftLabels.High,
-        >= ModerateDriftThreshold => DriftLabels.Moderate,
-        >= SlightDriftThreshold => DriftLabels.Slight,
-        _ => DriftLabels.Normal
-    };
-
-    /// <summary>
-    /// Classifies a drift score with custom thresholds from options.
+    /// Classifies a drift score with configurable thresholds (the only entry point — the previous
+    /// fixed-threshold overload was a second classification path that could label the same score
+    /// differently from DriftRadarService).
     /// </summary>
     public static string ClassifyDrift(double score, double highThreshold, double moderateThreshold, double slightThreshold) =>
         score switch

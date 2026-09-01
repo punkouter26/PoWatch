@@ -39,7 +39,7 @@
         @if (snapshot is not null)
         {
             <div class="hud-grid diagnostics-grid">
-                <div><label>Captured</label><span>@snapshot.CapturedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</span></div>
+                <div><label>Captured</label><span>@DisplayText.RelativeTime(snapshot.CapturedAtUtc)</span></div>
                 <div><label>CPU Load</label><span>@snapshot.CpuLoadPercent.ToString("0")%</span></div>
                 <div><label>Memory</label><span>@snapshot.MemoryMb.ToString("0.0") MB</span></div>
                 <div><label>Storage</label><span>@FriendlyStorageLabel(snapshot.StorageConnectionStatus)</span></div>
@@ -116,7 +116,9 @@
        models and between machines. *@
     <RadzenCard class="panel" data-test="model-selftest-card">
         <header class="panel-header">
-            <h1>Model self-test</h1>
+            @* h2, not h1: the page already has one h1 ("System") — three h1s on one page broke
+               the document outline for screen-reader users navigating by heading. *@
+            <h2>Model self-test</h2>
             <p>Load each vision model on this device and describe one fixed test image. Use it to find which models this machine can actually run.</p>
         </header>
 
@@ -223,7 +225,7 @@
     {
         <RadzenCard class="panel panel--danger">
         <header class="panel-header">
-            <h1>Danger Zone</h1>
+            <h2>Danger Zone</h2>
             <p>Irreversible operations. Guarded by the <code>AllowDataReset</code> server feature flag.</p>
         </header>
 

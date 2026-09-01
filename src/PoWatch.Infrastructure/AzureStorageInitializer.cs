@@ -2,7 +2,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Options;
-using PoWatch.Domain.Services;
 using PoWatch.Infrastructure.Persistence;
 
 namespace PoWatch.Infrastructure;

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
-using PoWatch.Domain.Services;
 
 namespace PoWatch.Infrastructure.Persistence;
 

@@ -154,8 +154,7 @@ internal static class IdentityEndpoints
         group.MapGet("/subjects/{subjectId}/baseline", async (
             string subjectId,
             int? days,
-            IObservationRepository observationRepository,
-            ISubjectRepository subjectRepository,
+            DriftRadarService driftRadarService,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -167,40 +166,13 @@ internal static class IdentityEndpoints
                 "Baseline requested. SubjectId={SubjectId} Days={Days} TraceId={TraceId}",
                 subjectId, baselineDays, Activity.Current?.TraceId.ToString());
 
-            var subject = await subjectRepository.GetByIdAsync(subjectId, cancellationToken);
-            if (subject is null)
+            // The computation lives in DriftRadarService (one home for drift math + configurable
+            // thresholds). The endpoint only translates HTTP.
+            var baseline = await driftRadarService.GetSubjectBaselineAsync(subjectId, baselineDays, cancellationToken);
+            if (baseline is null)
                 return Results.NotFound(new { message = $"Subject '{subjectId}' was not found." });
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var historicalEvents = await observationRepository.GetBySubjectAndDateRangeAsync(
-                subjectId, today.AddDays(-baselineDays), today.AddDays(-1), cancellationToken);
-            var todayAll = await observationRepository.GetByDateAsync(today, cancellationToken);
-            var todayEvents = todayAll
-                .Where(e => string.Equals(e.SubjectId, subjectId, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            var localOffset = TimeZoneInfo.Local.GetUtcOffset(today.ToDateTime(TimeOnly.MinValue));
-            var baselineVector = DriftMath.BuildHourlyVector(historicalEvents, localOffset);
-            var todayVector = DriftMath.BuildHourlyVector(todayEvents, localOffset);
-            var driftScore = DriftMath.ComputeDriftScore(baselineVector, todayVector);
-            var driftLabel = DriftMath.ClassifyDrift(driftScore);
-
-            logger.LogInformation(
-                "Baseline computed. SubjectId={SubjectId} Historical={Historical} Today={Today} DriftScore={Drift:F1} Label={Label}",
-                subjectId, historicalEvents.Count, todayEvents.Count, driftScore, driftLabel);
-
-            return Results.Ok(new SubjectBaselineDto
-            {
-                SubjectId = subject.SubjectId,
-                DisplayName = subject.DisplayName,
-                ComputedForDate = today,
-                BaselineDays = baselineDays,
-                HourlyBaselineVector = baselineVector,
-                HourlyTodayVector = todayVector,
-                DriftScore = Math.Round(driftScore, 1),
-                DriftLabel = driftLabel,
-                GeneratedAtUtc = DateTimeOffset.UtcNow
-            });
+            return Results.Ok(baseline);
         })
         .WithName("IdentitySubjectBaseline")
         .WithSummary("Get the 7-day behavioral baseline and drift score for a subject.")

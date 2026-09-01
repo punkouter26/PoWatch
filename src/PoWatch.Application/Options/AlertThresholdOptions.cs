@@ -11,11 +11,9 @@ public sealed class AlertThresholdOptions
     /// <summary>Whether the threshold evaluation engine is active.</summary>
     public bool Enabled { get; init; } = true;
 
-    /// <summary>
-    /// How long an inactive subject window may remain in memory before it is evicted.
-    /// This is clamped at runtime so it never becomes shorter than the widest active rule window.
-    /// </summary>
-    public int SubjectRetentionMinutes { get; init; } = 1440;
+    // NOTE: the old SubjectRetentionMinutes (plus the per-ingest eviction sweep it drove) is gone —
+    // each subject window now prunes its own events, and stale WHOLE windows are only collected by
+    // an amortised pass in AlertThresholdEvaluator once a soft cap of tracked subjects is exceeded.
 
     /// <summary>
     /// The set of named rules. Configured via appsettings.json under "AlertThresholds:Rules".

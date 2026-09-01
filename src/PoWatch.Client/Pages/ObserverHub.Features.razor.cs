@@ -26,7 +26,12 @@ namespace PoWatch.Client.Pages;
 public partial class ObserverHub
 {
     // ─── Heatmap (#2) ────────────────────────────────────────────────────────────
-    private DailyActivityBucketsDto _heatmapBuckets = new();
+    // Seeded with TODAY at declaration time. A default(DailyActivityBucketsDto) has
+    // Date == 01/01/0001, so if OnInitializedAsync ever aborts before the first RebuildHeatmap()
+    // (e.g. one of the startup refreshes faults), the strip used to be labelled "Mon 1 Jan" —
+    // a wrong date is worse than an empty one, and this seed makes that state unreachable.
+    private DailyActivityBucketsDto _heatmapBuckets =
+        DailyActivityHeatmapBuilder.Build([], DateOnly.FromDateTime(DateTime.Now));
     private int _heatmapDisplayCap = 6;
     private string HeatmapTitle => _heatmapBuckets.Date.ToString("ddd d MMM", CultureInfo.CurrentCulture);
     private string HeatmapMeta => _heatmapBuckets.TotalEvents == 0

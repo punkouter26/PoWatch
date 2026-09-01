@@ -16,12 +16,16 @@ public partial class ObserverHub
         // TTV: these loads are independent (state, timeline, local JS diagnostics, subjects, model list).
         // Fetch them concurrently instead of serially so the first paint lands after the slowest
         // round-trip, not the sum of all of them.
+        // Each refresh already degrades gracefully (try/catch + banner) for HttpRequestException, but
+        // ANY other fault used to bubble out of Task.WhenAll and abort the rest of this method —
+        // which skipped RebuildHeatmap()/RefreshStandbyStatus() and left the hero state half-wired.
+        // SafeAsync keeps one bad refresh from taking down initialization.
         await Task.WhenAll(
-            RefreshStateAsync(),
-            RefreshTimelineAsync(),
-            RefreshDiagnosticsAsync(),
-            LoadSubjectsAsync(),
-            LoadModelRegistryAsync());
+            SafeAsync(RefreshStateAsync, "state"),
+            SafeAsync(RefreshTimelineAsync, "timeline"),
+            SafeAsync(RefreshDiagnosticsAsync, "diagnostics"),
+            SafeAsync(LoadSubjectsAsync, "subjects"),
+            SafeAsync(LoadModelRegistryAsync, "model registry"));
 
         // Restore persisted polling interval; fall back to appSettings default.
         // Uses UserPreferencesService (typed localStorage wrapper) so this works
@@ -58,14 +62,36 @@ public partial class ObserverHub
     // inference worker, rule 1.5). Trim-safe via the source-generated context. On failure the picker is
     // simply empty — inference still runs on the default selectedModelKey, which the worker resolves from
     // the same file.
+    /// <summary>
+    /// Runs one startup refresh, isolating any fault so Task.WhenAll cannot abort
+    /// OnInitializedAsync before the heatmap and standby state are wired.
+    /// </summary>
+    private static async Task SafeAsync(Func<Task> refresh, string name)
+    {
+        try
+        {
+            await refresh();
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal: the page renders with whatever state it has; per-refresh paths that
+            // matter already latch the reconnect banner.
+            Console.Error.WriteLine($"[PoWatch] Startup refresh '{name}' failed: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     private async Task LoadModelRegistryAsync()
     {
         try
         {
             var entries = await ModelRegistry.GetAsync();
             ModelOptions = entries.Select(e => new ModelOption(e.Key, e.Label)).ToList();
-            if (!ModelOptions.Any(o => o.Value == selectedModelKey))
-                selectedModelKey = ModelOptions[0].Value;
+            // Registry order IS preference order — best-performing model first. Startup always
+            // takes it rather than a key compiled into this file, so trimming or reordering
+            // model-registry.json moves the default with it and the default can never dangle at
+            // a model that was deleted. The session's own choice is not persisted, so there is
+            // no operator selection to override here.
+            selectedModelKey = ModelOptions[0].Value;
             return;
         }
         catch (Exception ex)
@@ -477,8 +503,9 @@ public partial class ObserverHub
         // so the watchdog does not park the model on a busy room.
         if (inference.MotionScore >= 6) _standby.RecordMotion();
 
-        // Accumulate threshold alerts for the banner
-        if (result is not null && result.TriggeredAlerts.Count > 0 && FeatureFlags.Value.AlertThresholdsEnabled)
+        // Accumulate threshold alerts for the banner — gated on the SERVER's switch (mirrored via
+        // /api/observer/state), not a second client-side flag that could disagree with it.
+        if (result is not null && result.TriggeredAlerts.Count > 0 && ThresholdAlertsEnabled)
         {
             var hadAlerts = _activeThresholdAlerts.Count;
             foreach (var alert in result.TriggeredAlerts)
@@ -698,7 +725,11 @@ public partial class ObserverHub
     {
         try
         {
-            var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+            // The caregiver's LOCAL calendar day — the same convention the Archives date picker,
+            // the heatmap builder, and the server's ShiftClock all use. Requesting the UTC day
+            // shifted the Live Room timeline by the UTC offset: at UTC-5 the evening's events
+            // landed on "tomorrow" and only appeared after midnight.
+            var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.Now));
             streamItems = chapter?.Timeline is not null
                 ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(50).ToList()
                 : [];

@@ -190,4 +190,69 @@ public sealed class DriftRadarService(
 
         return insights.Take(options.Value.MaxInsights).ToList();
     }
+
+    /// <summary>
+    /// Computes one subject's rolling baseline and today's drift against it.
+    /// Owns the same configurable thresholds as <see cref="GetDriftStatusAsync"/> — previously this
+    /// computation was duplicated inline in the baseline endpoint and classified with the FIXED
+    /// thresholds of <see cref="DriftMath.ClassifyDrift(double)"/>, so the same score could be
+    /// "Slight drift" here and "Moderate drift" there.
+    /// </summary>
+    /// <returns>null when the subject does not exist.</returns>
+    public async Task<SubjectBaselineDto?> GetSubjectBaselineAsync(
+        string subjectId,
+        int baselineDays,
+        CancellationToken cancellationToken)
+    {
+        var profile = await subjectRepository.GetByIdAsync(subjectId, cancellationToken);
+        if (profile is null)
+            return null;
+
+        var today = ShiftClock.Today();
+        var historyFrom = today.AddDays(-baselineDays);
+
+        // Whole LOCAL days for both sides of the comparison (see GetDriftStatusAsync).
+        var historyWindowStart = ShiftClock.WindowFor(historyFrom, ShiftWindow.FullDay).StartUtc;
+        var historyWindowEnd = ShiftClock.WindowFor(today, ShiftWindow.FullDay).StartUtc;
+
+        var candidates = await observationRepository.GetBySubjectAndDateRangeAsync(
+            subjectId,
+            DateOnly.FromDateTime(historyWindowStart.UtcDateTime),
+            DateOnly.FromDateTime(historyWindowEnd.UtcDateTime),
+            cancellationToken);
+        var historicalEvents = candidates
+            .Where(e => e.ObservedAtUtc >= historyWindowStart && e.ObservedAtUtc < historyWindowEnd)
+            .ToList();
+
+        var todayEvents = (await ShiftClock.LoadLocalDayAsync(observationRepository, today, cancellationToken))
+            .Where(e => string.Equals(e.SubjectId.Value, subjectId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var localOffset = TimeZoneInfo.Local.GetUtcOffset(today.ToDateTime(TimeOnly.MinValue));
+        var baselineVector = DriftMath.BuildHourlyVector(historicalEvents, localOffset);
+        var todayVector = DriftMath.BuildHourlyVector(todayEvents, localOffset);
+        var driftScore = DriftMath.ComputeDriftScore(baselineVector, todayVector);
+        var driftLabel = DriftMath.ClassifyDrift(
+            driftScore,
+            options.Value.HighDriftThreshold,
+            options.Value.ModerateDriftThreshold,
+            options.Value.SlightDriftThreshold);
+
+        logger.LogInformation(
+            "Baseline computed. SubjectId={SubjectId} BaselineDays={BaselineDays} Historical={Historical} Today={Today} DriftScore={DriftScore:F1} Label={Label}",
+            subjectId, baselineDays, historicalEvents.Count, todayEvents.Count, driftScore, driftLabel);
+
+        return new SubjectBaselineDto
+        {
+            SubjectId = profile.SubjectId,
+            DisplayName = profile.DisplayName,
+            ComputedForDate = today,
+            BaselineDays = baselineDays,
+            HourlyBaselineVector = baselineVector,
+            HourlyTodayVector = todayVector,
+            DriftScore = Math.Round(driftScore, 1),
+            DriftLabel = driftLabel,
+            GeneratedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
 }

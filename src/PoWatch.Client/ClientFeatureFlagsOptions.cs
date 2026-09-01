@@ -4,7 +4,7 @@ namespace PoWatch.Client;
 
 /// <summary>
 /// Client-side feature flags read from wwwroot/appsettings.json.
-/// Shared flags (EnableHud, DriftRadarEnabled, etc.) are inherited from
+/// Shared flags (PollingIntervalSeconds, AlertThresholdsEnabled, etc.) are inherited from
 /// <see cref="SharedFeatureFlagsOptions"/> in PoWatch.Shared.
 /// </summary>
 public sealed class ClientFeatureFlagsOptions : SharedFeatureFlagsOptions

@@ -153,7 +153,6 @@ public sealed class ServerDerivedSignificanceTests
                 Options.Create(new AlertThresholdOptions()),
                 NullLogger<AlertThresholdEvaluator>.Instance),
             Options.Create(new FeatureFlagsOptions()),
-            Options.Create(new ObserverOptions()),
             NullLogger<ObservationService>.Instance);
     }
 

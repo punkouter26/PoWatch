@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using PoWatch.Application.Contracts;
+using PoWatch.Application.Mappers;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
 
@@ -85,24 +86,9 @@ public sealed class ReportService(
             OutlierCount = outlierEvents.Count,
             SignificantCount = significantEvents.Count,
             ClinicalNarrative = narrative,
-            SignificantEvents = MapEvents(significantEvents),
-            OutlierEvents = MapEvents(outlierEvents),
+            SignificantEvents = significantEvents.ToDtos(),
+            OutlierEvents = outlierEvents.ToDtos(),
             GeneratedAtUtc = DateTimeOffset.UtcNow
         };
     }
-
-    private static IReadOnlyList<ObservationEventDto> MapEvents(IEnumerable<ObservationEvent> events) =>
-        events.Select(e => new ObservationEventDto
-        {
-            Id = (Guid)e.Id,
-            ObservedAtUtc = e.ObservedAtUtc,
-            SubjectId = e.SubjectId,
-            SubjectDisplayName = e.SubjectDisplayName,
-            Activity = e.Activity,
-            ClinicalDescription = e.ClinicalDescription,
-            IsSignificant = e.IsSignificant,
-            SignificantReason = e.SignificantReason,
-            IsClinicalOutlier = e.IsClinicalOutlier,
-            ImageReference = e.ImageReference
-        }).ToList();
 }

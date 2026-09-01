@@ -4,8 +4,9 @@ namespace PoWatch.Application.Options;
 
 public sealed class ObserverOptions
 {
-    [Range(1, 3600)]
-    public int PollingIntervalSeconds { get; init; } = 10;
+    // NOTE: the observation poll interval is intentionally NOT configured here — it lives once in
+    // SharedFeatureFlagsOptions.PollingIntervalSeconds, which both the API and the Blazor client
+    // read. A second copy in ObserverOptions previously allowed the two sides to drift apart.
 
     /// <summary>
     /// How long an unnamed <c>Subject-N</c> stays eligible for reuse when an observation arrives with

@@ -32,7 +32,7 @@
                 title="@(string.IsNullOrWhiteSpace(newSubjectName) ? "Type a name first" : "Add this person")" />
         </div>
 
-        <h2>All people</h2>
+        <h2 class="identity-table-head">All people</h2>
 
         @if (loading)
         {
@@ -90,10 +90,10 @@
                         <Template Context="item">@(item.IsKnownIdentity ? "Yes" : "No")</Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SubjectProfileDto" Title="First Seen" Width="160px">
-                        <Template Context="item">@item.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
+                        <Template Context="item">@DisplayText.RelativeTime(item.FirstSeenUtc)</Template>
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SubjectProfileDto" Title="Last Seen" Width="160px">
-                        <Template Context="item">@item.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</Template>
+                        <Template Context="item">@DisplayText.RelativeTime(item.LastSeenUtc)</Template>
                     </RadzenDataGridColumn>
                 </Columns>
             </RadzenDataGrid>

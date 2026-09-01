@@ -5,6 +5,9 @@ public sealed class ObserverRuntimeStateDto
     public bool ObservationLoopEnabled { get; init; }
     public bool SaveSignificantImages { get; init; }
     public bool DeveloperModeEnabled { get; init; }
+    /// <summary>The server's alert-threshold switch — the client renders exactly this, so the
+    /// banner can never disagree with what ingest actually produced.</summary>
+    public bool AlertThresholdsEnabled { get; init; }
     public int PollIntervalSeconds { get; init; }
     public DateTimeOffset CapturedAtUtc { get; init; }
     public string Status { get; init; } = string.Empty;

@@ -34,7 +34,7 @@
 @* Consolidation #7: ONE inline alert strip for every non-critical warning (pipeline health +
    threshold alerts share the same visual language); the full-screen overlay above is reserved
    for critical events. *@
-@if (_pipelineHealthLatched || (HasActiveThresholdAlerts && FeatureFlags.Value.AlertThresholdsEnabled))
+@if (_pipelineHealthLatched || (HasActiveThresholdAlerts && ThresholdAlertsEnabled))
 {
     <div class="alert-strip">
         @if (_pipelineHealthLatched)
@@ -47,7 +47,7 @@
                 <button class="threshold-alert-dismiss" @onclick="@(() => _pipelineHealthLatched = false)" aria-label="Dismiss pipeline health alert">×</button>
             </div>
         }
-        @if (HasActiveThresholdAlerts && FeatureFlags.Value.AlertThresholdsEnabled)
+        @if (HasActiveThresholdAlerts && ThresholdAlertsEnabled)
         {
             <ThresholdAlertBanner Alerts="_activeThresholdAlerts"
                                   OnDismiss="@(alert => { DismissThresholdAlert(alert); StateHasChanged(); })"
@@ -89,9 +89,10 @@
             <h1 class="room-status-headline">@RoomStatusHeadline</h1>
             <p class="room-status-subline">@RoomStatusSubline</p>
             @* Standby chip (#7): lives next to the hero subline so the operator sees the mode
-               transition happen, not just the model being quiet. Hidden when standby is off
-               so the UI matches the configured behaviour, not a hard-coded visual. *@
-            @if (_standbyEnabled && _standbyStatus is not null)
+               transition happen, not just the model being quiet. Only meaningful while watching —
+               rendering "Awake · 0s still" above an idle room contradicted the "Standby · Ready
+               to watch" hero right next to it, so the chip is gated on monitoring. *@
+            @if (_standbyEnabled && monitoring && _standbyStatus is not null)
             {
                 <div class="room-status-standby">
                     <PoWatch.Client.Components.StandbyStatusChip Status="_standbyStatus" />
@@ -109,8 +110,11 @@
                 <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Medium" Text="■ Stop"
                               Click="StopMonitoringAsync" data-test="hero-stop" />
             }
+            @* "End shift" only means something when a shift is actually running — enabling it in
+               Standby offered a one-tap way to generate a brief for a shift that never happened. *@
             <RadzenButton ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Medium" Icon="assignment" Text="End shift"
-                          Click="StartHandoff" data-test="hero-handoff" title="Generate a one-tap handoff brief for the next caregiver" />
+                          Click="StartHandoff" Disabled="@(!monitoring)" data-test="hero-handoff"
+                          title="@(monitoring ? "Generate a one-tap handoff brief for the next caregiver" : "Start watching first — the brief summarises the current shift")" />
         </div>
     </section>
 

@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
-using PoWatch.Domain.Services;
 using PoWatch.Shared.Models;
 using System.Diagnostics;
 
