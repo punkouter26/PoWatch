@@ -47,18 +47,12 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
     }
 
-    [Fact]
-    public async Task The_observation_event_stream_opens_as_server_sent_events()
-    {
-        // SSE never completes by design, so the body must not be buffered — GetAsync without
-        // ResponseHeadersRead blocks until the request times out.
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        using var response = await _client.GetAsync(
-            "/api/observer/events", HttpCompletionOption.ResponseHeadersRead, cts.Token);
-
-        Assert.True(response.IsSuccessStatusCode);
-        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
-    }
+    // NOTE: The SSE test (`/api/observer/events`) was retired when the SSE endpoint was removed in
+    // commit 1e7f15d ("Land UI review: status consistency, server-derived alert gate, dedupe +
+    // prune"). The intentional comment at ObserverEndpoints.cs:65 reads "no client, page, or
+    // test" — this is the test that no longer applies. The endpoint is now 404, which the
+    // `Unknown_api_routes_are_not_silently_swallowed_by_the_spa_fallback` test below already
+    // pins.
 
     [Fact]
     public async Task Unknown_api_routes_are_not_silently_swallowed_by_the_spa_fallback()
