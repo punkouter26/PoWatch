@@ -15,8 +15,7 @@
 /* ═══ GPU compositing + motion (audit #4) ═════════════════════════════════════
    Promote animated layers to their own compositor layer so transitions run on the
    GPU thread, off the main thread — critical for a low-power always-on kiosk. ─── */
-.subject-card,
-.nexus-frame{
+.subject-card{
     will-change: transform, opacity;
     transform: translateZ(0);
 }
@@ -260,14 +259,18 @@ code,
     color: #afffd7;
 }
 
+/* Single source of truth for the live-camera frame; earlier and later dupe rules
+   (which only re-declared subsets of these properties) have been merged here. */
 .nexus-frame {
     position: relative;
     aspect-ratio: 16 / 9;
-    border: 1px solid rgba(56, 255, 168, 0.45);
-    border-radius: 8px;
-    background: linear-gradient(135deg, #0f1325, #040608);
+    max-height: 42vh;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: #000;
     overflow: hidden;
-    margin: 0.8rem 0 1rem;
+    margin: 0.5rem 0 0.6rem;
+    box-shadow: var(--shadow-md), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .live-camera-feed {
@@ -280,21 +283,6 @@ code,
     /* No filter: the camera view stays true-to-life (special effects removed 2026-07-22). */
 }
 
-.nexus-frame .video-label {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    z-index: 2;
-    color: var(--neon-green);
-    letter-spacing: 0.08rem;
-    text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
-}
-
-.nexus-frame .video-label.hidden,
-.nexus-frame .scanlines.hidden {
-    display: none;
-}
-
 .nexus-frame .video-sub {
     position: absolute;
     bottom: 1rem;
@@ -302,19 +290,6 @@ code,
     z-index: 2;
     color: var(--text-primary);
     text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
-}
-
-/* GPU WebGL overlay (preferred) — supersedes CSS gradient when present. */
-
-/* If WebGL isn't available, show the older CSS scanline gradient as a fallback. */
-.nexus-frame.thinking:not(.webcam-shell-ready) .scanlines {
-    opacity: 1;
-    animation: pulseScan 0.8s linear infinite;
-}
-
-@keyframes pulseScan {
-    from { transform: translateY(-8px); }
-    to { transform: translateY(8px); }
 }
 
 /* .archive-toolbar is owned by Archives.razor.css (scoped) */
@@ -367,8 +342,6 @@ code,
     color: var(--text-label);
     font-size: 0.82rem;
 }
-
-/* HUD bar — developer overlay strip (EnableHud feature flag) */
 
 /* When status-strip is inline inside controls-row, suppress its own margins/bg */
 .controls-row--primary .status-strip {
@@ -1794,7 +1767,7 @@ button:active:not(:disabled) {
     min-width: 0;
 }
 
-/* ── Page Header Strip (removed from layout; styles kept for reference) ─── */
+/* Page Header Strip helpers (used by ObserverHub panel headers) */
 
 .page-header-time {
     font-family: var(--font-mono);
@@ -1929,13 +1902,6 @@ button:active:not(:disabled) {
 .panel,
 .rz-card.panel {
     padding: 0.75rem 0.9rem !important;
-}
-
-/* ── Reduce nexus-frame aspect-ratio to fit without overflow ────────────── */
-.nexus-frame {
-    aspect-ratio: 16 / 9;
-    max-height: 42vh; /* never push controls off-screen */
-    margin: 0.5rem 0 0.6rem;
 }
 
 /* ── Primary controls row — always pinned above camera ──────────────────── */
@@ -2314,31 +2280,7 @@ button:active:not(:disabled) {
     text-transform: uppercase;
 }
 
-/* 2 ── nexus-frame as a real "screen" ──────────────────────────────────── */
-.nexus-frame {
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--glass-border);
-    background: #000;
-    overflow: hidden;
-    aspect-ratio: 16 / 9;
-    box-shadow: var(--shadow-md), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.nexus-frame.thinking {
-    box-shadow: var(--shadow-glow-purple), inset 0 0 0 1px rgba(111, 61, 227, 0.4);
-}
-
-.nexus-frame .video-label {
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: var(--radius-sm);
-    padding: 0.2rem 0.5rem;
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-}
-
-/* 3 ── controls-row rhythm + status pinned right ──────────────────────── */
+/* controls-row rhythm + status pinned right */
 .controls-row--primary {
     display: flex;
     align-items: center;

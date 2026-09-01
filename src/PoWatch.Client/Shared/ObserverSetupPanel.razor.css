@@ -85,10 +85,7 @@
     gap: var(--space-2);
 }
 
-/* Replace prior inline Style= attrs (audit #3 — no inline styles). */
-.subjects-filter-input,
-.observer-filter-input { width: var(--filter-w, 120px); }
-
+/* Inline-style replacement (audit #3). */
 .livedashboard-filter-input { width: 200px; }
 
 .drift-chart { height: var(--chart-h, 180px); }

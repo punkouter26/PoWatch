@@ -389,8 +389,7 @@
 /* ═══ HUD bar — service-specific, pulled out of PoPanel ═══════════════════ */
 
 /* ═══ Motion + reduced-motion (global guard, app-wide) ════════════════════ */
-.subject-card,
-.nexus-frame{
+.subject-card{
     will-change: transform, opacity;
     transform: translateZ(0);
 }

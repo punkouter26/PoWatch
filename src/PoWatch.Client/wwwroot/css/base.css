@@ -62,5 +62,4 @@ pre, code,
     .panel, .rz-card.panel, .nav-logout, .login-btn, .hud-float-pill {
         border-color: CanvasText !important;
     }
-    .nexus-frame .scanlines, .nexus-frame.thinking { display: none; }
 }

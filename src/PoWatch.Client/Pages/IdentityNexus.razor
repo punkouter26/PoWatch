@@ -21,7 +21,10 @@
     <RadzenCard class="panel panel-library">
         @* Title/subtitle live in the page-hud header bar (UI review item #7). *@
         <div class="identity-register-bar">
-            <RadzenTextBox @bind-Value="newSubjectName" @bind-Value:event="oninput"
+            @* RadzenTextBox already binds to input via @bind-Value; re-binding @bind-Value:event="oninput"
+               here caused a two-argument handler to be generated (the bug report captured the
+               runtime as Arg_ObjObjEx / ChangeEventArgs+string). Plain @bind-Value is sufficient. *@
+            <RadzenTextBox @bind-Value="newSubjectName"
                           Placeholder="Add someone by name (e.g. Mom) — press Enter"
                           aria-label="Name of the person to add"
                           Class="identity-flex-input"

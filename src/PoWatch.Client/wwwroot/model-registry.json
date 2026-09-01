@@ -1,16 +1,8 @@
 [
   {
-    "key": "smolvlm2-256m",
-    "id": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
-    "label": "SmolVLM2 256M",
-    "webgpuDtype": "fp16",
-    "webgpuDtypeFallback": "fp32",
-    "wasmDtype": "q8"
-  },
-  {
-    "key": "smolvlm-256m",
-    "id": "HuggingFaceTB/SmolVLM-256M-Instruct",
-    "label": "SmolVLM 256M",
+    "key": "smolvlm2-500m",
+    "id": "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
+    "label": "SmolVLM2 500M",
     "webgpuDtype": "fp16",
     "webgpuDtypeFallback": "fp32",
     "wasmDtype": "q8"
@@ -24,27 +16,10 @@
     "wasmDtype": "q8"
   },
   {
-    "key": "smolvlm2-500m",
-    "id": "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
-    "label": "SmolVLM2 500M",
+    "key": "smolvlm-256m",
+    "id": "HuggingFaceTB/SmolVLM-256M-Instruct",
+    "label": "SmolVLM 256M",
     "webgpuDtype": "fp16",
-    "webgpuDtypeFallback": "fp32",
-    "wasmDtype": "q8"
-  },
-  {
-    "key": "smolvlm-2b",
-    "id": "HuggingFaceTB/SmolVLM-Instruct",
-    "label": "SmolVLM 2.2B",
-    "webgpuDtype": "q4f16",
-    "webgpuDtypeFallback": "q4",
-    "wasmDtype": "q4"
-  },
-  {
-    "key": "florence2-base-ft",
-    "id": "onnx-community/Florence-2-base-ft",
-    "label": "Florence-2 base-ft",
-    "modelClass": "florence2",
-    "webgpuDtype": "fp32",
     "webgpuDtypeFallback": "fp32",
     "wasmDtype": "q8"
   },

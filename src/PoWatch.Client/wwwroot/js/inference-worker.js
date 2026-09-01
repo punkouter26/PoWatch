@@ -84,7 +84,10 @@ let _RawImage = null;
 let _loadState = 'idle'; // 'idle' | 'loading' | 'ready' | 'error'
 let _loadError = null;
 let _loadPromise = null;
-let _activeModelKey = 'smolvlm2-256m';
+// First registry entry = the default model (the list is ordered best-first). Derived rather
+// than hard-coded so removing a model from the JSON cannot leave this pointing at a key
+// that no longer exists — which would throw on the first ensureModelLoaded().
+let _activeModelKey = Object.keys(_MODELS)[0];
 
 // Inference diagnostics
 let _device = null;
@@ -191,7 +194,7 @@ async function ensureModelLoaded() {
   self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
 
   _loadPromise = (async () => {
-    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, Florence2ForConditionalGeneration, Qwen2VLForConditionalGeneration, RawImage, env } = await import(_TRANSFORMERS_URL);
+    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, Qwen2VLForConditionalGeneration, RawImage, env } = await import(_TRANSFORMERS_URL);
     env.useFSCache = false;
     // Load the ONNX Runtime wasm from the same vendored, pinned directory (offline supply chain, §7)
     // instead of letting transformers.js fetch it from its default CDN.
@@ -207,11 +210,8 @@ async function ensureModelLoaded() {
     const cfg = _MODELS[_activeModelKey];
     // Some VLM architectures (e.g. FastVLM / llava_qwen2) expose themselves as causal-LM heads rather
     // than the image-text-to-text auto class. Pick the loader per model so new families drop in cleanly.
-    // Florence-2 has its own class (Florence2ForConditionalGeneration) — the generic auto class
-    // resolves to the wrong architecture for it.
     const ModelClass =
       cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM
-      : cfg.modelClass === 'florence2' ? Florence2ForConditionalGeneration
       : cfg.modelClass === 'qwen2vl' ? Qwen2VLForConditionalGeneration
       : AutoModelForImageTextToText;
     _processor = await AutoProcessor.from_pretrained(cfg.id);
@@ -274,15 +274,6 @@ function describeError(err) {
 
 async function prepareInputs(base64Frame, prompt) {
   const image = await _RawImage.fromURL(base64Frame);
-  const cfg = _MODELS[_activeModelKey];
-
-  // Florence-2 is task-prompt driven, not conversational: it expects a task token like
-  // <CAPTION> via construct_prompts(), and a chat template would be ignored or garbled.
-  if (cfg.modelClass === 'florence2') {
-    const task = '<MORE_DETAILED_CAPTION>';
-    const prompts = _processor.construct_prompts(task);
-    return _processor(image, prompts);
-  }
 
   const messages = [
     {
@@ -346,10 +337,9 @@ function nextRuntimeFallback() {
 async function reloadModel(device, dtype) {
   const cfg = _MODELS[_activeModelKey];
   self.postMessage({ type: 'STATE_UPDATE', loadState: 'loading' });
-  const { AutoModelForImageTextToText, AutoModelForCausalLM, Florence2ForConditionalGeneration, Qwen2VLForConditionalGeneration } = await import(_TRANSFORMERS_URL);
+  const { AutoModelForImageTextToText, AutoModelForCausalLM, Qwen2VLForConditionalGeneration } = await import(_TRANSFORMERS_URL);
   const RetryModelClass =
     cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM
-    : cfg.modelClass === 'florence2' ? Florence2ForConditionalGeneration
     : cfg.modelClass === 'qwen2vl' ? Qwen2VLForConditionalGeneration
     : AutoModelForImageTextToText;
   _model = await RetryModelClass.from_pretrained(cfg.id, { device, dtype });
