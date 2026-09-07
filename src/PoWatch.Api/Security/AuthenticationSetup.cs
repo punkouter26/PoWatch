@@ -1,3 +1,4 @@
+using PoWatch.Api.Platform;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -33,7 +34,7 @@ public static class AuthenticationSetup
 
         auth.AddCookie(CookieScheme, options =>
         {
-            options.Cookie.Name = "PoWatch.Auth";
+            options.Cookie.Name = PoPlatform.SessionCookieName(secure: true);
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Strict;
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
@@ -80,6 +81,14 @@ public static class AuthenticationSetup
                         return issuer;
                     throw new SecurityTokenInvalidIssuerException(
                         $"Issuer '{issuer}' is not in the configured AllowedTenants list.");
+                };
+                // Canonical UserSignedIn record. OnTokenValidated fires exactly once per interactive
+                // sign-in — after validation, before the session cookie is issued — so it needs no
+                // dedupe, and a rejected token never reaches it.
+                options.Events.OnTokenValidated = ctx =>
+                {
+                    SignInTelemetry.TrackFrom(ctx.HttpContext, ctx.Principal, "PoWatch");
+                    return Task.CompletedTask;
                 };
             });
         }

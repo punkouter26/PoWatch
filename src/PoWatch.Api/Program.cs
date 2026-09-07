@@ -1,3 +1,4 @@
+using PoWatch.Api.Platform;
 using System.Globalization;
 using System.Diagnostics;
 using System.Security.Claims;
@@ -335,6 +336,9 @@ app.MapArchivesFeature();
 app.MapIdentityFeature();
 app.MapFhirFeature();
 app.MapDiagnosticsFeature();
+// Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which
+// is what lets the portfolio dashboard poll them all and render one uptime grid.
+app.MapPoLiveness();
 
 // T005: Fall back to the Blazor WASM entry point for all unmatched requests. Anonymous: the SPA host page
 // must load for unauthenticated users so the client can render /login (the fallback authz policy would

@@ -1,9 +1,11 @@
+using PoWatch.Api.Platform;
 using System.Globalization;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.ApplicationInsights.TelemetryConverters;
 
 namespace PoWatch.Api.Observability;
 
@@ -40,7 +42,16 @@ public static class TelemetrySetup
                 retainedFileCountLimit: 30,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{UserId}] [{SessionId}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
         }
-        // AppInsights telemetry handled by AddAzureMonitorTraceExporter() in OTel pipeline.
+
+        // Structured logs — the UserSignedIn record among them — reach App Insights through THIS
+        // sink and only this sink. The AddAzureMonitorTraceExporter() call in AddPoWatchTelemetry
+        // exports OpenTelemetry activities (spans); it never sees an ILogger record, so before this
+        // was wired the traces table stayed empty no matter what the app logged. Serilog also
+        // replaces the default logging providers, which rules out the OTel logging pipeline here.
+        var appInsightsConnectionString = PoPlatform.ResolveAppInsightsConnectionString(ctx.Configuration);
+        cfg.WriteTo.Conditional(
+            _ => !string.IsNullOrWhiteSpace(appInsightsConnectionString),
+            sink => sink.ApplicationInsights(appInsightsConnectionString!, TelemetryConverter.Traces));
     }
 
     /// <summary>
@@ -49,7 +60,7 @@ public static class TelemetrySetup
     /// </summary>
     public static IServiceCollection AddPoWatchTelemetry(this IServiceCollection services, IConfiguration configuration)
     {
-        var aiConnectionString = configuration["ApplicationInsights:ConnectionString"];
+        var aiConnectionString = PoPlatform.ResolveAppInsightsConnectionString(configuration);
 
         // Rule 6.2: map cloud_RoleName to the execution assembly via reflection (API host only),
         // so Azure Monitor never records "unknown_service:dotnet". In OpenTelemetry the
