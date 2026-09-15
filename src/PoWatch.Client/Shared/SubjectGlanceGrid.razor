@@ -39,7 +39,14 @@
     @foreach (var subject in FilteredSubjects)
     {
         var cardClass = GetCardClass(subject);
+        // The most recent significant observation's score drives the card outline. Routine subjects
+        // get the base card; notable/urgent get a soft halo whose intensity scales with the
+        // classifier's strength-of-signal — a "we are pretty sure this matters" reading, distinct
+        // from the discrete band that already drives the badge.
+        var latestSignificant = subject.RecentEvents.FirstOrDefault(e => e.IsSignificant);
+        var cardScore = latestSignificant?.SignificanceScore ?? 0d;
         <div class="subject-card @cardClass"
+             style="--card-score-opacity:@(cardScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))"
              @onclick="() => FocusSubjectAsync(subject.SubjectId)"
              @onkeydown="@(args => HandleCardKeyDownAsync(args, subject.SubjectId))"
              role="button"

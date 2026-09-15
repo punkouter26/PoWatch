@@ -81,6 +81,11 @@ public sealed class ObservationService(
             var verdict = ActivitySignificanceClassifier.Classify(request.Activity, description);
             var isSignificant = callerAssertedSignificance ? request.IsSignificant : verdict.IsSignificant;
             var significantReason = callerAssertedSignificance ? request.SignificantReason : verdict.Reason;
+            // Score + Confidence always come from the classifier, even when the caller asserts the band.
+            // A test injector that says "this is Urgent because I said so" still gets a useful
+            // strength-of-signal reading for the heatmap gradient.
+            var significanceScore = verdict.Score;
+            var significanceConfidence = verdict.Confidence;
 
             var observedAtUtc = DateTimeOffset.UtcNow;
             var observation = new ObservationEvent
@@ -97,6 +102,8 @@ public sealed class ObservationService(
                 IsSignificant = isSignificant,
                 SignificantReason = significantReason,
                 IsClinicalOutlier = isOutlier,
+                SignificanceScore = significanceScore,
+                SignificanceConfidence = significanceConfidence,
                 ImageReference = isSignificant && featureFlags.Value.SaveSignificantImages
                     ? $"significant-images/{DateOnly.FromDateTime(observedAtUtc.UtcDateTime):yyyyMMdd}/{subject.SubjectId}/{Guid.NewGuid():N}.jpg"
                     : null
@@ -140,6 +147,8 @@ public sealed class ObservationService(
                 // this to decide the alert level, whether to upload an evidence frame, and what to say.
                 IsSignificant = observation.IsSignificant,
                 SignificantReason = observation.SignificantReason,
+                SignificanceScore = observation.SignificanceScore,
+                SignificanceConfidence = observation.SignificanceConfidence,
                 Detail = isRedundant
                     ? "Observation recorded with stable-state flag."
                     : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."),

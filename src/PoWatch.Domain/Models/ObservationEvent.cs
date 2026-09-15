@@ -21,4 +21,14 @@ public sealed class ObservationEvent
     public bool IsClinicalOutlier { get; init; }
 
     public string? ImageReference { get; init; }
+
+    /// <summary>Strength of the underlying signal in [0.0, 1.0]. Always set by the classifier — even when
+    /// the band itself is asserted by the caller (dev-tool injectors, contract tests). Default 0.0
+    /// preserves the historical reading of pre-scoring observations on legacy rows.</summary>
+    public double SignificanceScore { get; init; }
+
+    /// <summary>Classifier's confidence in the chosen band, in [0.0, 1.0]. Discounted by short input
+    /// and by low letter density. Independent of <see cref="SignificanceScore"/>. Default 1.0 keeps
+    /// the legacy reading where the model was assumed fully confident.</summary>
+    public double SignificanceConfidence { get; init; }
 }

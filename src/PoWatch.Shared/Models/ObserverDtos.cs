@@ -49,6 +49,14 @@ public sealed class IngestObservationResultDto
     public bool IsSignificant { get; init; }
     /// <summary>Plain-language reason the observation was flagged, or null when it is routine.</summary>
     public string? SignificantReason { get; init; }
+    /// <summary>Strength of the underlying signal in [0.0, 1.0]. Independent of the discrete band:
+    /// a routine observation can still have a non-zero score, and a notable one can have low score.
+    /// Informational — used by the client for soft gradients (heat opacity, pattern-bar height).</summary>
+    public double SignificanceScore { get; init; }
+    /// <summary>Classifier's confidence in the chosen band, in [0.0, 1.0]. Discounted by short input
+    /// and by low letter density. Informational — alert gates filter on <see cref="IsSignificant"/>,
+    /// never on this number.</summary>
+    public double SignificanceConfidence { get; init; }
     /// <summary>Alert threshold rules that fired during this ingest cycle.</summary>
     public IReadOnlyList<ThresholdAlertDto> TriggeredAlerts { get; init; } = [];
 }

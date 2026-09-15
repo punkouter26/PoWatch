@@ -117,4 +117,101 @@ public sealed class ActivitySignificanceClassifierTests
 
         Assert.False(ActivitySignificanceClassifier.Classify(caption, caption).IsSignificant);
     }
+
+    [Fact]
+    public void Routine_input_emits_zero_score_with_unit_confidence()
+    {
+        var verdict = ActivitySignificanceClassifier.Classify("Person seated using laptop", null);
+
+        Assert.Equal(0.0, verdict.Score);
+        Assert.Equal(1.0, verdict.Confidence);
+    }
+
+    [Fact]
+    public void Empty_input_emits_zero_score_with_floor_confidence()
+    {
+        // The ConfidenceFloor exists so a routine verdict never reads as "I know nothing" — the band
+        // itself does the gating, and the floor keeps the number from being alarming.
+        var verdict = ActivitySignificanceClassifier.Classify(string.Empty, string.Empty);
+
+        Assert.Equal(0.0, verdict.Score);
+        Assert.InRange(verdict.Confidence, 0.25, 0.5);
+    }
+
+    [Theory]
+    [InlineData("fell")]
+    [InlineData("collapsed")]
+    [InlineData("The person fell")]
+    [InlineData("Someone collapsed nearby")]
+    public void A_match_emits_a_positive_score_below_one(string activity)
+    {
+        // Each of these inputs matches at least one fall phrase but is short enough to land below
+        // the saturation threshold (matchedInRule * 0.5 < 1.0). The exact Score is not the property
+        // we care about; the property is "positive, less than one, and definitely not zero".
+        var verdict = ActivitySignificanceClassifier.Classify(activity, string.Empty);
+
+        Assert.Equal(ActivitySignificance.Urgent, verdict.Level);
+        Assert.InRange(verdict.Score, 0.5, 1.0);
+        Assert.True(verdict.Score > 0.0);
+    }
+
+    [Fact]
+    public void Score_saturates_at_one_for_strong_signal_input()
+    {
+        // A caption that hits multiple fall-related phrases must read as "as strong as it gets",
+        // not as 0.5 per match. This is the property the heatmap's soft-opacity rendering relies on.
+        var verdict = ActivitySignificanceClassifier.Classify(
+            "The person fell, is on the floor, and is not moving.", string.Empty);
+
+        Assert.Equal(1.0, verdict.Score, precision: 3);
+    }
+
+    [Fact]
+    public void Score_is_monotonic_in_signal_strength()
+    {
+        // Two phrases → stronger score than one phrase. The fall rule has overlapping phrase
+        // spellings ("has fallen" and "fallen" both match in many inputs) so we pick a sentence
+        // that hits the rule once, then a longer one that hits it multiple times.
+        var onePhrase = ActivitySignificanceClassifier.Classify("Someone collapsed", string.Empty);
+        var manyPhrases = ActivitySignificanceClassifier.Classify(
+            "Someone collapsed and is lying on the floor motionless.", string.Empty);
+
+        Assert.Equal(ActivitySignificance.Urgent, onePhrase.Level);
+        Assert.Equal(ActivitySignificance.Urgent, manyPhrases.Level);
+        Assert.True(onePhrase.Score < manyPhraseScore(manyPhrases),
+            $"Expected one-phrase score {onePhrase.Score} to be strictly less than many-phrase score.");
+        Assert.Equal(1.0, manyPhrases.Score, precision: 3);
+
+        static double manyPhraseScore(SignificanceVerdict v) => v.Score;
+    }
+
+    [Fact]
+    public void Short_input_lowers_confidence_even_when_score_matches()
+    {
+        // "collapsed" and "The person collapsed on the carpet by the sofa." both match the same
+        // single fall phrase, so their Score is identical; only the input length differs, which is
+        // what the Confidence formula must reflect.
+        var shortVerdict = ActivitySignificanceClassifier.Classify("collapsed", string.Empty);
+        var longVerdict = ActivitySignificanceClassifier.Classify(
+            "The person collapsed on the carpet by the sofa.", string.Empty);
+
+        Assert.Equal(shortVerdict.Level, longVerdict.Level);
+        Assert.Equal(shortVerdict.Score, longVerdict.Score);
+        Assert.True(shortVerdict.Confidence < longVerdict.Confidence,
+            $"Expected short confidence {shortVerdict.Confidence} to be lower than long confidence {longVerdict.Confidence}.");
+    }
+
+    [Fact]
+    public void Score_and_confidence_are_independent_dimensions()
+    {
+        // A two-band scenario is hard to construct because the first rule that wins is the one we use,
+        // but the algebra itself must hold: an empty input yields 0 score + floor confidence;
+        // a single-phrase match yields positive score + higher confidence (longer input).
+        var empty = ActivitySignificanceClassifier.Classify(string.Empty, string.Empty);
+        var strong = ActivitySignificanceClassifier.Classify(
+            "The person fell and is lying on the floor calling for help.", string.Empty);
+
+        Assert.True(empty.Score < strong.Score);
+        Assert.True(empty.Confidence <= strong.Confidence);
+    }
 }

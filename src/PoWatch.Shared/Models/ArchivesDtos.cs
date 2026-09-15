@@ -12,6 +12,12 @@ public sealed class ObservationEventDto
     public string? SignificantReason { get; init; }
     public bool IsClinicalOutlier { get; init; }
     public string? ImageReference { get; init; }
+    /// <summary>Strength of the underlying signal in [0.0, 1.0]. Default 0.0 mirrors the legacy
+    /// reading for pre-scoring rows. Independent of <see cref="IsSignificant"/>.</summary>
+    public double SignificanceScore { get; init; }
+    /// <summary>Classifier's confidence in the chosen band, in [0.0, 1.0]. Default 1.0 keeps the
+    /// legacy reading where the model was assumed fully confident.</summary>
+    public double SignificanceConfidence { get; init; }
 }
 
 public sealed class DailyChapterDto

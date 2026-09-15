@@ -661,6 +661,15 @@ code,
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
+    /* SignificanceScore halo: the SubjectGlanceGrid passes --card-score-opacity from the most
+       recent significant observation's Score in [0.0, 1.0]. Default 0 means "no signal" — the
+       outline below fades in smoothly as the score climbs. The card keeps its discrete band
+       state (alert/outlier) for the categorical reading; this halo adds the strength-of-signal
+       dimension on top. */
+    --card-score-opacity: 0;
+    box-shadow: var(--shadow-sm),
+                0 0 0 calc(var(--card-score-opacity, 0) * 4px)
+                color-mix(in srgb, var(--color-accent) calc(var(--card-score-opacity, 0) * 60%), transparent);
 }
 
 .subject-card:hover {

@@ -16,11 +16,31 @@ public enum ActivitySignificance
 }
 
 /// <summary>The classifier's verdict, with the plain-language reason shown to the caregiver.</summary>
-public readonly record struct SignificanceVerdict(ActivitySignificance Level, string? Reason)
+/// <param name="Level">Discrete band the observation falls into. Authoritative: alert gates and
+/// ingest responses filter on this, never on the numeric values below.</param>
+/// <param name="Reason">Plain-language explanation of why the band was chosen, or null when routine.</param>
+/// <param name="Score">Strength of the underlying signal itself, in [0.0, 1.0]. Two matched rule
+/// phrases → 1.0; one phrase → 0.5; Routine with no matches → 0.0. Lets the client render soft
+/// gradients (heatmaps, pattern bars) instead of discrete steps.</param>
+/// <param name="Confidence">How sure the classifier is that the chosen band is the correct one, in
+/// [0.0, 1.0]. Discounted by short / no-letter input and by partial-match ratios. Independent of
+/// <paramref name="Score"/>: a long input with one weak phrase scores high-confidence / low-score,
+/// and a short input with a strong phrase scores low-confidence / high-score.</param>
+public readonly record struct SignificanceVerdict(
+    ActivitySignificance Level,
+    string? Reason,
+    double Score,
+    double Confidence)
 {
     public bool IsSignificant => Level != ActivitySignificance.Routine;
 
-    public static SignificanceVerdict Routine { get; } = new(ActivitySignificance.Routine, null);
+    /// <summary>The canonical Routine reading: no signal, fully confident there isn't one.</summary>
+    public static SignificanceVerdict Routine { get; } = new(ActivitySignificance.Routine, null, 0.0, 1.0);
+
+    /// <summary>The "we couldn't even look" reading: empty input short-circuits here. Score is 0
+    /// because there is no signal, but Confidence is the floor because there is no information to
+    /// be confident in either.</summary>
+    public static SignificanceVerdict EmptyInput { get; } = new(ActivitySignificance.Routine, null, 0.0, 0.25);
 }
 
 /// <summary>
@@ -86,20 +106,54 @@ public static class ActivitySignificanceClassifier
         var haystack = $"{activity} {clinicalDescription}";
         if (string.IsNullOrWhiteSpace(haystack))
         {
-            return SignificanceVerdict.Routine;
+            return SignificanceVerdict.EmptyInput;
         }
 
+        // First matching rule wins, but we still count how many phrases matched within that rule so
+        // the Score reflects "how strongly the signal spoke" rather than "did it speak at all". A single
+        // match for "Possible fall" reads as 0.5 strength; matching both "fell" and "on the floor" reaches 1.0.
         foreach (var (level, reason, phrases) in Rules)
         {
+            var matchedInRule = 0;
             foreach (var phrase in phrases)
             {
                 if (haystack.Contains(phrase, StringComparison.OrdinalIgnoreCase))
                 {
-                    return new SignificanceVerdict(level, reason);
+                    matchedInRule++;
                 }
+            }
+
+            if (matchedInRule > 0)
+            {
+                return new SignificanceVerdict(
+                    Level: level,
+                    Reason: reason,
+                    Score: MatchedScore(matchedInRule),
+                    Confidence: ConfidenceFor(haystack));
             }
         }
 
         return SignificanceVerdict.Routine;
+    }
+
+    // Two matched phrases saturate at 1.0; one phrase is 0.5 (a single weak signal). The cap protects
+    // against accidental runs through the phrase list that would otherwise produce 0.5*N scores.
+    private static double MatchedScore(int matchedPhrases) =>
+        Math.Min(1.0, 0.5 * matchedPhrases);
+
+    // Discount by input length (shorter input → less confidence) and by letter content (anything with
+    // three or fewer letters is unlikely to convey a reliable signal). The minimum is intentionally
+    // generous — we want the band itself to do the gating, and the confidence number is informational.
+    private static double ConfidenceFor(string haystack)
+    {
+        var lengthFactor = Math.Min(1.0, haystack.Length / 60.0);
+        var letterCount = 0;
+        foreach (var c in haystack)
+        {
+            if (char.IsLetter(c))
+                letterCount++;
+        }
+        var letterFactor = Math.Min(1.0, letterCount / 12.0);
+        return Math.Clamp(lengthFactor * (0.5 + 0.5 * letterFactor), 0.25, 1.0);
     }
 }

@@ -21,7 +21,9 @@ public static class ObservationEventMappers
         IsSignificant = e.IsSignificant,
         SignificantReason = e.SignificantReason,
         IsClinicalOutlier = e.IsClinicalOutlier,
-        ImageReference = e.ImageReference
+        ImageReference = e.ImageReference,
+        SignificanceScore = e.SignificanceScore,
+        SignificanceConfidence = e.SignificanceConfidence
     };
 
     public static List<ObservationEventDto> ToDtos(this IEnumerable<ObservationEvent> events) =>
