@@ -21,6 +21,9 @@ persists them to Azure Table + Blob Storage.
   - `TargetFramework` deliberately stays in each `.csproj`. Setting it centrally is evaluated too
     early for SDK framework inference and breaks trimming in the Blazor WASM and Shared projects.
 - **Git.** Trunk-based on `master`. No feature branches unless explicitly requested.
+  Commit messages must answer "why" in one line; an empty body or a single-character subject
+  makes `git log --oneline` unreadable for future agents and on-call engineers navigating history.
+  If a refactor is purely mechanical, the body is the only place to record the audit reference.
 - **Domain integrity.** No primitive obsession, no magic strings. Identifiers are
   `readonly record struct` types (`SubjectId`, `ObservationEventId`) and states are enums
   (`IdentityStatus`, `AlertMetric`).

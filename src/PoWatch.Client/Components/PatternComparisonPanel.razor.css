@@ -84,6 +84,7 @@
 .pattern-bar {
     width: 100%;
     display: block;
+    height: var(--bar-height, 0%);
     min-height: 2px;
     transition: height var(--transition-base);
 }

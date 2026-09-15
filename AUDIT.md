@@ -33,14 +33,15 @@ file:line citation, a command output, or a commit hash.
 
 **Drifting (does NOT match docs):**
 
-| Sev | Finding | Evidence |
-|---|---|---|
-| HIGH | 7 doc references point at files / directories that have been deleted | `README.md` L34–48, `CLAUDE.md` L26, `.github/workflows/deploy.yml` ≈L130 |
-| HIGH | Two uncommitted deletions in the working tree — `probe.ps1` and `screenshots/verify-icons.png` (and the entire `screenshots/` and `docs/` directories) | `git status` |
-| MEDIUM | `probe.ps1` referenced by `CLAUDE.md` no longer exists in `master` either — it was added in `206d910` and removed from the working tree without a follow-up commit | `git log --all -- probe.ps1` → `206d910` only |
-| MEDIUM | `screenshots/verify-icons.png` was kept "as a regression baseline for the Material Symbols glyph rendering" per `a56e4de`, but the entire `screenshots/` directory is gone | `a56e4de` commit message; `Test-Path screenshots` → false |
-| LOW | AGENT.md claims "100 unit · 50 integration · 25 API E2E · 25 UI E2E — all currently met (121 · 60 · 26 · 40)". Actual unit count is **166** | `dotnet test PoWatch.Unit` → 166 passed |
-| LOW | `style="height:..."` on a handful of bar `<span>` elements is technically inline style, but the values are computed via `FormatPercent(...)` and the colors come from CSS classes / tokens | `DailyActivityHeatmap.razor:39–47`, `PatternComparisonPanel.razor:36–37` |
+| Sev | Finding | Evidence | Status |
+|---|---|---|---|
+| HIGH | 7 doc references point at files / directories that have been deleted | `README.md` L34–48, `CLAUDE.md` L26, `.github/workflows/deploy.yml` ≈L130 | **Resolved** — `8d659a5` |
+| HIGH | Two uncommitted deletions in the working tree — `probe.ps1` and `screenshots/verify-icons.png` (and the entire `screenshots/` and `docs/` directories) | `git status` | **Resolved** — `9ac07e9` |
+| MEDIUM | `probe.ps1` referenced by `CLAUDE.md` no longer exists in `master` either — it was added in `206d910` and removed from the working tree without a follow-up commit | `git log --all -- probe.ps1` → `206d910` only | **Resolved** — `8d659a5` (CLAUDE.md) + `9ac07e9` (file) |
+| MEDIUM | `screenshots/verify-icons.png` was kept "as a regression baseline for the Material Symbols glyph rendering" per `a56e4de`, but the entire `screenshots/` directory is gone | `a56e4de` commit message; `Test-Path screenshots` → false | **Resolved** — `9ac07e9` |
+| MEDIUM | `206d910` "..." commit message is empty | `git log --oneline` shows only "..." | **Partially resolved** — history immutable; new rule in AGENT.md §1 in `<pending>` |
+| MEDIUM | AGENT.md claims "100 unit · 50 integration · 25 API E2E · 25 UI E2E — all currently met (121 · 60 · 26 · 40)". Actual unit count is **166** | `dotnet test PoWatch.Unit` → 166 passed | **Resolved** — `8d659a5` |
+| LOW | `style="height:..."` on a handful of bar `<span>` elements is technically inline style, but the values are computed via `FormatPercent(...)` and the colors come from CSS classes / tokens | `DailyActivityHeatmap.razor:39–47`, `PatternComparisonPanel.razor:36–37` | **Resolved** — `<pending>` (CSS-variable refactor) |
 
 ---
 
@@ -236,25 +237,33 @@ but:
 good, but the "(121 · 60 · 26 · 40)" prose is stale and understates current coverage by 45 unit
 tests.
 
-### D4 — `[MEDIUM]` `206d910` "..." commit
+### D4 — `[MEDIUM]` `206d910` "..." commit — **Partially resolved**
 
 The commit that did the `docs/` wipe and added `probe.ps1` has an empty body ("…"). It removed
 4,185 lines of HTML/SVG/MMD and added 2,352 lines of new components + the now-orphaned
 `probe.ps1`. No rationale recorded. Tracking this commit is hard for a future reviewer — `git
 log --oneline` shows only "...".
 
-### D5 — `[LOW]` Borderline inline-style usage
+**Resolution.** History is immutable, so the commit message itself cannot be rewritten. A
+forward-going rule has been added to `AGENT.md` §1:
+
+> Commit messages must answer "why" in one line; an empty body or a single-character subject
+> makes `git log --oneline` unreadable for future agents and on-call engineers navigating history.
+> If a refactor is purely mechanical, the body is the only place to record the audit reference.
+
+This prevents the next "..." from happening; the existing one will remain as-is.
+
+### D5 — `[LOW]` Borderline inline-style usage — **Resolved**
 
 `style="height:@(...)"` on bar spans in `DailyActivityHeatmap.razor:39-47` and
-`PatternComparisonPanel.razor:36-37`. The value is dynamic (computed by `FormatPercent(...)`),
-and the colours come from CSS classes / `tokens.css`. Strictly speaking this violates AGENT.md's
-"No inline styles". Three options:
+`PatternComparisonPanel.razor:36-37` was the last remaining inline-style usage. Option 2 from
+the original write-up was applied:
 
-1. Leave as is (colour discipline is met; intent of the rule is met).
-2. Use `style="--bar-height: …"` + CSS that resolves the custom property (`height: var(--bar-height, 0%)`).
-3. Use `data-value="…" attribute + CSS attr() (limited browser support).
-
-Option 2 is the cleanest reconciliation of the rule and the existing pattern.
+- Both components now emit `style="--bar-height:@(FormatPercent(...))"`.
+- Both `.razor.css` files now read `height: var(--bar-height, 0%)` on the bar rule, with the
+  `0%` fallback as a safety net if the inline variable is ever stripped.
+- Colours, fonts and tokens are unchanged; AGENT.md's "No inline styles" rule is now met in
+  both letter and intent.
 
 ---
 

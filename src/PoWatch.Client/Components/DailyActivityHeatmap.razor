@@ -36,15 +36,15 @@
                 <div class="heatmap-bar-stack" aria-hidden="true">
                     @if (urgent > 0)
                     {
-                        <span class="heatmap-bar heatmap-bar--urgent" style="height:@(FormatPercent(urgentIntensity))"></span>
+                        <span class="heatmap-bar heatmap-bar--urgent" style="--bar-height:@(FormatPercent(urgentIntensity))"></span>
                     }
                     @if (notable > 0)
                     {
-                        <span class="heatmap-bar heatmap-bar--notable" style="height:@(FormatPercent(notableIntensity))"></span>
+                        <span class="heatmap-bar heatmap-bar--notable" style="--bar-height:@(FormatPercent(notableIntensity))"></span>
                     }
                     @if (routine > 0)
                     {
-                        <span class="heatmap-bar heatmap-bar--routine" style="height:@(FormatPercent(routineIntensity))"></span>
+                        <span class="heatmap-bar heatmap-bar--routine" style="--bar-height:@(FormatPercent(routineIntensity))"></span>
                     }
                 </div>
                 <span class="heatmap-hour-label" aria-hidden="@(h % 3 == 0 ? "false" : "true")">
