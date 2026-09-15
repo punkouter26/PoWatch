@@ -33,3 +33,23 @@ public sealed class RegisterSubjectRequestDto
 {
     public string DisplayName { get; init; } = string.Empty;
 }
+
+/// <summary>The kind of revision a subject underwent. Mirrors
+/// <c>PoWatch.Domain.Models.SubjectRevisionKind</c>; ordinal values must stay in step.</summary>
+public enum SubjectRevisionKind
+{
+    Created = 0,
+    Renamed = 1,
+    MergedInto = 2,
+    MergedFrom = 3,
+    Deleted = 4,
+}
+
+/// <summary>One row in a subject's audit history. Chronologically ordered server-side.</summary>
+public sealed class SubjectRevisionEventDto
+{
+    public required DateTimeOffset OccurredAtUtc { get; init; }
+    public required SubjectRevisionKind Kind { get; init; }
+    public string? Detail { get; init; }
+    public string? ActorUserId { get; init; }
+}

@@ -10,6 +10,7 @@ public sealed class IdentityService(
     ISubjectRepository subjectRepository,
     IObservationRepository observationRepository,
     IAcknowledgementRegistry acknowledgementRegistry,
+    ISubjectRevisionEventRepository revisionEventRepository,
     ILogger<IdentityService> logger)
 {
     public async Task<IReadOnlyList<SubjectProfileDto>> GetSubjectsAsync(CancellationToken cancellationToken)
@@ -25,7 +26,7 @@ public sealed class IdentityService(
         }).ToList();
     }
 
-    public async Task<IdentityRevisionResultDto> RenameAsync(string subjectId, RenameSubjectRequestDto request, CancellationToken cancellationToken)
+    public async Task<IdentityRevisionResultDto> RenameAsync(string subjectId, RenameSubjectRequestDto request, string? actorUserId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(subjectId))
         {
@@ -53,6 +54,34 @@ public sealed class IdentityService(
         }
         var removed = subjectIdChanged ? 1 : 0;
 
+        // Audit trail: record what just happened so the caregiver can later see "this id was renamed
+        // from X to Y on Z by W". The merge here writes against the canonical id so the history
+        // stays under the surviving subject, not the deleted one.
+        await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+        {
+            SubjectId = canonical.SubjectId,
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            Kind = Domain.Models.SubjectRevisionKind.Renamed,
+            Detail = subjectIdChanged
+                ? $"Renamed from '{subjectId}' to '{canonical.DisplayName}'."
+                : $"Display name changed to '{canonical.DisplayName}'.",
+            ActorUserId = actorUserId
+        }, cancellationToken);
+        if (subjectIdChanged)
+        {
+            // The absorbed id is no longer current but the row gets a final Deleted entry so a future
+            // history fetch against this id still has its terminus. We do not synthesize a MergedInto
+            // here — that event is reserved for MergeAsync where two named identities collapse.
+            await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+            {
+                SubjectId = SubjectId.From(subjectId),
+                OccurredAtUtc = DateTimeOffset.UtcNow,
+                Kind = Domain.Models.SubjectRevisionKind.Deleted,
+                Detail = $"Replaced by canonical id '{canonical.SubjectId}'.",
+                ActorUserId = actorUserId
+            }, cancellationToken);
+        }
+
         logger.LogInformation(
             "Inline rename completed. CanonicalSubjectId={CanonicalSubjectId}, CanonicalName={CanonicalName}, EventsRewritten={EventsRewritten}, SubjectsRemoved={SubjectsRemoved}",
             canonical.SubjectId,
@@ -69,7 +98,7 @@ public sealed class IdentityService(
         };
     }
 
-    public async Task<IdentityRevisionResultDto> MergeAsync(MergeIdentityRequestDto request, CancellationToken cancellationToken)
+    public async Task<IdentityRevisionResultDto> MergeAsync(MergeIdentityRequestDto request, string? actorUserId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.PrimarySubjectId) || string.IsNullOrWhiteSpace(request.SecondarySubjectId))
         {
@@ -122,6 +151,59 @@ public sealed class IdentityService(
 
         var removed = (primaryChanged ? 1 : 0) + (secondaryChanged ? 1 : 0);
 
+        // Audit trail. The canonical id gets a MergedFrom row so its history shows the merge happened
+        // and from which id. Each absorbed id gets a MergedInto row pinned to the canonical id, plus a
+        // Deleted row to mark the terminus of its standalone profile.
+        var occurredAt = DateTimeOffset.UtcNow;
+        await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+        {
+            SubjectId = merged.SubjectId,
+            OccurredAtUtc = occurredAt,
+            Kind = Domain.Models.SubjectRevisionKind.MergedFrom,
+            Detail = $"Merged from {DescribeSourcePair(request.PrimarySubjectId, request.SecondarySubjectId, merged.SubjectId)}.",
+            ActorUserId = actorUserId
+        }, cancellationToken);
+
+        if (primaryChanged)
+        {
+            await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+            {
+                SubjectId = SubjectId.From(request.PrimarySubjectId),
+                OccurredAtUtc = occurredAt,
+                Kind = Domain.Models.SubjectRevisionKind.MergedInto,
+                Detail = $"Merged into '{merged.SubjectId}' ({merged.DisplayName}).",
+                ActorUserId = actorUserId
+            }, cancellationToken);
+            await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+            {
+                SubjectId = SubjectId.From(request.PrimarySubjectId),
+                OccurredAtUtc = occurredAt,
+                Kind = Domain.Models.SubjectRevisionKind.Deleted,
+                Detail = $"Replaced by canonical id '{merged.SubjectId}'.",
+                ActorUserId = actorUserId
+            }, cancellationToken);
+        }
+
+        if (secondaryChanged)
+        {
+            await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+            {
+                SubjectId = SubjectId.From(request.SecondarySubjectId),
+                OccurredAtUtc = occurredAt,
+                Kind = Domain.Models.SubjectRevisionKind.MergedInto,
+                Detail = $"Merged into '{merged.SubjectId}' ({merged.DisplayName}).",
+                ActorUserId = actorUserId
+            }, cancellationToken);
+            await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+            {
+                SubjectId = SubjectId.From(request.SecondarySubjectId),
+                OccurredAtUtc = occurredAt,
+                Kind = Domain.Models.SubjectRevisionKind.Deleted,
+                Detail = $"Replaced by canonical id '{merged.SubjectId}'.",
+                ActorUserId = actorUserId
+            }, cancellationToken);
+        }
+
         logger.LogInformation(
             "Merge completed. CanonicalSubjectId={CanonicalSubjectId}, CanonicalName={CanonicalName}, EventsRewritten={EventsRewritten}, SubjectsRemoved={SubjectsRemoved}",
             merged.SubjectId,
@@ -138,8 +220,13 @@ public sealed class IdentityService(
         };
     }
 
+    private static string DescribeSourcePair(string primary, string secondary, string canonical) =>
+        string.Equals(primary, canonical, StringComparison.OrdinalIgnoreCase)
+            ? $"secondary '{secondary}'"
+            : $"primary '{primary}'";
+
     /// <summary>Pre-registers a known subject without needing an observation.</summary>
-    public async Task<SubjectProfileDto> RegisterKnownSubjectAsync(RegisterSubjectRequestDto request, CancellationToken cancellationToken)
+    public async Task<SubjectProfileDto> RegisterKnownSubjectAsync(RegisterSubjectRequestDto request, string? actorUserId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.DisplayName))
             throw new InvalidOperationException("DisplayName is required.");
@@ -147,6 +234,15 @@ public sealed class IdentityService(
         logger.LogInformation("RegisterKnownSubject requested. DisplayName={DisplayName}", request.DisplayName);
 
         var profile = await subjectRepository.RegisterKnownAsync(request.DisplayName, cancellationToken);
+
+        await revisionEventRepository.AppendAsync(new SubjectRevisionEvent
+        {
+            SubjectId = profile.SubjectId,
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            Kind = Domain.Models.SubjectRevisionKind.Created,
+            Detail = $"Pre-registered as known identity '{profile.DisplayName}'.",
+            ActorUserId = actorUserId
+        }, cancellationToken);
 
         logger.LogInformation(
             "RegisterKnownSubject completed. SubjectId={SubjectId} DisplayName={DisplayName}",
@@ -161,6 +257,20 @@ public sealed class IdentityService(
             FirstSeenUtc = profile.FirstSeenUtc,
             LastSeenUtc = profile.LastSeenUtc
         };
+    }
+
+    /// <summary>Returns a subject's full revision history, most-recent first. Empty list is never
+    /// returned — a brand-new subject has at least its <see cref="SubjectRevisionKind.Created"/>
+    /// row from <see cref="RegisterKnownSubjectAsync"/>, and an implicitly-created subject gets its
+    /// Created row written by <see cref="ISubjectRepository.GetOrCreateAsync"/> via the repository
+    /// adapter.</summary>
+    public async Task<IReadOnlyList<SubjectRevisionEventDto>> GetHistoryAsync(string subjectId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(subjectId))
+            throw new InvalidOperationException("SubjectId is required.");
+
+        var events = await revisionEventRepository.GetHistoryAsync(subjectId, cancellationToken);
+        return events.ToDtos();
     }
 
     /// <summary>

@@ -10,6 +10,14 @@ namespace PoWatch.Api.Features.Identity;
 
 internal static class IdentityEndpoints
 {
+    /// <summary>The best identification of who initiated the request. Falls back to "anonymous"
+    /// rather than null so the audit row is never missing the actor column on a server-driven
+    /// call (e.g. a scheduled cleanup) where no user is attached.</summary>
+    private static string ResolveActor(HttpContext httpContext) =>
+        httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? httpContext.User?.FindFirst("sub")?.Value
+        ?? "anonymous";
+
     internal static IEndpointRouteBuilder MapIdentityFeature(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/identity").WithTags("Identity").RequireAuthorization();
@@ -17,6 +25,7 @@ internal static class IdentityEndpoints
         group.MapPost("/subjects", async (
             RegisterSubjectRequestDto request,
             IdentityService service,
+            HttpContext httpContext,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -28,7 +37,8 @@ internal static class IdentityEndpoints
                 request.DisplayName,
                 Activity.Current?.TraceId.ToString());
 
-            var created = await service.RegisterKnownSubjectAsync(request, cancellationToken);
+            var actor = ResolveActor(httpContext);
+            var created = await service.RegisterKnownSubjectAsync(request, actor, cancellationToken);
             return Results.Ok(created);
         })
         .WithName("IdentityRegisterSubject")
@@ -71,6 +81,7 @@ internal static class IdentityEndpoints
             string subjectId,
             RenameSubjectRequestDto request,
             IdentityService service,
+            HttpContext httpContext,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -84,7 +95,8 @@ internal static class IdentityEndpoints
                 subjectId,
                 Activity.Current?.TraceId.ToString());
 
-            var renamed = await service.RenameAsync(subjectId, request, cancellationToken);
+            var actor = ResolveActor(httpContext);
+            var renamed = await service.RenameAsync(subjectId, request, actor, cancellationToken);
             return Results.Ok(renamed);
         })
         .WithName("IdentityRename")
@@ -92,9 +104,32 @@ internal static class IdentityEndpoints
         .Produces<IdentityRevisionResultDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest);
 
+        group.MapGet("/subjects/{subjectId}/history", async (
+            string subjectId,
+            IdentityService service,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(subjectId))
+                return Results.BadRequest(new { message = "subjectId is required." });
+
+            logger.LogInformation(
+                "Subject revision history requested. SubjectId={SubjectId} TraceId={TraceId}",
+                subjectId,
+                Activity.Current?.TraceId.ToString());
+
+            var history = await service.GetHistoryAsync(subjectId, cancellationToken);
+            return Results.Ok(history);
+        })
+        .WithName("IdentitySubjectHistory")
+        .WithSummary("Get the audit history of revisions for a subject (renames, merges, deletes).")
+        .Produces<List<SubjectRevisionEventDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest);
+
         group.MapPost("/merge", async (
             MergeIdentityRequestDto request,
             IdentityService service,
+            HttpContext httpContext,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
@@ -110,7 +145,8 @@ internal static class IdentityEndpoints
                 request.SecondarySubjectId,
                 Activity.Current?.TraceId.ToString());
 
-            var merged = await service.MergeAsync(request, cancellationToken);
+            var actor = ResolveActor(httpContext);
+            var merged = await service.MergeAsync(request, actor, cancellationToken);
             return Results.Ok(merged);
         })
         .WithName("IdentityMerge")

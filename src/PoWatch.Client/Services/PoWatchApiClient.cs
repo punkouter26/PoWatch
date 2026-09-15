@@ -50,6 +50,15 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(Json.SubjectProfileDto, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SubjectRevisionEventDto>> GetSubjectHistoryAsync(string subjectId, CancellationToken cancellationToken = default)
+    {
+        var items = await httpClient.GetFromJsonAsync(
+            $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}/history",
+            Json.ListSubjectRevisionEventDto,
+            cancellationToken);
+        return items ?? [];
+    }
+
     public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken = default)
     {
         var items = await httpClient.GetFromJsonAsync("api/identity/subjects/live-status", Json.ListSubjectLiveStatusDto, cancellationToken);

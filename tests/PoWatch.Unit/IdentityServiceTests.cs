@@ -31,9 +31,9 @@ public sealed class IdentityServiceTests
             ClinicalDescription = "Observed at desk."
         });
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository(), NullLogger<IdentityService>.Instance);
 
-        var result = await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, CancellationToken.None);
+        var result = await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, "tester", CancellationToken.None);
 
         Assert.Equal("maya", result.CanonicalSubjectId);
         Assert.Equal("Maya", result.CanonicalName);
@@ -77,20 +77,114 @@ public sealed class IdentityServiceTests
             ClinicalDescription = "Observed walking."
         });
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository(), NullLogger<IdentityService>.Instance);
 
         var result = await service.MergeAsync(new MergeIdentityRequestDto
         {
             PrimarySubjectId = SubjectId.From("kim"),
             SecondarySubjectId = SubjectId.From("Subject-2"),
             NewDisplayName = "Kim"
-        }, CancellationToken.None);
+        }, "tester", CancellationToken.None);
 
         Assert.Equal("kim", result.CanonicalSubjectId);
         Assert.Equal("Kim", result.CanonicalName);
         Assert.Equal(1, result.EventsRewritten);
         Assert.Equal(1, result.SubjectsRemoved);
         Assert.DoesNotContain(subjects.Items.Keys, key => key == "Subject-2");
+    }
+
+    // ── Revision history ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RenameAsync_AppendsRenamedEventAgainstTheCanonicalId()
+    {
+        var observations = new FakeObservationRepository();
+        var subjects = new FakeSubjectRepository(
+            new SubjectProfile { SubjectId = SubjectId.From("Subject-1"), DisplayName = "Subject-1", IdentityStatus = IdentityStatus.Temporary });
+        var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
+
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+
+        await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, "tester", CancellationToken.None);
+
+        var history = await revisions.GetHistoryAsync("maya", CancellationToken.None);
+        Assert.Single(history);
+        Assert.Equal(Domain.Models.SubjectRevisionKind.Renamed, history[0].Kind);
+        Assert.Equal("tester", history[0].ActorUserId);
+        Assert.Contains("Maya", history[0].Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenameAsync_RecordsDeletedEntryForTheAbsorbedId_WhenIdChanges()
+    {
+        var observations = new FakeObservationRepository();
+        var subjects = new FakeSubjectRepository(
+            new SubjectProfile { SubjectId = SubjectId.From("Subject-1"), DisplayName = "Subject-1", IdentityStatus = IdentityStatus.Temporary });
+        var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
+
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+
+        await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, "tester", CancellationToken.None);
+
+        // The absorbed id keeps its history: a Renamed row under the canonical id AND a Deleted
+        // row under the original id, so a future GET /history on either id is meaningful.
+        var canonical = await revisions.GetHistoryAsync("maya", CancellationToken.None);
+        var absorbed = await revisions.GetHistoryAsync("Subject-1", CancellationToken.None);
+        Assert.Single(canonical);
+        Assert.Equal(Domain.Models.SubjectRevisionKind.Renamed, canonical[0].Kind);
+        Assert.Single(absorbed);
+        Assert.Equal(Domain.Models.SubjectRevisionKind.Deleted, absorbed[0].Kind);
+    }
+
+    [Fact]
+    public async Task MergeAsync_RecordsMergedFromForCanonical_AndMergedIntoAndDeletedForAbsorbed()
+    {
+        var observations = new FakeObservationRepository();
+        var subjects = new FakeSubjectRepository(
+            new SubjectProfile { SubjectId = SubjectId.From("kim"), DisplayName = "Kim", IdentityStatus = IdentityStatus.Known },
+            new SubjectProfile { SubjectId = SubjectId.From("Subject-2"), DisplayName = "Subject-2", IdentityStatus = IdentityStatus.Temporary });
+        var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
+
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+
+        await service.MergeAsync(new MergeIdentityRequestDto
+        {
+            PrimarySubjectId = SubjectId.From("kim"),
+            SecondarySubjectId = SubjectId.From("Subject-2"),
+            NewDisplayName = "Kim"
+        }, "tester", CancellationToken.None);
+
+        var canonical = await revisions.GetHistoryAsync("kim", CancellationToken.None);
+        var absorbed = await revisions.GetHistoryAsync("Subject-2", CancellationToken.None);
+
+        Assert.Single(canonical);
+        Assert.Equal(Domain.Models.SubjectRevisionKind.MergedFrom, canonical[0].Kind);
+
+        Assert.Equal(2, absorbed.Count);
+        Assert.Contains(absorbed, e => e.Kind == Domain.Models.SubjectRevisionKind.MergedInto);
+        Assert.Contains(absorbed, e => e.Kind == Domain.Models.SubjectRevisionKind.Deleted);
+    }
+
+    [Fact]
+    public async Task GetHistoryAsync_ReturnsEventsMostRecentFirst()
+    {
+        var observations = new FakeObservationRepository();
+        var subjects = new FakeSubjectRepository(
+            new SubjectProfile { SubjectId = SubjectId.From("kim"), DisplayName = "Kim", IdentityStatus = IdentityStatus.Known });
+        var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
+
+        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+
+        // Force two events with a noticeable timestamp gap (the repo orders by OccurredAtUtc).
+        await revisions.AppendAsync(new SubjectRevisionEvent { SubjectId = SubjectId.From("kim"), OccurredAtUtc = DateTimeOffset.UtcNow.AddMinutes(-2), Kind = Domain.Models.SubjectRevisionKind.Created }, CancellationToken.None);
+        await revisions.AppendAsync(new SubjectRevisionEvent { SubjectId = SubjectId.From("kim"), OccurredAtUtc = DateTimeOffset.UtcNow, Kind = Domain.Models.SubjectRevisionKind.Renamed, Detail = "later" }, CancellationToken.None);
+
+        var history = await service.GetHistoryAsync("kim", CancellationToken.None);
+
+        Assert.Equal(2, history.Count);
+        Assert.Equal(Shared.Models.SubjectRevisionKind.Renamed, history[0].Kind);
+        Assert.Equal(Shared.Models.SubjectRevisionKind.Created, history[1].Kind);
+        Assert.Equal("later", history[0].Detail);
     }
 
     private sealed class FakeObservationRepository : IObservationRepository

@@ -66,6 +66,11 @@ public static class DependencyInjection
                 : sp.GetRequiredService<InMemorySubjectRepository>();
         });
 
+        // In-memory only for the audit-history repository at this stage. A Azure-backed variant
+        // belongs alongside AzureSubjectRepository once the rest of the app's table-init pipeline
+        // (AzureStorageInitializer) is read for it.
+        services.AddSingleton<ISubjectRevisionEventRepository, InMemorySubjectRevisionEventRepository>();
+
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
         services.AddSingleton<ITelemetryContentSanitizer, TelemetryContentSanitizer>();
