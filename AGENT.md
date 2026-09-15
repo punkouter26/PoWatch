@@ -237,3 +237,62 @@ the Azurite container.
 Local ports are HTTP `5000` / HTTPS `5001`; `PortNegotiation` rebinds automatically (commonly to
 `5002`/`5003`) when a stale process holds them. Azurite runs as the `PoWatch` container via
 `docker-compose.yml`. `SCRIPTS/setup.ps1` cold-starts the toolchain, Azurite, and `az login`.
+
+---
+
+## 7. NET_AGENTS
+
+User-authored operating rules for agents working in this repository. Where these conflict with
+the existing principles above, **NET_AGENTS wins**. Each rule states its scope so a future agent
+or contributor can see exactly what was traded.
+
+1. **Master only.** All work happens on `master`. Other branches are used only when the user
+   explicitly asks for one.
+
+2. **Restart + verify after every code change.** After editing source, the agent must restart the
+   app (or the test host) and confirm it boots cleanly before reporting the change as done. A
+   build that succeeds but a process that won't start is a failed change. Doc-only edits
+   (markdown, AGENT.md, .editorconfig, .css with no .razor change) are exempt — they don't ship a
+   new build.
+
+3. **DOCS folder, if present.** Before starting any non-trivial task, look for a `docs/` folder
+   at the repo root. If it exists, read its top-level summary to anchor the project's current
+   state. There is no `docs/` folder in this repo today; do not assume one will appear, and do
+   not block work if it is absent.
+
+4. **Local secrets go in `appsettings.*.json` or Azure Key Vault, never `dotnet user-secrets`.**
+   `appsettings.Development.json` is per-developer and may hold non-production credentials.
+   `appsettings.Production.json` is for non-secret config only — anything sensitive lives in
+   Key Vault and is resolved by `ManagedIdentityCredential`. The `dotnet user-secrets` store is
+   not used in this repo. Trade-off: `appsettings.Development.json` is checked into git; do not
+   commit a real secret there. Use `appsettings.Development.json.example` for the template and
+   copy it locally when needed.
+
+5. **Never push without explicit instruction.** No `git push` (and no CI-triggering push to a
+   feature branch) unless the user types `git sync` in the same session or asks for the push by
+   name. Local commits are always fine.
+
+6. **`git sync` = commit everything + push + slang subject.** When the user types `git sync`,
+   stage every change in the working tree (including untracked files), commit with a short
+   subject line written in casual American English (slang is welcome), then push to `origin`.
+   The body is one short line that names the area, not the audit trail. Trade-off: this
+   overrides the §1 Git principle that commits must answer "why"; the rule here is that the
+   *subject* scans as human, and the user takes responsibility for the substance.
+
+7. **TLDR for long answers.** Any response over 100 words ends with a TLDR of about 20 words
+   that names the takeaway, the file(s) touched, and the next action (if any). The TLDR is the
+   line a reviewer reads first.
+
+8. **Local tests are scoped, not exhaustive.** After a code change, run the tests for the
+   project(s) you touched. Skip tests for trivial changes (one-line fixes, comments, formatting).
+   CI still runs the full Unit + Integration gate on every push — that gate is unchanged and is
+   not weakened by this rule, which applies to local verification time only.
+
+9. **Run commands for the user.** If a command can be run safely and unattended, the agent
+   runs it rather than printing it for the user to copy-paste. Exceptions: anything that
+   touches auth, payments, data deletion, deploys, secrets, or anything irreversible. For
+   those, print the command and wait.
+
+10. **`git sync` always commits first.** Never push with a dirty working tree. If the user types
+    `git sync` and there is nothing to commit, push the existing commits; do not invent an empty
+    commit.
