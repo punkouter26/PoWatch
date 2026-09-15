@@ -138,7 +138,7 @@ jobs:
           echo "----- /diag/boot (last startup milestone + dependency readiness) -----"
           curl -s "$BASE/diag/boot" --max-time 30 || echo "(/diag/boot unreachable — the host failed to start; NO in-app endpoint can answer a 500.30)"
           echo ""
-          echo "To find the real startup exception (see docs/technical/deployment-guidelines.md):"
+          echo "To find the real startup exception:"
           echo "  az webapp log download -n ${{ env.AZURE_WEBAPP_NAME }} -g ${{ env.AZURE_RESOURCE_GROUP }} --log-file logs.zip"
           echo "  then read LogFiles/eventlog.xml — the '.NET Runtime' entries contain the full stack trace."
           exit 1

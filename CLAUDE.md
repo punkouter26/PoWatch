@@ -23,7 +23,7 @@ telemetry and diagnostics. CORS is intentionally never configured.
 ```powershell
 ./SCRIPTS/setup.ps1     # local tooling, starts Azurite via docker compose, walks the Azure login
 dotnet build            # zero-warning contract: a warning is a build break
-./probe.ps1             # smoke-probes a running instance
+curl https://localhost:5001/health   # deep dependency probe (smoke-test a running instance)
 ```
 
 | URL (dev) | |

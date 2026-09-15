@@ -168,9 +168,9 @@ Directory depth stays shallow — at most two levels inside a project.
 
 ## 5. Testing, CI/CD, hygiene
 
-- **Targets: 100 unit · 50 integration · 25 API E2E · 25 UI E2E — all currently met**
-  (121 · 60 · 26 · 40). Add tests with the feature you are writing; do not let a suite fall back
-  under its target.
+- **Targets: 100 unit · 50 integration · 25 API E2E · 25 UI E2E.** Add tests with the feature
+  you are writing; do not let a suite fall back under its target. Track the actual count in the
+  suite's own project, not here — the parentheticals next to these targets rot.
 - UI E2E tests must wait for the app to boot, not for the network to idle. A Blazor WASM cold start
   downloads and starts the .NET runtime, which takes far longer than Playwright's 5 s default expect
   timeout — use `PoWatchPage.SignedInAsync`, which waits on the navbar.
