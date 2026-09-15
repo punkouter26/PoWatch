@@ -1,15 +1,17 @@
 using Microsoft.Extensions.Logging;
 using PoWatch.Application.Contracts;
+using PoWatch.Application.Mappers;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 using PoWatch.Shared.Models;
 
 namespace PoWatch.Application.Services;
 
 public sealed class ArchivesService(IObservationRepository observationRepository, ILogger<ArchivesService> logger)
 {
-    public async Task<DailyChapter> GetChapterAsync(DateOnly date, CancellationToken cancellationToken)
+    public async Task<DailyChapter> GetChapterAsync(DateOnly date, NarrativeMode mode, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Loading daily chapter. Date={Date}", date);
+        logger.LogInformation("Loading daily chapter. Date={Date} Mode={Mode}", date, mode);
 
         // The caller's date is the caregiver's calendar day, not a UTC partition key — see ShiftClock.
         var timeline = await ShiftClock.LoadLocalDayAsync(observationRepository, date, cancellationToken);
@@ -28,11 +30,16 @@ public sealed class ArchivesService(IObservationRepository observationRepository
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
 
+        // Both modes are always built: the prose is what the server emits by default, the rows are
+        // what the structured view renders. Building both unconditionally means a client-side toggle
+        // never triggers a refetch — the rendering choice is purely a presentation switch.
         var narrative = BuildNarrative(timeline, outlierCount, notableCount);
+        var structuredRows = BuildStructuredRows(timeline);
 
         logger.LogInformation(
-            "Daily chapter loaded. Date={Date} TimelineCount={TimelineCount} HighlightCount={HighlightCount} Outliers={Outliers} Notable={Notable}",
+            "Daily chapter loaded. Date={Date} Mode={Mode} TimelineCount={TimelineCount} HighlightCount={HighlightCount} Outliers={Outliers} Notable={Notable}",
             date,
+            mode,
             timeline.Count,
             highlights.Count,
             outlierCount,
@@ -44,6 +51,8 @@ public sealed class ArchivesService(IObservationRepository observationRepository
             Timeline = timeline,
             Highlights = highlights,
             ClinicalNarrative = narrative,
+            StructuredRows = structuredRows,
+            Mode = MapMode(mode),
             TotalEvents = timeline.Count,
             OutlierCount = outlierCount,
             NotableCount = notableCount,
@@ -51,6 +60,36 @@ public sealed class ArchivesService(IObservationRepository observationRepository
             FirstEventUtc = timeline.Count > 0 ? timeline[0].ObservedAtUtc : null,
             LastEventUtc = timeline.Count > 0 ? timeline[^1].ObservedAtUtc : null
         };
+    }
+
+    private static Domain.Services.ActivitySignificanceNarrativeMode MapMode(NarrativeMode mode) => mode switch
+    {
+        NarrativeMode.Structured => Domain.Services.ActivitySignificanceNarrativeMode.Structured,
+        _ => Domain.Services.ActivitySignificanceNarrativeMode.Prose
+    };
+
+    private static IReadOnlyList<StructuredNarrativeRow> BuildStructuredRows(IReadOnlyList<ObservationEvent> timeline)
+    {
+        if (timeline.Count == 0) return [];
+
+        return timeline
+            .OrderBy(x => x.ObservedAtUtc)
+            .Select(x => new StructuredNarrativeRow
+            {
+                ObservedAtUtcLocal = x.ObservedAtUtc.ToLocalTime(),
+                SubjectDisplayName = SubjectDisplayNames.Humanize(x.SubjectDisplayName),
+                Activity = x.Activity,
+                // The row is a Domain type, so the band is the Domain band. Fully qualified because
+                // Shared.Models.ActivitySignificance is in scope via the using and the compiler can't
+                // disambiguate the switch arms by return type alone.
+                Level = x.IsClinicalOutlier
+                    ? Domain.Services.ActivitySignificance.Urgent
+                    : x.IsSignificant
+                        ? Domain.Services.ActivitySignificance.Notable
+                        : Domain.Services.ActivitySignificance.Routine,
+                SignificantReason = x.SignificantReason
+            })
+            .ToList();
     }
 
     private static string BuildNarrative(IReadOnlyList<ObservationEvent> timeline, int outlierCount, int notableCount)

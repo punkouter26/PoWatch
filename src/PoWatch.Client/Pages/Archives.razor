@@ -56,7 +56,30 @@
         }
         else
         {
-            <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a chapter to begin.")</p>
+            @* Toggle between Prose (the single paragraph the page always had) and Structured
+               (per-event rows). Both forms are always present in the response — flipping the
+               toggle is a pure render switch, no refetch. The toggle sits next to the heading so
+               the choice is visible at the moment the reader notices the prose is, or isn't, what
+               they want today. *@
+            <div class="narrative-mode-toggle" role="radiogroup" aria-label="Narrative form">
+                <RadzenButton Text="Prose" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                    Click="@(() => SetNarrativeMode(NarrativeMode.Prose))"
+                    Disabled="@(narrativeMode == NarrativeMode.Prose)"
+                    aria-pressed="@(narrativeMode == NarrativeMode.Prose)" />
+                <RadzenButton Text="Structured" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                    Click="@(() => SetNarrativeMode(NarrativeMode.Structured))"
+                    Disabled="@(narrativeMode == NarrativeMode.Structured)"
+                    aria-pressed="@(narrativeMode == NarrativeMode.Structured)" />
+            </div>
+
+            @if (narrativeMode == NarrativeMode.Prose)
+            {
+                <p class="narrative">@(chapter?.ClinicalNarrative ?? "Select a chapter to begin.")</p>
+            }
+            else
+            {
+                @RenderStructuredNarrative(chapter)
+            }
 
             @* The counts the narrative sentence is built from, shown as figures. A caregiver
                scanning for "was anything flagged?" should not have to read prose to find out,
@@ -321,6 +344,10 @@
     private DateTime? selectedDate;
     private string selectedShift = "FullDay";
     private DailyChapterDto? chapter;
+    /// <summary>Currently-rendered narrative form. Defaults to Prose so first-time visitors see the
+    /// familiar paragraph. The toggle is purely a render switch — the server always returns both
+    /// forms, so changing this never refetches.</summary>
+    private NarrativeMode narrativeMode = NarrativeMode.Prose;
     private bool loading;
     private readonly Dictionary<string, string> evidenceUrls = [];
     private readonly Dictionary<string, string> imageLoadStatus = []; // Track image loading state per blob path
@@ -417,6 +444,52 @@
         }
     }
 
+    /// <summary>Switch between prose and structured rendering. The server already returned both
+    /// forms in the same payload, so this is a pure render switch — no network round-trip.</summary>
+    private void SetNarrativeMode(NarrativeMode mode)
+    {
+        narrativeMode = mode;
+    }
+
+    /// <summary>The structured-narrative table: one row per event, chronologically ordered, with
+    /// a band tag so a glance at the column tells the caregiver what needs attention. Empty state
+    /// mirrors the prose empty message so the two never disagree.</summary>
+    private RenderFragment RenderStructuredNarrative(DailyChapterDto? ch) => __builder =>
+    {
+        if (ch is null || ch.StructuredRows.Count == 0)
+        {
+            <p class="narrative">Select a chapter to begin.</p>
+            return;
+        }
+
+        <table class="structured-narrative" data-test="structured-narrative" aria-label="Today's events in chronological order">
+            <thead>
+                <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Activity</th>
+                    <th scope="col">Band</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in ch.StructuredRows)
+                {
+                    <tr class="structured-narrative-row structured-narrative-row--@row.Level.ToString().ToLowerInvariant()">
+                        <td class="structured-narrative-time">@row.ObservedAtUtcLocal.ToString("HH:mm")</td>
+                        <td class="structured-narrative-subject">@row.SubjectDisplayName</td>
+                        <td class="structured-narrative-activity">@row.Activity</td>
+                        <td class="structured-narrative-band">
+                            <span class="structured-narrative-tag structured-narrative-tag--@row.Level.ToString().ToLowerInvariant()"
+                                  title="@row.SignificantReason">
+                                @row.Level
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    };
+
     private async Task PreviousDayAsync()
     {
         selectedDate = (selectedDate ?? DateTime.Today).AddDays(-1);
@@ -492,7 +565,7 @@
         try
         {
             var date = DateOnly.FromDateTime((selectedDate ?? DateTime.Today).Date);
-            chapter = await ApiClient.GetChapterAsync(date);
+            chapter = await ApiClient.GetChapterAsync(date, narrativeMode);
 
             // Persist selected date for session continuity
             await JS.InvokeVoidAsync("localStorage.setItem", "powatch:archivesDate", selectedDate?.ToString("O") ?? string.Empty);

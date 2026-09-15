@@ -24,6 +24,8 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(PoWatch.Shared.Models.PatternComparisonDto))]
 [JsonSerializable(typeof(BlobIntegrityCheckDto))]
 [JsonSerializable(typeof(DailyChapterDto))]
+[JsonSerializable(typeof(StructuredNarrativeRowDto))]
+[JsonSerializable(typeof(NarrativeMode))]
 [JsonSerializable(typeof(BlobAccessDescriptorDto))]
 [JsonSerializable(typeof(SubjectProfileDto))]
 [JsonSerializable(typeof(List<SubjectProfileDto>))]

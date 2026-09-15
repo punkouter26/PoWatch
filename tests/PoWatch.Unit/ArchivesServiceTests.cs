@@ -20,7 +20,7 @@ public sealed class ArchivesServiceTests
     {
         var service = new ArchivesService(new FakeObservationRepository([]), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         Assert.Empty(chapter.Timeline);
         Assert.Empty(chapter.Highlights);
@@ -40,7 +40,7 @@ public sealed class ArchivesServiceTests
 
         var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         Assert.Equal(3, chapter.Timeline.Count);
         Assert.Equal(2, chapter.Highlights.Count);
@@ -65,7 +65,7 @@ public sealed class ArchivesServiceTests
 
         var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         Assert.Single(chapter.Timeline);
         Assert.Equal("Settling", chapter.Timeline[0].Activity);
@@ -78,7 +78,7 @@ public sealed class ArchivesServiceTests
 
         var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         Assert.Single(chapter.Timeline);
     }
@@ -96,7 +96,7 @@ public sealed class ArchivesServiceTests
 
         var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         // The old wording keyed only off the outlier count, so a day with flagged events on screen
         // was still summarized as "Nothing unusual was flagged."
@@ -117,7 +117,7 @@ public sealed class ArchivesServiceTests
 
         var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         // An outlier is always also significant; counting both would report three flags for two events.
         Assert.Equal(1, chapter.OutlierCount);
@@ -132,10 +132,104 @@ public sealed class ArchivesServiceTests
 
         var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, CancellationToken.None);
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
         Assert.Contains("Person 529", chapter.ClinicalNarrative, StringComparison.Ordinal);
         Assert.DoesNotContain("Subject-529", chapter.ClinicalNarrative, StringComparison.Ordinal);
+    }
+
+    // ── Structured narrative ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetChapterAsync_PopulatesStructuredRows_RegardlessOfRequestedMode()
+    {
+        // The rows are always built so a client-side toggle never triggers a refetch.
+        var items = new[]
+        {
+            Event("Kim", "Seated", LocalAt(9)),
+            Event("Maya", "Entered", LocalAt(10), isSignificant: true, reason: "Arrival")
+        };
+
+        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+        var proseChapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+        var structuredChapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+
+        Assert.Equal(2, proseChapter.StructuredRows.Count);
+        Assert.Equal(2, structuredChapter.StructuredRows.Count);
+    }
+
+    [Fact]
+    public async Task GetChapterAsync_StructuredRows_AreChronologicallyOrdered()
+    {
+        var items = new[]
+        {
+            Event("Kim", "Late", LocalAt(15)),
+            Event("Kim", "Early", LocalAt(9)),
+            Event("Kim", "Middle", LocalAt(12))
+        };
+
+        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+
+        Assert.Equal(["Early", "Middle", "Late"], chapter.StructuredRows.Select(r => r.Activity).ToArray());
+    }
+
+    [Fact]
+    public async Task GetChapterAsync_StructuredRows_MapOutliersToUrgent()
+    {
+        // An outlier is also significant; in the structured view we surface the strongest band only,
+        // so it shows up as Urgent instead of stacking two rows for the same event.
+        var items = new[]
+        {
+            Event("Kim", "Fell", LocalAt(14), isSignificant: true, reason: "Fall", isOutlier: true),
+            Event("Kim", "Standing", LocalAt(15), isSignificant: true, reason: "State change")
+        };
+
+        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+
+        Assert.Equal(PoWatch.Domain.Services.ActivitySignificance.Urgent, chapter.StructuredRows[0].Level);
+        Assert.Equal(PoWatch.Domain.Services.ActivitySignificance.Notable, chapter.StructuredRows[1].Level);
+    }
+
+    [Fact]
+    public async Task GetChapterAsync_StructuredRows_HumanizeSubjectDisplayNames()
+    {
+        // The rows must use the same humanizer as the prose so the two views cannot disagree.
+        var items = new[] { Event("Subject-529", "Standing", LocalAt(14)) };
+
+        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+
+        Assert.Equal("Person 529", chapter.StructuredRows[0].SubjectDisplayName);
+    }
+
+    [Fact]
+    public async Task GetChapterAsync_StructuredRows_AreEmptyForADayWithNoObservations()
+    {
+        var service = new ArchivesService(new FakeObservationRepository([]), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+
+        Assert.Empty(chapter.StructuredRows);
+    }
+
+    [Fact]
+    public async Task GetChapterAsync_ModeField_EchoesTheRequestedMode()
+    {
+        var items = new[] { Event("Kim", "Seated", LocalAt(9)) };
+
+        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+        var prose = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+        var structured = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+
+        Assert.Equal(PoWatch.Domain.Services.ActivitySignificanceNarrativeMode.Prose, prose.Mode);
+        Assert.Equal(PoWatch.Domain.Services.ActivitySignificanceNarrativeMode.Structured, structured.Mode);
     }
 
     private static ObservationEvent Event(

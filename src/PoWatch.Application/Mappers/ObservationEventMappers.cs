@@ -1,4 +1,5 @@
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 using PoWatch.Shared.Models;
 
 namespace PoWatch.Application.Mappers;
@@ -28,4 +29,16 @@ public static class ObservationEventMappers
 
     public static List<ObservationEventDto> ToDtos(this IEnumerable<ObservationEvent> events) =>
         events.Select(ToDto).ToList();
+
+    /// <summary>
+    /// Map the Domain band enum to the Shared cross-boundary enum. The two stay in step by name
+    /// and ordinal value; this method exists so a future reorder of one does not silently invert
+    /// the other at the boundary.
+    /// </summary>
+    public static Shared.Models.ActivitySignificance ToShared(this Domain.Services.ActivitySignificance band) => band switch
+    {
+        Domain.Services.ActivitySignificance.Urgent => Shared.Models.ActivitySignificance.Urgent,
+        Domain.Services.ActivitySignificance.Notable => Shared.Models.ActivitySignificance.Notable,
+        _ => Shared.Models.ActivitySignificance.Routine
+    };
 }

@@ -15,6 +15,15 @@ public enum ActivitySignificance
     Urgent
 }
 
+/// <summary>How the daily chapter's narrative should be rendered. The prose view speaks the day
+/// in one paragraph; the structured view tabulates the same events as time-stamped rows. Both
+/// are always populated server-side so a client-side toggle never refetches.</summary>
+public enum ActivitySignificanceNarrativeMode
+{
+    Prose = 0,
+    Structured = 1,
+}
+
 /// <summary>The classifier's verdict, with the plain-language reason shown to the caregiver.</summary>
 /// <param name="Level">Discrete band the observation falls into. Authoritative: alert gates and
 /// ingest responses filter on this, never on the numeric values below.</param>

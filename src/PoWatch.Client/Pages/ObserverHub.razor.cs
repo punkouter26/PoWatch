@@ -729,7 +729,7 @@ public partial class ObserverHub
             // the heatmap builder, and the server's ShiftClock all use. Requesting the UTC day
             // shifted the Live Room timeline by the UTC offset: at UTC-5 the evening's events
             // landed on "tomorrow" and only appeared after midnight.
-            var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.Now));
+            var chapter = await ApiClient.GetChapterAsync(DateOnly.FromDateTime(DateTime.Now), NarrativeMode.Prose);
             streamItems = chapter?.Timeline is not null
                 ? chapter.Timeline.OrderByDescending(x => x.ObservedAtUtc).Take(50).ToList()
                 : [];

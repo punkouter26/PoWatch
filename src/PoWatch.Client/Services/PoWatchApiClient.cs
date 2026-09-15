@@ -16,8 +16,8 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(Json.IngestObservationResultDto, cancellationToken);
     }
 
-    public async Task<DailyChapterDto?> GetChapterAsync(DateOnly date, CancellationToken cancellationToken = default) =>
-        await httpClient.GetFromJsonAsync($"api/archives/{date:yyyy-MM-dd}", Json.DailyChapterDto, cancellationToken);
+    public async Task<DailyChapterDto?> GetChapterAsync(DateOnly date, NarrativeMode mode = NarrativeMode.Prose, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync($"api/archives/{date:yyyy-MM-dd}?mode={mode}", Json.DailyChapterDto, cancellationToken);
 
     public async Task<BlobAccessDescriptorDto?> GetBlobUploadAccessAsync(string subjectId, DateOnly date, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync($"api/blobs/sas?subjectId={Uri.EscapeDataString(subjectId)}&date={date:yyyyMMdd}", Json.BlobAccessDescriptorDto, cancellationToken);
