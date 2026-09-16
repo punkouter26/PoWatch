@@ -1,0 +1,124 @@
+@* Ambient kiosk display. Designed for the always-on wall-display case AGENT.md describes:
+   24 h sliding cookie, no blanking mid-shift. The page omits nav, theme toggle, sign-out, and
+   every interactive affordance so it reads as a one-off artefact rather than a portal into the
+   app. There is exactly one moving thing: an ambient colour that drifts toward warmer hues
+   as the day's activity increases, derived from the heatmap's most recent bucket counts. *@
+
+@page "/display"
+@attribute [AllowAnonymous]
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using PoWatch.Shared.Models
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="display-page @ActivityClass" data-test="display-page" aria-label="Ambient PoWatch display">
+    <header class="display-header">
+        <h1 class="display-title">Today</h1>
+        <span class="display-clock">@ClockText</span>
+    </header>
+
+    @if (loading)
+    {
+        <div class="display-loading" aria-hidden="true"></div>
+    }
+    else if (chapter is null)
+    {
+        <p class="display-empty">PoWatch is asleep.</p>
+    }
+    else
+    {
+        <article class="display-narrative" data-test="display-narrative">
+            @chapter.ClinicalNarrative
+        </article>
+
+        @if (chapter.Timeline.Count > 0)
+        {
+            <footer class="display-meta" aria-hidden="true">
+                @chapter.FirstEventUtc?.ToLocalTime().ToString("HH:mm")
+                –@chapter.LastEventUtc?.ToLocalTime().ToString("HH:mm")
+            </footer>
+        }
+    }
+</div>
+
+@code {
+    private DailyChapterDto? chapter;
+    private bool loading = true;
+    private DateTime NowLocal = DateTime.Now;
+    private System.Timers.Timer? clockTimer;
+    private System.Timers.Timer? pollTimer;
+    private const int PollIntervalSeconds = 60;
+
+    private string ClockText => NowLocal.ToString("HH:mm");
+
+    /// <summary>The ambient colour tracks today's activity intensity so the wall display
+    /// telegraphs "busy day" at a glance. Thresholds are deliberately coarse: this is not a
+    /// measurement, it is a mood light.</summary>
+    private string ActivityClass
+    {
+        get
+        {
+            if (chapter is null) return "display--idle";
+            return chapter.TotalEvents switch
+            {
+                0 => "display--idle",
+                <= 5 => "display--calm",
+                <= 20 => "display--steady",
+                <= 60 => "display--busy",
+                _ => "display--loud"
+            };
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        StartTimers();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            chapter = await ApiClient.GetChapterAsync(today, NarrativeMode.Prose);
+        }
+        catch
+        {
+            // The display must never error visibly — it is an unattended artefact. If the
+            // network is down, the last successful chapter (or the empty state) keeps showing.
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void StartTimers()
+    {
+        clockTimer = new System.Timers.Timer(1000) { AutoReset = true };
+        clockTimer.Elapsed += (_, _) =>
+        {
+            NowLocal = DateTime.Now;
+            InvokeAsync(StateHasChanged);
+        };
+        clockTimer.Start();
+
+        pollTimer = new System.Timers.Timer(PollIntervalSeconds * 1000) { AutoReset = true };
+        pollTimer.Elapsed += async (_, _) =>
+        {
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        };
+        pollTimer.Start();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (clockTimer is not null) { clockTimer.Stop(); clockTimer.Dispose(); clockTimer = null; }
+        if (pollTimer is not null) { pollTimer.Stop(); pollTimer.Dispose(); pollTimer = null; }
+        await ValueTask.CompletedTask;
+    }
+}

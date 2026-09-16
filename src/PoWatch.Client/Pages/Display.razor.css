@@ -1,0 +1,92 @@
+/* Ambient /display kiosk page. Colours come from tokens.css; only the activity-class
+   selector changes the ambient wash and the body becomes one of five pre-named gradients.
+   A wall display reads this from across the room; nothing here should require close focus. */
+
+.display-page {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    color: var(--color-text-bright);
+    text-align: center;
+    transition: background-color 4s var(--motion-quick), color 4s var(--motion-quick);
+}
+
+.display--idle {
+    background: var(--color-surface-1);
+    color: var(--color-text-muted);
+}
+
+.display--calm {
+    background: var(--state-info-bg);
+}
+
+.display--steady {
+    background: var(--state-warning-bg);
+}
+
+.display--busy {
+    background: color-mix(in srgb, var(--state-warning-bg) 60%, var(--state-danger-bg) 40%);
+}
+
+.display--loud {
+    background: var(--state-danger-bg);
+}
+
+.display-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-6);
+    margin-bottom: var(--space-6);
+}
+
+.display-title {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 600;
+    margin: 0;
+    color: inherit;
+}
+
+.display-clock {
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+    opacity: 0.85;
+}
+
+.display-narrative {
+    max-width: 70ch;
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    line-height: 1.5;
+    color: inherit;
+}
+
+.display-meta {
+    margin-top: var(--space-6);
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    color: inherit;
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+}
+
+.display-empty {
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    color: inherit;
+    opacity: 0.6;
+}
+
+.display-loading {
+    width: 12rem;
+    height: 0.5rem;
+    background: color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: var(--radius-full);
+    animation: display-pulse 2s ease-in-out infinite;
+}
+
+@keyframes display-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+}
