@@ -1,4 +1,5 @@
 using Microsoft.Playwright;
+using System.Text.Json.Nodes;
 
 namespace PoWatch.E2EUI;
 
@@ -102,10 +103,41 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/archives", "History");
+
+        // A rendering failure must stay on its page instead of poisoning later navigation.
+        var archiveRoute = $"{PlaywrightFixture.BaseUrl}/api/archives/*";
+        await page.RouteAsync(archiveRoute, async route =>
+        {
+            var response = await route.FetchAsync();
+            var chapter = JsonNode.Parse(await response.TextAsync())!.AsObject();
+            chapter["timeline"] = null;
+            chapter["highlights"] = new JsonArray();
+            await route.FulfillAsync(new() { Response = response, Body = chapter.ToJsonString() });
+        });
+        await page.GetByTestId("nav-link-archives").ClickAsync();
+        await Assertions.Expect(page.Locator(".po-error-panel")).ToBeVisibleAsync(new() { Timeout = 30000 });
+        await page.UnrouteAsync(archiveRoute);
+
+        await page.GetByTestId("nav-link-observer-hub").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("hero-start")).ToBeVisibleAsync();
+        await page.GetByTestId("nav-link-archives").ClickAsync();
 
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Previous day" })).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Go to today" })).ToBeVisibleAsync();
+        await page.AssertNoBlazorErrorAsync();
+
+        // A network failure must offer recovery before opening the handoff dialog.
+        await page.RouteAsync(archiveRoute, route => route.AbortAsync("failed"));
+        await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/archives?handoff=1&shift=Afternoon");
+        await Assertions.Expect(page.GetByTestId("history-load-error")).ToBeVisibleAsync(new() { Timeout = 30000 });
+        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Generate shift brief" })).Not.ToBeVisibleAsync();
+        await page.UnrouteAsync(archiveRoute);
+        await page.GetByRole(AriaRole.Button, new() { Name = "Try again" }).ClickAsync();
+        await Assertions.Expect(page.GetByTestId("history-load-error")).Not.ToBeVisibleAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Generate shift brief" }).ClickAsync();
+        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Handoff brief", Exact = true }))
+            .ToBeVisibleAsync(new() { Timeout = 30000 });
+        await page.AssertNoBlazorErrorAsync();
     }
 
     [Fact]

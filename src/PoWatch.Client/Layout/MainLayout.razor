@@ -27,7 +27,7 @@
         }
 
         <article class="content app-shell" id="main-content">
-        <ErrorBoundary>
+        <ErrorBoundary @key="Nav.Uri">
         <ChildContent>
             @Body
         </ChildContent>
@@ -120,4 +120,3 @@
         Nav.LocationChanged -= OnLocationChanged;
     }
 }
-

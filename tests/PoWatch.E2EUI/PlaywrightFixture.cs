@@ -101,6 +101,7 @@ public static class PlaywrightPageExtensions
     /// </summary>
     public static async Task AssertNoBlazorErrorAsync(this IPage page)
     {
+        await Assertions.Expect(page.Locator(".po-error-panel")).Not.ToBeVisibleAsync();
         var errorUi = page.Locator("#blazor-error-ui");
         if (await errorUi.IsVisibleAsync())
         {

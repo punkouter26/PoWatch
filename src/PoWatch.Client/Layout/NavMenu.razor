@@ -44,8 +44,6 @@
     <div class="navbar-account navbar-account--desktop">
         <AuthorizeView>
             <Authorized>
-                <NavLink class="nav-gear" href="health" title="Connection health"
-                         aria-label="Connection health" data-test="nav-link-health">♥</NavLink>
                 <NavLink class="nav-gear" href="diagnostics" title="System health & diagnostics"
                          aria-label="System health and diagnostics" data-test="nav-link-diagnostics">⚙</NavLink>
                 <button class="theme-toggle" @onclick="ToggleThemeAsync"
@@ -98,7 +96,6 @@
                 </div>
                 <div class="navbar-drawer-section">
                     <span class="navbar-drawer-label">Tools</span>
-                    <NavLink class="nav-link" href="health" @onclick="CloseDrawer">Connection health</NavLink>
                     <NavLink class="nav-link" href="diagnostics" @onclick="CloseDrawer">System</NavLink>
                     <button class="nav-link navbar-drawer-action" @onclick="ToggleThemeAsync">
                         Theme: @(_theme == "light" ? "light" : "dark")

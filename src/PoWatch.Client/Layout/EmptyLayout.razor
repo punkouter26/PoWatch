@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Nav
 @*
     A chrome-free shell used by routes that should NOT render the topbar/notification/dialog
     hosts (e.g. /login before auth, /display on a kiosk). The MainLayout owns the Radzen hosts
@@ -9,7 +10,7 @@
 *@
 
 <CascadingAuthenticationState>
-    <ErrorBoundary>
+    <ErrorBoundary @key="Nav.Uri">
         <ChildContent>
             @Body
         </ChildContent>

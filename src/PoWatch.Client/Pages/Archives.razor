@@ -52,6 +52,13 @@
                 <div class="skeleton-line skeleton-line--medium"></div>
             </div>
         }
+        else if (loadError is not null)
+        {
+            <div role="alert" data-test="history-load-error">
+                <p>@loadError</p>
+                <RadzenButton Text="Try again" Icon="refresh" Click="LoadChapterAndHandoffAsync" />
+            </div>
+        }
         else
         {
             @* Toggle between Prose (the single paragraph the page always had) and Structured
@@ -278,8 +285,15 @@
            ActivityTimeline's markup; the copy drifted — it skipped DisplayText.SubjectName, so the
            same person read "Subject-116" here and "Person 116" in the Live Room, and it lost the
            badge tooltips. Render the shared component instead. *@
-        <ActivityTimeline Items="@(chapter?.Timeline ?? [])" ShowSubjectBadge="true"
-                          EmptyMessage="No events recorded for this day." />
+        @if (loading)
+        {
+            <p>Loading observations…</p>
+        }
+        else if (loadError is null)
+        {
+            <ActivityTimeline Items="@(chapter?.Timeline ?? [])" ShowSubjectBadge="true"
+                              EmptyMessage="No events recorded for this day." />
+        }
     </RadzenCard>
 
 </div>
@@ -304,6 +318,8 @@
     /// forms, so changing this never refetches.</summary>
     private NarrativeMode narrativeMode = NarrativeMode.Prose;
     private bool loading;
+    private string? loadError;
+    private bool handoffOpened;
     private readonly Dictionary<string, string> evidenceUrls = [];
     private readonly Dictionary<string, string> imageLoadStatus = []; // Track image loading state per blob path
     private HandoffBriefDto? handoffBrief;
@@ -326,11 +342,15 @@
             selectedShift = ShiftQuery;
         }
 
-        await LoadChapterAsync();
+        await LoadChapterAndHandoffAsync();
+    }
 
-        // Deep-link straight into the handoff flow so "End shift" is genuinely one tap end-to-end.
-        if (!string.IsNullOrWhiteSpace(HandoffQuery))
+    private async Task LoadChapterAndHandoffAsync()
+    {
+        await LoadChapterAsync();
+        if (chapter is not null && !handoffOpened && !string.IsNullOrWhiteSpace(HandoffQuery))
         {
+            handoffOpened = true;
             await OpenHandoffDialogAsync();
         }
     }
@@ -464,11 +484,22 @@
     private async Task LoadChapterAsync()
     {
         loading = true;
+        loadError = null;
         StateHasChanged();
         try
         {
             var date = DateOnly.FromDateTime((selectedDate ?? DateTime.Today).Date);
-            chapter = await ApiClient.GetChapterAsync(date, narrativeMode);
+            try
+            {
+                chapter = await ApiClient.GetChapterAsync(date, narrativeMode);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode is null)
+            {
+                // Retry a briefly interrupted connection once before asking the operator.
+                await Task.Delay(500);
+                chapter = await ApiClient.GetChapterAsync(date, narrativeMode);
+            }
+            if (chapter is null) throw new InvalidOperationException("No chapter was returned.");
 
             evidenceUrls.Clear();
             imageLoadStatus.Clear();
@@ -525,7 +556,7 @@
                     var candidates = evidenceUrls.ToList();
                     var loadable = await JS.InvokeAsync<string[]>(
                         "PoWatchImages.filterLoadable",
-                        candidates.Select(kv => kv.Value).ToArray());
+                        [candidates.Select(kv => kv.Value).ToArray()]);
                     var loadableSet = new HashSet<string>(loadable, StringComparer.Ordinal);
                     foreach (var kv in candidates)
                     {
@@ -542,12 +573,12 @@
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             chapter = null;
             evidenceUrls.Clear();
             imageLoadStatus.Clear();
-            NotificationService.Notify(NotificationSeverity.Error, "Archives", ex.Message, duration: 6000);
+            loadError = "Couldn’t load this day. Check your connection and try again.";
         }
         finally
         {
