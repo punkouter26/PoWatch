@@ -78,6 +78,12 @@ public static class DependencyInjection
         services.AddSingleton<IHandoffMemoStore, InMemoryHandoffMemoStore>();
         services.AddSingleton<HandoffMemoService>();
 
+        // Family share links: in-memory until an Azure-backed variant is added. The link is the
+        // entire security model — long id, short TTL, single-purpose — so even an in-memory
+        // implementation honours the product promise.
+        services.AddSingleton<IShareLinkRepository, InMemoryShareLinkRepository>();
+        services.AddSingleton<ShareLinkService>();
+
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
         services.AddSingleton<ITelemetryContentSanitizer, TelemetryContentSanitizer>();

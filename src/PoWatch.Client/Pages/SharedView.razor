@@ -1,0 +1,107 @@
+@page "/share/{LinkId}"
+@using PoWatch.Shared.Models
+@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
+@inject HttpClient HttpClient
+@inject NavigationManager Nav
+
+<PageTitle>PoWatch | Shared day</PageTitle>
+
+@* Anonymous read view of a family share link. Lives outside the authenticated shell — the
+   layout deliberately omits nav, theme toggle, and the signed-in chrome, so the page reads
+   like a one-off artefact rather than a portal into the rest of the app. *@
+
+<div class="shared-view">
+    <header class="shared-view-header">
+        <h1>Today at a glance</h1>
+        @if (view is not null)
+        {
+            <p class="shared-view-meta">
+                @view.Date.ToString("dddd, d MMMM yyyy") ·
+                Link expires @view.ExpiresAtUtc.ToLocalTime().ToString("HH:mm")
+            </p>
+        }
+    </header>
+
+    @if (loading)
+    {
+        <div class="skeleton-block">
+            <div class="skeleton-line skeleton-line--wide"></div>
+            <div class="skeleton-line skeleton-line--medium"></div>
+            <div class="skeleton-line skeleton-line--wide"></div>
+        </div>
+    }
+    else if (notFound)
+    {
+        <section class="shared-view-empty" aria-labelledby="shared-view-empty-title">
+            <h2 id="shared-view-empty-title">This link isn't available</h2>
+            <p>The link may have been revoked or never existed. If someone shared it with you, ask them to send a new one.</p>
+        </section>
+    }
+    else if (gone)
+    {
+        <section class="shared-view-empty" aria-labelledby="shared-view-gone-title">
+            <h2 id="shared-view-gone-title">This link has expired</h2>
+            <p>Family share links are valid for 24 hours. The caregiver can create a new one for the latest day.</p>
+        </section>
+    }
+    else if (view is not null)
+    {
+        <article class="shared-view-narrative" data-test="shared-view-narrative">
+            @view.AnonymisedNarrative
+        </article>
+        <p class="shared-view-foot">
+            Names have been replaced with neutral placeholders. No images or video are included — this is a text summary only.
+        </p>
+    }
+    else
+    {
+        <p class="shared-view-empty">Select a shared link to view.</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string LinkId { get; set; } = string.Empty;
+
+    private ShareLinkViewDto? view;
+    private bool loading = true;
+    private bool notFound;
+    private bool gone;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        notFound = false;
+        gone = false;
+        view = null;
+
+        try
+        {
+            // We probe the URL with HttpClient directly so we can distinguish 404 from 410.
+            // (The API client returns null on both and would conflate them otherwise.) The
+            // anonymous endpoint requires no credentials; HttpClient here is the BFF-injected
+            // one, which is the same one the authenticated pages use.
+            using var response = await HttpClient.GetAsync($"api/share/view/{Uri.EscapeDataString(LinkId)}");
+            if (response.StatusCode == System.Net.HttpStatusCode.Gone)
+            {
+                gone = true;
+            }
+            else if (!response.IsSuccessStatusCode)
+            {
+                notFound = true;
+            }
+            else
+            {
+                view = await response.Content.ReadFromJsonAsync(
+                    PoWatch.Client.Services.PoWatchJsonContext.Default.ShareLinkViewDto);
+            }
+        }
+        catch
+        {
+            notFound = true;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

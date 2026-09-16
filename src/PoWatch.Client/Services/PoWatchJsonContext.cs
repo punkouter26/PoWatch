@@ -50,4 +50,7 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(HealthReportDto))]
 [JsonSerializable(typeof(HandoffMemoDto))]
 [JsonSerializable(typeof(List<HandoffMemoDto>))]
+[JsonSerializable(typeof(ShareLinkSummaryDto))]
+[JsonSerializable(typeof(ShareLinkViewDto))]
+[JsonSerializable(typeof(CreateShareLinkRequestDto))]
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;

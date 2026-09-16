@@ -93,6 +93,29 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return items ?? [];
     }
 
+    public async Task<ShareLinkSummaryDto?> CreateShareLinkAsync(DateOnly? date = null, int? ttlHours = null, CancellationToken cancellationToken = default)
+    {
+        var body = new CreateShareLinkRequestDto { Date = date, TtlHours = ttlHours };
+        var response = await httpClient.PostAsJsonAsync("api/share/links", body, Json.CreateShareLinkRequestDto, cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync(Json.ShareLinkSummaryDto, cancellationToken);
+    }
+
+    public async Task<bool> RevokeShareLinkAsync(string id, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync($"api/share/links/{Uri.EscapeDataString(id)}", cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<ShareLinkViewDto?> ViewShareLinkAsync(string id, CancellationToken cancellationToken = default)
+    {
+        // The family-view endpoint is anonymous and uses the regular HttpClient — the BFF cookie
+        // is not sent for an AllowAnonymous route, so this works whether or not the viewer is
+        // logged in.
+        var items = await httpClient.GetFromJsonAsync($"api/share/view/{Uri.EscapeDataString(id)}", Json.ShareLinkViewDto, cancellationToken);
+        return items;
+    }
+
     public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken = default)
     {
         var items = await httpClient.GetFromJsonAsync("api/identity/subjects/live-status", Json.ListSubjectLiveStatusDto, cancellationToken);
