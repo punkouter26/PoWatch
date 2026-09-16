@@ -307,3 +307,15 @@
         width: 100%;
     }
 }
+
+.runtime-details > summary,
+.diagnostics-advanced > summary {
+    cursor: pointer;
+    color: var(--text-primary);
+    padding-block: var(--space-3);
+    font-weight: 600;
+}
+
+.diagnostics-advanced[open] > summary {
+    margin-bottom: var(--space-3);
+}

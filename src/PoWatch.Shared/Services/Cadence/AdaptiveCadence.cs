@@ -2,7 +2,7 @@ namespace PoWatch.Shared.Services.Cadence;
 
 /// <summary>
 /// Maps a frame-diff score to a poll interval. The score is the fraction of bytes that changed
-/// beyond a small threshold between two consecutive frames (see frame-diff.js). A near-zero
+/// beyond a small threshold between consecutive frames in the inference bridge. A near-zero
 /// score means "the room is still" — slow the cadence; a high score means "something moved"
 /// — ramp it back up so the next model call has fresh material.
 ///

@@ -32,182 +32,199 @@ public sealed class HandoffCoachServiceTests
     // ── Audience handling ─────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GenerateBriefAsync_UsesNurseToNurse_WhenAudienceIsInvalid()
+    public async Task GenerateBriefAsync_UsesNurseToNurse_WhenAudienceIsInvalid_And_GenerateBriefAsync_FallsBackToNurseToNurse_WhenFamilySafeDisabled()
     {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured);
+        // GenerateBriefAsync_UsesNurseToNurse_WhenAudienceIsInvalid
+        {
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured);
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "InvalidAudience" },
-            CancellationToken.None);
+            await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "InvalidAudience" },
+                CancellationToken.None);
 
-        Assert.Equal("NurseToNurse", captured.LastContext!.Audience);
+            Assert.Equal("NurseToNurse", captured.LastContext!.Audience);
+
+        }
+        // GenerateBriefAsync_FallsBackToNurseToNurse_WhenFamilySafeDisabled
+        {
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured, handoffOptions: new HandoffCoachOptions { MaxPromptSignificantEvents = 20, MaxPromptOutlierEvents = 10, AllowFamilySafeSummary = false });
+
+            await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "FamilySafe" },
+                CancellationToken.None);
+
+            // FamilySafe blocked → NurseToNurse
+            Assert.Equal("NurseToNurse", captured.LastContext!.Audience);
+
+        }
     }
 
     [Fact]
-    public async Task GenerateBriefAsync_FallsBackToNurseToNurse_WhenFamilySafeDisabled()
+    public async Task GenerateBriefAsync_AllowsFamilySafe_WhenOptionEnabled_And_GenerateBriefAsync_PassesThroughValidAudiences()
     {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured, handoffOptions: new HandoffCoachOptions { MaxPromptSignificantEvents = 20, MaxPromptOutlierEvents = 10, AllowFamilySafeSummary = false });
+        // GenerateBriefAsync_AllowsFamilySafe_WhenOptionEnabled
+        {
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured, handoffOptions: new HandoffCoachOptions { MaxPromptSignificantEvents = 20, MaxPromptOutlierEvents = 10, AllowFamilySafeSummary = true });
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "FamilySafe" },
-            CancellationToken.None);
+            await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "FamilySafe" },
+                CancellationToken.None);
 
-        // FamilySafe blocked → NurseToNurse
-        Assert.Equal("NurseToNurse", captured.LastContext!.Audience);
-    }
+            Assert.Equal("FamilySafe", captured.LastContext!.Audience);
 
-    [Fact]
-    public async Task GenerateBriefAsync_AllowsFamilySafe_WhenOptionEnabled()
-    {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured, handoffOptions: new HandoffCoachOptions { MaxPromptSignificantEvents = 20, MaxPromptOutlierEvents = 10, AllowFamilySafeSummary = true });
+        }
+        // GenerateBriefAsync_PassesThroughValidAudiences
+        {
+            foreach (string audience in new string[] { "NurseToNurse", "Supervisor" })
+            {
+                var captured = new CapturingSummarizer();
+                var service = BuildService(captured);
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "FamilySafe" },
-            CancellationToken.None);
+                await service.GenerateBriefAsync(
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = audience },
+                    CancellationToken.None);
 
-        Assert.Equal("FamilySafe", captured.LastContext!.Audience);
-    }
+                Assert.Equal(audience, captured.LastContext!.Audience);
 
-    [Theory]
-    [InlineData("NurseToNurse")]
-    [InlineData("Supervisor")]
-    public async Task GenerateBriefAsync_PassesThroughValidAudiences(string audience)
-    {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured);
+            }
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = audience },
-            CancellationToken.None);
-
-        Assert.Equal(audience, captured.LastContext!.Audience);
+        }
     }
 
     // ── Shift window parsing ──────────────────────────────────────────────────
 
     [Fact]
-    public async Task GenerateBriefAsync_DefaultsToFullDay_WhenShiftWindowIsInvalid()
+    public async Task GenerateBriefAsync_DefaultsToFullDay_WhenShiftWindowIsInvalid_And_GenerateBriefAsync_MapsHandoffSummaryContentToDto()
     {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured);
+        // GenerateBriefAsync_DefaultsToFullDay_WhenShiftWindowIsInvalid
+        {
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured);
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "UnknownShift", Audience = "NurseToNurse" },
-            CancellationToken.None);
+            await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "UnknownShift", Audience = "NurseToNurse" },
+                CancellationToken.None);
 
-        Assert.Equal("FullDay", captured.LastContext!.ShiftWindow);
+            Assert.Equal("FullDay", captured.LastContext!.ShiftWindow);
+
+        }
+        // GenerateBriefAsync_MapsHandoffSummaryContentToDto
+        {
+            var stubContent = new HandoffSummaryContent
+            {
+                Summary = "Shift was calm.",
+                PriorityItems = ["Watch subject A"],
+                FollowUps = ["Follow up on vitals"],
+                SourceNotes = ["PoWatch template"],
+                IsAiGenerated = false
+            };
+
+            var service = BuildService(new StubSummarizer(stubContent));
+
+            var dto = await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
+                CancellationToken.None);
+
+            Assert.Equal("Shift was calm.", dto.Summary);
+            Assert.Single(dto.PriorityItems);
+            Assert.Equal("Watch subject A", dto.PriorityItems[0]);
+            Assert.Single(dto.FollowUps);
+            Assert.Single(dto.SourceNotes);
+            Assert.False(dto.IsAiGenerated);
+
+        }
     }
 
     // ── DTO mapping ───────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GenerateBriefAsync_MapsHandoffSummaryContentToDto()
+    public async Task GenerateBriefAsync_PropagatesToIsAiGenerated_WhenAiPath_And_GenerateBriefAsync_IncludesDriftContext_WhenDriftRadarEnabled()
     {
-        var stubContent = new HandoffSummaryContent
+        // GenerateBriefAsync_PropagatesToIsAiGenerated_WhenAiPath
         {
-            Summary = "Shift was calm.",
-            PriorityItems = ["Watch subject A"],
-            FollowUps = ["Follow up on vitals"],
-            SourceNotes = ["PoWatch template"],
-            IsAiGenerated = false
-        };
+            var stubContent = new HandoffSummaryContent
+            {
+                Summary = "AI summary.",
+                PriorityItems = [],
+                FollowUps = [],
+                SourceNotes = [],
+                IsAiGenerated = true
+            };
 
-        var service = BuildService(new StubSummarizer(stubContent));
+            var service = BuildService(new StubSummarizer(stubContent));
 
-        var dto = await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
-            CancellationToken.None);
+            var dto = await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "Supervisor" },
+                CancellationToken.None);
 
-        Assert.Equal("Shift was calm.", dto.Summary);
-        Assert.Single(dto.PriorityItems);
-        Assert.Equal("Watch subject A", dto.PriorityItems[0]);
-        Assert.Single(dto.FollowUps);
-        Assert.Single(dto.SourceNotes);
-        Assert.False(dto.IsAiGenerated);
-    }
+            Assert.True(dto.IsAiGenerated);
 
-    [Fact]
-    public async Task GenerateBriefAsync_PropagatesToIsAiGenerated_WhenAiPath()
-    {
-        var stubContent = new HandoffSummaryContent
+        }
+        // GenerateBriefAsync_IncludesDriftContext_WhenDriftRadarEnabled
         {
-            Summary = "AI summary.",
-            PriorityItems = [],
-            FollowUps = [],
-            SourceNotes = [],
-            IsAiGenerated = true
-        };
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured, featureFlags: FlagsWithDriftEnabled,
+                subjects: [Subject("alice", "Alice")],
+                todayDriftEvents: DriftEvents("alice", 5, 10));
 
-        var service = BuildService(new StubSummarizer(stubContent));
+            await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
+                CancellationToken.None);
 
-        var dto = await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "Supervisor" },
-            CancellationToken.None);
+            // Drift status should be populated when drift radar is enabled
+            Assert.NotNull(captured.LastContext!.DriftStatus);
 
-        Assert.True(dto.IsAiGenerated);
+        }
     }
 
     // ── Drift context ─────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GenerateBriefAsync_IncludesDriftContext_WhenDriftRadarEnabled()
+    public async Task GenerateBriefAsync_ExcludesDriftContext_WhenDriftRadarDisabled_And_GenerateBriefAsync_ExcludesDriftContext_ForAPastDate()
     {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured, featureFlags: FlagsWithDriftEnabled,
-            subjects: [Subject("alice", "Alice")],
-            todayDriftEvents: DriftEvents("alice", 5, 10));
+        // GenerateBriefAsync_ExcludesDriftContext_WhenDriftRadarDisabled
+        {
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured, featureFlags: FlagsWithDriftDisabled,
+                subjects: [Subject("bob", "Bob")],
+                todayDriftEvents: DriftEvents("bob", 5, 10));
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
-            CancellationToken.None);
+            await service.GenerateBriefAsync(
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
+                CancellationToken.None);
 
-        // Drift status should be populated when drift radar is enabled
-        Assert.NotNull(captured.LastContext!.DriftStatus);
-    }
+            Assert.Empty(captured.LastContext!.DriftStatus);
 
-    [Fact]
-    public async Task GenerateBriefAsync_ExcludesDriftContext_WhenDriftRadarDisabled()
-    {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured, featureFlags: FlagsWithDriftDisabled,
-            subjects: [Subject("bob", "Bob")],
-            todayDriftEvents: DriftEvents("bob", 5, 10));
+        }
+        // GenerateBriefAsync_ExcludesDriftContext_ForAPastDate
+        {
+            var captured = new CapturingSummarizer();
+            var service = BuildService(captured, featureFlags: FlagsWithDriftEnabled,
+                subjects: [Subject("alice", "Alice")],
+                todayDriftEvents: DriftEvents("alice", 5, 10));
 
-        await service.GenerateBriefAsync(
-            DateOnly.FromDateTime(DateTime.UtcNow),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
-            CancellationToken.None);
+            await service.GenerateBriefAsync(
+                ShiftClock.Today().AddDays(-3),
+                new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
+                CancellationToken.None);
 
-        Assert.Empty(captured.LastContext!.DriftStatus);
-    }
+            // Drift Radar takes no date — it always scores today. Attaching it to an older brief
+            // presented current behaviour as if it had happened during that shift.
+            Assert.Empty(captured.LastContext!.DriftStatus);
 
-    [Fact]
-    public async Task GenerateBriefAsync_ExcludesDriftContext_ForAPastDate()
-    {
-        var captured = new CapturingSummarizer();
-        var service = BuildService(captured, featureFlags: FlagsWithDriftEnabled,
-            subjects: [Subject("alice", "Alice")],
-            todayDriftEvents: DriftEvents("alice", 5, 10));
-
-        await service.GenerateBriefAsync(
-            ShiftClock.Today().AddDays(-3),
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
-            CancellationToken.None);
-
-        // Drift Radar takes no date — it always scores today. Attaching it to an older brief
-        // presented current behaviour as if it had happened during that shift.
-        Assert.Empty(captured.LastContext!.DriftStatus);
+        }
     }
 
     [Fact]

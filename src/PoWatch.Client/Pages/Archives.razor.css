@@ -1,197 +1,187 @@
 .archive-toolbar {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    margin-bottom: var(--space-4);
-    flex-wrap: wrap;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .narrative {
-    line-height: 1.6;
-    color: var(--color-text-primary);
+  line-height: 1.6;
+  color: var(--color-text-primary);
 }
 
-/* "No observations" is an absence of data, not a success. On the success ramp — the same green
-   the app uses for healthy/connected — an empty day read as a clean bill of health. */
 .archive-empty {
-    margin-top: 1rem;
-    padding: 0.9rem 1rem;
-    border-radius: var(--radius-md);
-    background: var(--color-surface-2);
-    border: 1px solid var(--color-border-subtle);
-    color: var(--color-text-muted);
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
 }
 
 .archive-empty p {
-    margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-2);
 }
 
 .archive-empty-cta {
-    display: inline-block;
-    color: var(--color-accent);
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    transition: opacity 0.15s;
+  display: inline-block;
+  color: var(--color-accent);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s;
 }
 
 .archive-empty-cta:hover {
-    opacity: 0.75;
-    text-decoration: underline;
+  opacity: 0.75;
+  text-decoration: underline;
 }
 
-/* Image-first evidence cards — CSS columns masonry layout */
 .evidence-grid {
-    columns: 3;
-    column-gap: var(--space-3);
-    margin-top: var(--space-2);
+  columns: 3;
+  column-gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
-/* Card chrome follows the theme; only the caption strip over the photo stays dark, because it
-   sits on the image rather than on the page. */
 .evidence-card {
-    break-inside: avoid;
-    margin-bottom: var(--space-3);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    background: var(--color-surface-2);
-    transition: border-color 0.2s, box-shadow 0.2s;
-    cursor: pointer;
+  break-inside: avoid;
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-2);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  cursor: pointer;
 }
 
 .evidence-card:hover {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-md);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
 }
 
-/* ── Lightbox (RenderTreeBuilder markup) — replaces inline styles (audit #7) ── */
-.lightbox-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.lightbox-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 .lightbox-image {
-    max-width: 100%;
-    max-height: 70vh;
-    border-radius: var(--radius-md);
-    display: block;
-    margin: 0 auto;
-}
-.lightbox-missing {
-    color: var(--color-text-muted);
-    text-align: center;
-    padding: var(--space-8);
-    margin: 0;
-}
-.lightbox-meta {
-    margin-top: var(--space-3);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    text-align: center;
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: var(--radius-md);
+  display: block;
+  margin: 0 auto;
 }
 
-/* Toolbar progress bar (was inline Style=… audit #7) */
+.lightbox-missing {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-8);
+  margin: 0;
+}
+
+.lightbox-meta {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 .archive-progress {
-    height: 4px;
-    width: 100px;
-    align-self: center;
+  height: 4px;
+  width: 100px;
+  align-self: center;
 }
 
 .evidence-image-wrap {
-    position: relative;
+  position: relative;
 }
 
 .evidence-full-img {
-    width: 100%;
-    height: 140px;
-    object-fit: cover;
-    display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
 }
 
 .evidence-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 140px;
-    background: var(--color-surface-3);
-    color: var(--color-text-muted);
-    font-weight: 700;
-    font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+  font-weight: 700;
+  font-size: 1.1rem;
 }
 
 .evidence-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(transparent, rgba(5, 3, 10, 0.88));
-    padding: 0.5rem 0.6rem 0.35rem;
-    display: flex;
-    flex-direction: column;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(5, 3, 10, 0.88));
+  padding: 0.5rem 0.6rem 0.35rem;
+  display: flex;
+  flex-direction: column;
 }
 
-/* These two sit on the dark scrim painted over the photo, so they are deliberately fixed light
-   ink in both themes — var(--text-primary) followed the theme and turned black-on-black here. */
 .evidence-subject {
-    font-weight: 700;
-    font-size: 0.88rem;
-    color: #ffffff;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #ffffff;
 }
 
 .evidence-activity {
-    font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .evidence-caption {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 0.4rem 0.6rem;
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .evidence-time {
-    font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono, monospace);
 }
 
 @media (max-width: 760px) {
-    .archive-toolbar {
-        display: grid;
-        grid-template-columns: 40px 1fr 40px;
-        gap: 0.45rem;
-        align-items: center;
-    }
-
-    .archive-toolbar-divider {
-        display: none;
-    }
-
-    .archive-toolbar .rz-datepicker,
-    .archive-toolbar .rz-dropdown,
-    .archive-toolbar .rz-button {
-        width: 100%;
-    }
-
-    .archive-toolbar .rz-dropdown {
-        grid-column: 1 / -1;
-    }
-
-    .archive-toolbar .rz-button:last-child {
-        grid-column: 1 / -1;
-    }
-
-    .evidence-grid {
-        columns: 2;
-        gap: 0.6rem;
-    }
-
-    .evidence-full-img {
-        height: 122px;
-    }
+  .archive-toolbar {
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    gap: 0.45rem;
+    align-items: center;
+  }
+  .archive-toolbar .rz-datepicker,
+  .archive-toolbar .rz-dropdown,
+  .archive-toolbar .rz-button {
+    width: 100%;
+  }
+  .archive-toolbar .rz-dropdown {
+    grid-column: 1 / -1;
+  }
+  .archive-toolbar .rz-button:last-child {
+    grid-column: 1 / -1;
+  }
+  .evidence-grid {
+    columns: 2;
+    gap: 0.6rem;
+  }
+  .evidence-full-img {
+    height: 122px;
+  }
 }
 
-/* Initial hidden state for the image-failure placeholder (shown via onerror inline style). */
 .is-hidden {
-    display: none;
+  display: none;
 }

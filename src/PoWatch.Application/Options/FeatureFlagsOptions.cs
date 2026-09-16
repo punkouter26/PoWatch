@@ -17,14 +17,8 @@ public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
     /// <summary>When true, the API loads Azure Key Vault configuration and registers the Key Vault health check.</summary>
     public bool EnableKeyVault { get; init; } = false;
 
-    /// <summary>When true, the FHIR R4 Observation export endpoint is available.</summary>
-    public bool FhirExportEnabled { get; init; } = true;
-
     // NOTE: the old BaselineEnabled flag ("nightly drift baseline service") is removed — no such
     // background service exists; drift is computed on demand by DriftRadarService per request.
-
-    /// <summary>When true and AzureOpenAi:Endpoint is configured, the Handoff Coach uses Azure OpenAI for brief generation.</summary>
-    public bool AzureOpenAiEnabled { get; init; } = false;
 
     /// <summary>When true, the POST /api/diagnostics/reset endpoint is active. NEVER enable in production.</summary>
     public bool AllowDataReset { get; init; } = false;

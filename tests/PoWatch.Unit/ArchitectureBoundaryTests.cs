@@ -27,29 +27,35 @@ public sealed class ArchitectureBoundaryTests
             .ToArray();
 
     // PoWatch.Shared is the cross-boundary DTO contract: it must not depend on any other PoWatch project.
-    [Theory]
-    [InlineData(Domain)]
-    [InlineData(Application)]
-    [InlineData(Infrastructure)]
-    [InlineData(Api)]
-    public void Shared_is_dto_only_and_references_no_other_project(string forbidden) =>
-        Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SubjectProfileDto).Assembly));
+    [Fact]
+    public void Shared_is_dto_only_and_references_no_other_project()
+    {
+        foreach (string forbidden in new string[] { Domain, Application, Infrastructure, Api })
+        {
+            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SubjectProfileDto).Assembly));
+        }
+    }
 
     // PoWatch.Domain is the innermost layer: no outward dependencies at all.
-    [Theory]
-    [InlineData(Application)]
-    [InlineData(Infrastructure)]
-    [InlineData(Api)]
-    public void Domain_depends_on_no_outer_layer(string forbidden) =>
-        Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SubjectProfile).Assembly));
+    [Fact]
+    public void Domain_depends_on_no_outer_layer()
+    {
+        foreach (string forbidden in new string[] { Application, Infrastructure, Api })
+        {
+            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SubjectProfile).Assembly));
+        }
+    }
 
     // PoWatch.Application owns contracts + business services; concrete infrastructure and the web host
     // depend on it, never the reverse (dependency inversion).
-    [Theory]
-    [InlineData(Infrastructure)]
-    [InlineData(Api)]
-    public void Application_does_not_reference_infrastructure_or_host(string forbidden) =>
-        Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(IdentityService).Assembly));
+    [Fact]
+    public void Application_does_not_reference_infrastructure_or_host()
+    {
+        foreach (string forbidden in new string[] { Infrastructure, Api })
+        {
+            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(IdentityService).Assembly));
+        }
+    }
 
     // Infrastructure implements Application contracts but must never reference the API host assembly.
     [Fact]

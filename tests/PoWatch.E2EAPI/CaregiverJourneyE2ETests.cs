@@ -221,20 +221,6 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task An_observation_maps_into_a_FHIR_resource()
-    {
-        var hint = $"fhir-{Guid.NewGuid():N}";
-        var ingest = await IngestAsync(hint, "Person seated using laptop");
-        hint = ingest.SubjectId;
-
-        var response = await _client.GetAsync($"/fhir/Observation?subject={hint}&date={Today:yyyy-MM-dd}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Observation", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task A_registered_known_person_is_marked_as_known()
     {
         var name = $"Known-{Guid.NewGuid():N}"[..12];

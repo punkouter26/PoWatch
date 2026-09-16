@@ -187,35 +187,6 @@ internal static class IdentityEndpoints
         .Produces<List<SubjectDriftStatusDto>>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status503ServiceUnavailable);
 
-        group.MapGet("/subjects/{subjectId}/baseline", async (
-            string subjectId,
-            int? days,
-            DriftRadarService driftRadarService,
-            ILogger<Program> logger,
-            CancellationToken cancellationToken) =>
-        {
-            if (string.IsNullOrWhiteSpace(subjectId))
-                return Results.BadRequest(new { message = "subjectId is required." });
-
-            var baselineDays = Math.Clamp(days ?? 7, 1, 90);
-            logger.LogInformation(
-                "Baseline requested. SubjectId={SubjectId} Days={Days} TraceId={TraceId}",
-                subjectId, baselineDays, Activity.Current?.TraceId.ToString());
-
-            // The computation lives in DriftRadarService (one home for drift math + configurable
-            // thresholds). The endpoint only translates HTTP.
-            var baseline = await driftRadarService.GetSubjectBaselineAsync(subjectId, baselineDays, cancellationToken);
-            if (baseline is null)
-                return Results.NotFound(new { message = $"Subject '{subjectId}' was not found." });
-
-            return Results.Ok(baseline);
-        })
-        .WithName("IdentitySubjectBaseline")
-        .WithSummary("Get the 7-day behavioral baseline and drift score for a subject.")
-        .Produces<SubjectBaselineDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound);
-
         return app;
     }
 }

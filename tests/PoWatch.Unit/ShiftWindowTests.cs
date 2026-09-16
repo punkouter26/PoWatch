@@ -23,103 +23,121 @@ public sealed class ShiftWindowTests
 
     // ── ShiftClock.WindowFor ──────────────────────────────────────────────────
 
-    [Theory]
-    [InlineData(ShiftWindow.Morning, 6, 14)]
-    [InlineData(ShiftWindow.Afternoon, 14, 22)]
-    public void WindowFor_MapsDayShiftsToTheirLocalHours(ShiftWindow window, int startHour, int endHour)
+    [Fact]
+    public void WindowFor_MapsDayShiftsToTheirLocalHours_And_WindowFor_NightRunsIntoTheFollowingMorning()
     {
-        var (startUtc, endUtc) = ShiftClock.WindowFor(Day, window);
+        // WindowFor_MapsDayShiftsToTheirLocalHours
+        {
+            foreach (var (window, startHour, endHour) in new (ShiftWindow window, int startHour, int endHour)[]
+            {
+                (ShiftWindow.Morning, 6, 14),
+                (ShiftWindow.Afternoon, 14, 22),
+            })
+            {
+                var (startUtc, endUtc) = ShiftClock.WindowFor(Day, window);
 
-        Assert.Equal(LocalAt(startHour), startUtc);
-        Assert.Equal(LocalAt(endHour), endUtc);
+                Assert.Equal(LocalAt(startHour), startUtc);
+                Assert.Equal(LocalAt(endHour), endUtc);
+
+            }
+
+        }
+        // WindowFor_NightRunsIntoTheFollowingMorning
+        {
+            var (startUtc, endUtc) = ShiftClock.WindowFor(Day, ShiftWindow.Night);
+
+            // A night shift is one continuous stretch of work. The previous implementation treated it as
+            // 22:00–24:00 plus 00:00–06:00 of the SAME calendar day — two disjoint pieces eight hours
+            // apart, so a brief for "the night of the 14th" described two different nights.
+            Assert.Equal(LocalAt(22), startUtc);
+            Assert.Equal(LocalAt(6, 0, 1), endUtc);
+
+        }
     }
 
     [Fact]
-    public void WindowFor_NightRunsIntoTheFollowingMorning()
+    public void WindowFor_FullDayCoversLocalMidnightToMidnight_And_WindowFor_ShiftsTileTheDayWithoutGapOrOverlap()
     {
-        var (startUtc, endUtc) = ShiftClock.WindowFor(Day, ShiftWindow.Night);
+        // WindowFor_FullDayCoversLocalMidnightToMidnight
+        {
+            var (startUtc, endUtc) = ShiftClock.WindowFor(Day, ShiftWindow.FullDay);
 
-        // A night shift is one continuous stretch of work. The previous implementation treated it as
-        // 22:00–24:00 plus 00:00–06:00 of the SAME calendar day — two disjoint pieces eight hours
-        // apart, so a brief for "the night of the 14th" described two different nights.
-        Assert.Equal(LocalAt(22), startUtc);
-        Assert.Equal(LocalAt(6, 0, 1), endUtc);
-    }
+            Assert.Equal(LocalAt(0), startUtc);
+            Assert.Equal(LocalAt(0, 0, 1), endUtc);
 
-    [Fact]
-    public void WindowFor_FullDayCoversLocalMidnightToMidnight()
-    {
-        var (startUtc, endUtc) = ShiftClock.WindowFor(Day, ShiftWindow.FullDay);
+        }
+        // WindowFor_ShiftsTileTheDayWithoutGapOrOverlap
+        {
+            var morning = ShiftClock.WindowFor(Day, ShiftWindow.Morning);
+            var afternoon = ShiftClock.WindowFor(Day, ShiftWindow.Afternoon);
+            var night = ShiftClock.WindowFor(Day, ShiftWindow.Night);
+            var nextMorning = ShiftClock.WindowFor(Day.AddDays(1), ShiftWindow.Morning);
 
-        Assert.Equal(LocalAt(0), startUtc);
-        Assert.Equal(LocalAt(0, 0, 1), endUtc);
-    }
+            Assert.Equal(morning.EndUtc, afternoon.StartUtc);
+            Assert.Equal(afternoon.EndUtc, night.StartUtc);
+            Assert.Equal(night.EndUtc, nextMorning.StartUtc);
 
-    [Fact]
-    public void WindowFor_ShiftsTileTheDayWithoutGapOrOverlap()
-    {
-        var morning = ShiftClock.WindowFor(Day, ShiftWindow.Morning);
-        var afternoon = ShiftClock.WindowFor(Day, ShiftWindow.Afternoon);
-        var night = ShiftClock.WindowFor(Day, ShiftWindow.Night);
-        var nextMorning = ShiftClock.WindowFor(Day.AddDays(1), ShiftWindow.Morning);
-
-        Assert.Equal(morning.EndUtc, afternoon.StartUtc);
-        Assert.Equal(afternoon.EndUtc, night.StartUtc);
-        Assert.Equal(night.EndUtc, nextMorning.StartUtc);
+        }
     }
 
     // ── ReportService end-to-end over those windows ───────────────────────────
 
     [Fact]
-    public async Task AfternoonReport_UsesHalfOpenBoundaries()
+    public async Task AfternoonReport_UsesHalfOpenBoundaries_And_NightReport_IncludesTheSmallHoursOfTheFollowingDay()
     {
-        var report = await BuildReport(ShiftWindow.Afternoon,
-            Event("Kim", "Just before", LocalAt(13, 59)),
-            Event("Kim", "On the boundary", LocalAt(14, 0)),
-            Event("Kim", "Inside", LocalAt(20, 0)),
-            Event("Kim", "On the far boundary", LocalAt(22, 0)));
+        // AfternoonReport_UsesHalfOpenBoundaries
+        {
+            var report = await BuildReport(ShiftWindow.Afternoon,
+                Event("Kim", "Just before", LocalAt(13, 59)),
+                Event("Kim", "On the boundary", LocalAt(14, 0)),
+                Event("Kim", "Inside", LocalAt(20, 0)),
+                Event("Kim", "On the far boundary", LocalAt(22, 0)));
 
-        Assert.Equal(2, report.TotalEvents);
-        Assert.Equal(LocalAt(14), report.WindowStartUtc);
-        Assert.Equal(LocalAt(22), report.WindowEndUtc);
+            Assert.Equal(2, report.TotalEvents);
+            Assert.Equal(LocalAt(14), report.WindowStartUtc);
+            Assert.Equal(LocalAt(22), report.WindowEndUtc);
+
+        }
+        // NightReport_IncludesTheSmallHoursOfTheFollowingDay
+        {
+            ObservationEvent[] events =
+            [
+                Event("Kim", "Same-day small hours", LocalAt(2, 0)),   // belongs to the PREVIOUS night
+                Event("Kim", "Shift start", LocalAt(22, 30)),
+                Event("Kim", "Overnight round", LocalAt(3, 0, 1)),
+                Event("Kim", "After handover", LocalAt(6, 30, 1))      // past the 06:00 handover
+            ];
+
+            var report = await BuildReport(ShiftWindow.Night, events);
+            var activities = await BuildReportActivities(ShiftWindow.Night, events);
+
+            Assert.Equal(2, report.TotalEvents);
+            Assert.Equal(["Shift start", "Overnight round"], activities);
+
+        }
     }
 
     [Fact]
-    public async Task NightReport_IncludesTheSmallHoursOfTheFollowingDay()
+    public async Task FullDayReport_ExcludesAdjacentDays_And_Report_HumanizesThePrimarySubject()
     {
-        ObservationEvent[] events =
-        [
-            Event("Kim", "Same-day small hours", LocalAt(2, 0)),   // belongs to the PREVIOUS night
-            Event("Kim", "Shift start", LocalAt(22, 30)),
-            Event("Kim", "Overnight round", LocalAt(3, 0, 1)),
-            Event("Kim", "After handover", LocalAt(6, 30, 1))      // past the 06:00 handover
-        ];
+        // FullDayReport_ExcludesAdjacentDays
+        {
+            var report = await BuildReport(ShiftWindow.FullDay,
+                Event("Kim", "Yesterday", LocalAt(23, 0, -1)),
+                Event("Kim", "Today", LocalAt(0, 0)),
+                Event("Kim", "Also today", LocalAt(23, 59)),
+                Event("Kim", "Tomorrow", LocalAt(0, 0, 1)));
 
-        var report = await BuildReport(ShiftWindow.Night, events);
-        var activities = await BuildReportActivities(ShiftWindow.Night, events);
+            Assert.Equal(2, report.TotalEvents);
 
-        Assert.Equal(2, report.TotalEvents);
-        Assert.Equal(["Shift start", "Overnight round"], activities);
-    }
+        }
+        // Report_HumanizesThePrimarySubject
+        {
+            var report = await BuildReport(ShiftWindow.Afternoon, Event("Subject-529", "Standing", LocalAt(15)));
 
-    [Fact]
-    public async Task FullDayReport_ExcludesAdjacentDays()
-    {
-        var report = await BuildReport(ShiftWindow.FullDay,
-            Event("Kim", "Yesterday", LocalAt(23, 0, -1)),
-            Event("Kim", "Today", LocalAt(0, 0)),
-            Event("Kim", "Also today", LocalAt(23, 59)),
-            Event("Kim", "Tomorrow", LocalAt(0, 0, 1)));
+            Assert.Equal("Person 529", report.PrimarySubject);
 
-        Assert.Equal(2, report.TotalEvents);
-    }
-
-    [Fact]
-    public async Task Report_HumanizesThePrimarySubject()
-    {
-        var report = await BuildReport(ShiftWindow.Afternoon, Event("Subject-529", "Standing", LocalAt(15)));
-
-        Assert.Equal("Person 529", report.PrimarySubject);
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

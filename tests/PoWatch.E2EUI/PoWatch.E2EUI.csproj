@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <TestCaseLimit>25</TestCaseLimit>
   </PropertyGroup>
 
   <!-- §2.2 E2EUI: C# Playwright automated UI tests. Drives a running instance via E2E_BASE_URL;
@@ -11,8 +12,14 @@
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.Playwright" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.Azurite" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PoWatch.Api\PoWatch.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

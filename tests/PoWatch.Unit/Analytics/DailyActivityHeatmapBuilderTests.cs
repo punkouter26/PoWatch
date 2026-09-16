@@ -14,71 +14,77 @@ public sealed class DailyActivityHeatmapBuilderTests
     private static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
 
     [Fact]
-    public void Empty_input_yields_zero_everywhere()
+    public void Empty_input_yields_zero_everywhere_And_Events_are_split_into_routine_notable_and_urgent_tiers()
     {
-        var result = DailyActivityHeatmapBuilder.Build([], new DateOnly(2026, 8, 30), Utc);
+        // Empty_input_yields_zero_everywhere
+        {
+            var result = DailyActivityHeatmapBuilder.Build([], new DateOnly(2026, 8, 30), Utc);
 
-        Assert.Equal(0, result.TotalEvents);
-        Assert.All(result.Routine, v => Assert.Equal(0, v));
-        Assert.All(result.Notable, v => Assert.Equal(0, v));
-        Assert.All(result.Urgent, v => Assert.Equal(0, v));
+            Assert.Equal(0, result.TotalEvents);
+            Assert.All(result.Routine, v => Assert.Equal(0, v));
+            Assert.All(result.Notable, v => Assert.Equal(0, v));
+            Assert.All(result.Urgent, v => Assert.Equal(0, v));
+
+        }
+        // Events_are_split_into_routine_notable_and_urgent_tiers
+        {
+            var today = new DateOnly(2026, 8, 30);
+            var events = new[]
+            {
+                Event(today, 8, isSignificant: false, isOutlier: false),
+                Event(today, 8, isSignificant: false, isOutlier: false),
+                Event(today, 14, isSignificant: true,  isOutlier: false),
+                Event(today, 22, isSignificant: true,  isOutlier: true),
+            };
+
+            var result = DailyActivityHeatmapBuilder.Build(events, today, Utc);
+
+            Assert.Equal(4, result.TotalEvents);
+            Assert.Equal(2, result.Routine[8]);
+            Assert.Equal(0, result.Notable[8]);
+            Assert.Equal(1, result.Notable[14]);
+            Assert.Equal(1, result.Urgent[22]);
+
+        }
     }
 
     [Fact]
-    public void Events_are_split_into_routine_notable_and_urgent_tiers()
+    public void Events_on_a_different_day_are_ignored_And_An_outlier_event_does_not_also_count_as_notable()
     {
-        var today = new DateOnly(2026, 8, 30);
-        var events = new[]
+        // Events_on_a_different_day_are_ignored
         {
-            Event(today, 8, isSignificant: false, isOutlier: false),
-            Event(today, 8, isSignificant: false, isOutlier: false),
-            Event(today, 14, isSignificant: true,  isOutlier: false),
-            Event(today, 22, isSignificant: true,  isOutlier: true),
-        };
+            var today = new DateOnly(2026, 8, 30);
+            var yesterday = new DateOnly(2026, 8, 29);
+            var events = new[]
+            {
+                Event(yesterday, 8, isSignificant: true, isOutlier: false),
+                Event(today,     9, isSignificant: true, isOutlier: false),
+            };
 
-        var result = DailyActivityHeatmapBuilder.Build(events, today, Utc);
+            var result = DailyActivityHeatmapBuilder.Build(events, today, Utc);
 
-        Assert.Equal(4, result.TotalEvents);
-        Assert.Equal(2, result.Routine[8]);
-        Assert.Equal(0, result.Notable[8]);
-        Assert.Equal(1, result.Notable[14]);
-        Assert.Equal(1, result.Urgent[22]);
-    }
+            Assert.Equal(1, result.TotalEvents);
+            Assert.Equal(1, result.Notable[9]);
+            Assert.Equal(0, result.Notable[8]);
 
-    [Fact]
-    public void Events_on_a_different_day_are_ignored()
-    {
-        var today = new DateOnly(2026, 8, 30);
-        var yesterday = new DateOnly(2026, 8, 29);
-        var events = new[]
+        }
+        // An_outlier_event_does_not_also_count_as_notable
         {
-            Event(yesterday, 8, isSignificant: true, isOutlier: false),
-            Event(today,     9, isSignificant: true, isOutlier: false),
-        };
+            // The archives narrative double-counted outliers as both "notable" and "unusual" on the
+            // Live Room — two counters that always moved together and so gave no information. The
+            // builder must not let an outlier fall into the notable bucket too.
+            var today = new DateOnly(2026, 8, 30);
+            var events = new[]
+            {
+                Event(today, 4, isSignificant: true, isOutlier: true),
+            };
 
-        var result = DailyActivityHeatmapBuilder.Build(events, today, Utc);
+            var result = DailyActivityHeatmapBuilder.Build(events, today, Utc);
 
-        Assert.Equal(1, result.TotalEvents);
-        Assert.Equal(1, result.Notable[9]);
-        Assert.Equal(0, result.Notable[8]);
-    }
+            Assert.Equal(1, result.Urgent[4]);
+            Assert.Equal(0, result.Notable[4]);
 
-    [Fact]
-    public void An_outlier_event_does_not_also_count_as_notable()
-    {
-        // The archives narrative double-counted outliers as both "notable" and "unusual" on the
-        // Live Room — two counters that always moved together and so gave no information. The
-        // builder must not let an outlier fall into the notable bucket too.
-        var today = new DateOnly(2026, 8, 30);
-        var events = new[]
-        {
-            Event(today, 4, isSignificant: true, isOutlier: true),
-        };
-
-        var result = DailyActivityHeatmapBuilder.Build(events, today, Utc);
-
-        Assert.Equal(1, result.Urgent[4]);
-        Assert.Equal(0, result.Notable[4]);
+        }
     }
 
     [Fact]

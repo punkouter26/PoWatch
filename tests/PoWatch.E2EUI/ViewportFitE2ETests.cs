@@ -39,96 +39,126 @@ public sealed class ViewportFitE2ETests
         yield return new object[] { 1920, 1080 };
     }
 
-    [Theory]
-    [MemberData(nameof(PhoneAndDesktopViewports))]
-    public async Task Live_Room_body_fits_within_viewport(int width, int height)
+    [Fact]
+    public async Task Live_Room_body_fits_within_viewport()
     {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
-        await page.SetViewportSizeAsync(width, height);
-        await page.WaitForTimeoutAsync(1000);
-
-        await AssertBodyFitsViewportAsync(page);
-        await page.AssertNoBlazorErrorAsync();
-    }
-
-    [Theory]
-    [MemberData(nameof(PhoneAndDesktopViewports))]
-    public async Task History_body_fits_within_viewport(int width, int height)
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
-        await page.SetViewportSizeAsync(width, height);
-        await page.GoToAsync("/archives", "History");
-        await page.WaitForTimeoutAsync(500);
-
-        await AssertBodyFitsViewportAsync(page);
-        await page.AssertNoBlazorErrorAsync();
-    }
-
-    [Theory]
-    [MemberData(nameof(PhoneAndDesktopViewports))]
-    public async Task People_body_fits_within_viewport(int width, int height)
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
-        await page.SetViewportSizeAsync(width, height);
-        await page.GoToAsync("/identity", "People");
-        await page.WaitForTimeoutAsync(500);
-
-        await AssertBodyFitsViewportAsync(page);
-        await page.AssertNoBlazorErrorAsync();
-    }
-
-    [Theory]
-    [MemberData(nameof(PhoneAndDesktopViewports))]
-    public async Task System_body_fits_within_viewport(int width, int height)
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
-        await page.SetViewportSizeAsync(width, height);
-        await page.GoToAsync("/diagnostics", "System");
-        await page.WaitForTimeoutAsync(500);
-
-        await AssertBodyFitsViewportAsync(page);
-        await page.AssertNoBlazorErrorAsync();
-    }
-
-    [Theory]
-    [MemberData(nameof(PhoneAndDesktopViewports))]
-    public async Task Health_body_fits_within_viewport(int width, int height)
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
-        await page.SetViewportSizeAsync(width, height);
-        await page.GoToAsync("/health", "Health");
-        await page.WaitForTimeoutAsync(500);
-
-        await AssertBodyFitsViewportAsync(page);
-        await page.AssertNoBlazorErrorAsync();
-    }
-
-    [Theory]
-    [MemberData(nameof(DesktopOnlyViewports))]
-    public async Task Display_fills_the_viewport(int width, int height)
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        // /display is anonymous — no auth required.
-        var page = await _fixture.Browser.NewPageAsync(new()
+        foreach (var scenario in PhoneAndDesktopViewports())
         {
-            IgnoreHTTPSErrors = true,
-            ViewportSize = new() { Width = width, Height = height }
-        });
-        await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/display");
-        await page.WaitForTimeoutAsync(1000);
+            int width = (int)scenario[0];
+            int height = (int)scenario[1];
+            if (PlaywrightFixture.BaseUrl is null) return;
+            var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
+            await page.SetViewportSizeAsync(width, height);
+            await page.WaitForTimeoutAsync(1000);
 
-        // Display page deliberately extends to fill the viewport (position: fixed; inset: 0).
-        var displayBox = await page.Locator(".display-page").BoundingBoxAsync();
-        Assert.NotNull(displayBox);
-        Assert.True(
-            displayBox!.Width >= width - 1 && displayBox.Height >= height - 1,
-            $"Display page should fill the viewport on a kiosk; got {displayBox.Width}x{displayBox.Height} at {width}x{height}.");
-        await page.AssertNoBlazorErrorAsync();
+            await AssertBodyFitsViewportAsync(page);
+            await page.AssertNoBlazorErrorAsync();
+
+        }
+    }
+
+    [Fact]
+    public async Task History_body_fits_within_viewport()
+    {
+        foreach (var scenario in PhoneAndDesktopViewports())
+        {
+            int width = (int)scenario[0];
+            int height = (int)scenario[1];
+            if (PlaywrightFixture.BaseUrl is null) return;
+            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await page.SetViewportSizeAsync(width, height);
+            await page.GoToAsync("/archives", "History");
+            await page.WaitForTimeoutAsync(500);
+
+            await AssertBodyFitsViewportAsync(page);
+            await page.AssertNoBlazorErrorAsync();
+
+        }
+    }
+
+    [Fact]
+    public async Task People_body_fits_within_viewport()
+    {
+        foreach (var scenario in PhoneAndDesktopViewports())
+        {
+            int width = (int)scenario[0];
+            int height = (int)scenario[1];
+            if (PlaywrightFixture.BaseUrl is null) return;
+            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await page.SetViewportSizeAsync(width, height);
+            await page.GoToAsync("/identity", "People");
+            await page.WaitForTimeoutAsync(500);
+
+            await AssertBodyFitsViewportAsync(page);
+            await page.AssertNoBlazorErrorAsync();
+
+        }
+    }
+
+    [Fact]
+    public async Task System_body_fits_within_viewport()
+    {
+        foreach (var scenario in PhoneAndDesktopViewports())
+        {
+            int width = (int)scenario[0];
+            int height = (int)scenario[1];
+            if (PlaywrightFixture.BaseUrl is null) return;
+            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await page.SetViewportSizeAsync(width, height);
+            await page.GoToAsync("/diagnostics", "System");
+            await page.WaitForTimeoutAsync(500);
+
+            await AssertBodyFitsViewportAsync(page);
+            await page.AssertNoBlazorErrorAsync();
+
+        }
+    }
+
+    [Fact]
+    public async Task Health_body_fits_within_viewport()
+    {
+        foreach (var scenario in PhoneAndDesktopViewports())
+        {
+            int width = (int)scenario[0];
+            int height = (int)scenario[1];
+            if (PlaywrightFixture.BaseUrl is null) return;
+            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await page.SetViewportSizeAsync(width, height);
+            await page.GoToAsync("/health", "Health");
+            await page.WaitForTimeoutAsync(500);
+
+            await AssertBodyFitsViewportAsync(page);
+            await page.AssertNoBlazorErrorAsync();
+
+        }
+    }
+
+    [Fact]
+    public async Task Display_fills_the_viewport()
+    {
+        foreach (var scenario in DesktopOnlyViewports())
+        {
+            int width = (int)scenario[0];
+            int height = (int)scenario[1];
+            if (PlaywrightFixture.BaseUrl is null) return;
+            // /display is anonymous — no auth required.
+            var page = await _fixture.Browser.NewPageAsync(new()
+            {
+                IgnoreHTTPSErrors = true,
+                ViewportSize = new() { Width = width, Height = height }
+            });
+            await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/display");
+            await page.WaitForTimeoutAsync(1000);
+
+            // Display page deliberately extends to fill the viewport (position: fixed; inset: 0).
+            var displayBox = await page.Locator(".display-page").BoundingBoxAsync();
+            Assert.NotNull(displayBox);
+            Assert.True(
+                displayBox!.Width >= width - 1 && displayBox.Height >= height - 1,
+                $"Display page should fill the viewport on a kiosk; got {displayBox.Width}x{displayBox.Height} at {width}x{height}.");
+            await page.AssertNoBlazorErrorAsync();
+
+        }
     }
 
     [Fact]
@@ -190,17 +220,16 @@ public sealed class ViewportFitE2ETests
 
     private static async Task AssertBodyFitsViewportAsync(IPage page)
     {
-        var size = await page.EvaluateAsync<Size>(@"() => ({ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight, scroll: document.documentElement.scrollHeight })");
+        var size = await page.EvaluateAsync<int[]>("() => [document.documentElement.clientWidth, document.documentElement.clientHeight, document.documentElement.scrollHeight]");
         // Some pages legitimately scroll a panel internally (Live Room timeline, Archives evidence
         // grid). What we forbid is the *body* scrolling — that means a panel grew taller than
         // its container and pushed the chrome out of view. Allow a 2 px tolerance for sub-pixel
         // rounding between browsers.
-        var overflow = size.Scroll - size.ClientHeight;
+        var overflow = size[2] - size[1];
         Assert.True(
             overflow <= 2,
-            $"Body exceeds viewport by {overflow} px (viewport={size.ClientHeight}, scrollHeight={size.Scroll}, width={size.ClientWidth}). " +
+            $"Body exceeds viewport by {overflow} px (viewport={size[1]}, scrollHeight={size[2]}, width={size[0]}). " +
             "A page that scrolls the body pushes the chrome out of view on a kiosk — re-check the page's overflow contract.");
     }
 
-    private sealed record Size(int ClientWidth, int ClientHeight, int Scroll);
 }

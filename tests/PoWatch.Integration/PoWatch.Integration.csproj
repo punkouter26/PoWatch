@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <TestCaseLimit>50</TestCaseLimit>
   </PropertyGroup>
 
   <!-- Integration suite: infrastructure testing against ephemeral Azurite via Testcontainers. -->

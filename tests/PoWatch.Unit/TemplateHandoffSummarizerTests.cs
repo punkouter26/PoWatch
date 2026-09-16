@@ -9,53 +9,59 @@ public sealed class TemplateHandoffSummarizerTests
     private static readonly DateOnly Day = new(2026, 4, 14);
 
     [Fact]
-    public async Task PriorityItems_HumanizeStorageSubjectIds()
+    public async Task PriorityItems_HumanizeStorageSubjectIds_And_DriftItems_AreMarkedAsOutsideTheShiftWindow()
     {
-        var content = await Summarize(BuildContext(
-            outliers: [Event("Subject-529", "Fell", 15, isOutlier: true)],
-            drift: [Drift("Subject-546", DriftLabels.Extreme, 100)]));
+        // PriorityItems_HumanizeStorageSubjectIds
+        {
+            var content = await Summarize(BuildContext(
+                outliers: [Event("Subject-529", "Fell", 15, isOutlier: true)],
+                drift: [Drift("Subject-546", DriftLabels.Extreme, 100)]));
 
-        // The brief is read next to a timeline that says "Person 529". Naming the same person by a
-        // storage id here made the reader translate between two vocabularies mid-handoff.
-        Assert.All(content.PriorityItems, item =>
-            Assert.DoesNotContain("Subject-", item, StringComparison.Ordinal));
-        Assert.Contains(content.PriorityItems, i => i.Contains("Person 529", StringComparison.Ordinal));
-        Assert.Contains(content.PriorityItems, i => i.Contains("Person 546", StringComparison.Ordinal));
+            // The brief is read next to a timeline that says "Person 529". Naming the same person by a
+            // storage id here made the reader translate between two vocabularies mid-handoff.
+            Assert.All(content.PriorityItems, item =>
+                Assert.DoesNotContain("Subject-", item, StringComparison.Ordinal));
+            Assert.Contains(content.PriorityItems, i => i.Contains("Person 529", StringComparison.Ordinal));
+            Assert.Contains(content.PriorityItems, i => i.Contains("Person 546", StringComparison.Ordinal));
+
+        }
+        // DriftItems_AreMarkedAsOutsideTheShiftWindow
+        {
+            var content = await Summarize(BuildContext(drift: [Drift("Subject-546", DriftLabels.High, 80)]));
+
+            // Drift scores today against a multi-day baseline; it is not a thing that happened during
+            // these hours, and an unqualified "DRIFT ALERT" sent readers hunting for it in the timeline.
+            var driftItem = Assert.Single(content.PriorityItems, i => i.StartsWith("DRIFT ALERT", StringComparison.Ordinal));
+            Assert.Contains("not this window", driftItem, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(content.SourceNotes, n => n.Contains("not scoped to this shift", StringComparison.Ordinal));
+
+        }
     }
 
     [Fact]
-    public async Task DriftItems_AreMarkedAsOutsideTheShiftWindow()
+    public async Task PriorityItems_DiscloseTruncationRatherThanSilentlyCapping_And_Summary_StatesTheHoursCovered()
     {
-        var content = await Summarize(BuildContext(drift: [Drift("Subject-546", DriftLabels.High, 80)]));
+        // PriorityItems_DiscloseTruncationRatherThanSilentlyCapping
+        {
+            var outliers = Enumerable.Range(0, 9)
+                .Select(i => Event("Subject-1", $"Event {i}", 14, isOutlier: true))
+                .ToList();
 
-        // Drift scores today against a multi-day baseline; it is not a thing that happened during
-        // these hours, and an unqualified "DRIFT ALERT" sent readers hunting for it in the timeline.
-        var driftItem = Assert.Single(content.PriorityItems, i => i.StartsWith("DRIFT ALERT", StringComparison.Ordinal));
-        Assert.Contains("not this window", driftItem, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(content.SourceNotes, n => n.Contains("not scoped to this shift", StringComparison.Ordinal));
-    }
+            var content = await Summarize(BuildContext(outliers: outliers));
 
-    [Fact]
-    public async Task PriorityItems_DiscloseTruncationRatherThanSilentlyCapping()
-    {
-        var outliers = Enumerable.Range(0, 9)
-            .Select(i => Event("Subject-1", $"Event {i}", 14, isOutlier: true))
-            .ToList();
+            // Showing 5 of 9 with no note reads as "there were 5".
+            Assert.Contains(content.PriorityItems, i => i.Contains("4 further outlier", StringComparison.Ordinal));
 
-        var content = await Summarize(BuildContext(outliers: outliers));
+        }
+        // Summary_StatesTheHoursCovered
+        {
+            var content = await Summarize(BuildContext(totalEvents: 58));
 
-        // Showing 5 of 9 with no note reads as "there were 5".
-        Assert.Contains(content.PriorityItems, i => i.Contains("4 further outlier", StringComparison.Ordinal));
-    }
+            // "Afternoon shift: 58 observations" was indistinguishable from a full-day count.
+            Assert.Contains("14:00–22:00", content.Summary, StringComparison.Ordinal);
+            Assert.Contains(content.SourceNotes, n => n.Contains("Window covered", StringComparison.Ordinal));
 
-    [Fact]
-    public async Task Summary_StatesTheHoursCovered()
-    {
-        var content = await Summarize(BuildContext(totalEvents: 58));
-
-        // "Afternoon shift: 58 observations" was indistinguishable from a full-day count.
-        Assert.Contains("14:00–22:00", content.Summary, StringComparison.Ordinal);
-        Assert.Contains(content.SourceNotes, n => n.Contains("Window covered", StringComparison.Ordinal));
+        }
     }
 
     [Fact]

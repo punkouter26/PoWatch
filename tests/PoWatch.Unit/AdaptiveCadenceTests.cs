@@ -9,42 +9,48 @@ namespace PoWatch.Unit;
 public sealed class AdaptiveCadenceTests
 {
     [Fact]
-    public void ScoreToIntervalSeconds_ClampsToFloor_WhenScoreIsZero()
+    public void ScoreToIntervalSeconds_ClampsToFloor_WhenScoreIsZero_And_ScoreToIntervalSeconds_LandsNearActiveCeiling_WhenScoreIsOne()
     {
-        var interval = AdaptiveCadence.ScoreToIntervalSeconds(0.0, baseIntervalSeconds: 10);
-        Assert.InRange(interval, AdaptiveCadence.ActiveCeilingSeconds + 1, AdaptiveCadence.IdleFloorSeconds + 1);
-    }
-
-    [Fact]
-    public void ScoreToIntervalSeconds_LandsNearActiveCeiling_WhenScoreIsOne()
-    {
-        var interval = AdaptiveCadence.ScoreToIntervalSeconds(1.0, baseIntervalSeconds: 10);
-        Assert.InRange(interval, AdaptiveCadence.ActiveCeilingSeconds, AdaptiveCadence.ActiveCeilingSeconds + 6);
-    }
-
-    [Fact]
-    public void ScoreToIntervalSeconds_ClampsOutOfRangeScores()
-    {
-        // Scores outside [0, 1] are clamped, then mapped. A buggy JS layer passing 2.0 or -1.0
-        // should land at the same intervals as 1.0 or 0.0 respectively, never below the floor
-        // or above the ceiling.
-        var positive = AdaptiveCadence.ScoreToIntervalSeconds(2.0, baseIntervalSeconds: 15);
-        var clampedHigh = AdaptiveCadence.ScoreToIntervalSeconds(1.0, baseIntervalSeconds: 15);
-        Assert.Equal(clampedHigh, positive);
-
-        var negative = AdaptiveCadence.ScoreToIntervalSeconds(-1.0, baseIntervalSeconds: 15);
-        var clampedLow = AdaptiveCadence.ScoreToIntervalSeconds(0.0, baseIntervalSeconds: 15);
-        Assert.Equal(clampedLow, negative);
-    }
-
-    [Fact]
-    public void ScoreToIntervalSeconds_StaysWithinBounds_AcrossTheRange()
-    {
-        // Walk the full [0, 1] score range and confirm every output sits inside the floor/ceiling.
-        for (var s = 0.0; s <= 1.0; s += 0.05)
+        // ScoreToIntervalSeconds_ClampsToFloor_WhenScoreIsZero
         {
-            var interval = AdaptiveCadence.ScoreToIntervalSeconds(s, baseIntervalSeconds: 12);
-            Assert.InRange(interval, AdaptiveCadence.ActiveCeilingSeconds, AdaptiveCadence.IdleFloorSeconds);
+            var interval = AdaptiveCadence.ScoreToIntervalSeconds(0.0, baseIntervalSeconds: 10);
+            Assert.InRange(interval, AdaptiveCadence.ActiveCeilingSeconds + 1, AdaptiveCadence.IdleFloorSeconds + 1);
+
+        }
+        // ScoreToIntervalSeconds_LandsNearActiveCeiling_WhenScoreIsOne
+        {
+            var interval = AdaptiveCadence.ScoreToIntervalSeconds(1.0, baseIntervalSeconds: 10);
+            Assert.InRange(interval, AdaptiveCadence.ActiveCeilingSeconds, AdaptiveCadence.ActiveCeilingSeconds + 6);
+
+        }
+    }
+
+    [Fact]
+    public void ScoreToIntervalSeconds_ClampsOutOfRangeScores_And_ScoreToIntervalSeconds_StaysWithinBounds_AcrossTheRange()
+    {
+        // ScoreToIntervalSeconds_ClampsOutOfRangeScores
+        {
+            // Scores outside [0, 1] are clamped, then mapped. A buggy JS layer passing 2.0 or -1.0
+            // should land at the same intervals as 1.0 or 0.0 respectively, never below the floor
+            // or above the ceiling.
+            var positive = AdaptiveCadence.ScoreToIntervalSeconds(2.0, baseIntervalSeconds: 15);
+            var clampedHigh = AdaptiveCadence.ScoreToIntervalSeconds(1.0, baseIntervalSeconds: 15);
+            Assert.Equal(clampedHigh, positive);
+
+            var negative = AdaptiveCadence.ScoreToIntervalSeconds(-1.0, baseIntervalSeconds: 15);
+            var clampedLow = AdaptiveCadence.ScoreToIntervalSeconds(0.0, baseIntervalSeconds: 15);
+            Assert.Equal(clampedLow, negative);
+
+        }
+        // ScoreToIntervalSeconds_StaysWithinBounds_AcrossTheRange
+        {
+            // Walk the full [0, 1] score range and confirm every output sits inside the floor/ceiling.
+            for (var s = 0.0; s <= 1.0; s += 0.05)
+            {
+                var interval = AdaptiveCadence.ScoreToIntervalSeconds(s, baseIntervalSeconds: 12);
+                Assert.InRange(interval, AdaptiveCadence.ActiveCeilingSeconds, AdaptiveCadence.IdleFloorSeconds);
+            }
+
         }
     }
 

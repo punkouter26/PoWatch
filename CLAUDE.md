@@ -13,7 +13,7 @@ PoWatch is a calm, local-first room-observation system for caregivers. A Blazor 
 runs vision inference **on-device** (WebGPU / transformers.js) against the device camera; inferred
 observations are posted through the BFF boundary to ASP.NET Core Minimal API slices, persisted to
 Azure Table + Blob Storage (Azurite locally), and read back as live timelines, archives, shift
-handoff reports and optional FHIR export.
+handoff reports.
 
 `PoWatch.Api` serves the WASM client from the same origin and owns authentication, storage,
 telemetry and diagnostics. CORS is intentionally never configured.
@@ -87,3 +87,5 @@ pipeline exports *activities* (spans); it never sees an `ILogger` record, so rem
 sink silently empties the `traces` table.
 
 Sign-in is recorded once per interactive sign-in from `OnTokenValidated` as a `UserSignedIn` event.
+
+Cleanup, test caps, and the retained API inventory are in [docs/cleanup.md](docs/cleanup.md).

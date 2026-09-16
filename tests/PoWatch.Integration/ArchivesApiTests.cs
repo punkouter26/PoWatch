@@ -66,29 +66,6 @@ public sealed class ArchivesApiTests : IClassFixture<AzuriteWebApplicationFactor
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task BlobIntegrityEndpoint_ChecksMultipleBlobs()
-    {
-        var blobPaths = new[]
-        {
-            "significant-images/20260416/Subject-10/test-image-1.svg",
-            "significant-images/20260416/Subject-10/test-image-2.svg"
-        };
-
-        var response = await _client.PostAsJsonAsync("/api/blobs/integrity", blobPaths);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var integrityResult = await response.Content.ReadFromJsonAsync<dynamic>();
-        Assert.NotNull(integrityResult);
-    }
-
-    [Fact]
-    public async Task BlobIntegrityEndpoint_ReturnsBadRequest_WhenNoBlobPaths()
-    {
-        var response = await _client.PostAsJsonAsync("/api/blobs/integrity", Array.Empty<string>());
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
     private sealed class BlobSasResponse
     {
         public string SasUrl { get; init; } = string.Empty;

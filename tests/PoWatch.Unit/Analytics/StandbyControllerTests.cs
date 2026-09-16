@@ -11,91 +11,100 @@ namespace PoWatch.Unit.Analytics;
 public sealed class StandbyControllerTests
 {
     [Fact]
-    public void Controller_starts_in_awake_mode()
+    public void Controller_starts_in_awake_mode_And_Tick_below_threshold_keeps_the_controller_awake()
     {
-        var c = new StandbyController(idleThresholdSeconds: 60);
+        // Controller_starts_in_awake_mode
+        {
+            var c = new StandbyController(idleThresholdSeconds: 60);
 
-        Assert.Equal("awake", c.Mode);
-        Assert.Equal(0, c.StandbyTransitions);
-        Assert.Equal(0, c.WakeTransitions);
+            Assert.Equal("awake", c.Mode);
+            Assert.Equal(0, c.StandbyTransitions);
+            Assert.Equal(0, c.WakeTransitions);
+
+        }
+        // Tick_below_threshold_keeps_the_controller_awake
+        {
+            var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
+            var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
+            c.Enabled = true;
+
+            // Less than 60 s elapses with no motion — still awake.
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 0, 30, TimeSpan.Zero));
+            Assert.Equal("awake", c.Tick());
+
+            // Cross the threshold with no motion in between → standby.
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 2, 0, TimeSpan.Zero));
+            Assert.Equal("standby", c.Tick());
+            Assert.Equal(1, c.StandbyTransitions);
+
+        }
     }
 
     [Fact]
-    public void Tick_below_threshold_keeps_the_controller_awake()
+    public void Tick_without_enabled_never_enters_standby_And_Motion_in_awake_mode_resets_the_idle_clock_without_changing_mode()
     {
-        var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
-        var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
-        c.Enabled = true;
+        // Tick_without_enabled_never_enters_standby
+        {
+            var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
+            var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
+            c.Enabled = false;
 
-        // Less than 60 s elapses with no motion — still awake.
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 0, 30, TimeSpan.Zero));
-        Assert.Equal("awake", c.Tick());
+            clock.Set(new DateTimeOffset(2026, 8, 30, 13, 0, 0, TimeSpan.Zero));
+            Assert.Equal("awake", c.Tick());
+            Assert.Equal(0, c.StandbyTransitions);
 
-        // Cross the threshold with no motion in between → standby.
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 2, 0, TimeSpan.Zero));
-        Assert.Equal("standby", c.Tick());
-        Assert.Equal(1, c.StandbyTransitions);
+        }
+        // Motion_in_awake_mode_resets_the_idle_clock_without_changing_mode
+        {
+            var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
+            var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
+            c.Enabled = true;
+
+            // Nearly idle, then motion arrives. The controller is still awake; the timer resets.
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 0, 55, TimeSpan.Zero));
+            c.RecordMotion();
+            Assert.Equal("awake", c.Mode);
+
+            // 30 s later — still well within the new threshold — controller stays awake.
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 1, 25, TimeSpan.Zero));
+            Assert.Equal("awake", c.Tick());
+
+        }
     }
 
     [Fact]
-    public void Tick_without_enabled_never_enters_standby()
+    public void Motion_while_in_standby_wakes_the_controller_back_up_And_Snapshot_reports_idle_seconds_and_threshold_for_the_ui()
     {
-        var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
-        var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
-        c.Enabled = false;
+        // Motion_while_in_standby_wakes_the_controller_back_up
+        {
+            var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
+            var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
+            c.Enabled = true;
 
-        clock.Set(new DateTimeOffset(2026, 8, 30, 13, 0, 0, TimeSpan.Zero));
-        Assert.Equal("awake", c.Tick());
-        Assert.Equal(0, c.StandbyTransitions);
-    }
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 2, 0, TimeSpan.Zero));
+            Assert.Equal("standby", c.Tick());
 
-    [Fact]
-    public void Motion_in_awake_mode_resets_the_idle_clock_without_changing_mode()
-    {
-        var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
-        var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
-        c.Enabled = true;
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 3, 0, TimeSpan.Zero));
+            c.RecordMotion();
+            Assert.Equal("awake", c.Mode);
+            Assert.Equal(1, c.WakeTransitions);
 
-        // Nearly idle, then motion arrives. The controller is still awake; the timer resets.
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 0, 55, TimeSpan.Zero));
-        c.RecordMotion();
-        Assert.Equal("awake", c.Mode);
+        }
+        // Snapshot_reports_idle_seconds_and_threshold_for_the_ui
+        {
+            var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
+            var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
+            c.Enabled = true;
 
-        // 30 s later — still well within the new threshold — controller stays awake.
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 1, 25, TimeSpan.Zero));
-        Assert.Equal("awake", c.Tick());
-    }
+            clock.Set(new DateTimeOffset(2026, 8, 30, 12, 0, 20, TimeSpan.Zero));
+            var snap = c.Snapshot(motionProbeActive: false);
 
-    [Fact]
-    public void Motion_while_in_standby_wakes_the_controller_back_up()
-    {
-        var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
-        var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
-        c.Enabled = true;
+            Assert.Equal("awake", snap.Mode);
+            Assert.True(snap.Enabled);
+            Assert.Equal(20d, snap.SecondsSinceMotion);
+            Assert.Equal(60, snap.IdleThresholdSeconds);
 
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 2, 0, TimeSpan.Zero));
-        Assert.Equal("standby", c.Tick());
-
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 3, 0, TimeSpan.Zero));
-        c.RecordMotion();
-        Assert.Equal("awake", c.Mode);
-        Assert.Equal(1, c.WakeTransitions);
-    }
-
-    [Fact]
-    public void Snapshot_reports_idle_seconds_and_threshold_for_the_ui()
-    {
-        var clock = new ManualClock(new DateTimeOffset(2026, 8, 30, 12, 0, 0, TimeSpan.Zero));
-        var c = new StandbyController(idleThresholdSeconds: 60, clock: clock.Read);
-        c.Enabled = true;
-
-        clock.Set(new DateTimeOffset(2026, 8, 30, 12, 0, 20, TimeSpan.Zero));
-        var snap = c.Snapshot(motionProbeActive: false);
-
-        Assert.Equal("awake", snap.Mode);
-        Assert.True(snap.Enabled);
-        Assert.Equal(20d, snap.SecondsSinceMotion);
-        Assert.Equal(60, snap.IdleThresholdSeconds);
+        }
     }
 
     [Fact]

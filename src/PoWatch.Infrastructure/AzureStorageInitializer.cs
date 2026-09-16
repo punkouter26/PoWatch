@@ -50,6 +50,9 @@ public sealed class AzureStorageInitializer(
             await tableService.GetTableClient(options.Value.SubjectsTable)
                 .CreateIfNotExistsAsync(cancellationToken);
 
+            await tableService.GetTableClient(options.Value.SubjectRevisionsTable)
+                .CreateIfNotExistsAsync(cancellationToken);
+
             await clients.BlobService
                 .GetBlobContainerClient(options.Value.SignificantImagesContainer)
                 .CreateIfNotExistsAsync(cancellationToken: cancellationToken);

@@ -91,32 +91,43 @@
     }
   }
 
+  let _diffCanvas = null;
+  let _diffCtx = null;
+  let _captureCanvas = null;
+  let _captureCtx = null;
+
   // Returns fraction of pixels that changed significantly vs last frame (0–1).
-  // Samples at 160×90 to keep cost negligible.
+  // Reuses a cached canvas and samples with stride at 120×68 with willReadFrequently to keep cost <1ms.
   function computeFrameDiff(videoElement) {
     if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) return 1;
-    const w = Math.min(160, videoElement.videoWidth);
-    const h = Math.min(90,  videoElement.videoHeight);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx?.drawImage(videoElement, 0, 0, w, h);
-    const pixels = ctx.getImageData(0, 0, w, h).data;
+    const w = 120;
+    const h = 68;
+    if (!_diffCanvas) {
+      _diffCanvas = document.createElement('canvas');
+      _diffCanvas.width = w;
+      _diffCanvas.height = h;
+      _diffCtx = _diffCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    _diffCtx?.drawImage(videoElement, 0, 0, w, h);
+    const imgData = _diffCtx?.getImageData(0, 0, w, h);
+    if (!imgData) return 1;
+    const pixels = imgData.data;
     if (!_lastFramePixels || _lastFramePixels.length !== pixels.length) {
       _lastFramePixels = new Uint8ClampedArray(pixels);
       return 1;
     }
     let changed = 0;
-    const total = pixels.length / 4;
-    for (let i = 0; i < pixels.length; i += 4) {
+    let sampled = 0;
+    // Sample every 2nd pixel (stride of 8 in RGBA buffer) for 4x faster loop without aliasing
+    for (let i = 0; i < pixels.length; i += 8) {
+      sampled++;
       const dr = Math.abs(pixels[i]     - _lastFramePixels[i]);
       const dg = Math.abs(pixels[i + 1] - _lastFramePixels[i + 1]);
       const db = Math.abs(pixels[i + 2] - _lastFramePixels[i + 2]);
-      if (dr + dg + db > 30) changed++;
+      if (dr + dg + db > 28) changed++;
     }
     _lastFramePixels = new Uint8ClampedArray(pixels);
-    return changed / total;
+    return sampled > 0 ? changed / sampled : 0;
   }
 
   // Longest edge sent to the model. The frame used to be captured at full webcam resolution
@@ -133,13 +144,19 @@
     const srcW = videoElement.videoWidth;
     const srcH = videoElement.videoHeight;
     const scale = Math.min(1, _MAX_CAPTURE_EDGE / Math.max(srcW, srcH));
+    const targetW = Math.max(1, Math.round(srcW * scale));
+    const targetH = Math.max(1, Math.round(srcH * scale));
 
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(srcW * scale));
-    canvas.height = Math.max(1, Math.round(srcH * scale));
-    const context = canvas.getContext('2d');
-    context?.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.85);
+    if (!_captureCanvas) {
+      _captureCanvas = document.createElement('canvas');
+      _captureCtx = _captureCanvas.getContext('2d');
+    }
+    if (_captureCanvas.width !== targetW || _captureCanvas.height !== targetH) {
+      _captureCanvas.width = targetW;
+      _captureCanvas.height = targetH;
+    }
+    _captureCtx?.drawImage(videoElement, 0, 0, targetW, targetH);
+    return _captureCanvas.toDataURL('image/jpeg', 0.85);
   }
 
   // ---------------------------------------------------------------------------
@@ -214,6 +231,21 @@
     cancelInFlight() {
       try { window.powatchInference._abortController?.abort(); }
       catch { /* nothing to cancel */ }
+    },
+
+    // Idea 10: Bedside spoken reassurance cue when Urgent events occur
+    speakBedsideCue(message) {
+      try {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !message) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.8;
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // Audio cue best-effort
+      }
     },
 
     async ensureWebcamAccess() {

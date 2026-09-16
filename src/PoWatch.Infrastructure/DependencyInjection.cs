@@ -23,14 +23,16 @@ public static class DependencyInjection
                 client.Timeout = TimeSpan.FromSeconds(45);
             })
             .AddStandardResilienceHandler();
+
+        // Multi-provider summarizer (Azure OpenAI + local Ollama edge gateway)
+        services.AddHttpClient<MultiProviderHandoffSummarizer>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(60);
+            })
+            .AddStandardResilienceHandler();
+
         services.AddScoped<IHandoffSummarizer>(sp =>
-        {
-            var flags = sp.GetRequiredService<IOptions<FeatureFlagsOptions>>().Value;
-            var openAiOptions = sp.GetRequiredService<IOptions<AzureOpenAiOptions>>().Value;
-            return flags.AzureOpenAiEnabled && !string.IsNullOrWhiteSpace(openAiOptions.Endpoint)
-                ? sp.GetRequiredService<AzureOpenAiHandoffSummarizer>()
-                : sp.GetRequiredService<TemplateHandoffSummarizer>();
-        });
+            sp.GetRequiredService<MultiProviderHandoffSummarizer>());
 
         // Boot-time readiness snapshot: lets the app start and report unhealthy on a dependency failure
         // instead of aborting host construction with an opaque 500.30 (see AzureStorageInitializer).
@@ -68,22 +70,12 @@ public static class DependencyInjection
                 : sp.GetRequiredService<InMemorySubjectRepository>();
         });
 
-        // In-memory only for the audit-history repository at this stage. A Azure-backed variant
-        // belongs alongside AzureSubjectRepository once the rest of the app's table-init pipeline
-        // (AzureStorageInitializer) is read for it.
-        services.AddSingleton<ISubjectRevisionEventRepository, InMemorySubjectRevisionEventRepository>();
-
-        // Handoff memos: metadata store + blob store, both in-memory until an Azure-backed variant
-        // is added in lockstep with the rest of the storage pipeline.
-        services.AddSingleton<IHandoffMemoRepository, InMemoryHandoffMemoRepository>();
-        services.AddSingleton<IHandoffMemoStore, InMemoryHandoffMemoStore>();
-        services.AddSingleton<HandoffMemoService>();
-
-        // Family share links: in-memory until an Azure-backed variant is added. The link is the
-        // entire security model — long id, short TTL, single-purpose — so even an in-memory
-        // implementation honours the product promise.
-        services.AddSingleton<IShareLinkRepository, InMemoryShareLinkRepository>();
-        services.AddSingleton<ShareLinkService>();
+        services.AddSingleton<AzureSubjectRevisionEventRepository>();
+        services.AddSingleton<InMemorySubjectRevisionEventRepository>();
+        services.AddSingleton<ISubjectRevisionEventRepository>(sp =>
+            UseAzureStorage(sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value)
+                ? sp.GetRequiredService<AzureSubjectRevisionEventRepository>()
+                : sp.GetRequiredService<InMemorySubjectRevisionEventRepository>());
 
         // Idempotency cache for ingest retries. 10-minute TTL is the load-bearing product
         // promise: long enough to span a WiFi blip, short enough to keep the dictionary bounded.

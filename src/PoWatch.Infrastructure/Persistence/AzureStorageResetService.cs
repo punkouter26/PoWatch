@@ -39,6 +39,9 @@ public sealed class AzureStorageResetService(
             var subjDeleted = await DeleteAllTableRowsAsync(subjTable, cancellationToken);
             logger.LogDebug("Subjects deleted. Count={Count}", subjDeleted);
 
+            await DeleteAllTableRowsAsync(
+                clients.TableService.GetTableClient(opts.SubjectRevisionsTable), cancellationToken);
+
             var blobsDeleted = await DeleteAllBlobsAsync(blobContainer, cancellationToken);
             logger.LogDebug("Blobs deleted. Count={Count}", blobsDeleted);
 

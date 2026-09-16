@@ -38,6 +38,8 @@
 
         @if (snapshot is not null)
         {
+            <details class="runtime-details">
+                <summary>Server runtime details</summary>
             <div class="hud-grid diagnostics-grid">
                 <div><label>Captured</label><span>@DisplayText.RelativeTime(snapshot.CapturedAtUtc)</span></div>
                 <div><label>CPU Load</label><span>@snapshot.CpuLoadPercent.ToString("0")%</span></div>
@@ -46,6 +48,8 @@
                 <div><label>Server endpoint</label><span title="@snapshot.MaskedEndpoint" class="masked-value">@FriendlyEndpointLabel(snapshot.MaskedEndpoint)</span></div>
                 <div><label>API key</label><span>@FriendlyKeyLabel(snapshot.MaskedApiKey)</span></div>
             </div>
+            </details>
+            <p role="status">Storage: @FriendlyStorageLabel(snapshot.StorageConnectionStatus)</p>
         }
         <h2 class="health-section-label">Inference engine</h2>
 
@@ -81,6 +85,8 @@
                 }
             </div>
 
+            <details class="runtime-details">
+                <summary>Inference runtime details</summary>
             <div class="hud-grid diagnostics-grid diagnostics-grid-spacer">
                 <div><label>Model</label><span class="model-id-text">@inferenceDiag.ModelId</span></div>
                 <div><label>WebGPU Adapter</label><span>@(inferenceDiag.WebGpuPresent ? "AVAILABLE" : "NONE")</span></div>
@@ -96,6 +102,7 @@
                     <pre class="raw-output-pre">@inferenceDiag.LastInferenceOutput</pre>
                 </div>
             }
+            </details>
         }
         else
         {
@@ -114,7 +121,9 @@
        models will actually load and generate on THIS device. Each row drives the real worker path
        (load → generate) against one fixed synthetic frame, so the numbers are comparable between
        models and between machines. *@
-    <RadzenCard class="panel" data-test="model-selftest-card">
+    <details class="panel diagnostics-advanced" data-test="diagnostics-advanced">
+        <summary>Advanced: model compatibility tests</summary>
+    <div data-test="model-selftest-card">
         <header class="panel-header">
             @* h2, not h1: the page already has one h1 ("System") — three h1s on one page broke
                the document outline for screen-reader users navigating by heading. *@
@@ -213,7 +222,8 @@
                 <img src="@lastTestFrameDataUrl" alt="Synthetic test scene: a person lying on a bed in a room with a window" />
             </div>
         }
-    </RadzenCard>
+    </div>
+    </details>
 
     @* Gated on the SERVER's developer-mode signal, matching the Live Room's "Clear data" button.
    This used to read the client-only ExposeDebugDetailsInUi flag, which the WASM app never

@@ -22,6 +22,10 @@
             }
 
             <p id="alert-takeover-reason" class="alert-takeover-reason">@Reason</p>
+            @if (!string.IsNullOrWhiteSpace(AcknowledgmentError))
+            {
+                <p role="alert">@AcknowledgmentError</p>
+            }
 
             <div class="alert-takeover-meta">
                 @if (!string.IsNullOrWhiteSpace(ActivityLabel))
@@ -36,8 +40,8 @@
 
             <div class="alert-takeover-actions">
                 <button class="alert-takeover-btn alert-takeover-btn--primary" @ref="_acknowledgeButton"
-                        @onclick="OnAcknowledge" data-test="alert-acknowledge">
-                    I’ve got it
+                        @onclick="OnAcknowledge" disabled="@Acknowledging" data-test="alert-acknowledge">
+                    @(Acknowledging ? "Saving acknowledgment…" : "Acknowledge")
                 </button>
                 <button class="alert-takeover-btn alert-takeover-btn--ghost"
                         @onclick="OnViewSubject" data-test="alert-view-subject">
@@ -49,6 +53,8 @@
 }
 
 @code {
+    [Parameter] public bool Acknowledging { get; set; }
+    [Parameter] public string? AcknowledgmentError { get; set; }
     private ElementReference _acknowledgeButton;
     private bool _focused;
 

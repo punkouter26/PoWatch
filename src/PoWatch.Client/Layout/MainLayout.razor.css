@@ -1,155 +1,136 @@
-/* ── PoWatch page layout (Phase 4 — top nav) ── */
-
 .page {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
 }
 
 .app-header {
-    /* sticky is handled by .app-navbar inside NavMenu */
+  flex: 0 0 auto;
 }
 
 main {
-    flex: 1;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* ── Skip link ── */
 .skip-link {
-    position: absolute;
-    left: -9999px;
-    top: auto;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 .skip-link:focus {
-    position: fixed;
-    top: var(--space-2);
-    left: 50%;
-    transform: translateX(-50%);
-    width: auto;
-    height: auto;
-    padding: var(--space-2) var(--space-4);
-    background: var(--neon-green);
-    color: var(--bg-main);
-    border-radius: var(--radius-sm);
-    font-weight: 700;
-    z-index: 9999;
-    text-decoration: none;
+  position: fixed;
+  top: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  height: auto;
+  padding: var(--space-2) var(--space-4);
+  background: var(--neon-green);
+  color: var(--bg-main);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  z-index: 9999;
+  text-decoration: none;
 }
 
-/* ── Page HUD (contextual sub-header) ── */
 .page-hud {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-3) 1.4rem;
-    border-bottom: 1px solid var(--color-border-subtle);
-    background: var(--color-surface-overlay);
-    backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 1.4rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-overlay);
+  backdrop-filter: blur(8px);
 }
 
 .page-hud-title {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .page-hud-subtitle {
-    color: var(--color-text-muted);
-    font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
 }
 
-.page-hud-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.hud-badge {
-    padding: 0.3rem 0.65rem;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--state-success-border);
-    background: var(--state-success-bg);
-    color: var(--state-success-fg);
-    font-size: 0.78rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.hud-clock {
-    font-family: "Courier New", monospace;
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-    letter-spacing: 0.05em;
-}
-
-/* ── Page loading bar ── */
 .nav-loading-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    z-index: 9999;
-    overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 9999;
+  overflow: hidden;
 }
 
 .nav-loading-bar::after {
-    content: "";
-    display: block;
-    position: absolute;
-    top: 0;
-    left: -60%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
-    animation: navLoad 0.8s ease-in-out infinite;
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--neon-green),
+    transparent
+  );
+  animation: navLoad 0.8s ease-in-out infinite;
 }
 
 @keyframes navLoad {
-    0% { left: -60%; }
-    100% { left: 100%; }
+  0% {
+    left: -60%;
+  }
+  100% {
+    left: 100%;
+  }
 }
 
-/* ── Content ── */
 .content {
-    padding: var(--space-6);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-6);
 }
 
-/* ── Mobile ── */
 @media (max-width: 640px) {
-    .page-hud {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .page-hud-meta {
-        width: 100%;
-        justify-content: space-between;
-    }
+  .page-hud {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
-/* ── ErrorBoundary fallback (shared Po convention) ─────────────────────────── */
 .po-error-panel {
-    margin: 1rem auto;
-    max-width: 40rem;
-    padding: 1rem 1.25rem;
-    border: 1px solid var(--po-error-border, #b3261e);
-    border-radius: 0.5rem;
-    background: var(--po-error-bg, rgba(179, 38, 30, 0.08));
-    color: inherit;
+  margin: 1rem auto;
+  max-width: 40rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--po-error-border, #b3261e);
+  border-radius: 0.5rem;
+  background: var(--po-error-bg, rgba(179, 38, 30, 0.08));
+  color: inherit;
 }
 
 .po-error-panel h2 {
-    margin: 0 0 0.5rem;
-    font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
 }
 
 .po-error-panel p {
-    margin: 0;
+  margin: 0;
 }

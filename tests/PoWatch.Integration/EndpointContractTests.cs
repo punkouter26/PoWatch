@@ -16,35 +16,30 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    [Theory]
-    [InlineData("/api/observer/state")]
-    [InlineData("/api/identity/subjects")]
-    [InlineData("/api/identity/subjects/live-status")]
-    [InlineData("/api/identity/subjects/live-risk")]
-    [InlineData("/api/diagnostics/status")]
-    [InlineData("/auth/me")]
-    [InlineData("/auth/config")]
-    [InlineData("/health")]
-    [InlineData("/diag")]
-    [InlineData("/diag/boot")]
-    public async Task Read_endpoints_answer_successfully(string route)
+    [Fact]
+    public async Task Read_endpoints_answer_successfully()
     {
-        var response = await _client.GetAsync(route);
+        foreach (string route in new string[] { "/api/observer/state", "/api/identity/subjects", "/api/identity/subjects/live-status", "/api/identity/subjects/live-risk", "/api/diagnostics/status", "/auth/me", "/auth/config", "/health", "/diag", "/diag/boot" })
+        {
+            var response = await _client.GetAsync(route);
 
-        Assert.True(
-            response.IsSuccessStatusCode,
-            $"GET {route} returned {(int)response.StatusCode} {response.StatusCode}");
+            Assert.True(
+                response.IsSuccessStatusCode,
+                $"GET {route} returned {(int)response.StatusCode} {response.StatusCode}");
+
+        }
     }
 
-    [Theory]
-    [InlineData("/api/observer/state")]
-    [InlineData("/api/identity/subjects")]
-    [InlineData("/api/diagnostics/status")]
-    public async Task Read_endpoints_return_json(string route)
+    [Fact]
+    public async Task Read_endpoints_return_json()
     {
-        var response = await _client.GetAsync(route);
+        foreach (string route in new string[] { "/api/observer/state", "/api/identity/subjects", "/api/diagnostics/status" })
+        {
+            var response = await _client.GetAsync(route);
 
-        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+
+        }
     }
 
     // NOTE: The SSE test (`/api/observer/events`) was retired when the SSE endpoint was removed in

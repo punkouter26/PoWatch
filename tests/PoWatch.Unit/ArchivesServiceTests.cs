@@ -16,36 +16,39 @@ public sealed class ArchivesServiceTests
     }
 
     [Fact]
-    public async Task GetChapterAsync_ReturnsEmptyChapterMessage_WhenNoDataExists()
+    public async Task GetChapterAsync_ReturnsEmptyChapterMessage_WhenNoDataExists_And_GetChapterAsync_ReturnsOnlySignificantHighlights_InReverseChronologicalOrder()
     {
-        var service = new ArchivesService(new FakeObservationRepository([]), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
-
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
-
-        Assert.Empty(chapter.Timeline);
-        Assert.Empty(chapter.Highlights);
-        Assert.Equal("No observations were recorded on this day.", chapter.ClinicalNarrative);
-        Assert.Equal(0, chapter.TotalEvents);
-    }
-
-    [Fact]
-    public async Task GetChapterAsync_ReturnsOnlySignificantHighlights_InReverseChronologicalOrder()
-    {
-        var items = new[]
+        // GetChapterAsync_ReturnsEmptyChapterMessage_WhenNoDataExists
         {
-            Event("Kim", "Desk Work", LocalAt(9)),
-            Event("Maya", "Entered", LocalAt(10), isSignificant: true, reason: "Arrival"),
-            Event("Kim", "Break", LocalAt(11), isSignificant: true, reason: "State change")
-        };
+            var service = new ArchivesService(new FakeObservationRepository([]), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            Assert.Empty(chapter.Timeline);
+            Assert.Empty(chapter.Highlights);
+            Assert.Equal("No observations were recorded on this day.", chapter.ClinicalNarrative);
+            Assert.Equal(0, chapter.TotalEvents);
 
-        Assert.Equal(3, chapter.Timeline.Count);
-        Assert.Equal(2, chapter.Highlights.Count);
-        Assert.All(chapter.Highlights, x => Assert.True(x.IsSignificant));
-        Assert.Equal("Kim", chapter.Highlights[0].SubjectDisplayName);
+        }
+        // GetChapterAsync_ReturnsOnlySignificantHighlights_InReverseChronologicalOrder
+        {
+            var items = new[]
+            {
+                Event("Kim", "Desk Work", LocalAt(9)),
+                Event("Maya", "Entered", LocalAt(10), isSignificant: true, reason: "Arrival"),
+                Event("Kim", "Break", LocalAt(11), isSignificant: true, reason: "State change")
+            };
+
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+
+            Assert.Equal(3, chapter.Timeline.Count);
+            Assert.Equal(2, chapter.Highlights.Count);
+            Assert.All(chapter.Highlights, x => Assert.True(x.IsSignificant));
+            Assert.Equal("Kim", chapter.Highlights[0].SubjectDisplayName);
+
+        }
     }
 
     // ── Local-day boundary ────────────────────────────────────────────────────
@@ -54,168 +57,183 @@ public sealed class ArchivesServiceTests
     // and borrows the small hours of the next day.
 
     [Fact]
-    public async Task GetChapterAsync_IncludesLateEvening_AndExcludesTheFollowingDay()
+    public async Task GetChapterAsync_IncludesLateEvening_AndExcludesTheFollowingDay_And_GetChapterAsync_IncludesTheFirstMinuteOfTheLocalDay()
     {
-        var items = new[]
+        // GetChapterAsync_IncludesLateEvening_AndExcludesTheFollowingDay
         {
-            Event("Kim", "Settling", LocalAt(23, 30)),          // last half hour of the local day
-            Event("Kim", "Next morning", LocalAt(7, 0, 1)),     // belongs to the following day
-            Event("Kim", "Previous night", LocalAt(23, 0, -1))  // belongs to the previous day
-        };
+            var items = new[]
+            {
+                Event("Kim", "Settling", LocalAt(23, 30)),          // last half hour of the local day
+                Event("Kim", "Next morning", LocalAt(7, 0, 1)),     // belongs to the following day
+                Event("Kim", "Previous night", LocalAt(23, 0, -1))  // belongs to the previous day
+            };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
-        Assert.Single(chapter.Timeline);
-        Assert.Equal("Settling", chapter.Timeline[0].Activity);
-    }
+            Assert.Single(chapter.Timeline);
+            Assert.Equal("Settling", chapter.Timeline[0].Activity);
 
-    [Fact]
-    public async Task GetChapterAsync_IncludesTheFirstMinuteOfTheLocalDay()
-    {
-        var items = new[] { Event("Kim", "Midnight check", LocalAt(0, 0)) };
+        }
+        // GetChapterAsync_IncludesTheFirstMinuteOfTheLocalDay
+        {
+            var items = new[] { Event("Kim", "Midnight check", LocalAt(0, 0)) };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
-        Assert.Single(chapter.Timeline);
+            Assert.Single(chapter.Timeline);
+
+        }
     }
 
     // ── Narrative ─────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetChapterAsync_DoesNotClaimNothingUnusual_WhenNotableEventsExist()
+    public async Task GetChapterAsync_DoesNotClaimNothingUnusual_WhenNotableEventsExist_And_GetChapterAsync_CountsOutliersAndNotableSeparately_WithoutDoubleCounting()
     {
-        var items = new[]
+        // GetChapterAsync_DoesNotClaimNothingUnusual_WhenNotableEventsExist
         {
-            Event("Subject-529", "Standing", LocalAt(14)),
-            Event("Subject-529", "Left the room", LocalAt(15), isSignificant: true, reason: "State change")
-        };
+            var items = new[]
+            {
+                Event("Subject-529", "Standing", LocalAt(14)),
+                Event("Subject-529", "Left the room", LocalAt(15), isSignificant: true, reason: "State change")
+            };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
-        // The old wording keyed only off the outlier count, so a day with flagged events on screen
-        // was still summarized as "Nothing unusual was flagged."
-        Assert.DoesNotContain("Nothing unusual was flagged", chapter.ClinicalNarrative, StringComparison.Ordinal);
-        Assert.Contains("1 notable moment was flagged", chapter.ClinicalNarrative, StringComparison.Ordinal);
-        Assert.Equal(1, chapter.NotableCount);
-        Assert.Equal(0, chapter.OutlierCount);
+            // The old wording keyed only off the outlier count, so a day with flagged events on screen
+            // was still summarized as "Nothing unusual was flagged."
+            Assert.DoesNotContain("Nothing unusual was flagged", chapter.ClinicalNarrative, StringComparison.Ordinal);
+            Assert.Contains("1 notable moment was flagged", chapter.ClinicalNarrative, StringComparison.Ordinal);
+            Assert.Equal(1, chapter.NotableCount);
+            Assert.Equal(0, chapter.OutlierCount);
+
+        }
+        // GetChapterAsync_CountsOutliersAndNotableSeparately_WithoutDoubleCounting
+        {
+            var items = new[]
+            {
+                Event("Kim", "Fell", LocalAt(14), isSignificant: true, reason: "Fall", isOutlier: true),
+                Event("Kim", "Left", LocalAt(15), isSignificant: true, reason: "State change")
+            };
+
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+
+            // An outlier is always also significant; counting both would report three flags for two events.
+            Assert.Equal(1, chapter.OutlierCount);
+            Assert.Equal(1, chapter.NotableCount);
+            Assert.Equal(2, chapter.TotalEvents);
+
+        }
     }
 
     [Fact]
-    public async Task GetChapterAsync_CountsOutliersAndNotableSeparately_WithoutDoubleCounting()
+    public async Task GetChapterAsync_HumanizesTheSubjectNameInTheNarrative_And_GetChapterAsync_PopulatesStructuredRows_RegardlessOfRequestedMode()
     {
-        var items = new[]
+        // GetChapterAsync_HumanizesTheSubjectNameInTheNarrative
         {
-            Event("Kim", "Fell", LocalAt(14), isSignificant: true, reason: "Fall", isOutlier: true),
-            Event("Kim", "Left", LocalAt(15), isSignificant: true, reason: "State change")
-        };
+            var items = new[] { Event("Subject-529", "Standing", LocalAt(14)) };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
 
-        // An outlier is always also significant; counting both would report three flags for two events.
-        Assert.Equal(1, chapter.OutlierCount);
-        Assert.Equal(1, chapter.NotableCount);
-        Assert.Equal(2, chapter.TotalEvents);
-    }
+            Assert.Contains("Person 529", chapter.ClinicalNarrative, StringComparison.Ordinal);
+            Assert.DoesNotContain("Subject-529", chapter.ClinicalNarrative, StringComparison.Ordinal);
 
-    [Fact]
-    public async Task GetChapterAsync_HumanizesTheSubjectNameInTheNarrative()
-    {
-        var items = new[] { Event("Subject-529", "Standing", LocalAt(14)) };
+        }
+        // GetChapterAsync_PopulatesStructuredRows_RegardlessOfRequestedMode
+        {
+            // The rows are always built so a client-side toggle never triggers a refetch.
+            var items = new[]
+            {
+                Event("Kim", "Seated", LocalAt(9)),
+                Event("Maya", "Entered", LocalAt(10), isSignificant: true, reason: "Arrival")
+            };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            var proseChapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
+            var structuredChapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
 
-        Assert.Contains("Person 529", chapter.ClinicalNarrative, StringComparison.Ordinal);
-        Assert.DoesNotContain("Subject-529", chapter.ClinicalNarrative, StringComparison.Ordinal);
+            Assert.Equal(2, proseChapter.StructuredRows.Count);
+            Assert.Equal(2, structuredChapter.StructuredRows.Count);
+
+        }
     }
 
     // ── Structured narrative ─────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetChapterAsync_PopulatesStructuredRows_RegardlessOfRequestedMode()
+    public async Task GetChapterAsync_StructuredRows_AreChronologicallyOrdered_And_GetChapterAsync_StructuredRows_MapOutliersToUrgent()
     {
-        // The rows are always built so a client-side toggle never triggers a refetch.
-        var items = new[]
+        // GetChapterAsync_StructuredRows_AreChronologicallyOrdered
         {
-            Event("Kim", "Seated", LocalAt(9)),
-            Event("Maya", "Entered", LocalAt(10), isSignificant: true, reason: "Arrival")
-        };
+            var items = new[]
+            {
+                Event("Kim", "Late", LocalAt(15)),
+                Event("Kim", "Early", LocalAt(9)),
+                Event("Kim", "Middle", LocalAt(12))
+            };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var proseChapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Prose, CancellationToken.None);
-        var structuredChapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
 
-        Assert.Equal(2, proseChapter.StructuredRows.Count);
-        Assert.Equal(2, structuredChapter.StructuredRows.Count);
-    }
+            Assert.Equal(["Early", "Middle", "Late"], chapter.StructuredRows.Select(r => r.Activity).ToArray());
 
-    [Fact]
-    public async Task GetChapterAsync_StructuredRows_AreChronologicallyOrdered()
-    {
-        var items = new[]
+        }
+        // GetChapterAsync_StructuredRows_MapOutliersToUrgent
         {
-            Event("Kim", "Late", LocalAt(15)),
-            Event("Kim", "Early", LocalAt(9)),
-            Event("Kim", "Middle", LocalAt(12))
-        };
+            // An outlier is also significant; in the structured view we surface the strongest band only,
+            // so it shows up as Urgent instead of stacking two rows for the same event.
+            var items = new[]
+            {
+                Event("Kim", "Fell", LocalAt(14), isSignificant: true, reason: "Fall", isOutlier: true),
+                Event("Kim", "Standing", LocalAt(15), isSignificant: true, reason: "State change")
+            };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
 
-        Assert.Equal(["Early", "Middle", "Late"], chapter.StructuredRows.Select(r => r.Activity).ToArray());
+            Assert.Equal(PoWatch.Domain.Services.ActivitySignificance.Urgent, chapter.StructuredRows[0].Level);
+            Assert.Equal(PoWatch.Domain.Services.ActivitySignificance.Notable, chapter.StructuredRows[1].Level);
+
+        }
     }
 
     [Fact]
-    public async Task GetChapterAsync_StructuredRows_MapOutliersToUrgent()
+    public async Task GetChapterAsync_StructuredRows_HumanizeSubjectDisplayNames_And_GetChapterAsync_StructuredRows_AreEmptyForADayWithNoObservations()
     {
-        // An outlier is also significant; in the structured view we surface the strongest band only,
-        // so it shows up as Urgent instead of stacking two rows for the same event.
-        var items = new[]
+        // GetChapterAsync_StructuredRows_HumanizeSubjectDisplayNames
         {
-            Event("Kim", "Fell", LocalAt(14), isSignificant: true, reason: "Fall", isOutlier: true),
-            Event("Kim", "Standing", LocalAt(15), isSignificant: true, reason: "State change")
-        };
+            // The rows must use the same humanizer as the prose so the two views cannot disagree.
+            var items = new[] { Event("Subject-529", "Standing", LocalAt(14)) };
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
 
-        Assert.Equal(PoWatch.Domain.Services.ActivitySignificance.Urgent, chapter.StructuredRows[0].Level);
-        Assert.Equal(PoWatch.Domain.Services.ActivitySignificance.Notable, chapter.StructuredRows[1].Level);
-    }
+            Assert.Equal("Person 529", chapter.StructuredRows[0].SubjectDisplayName);
 
-    [Fact]
-    public async Task GetChapterAsync_StructuredRows_HumanizeSubjectDisplayNames()
-    {
-        // The rows must use the same humanizer as the prose so the two views cannot disagree.
-        var items = new[] { Event("Subject-529", "Standing", LocalAt(14)) };
+        }
+        // GetChapterAsync_StructuredRows_AreEmptyForADayWithNoObservations
+        {
+            var service = new ArchivesService(new FakeObservationRepository([]), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
 
-        var service = new ArchivesService(new FakeObservationRepository(items), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
+            var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
 
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
+            Assert.Empty(chapter.StructuredRows);
 
-        Assert.Equal("Person 529", chapter.StructuredRows[0].SubjectDisplayName);
-    }
-
-    [Fact]
-    public async Task GetChapterAsync_StructuredRows_AreEmptyForADayWithNoObservations()
-    {
-        var service = new ArchivesService(new FakeObservationRepository([]), Microsoft.Extensions.Logging.Abstractions.NullLogger<ArchivesService>.Instance);
-
-        var chapter = await service.GetChapterAsync(Day, Shared.Models.NarrativeMode.Structured, CancellationToken.None);
-
-        Assert.Empty(chapter.StructuredRows);
+        }
     }
 
     [Fact]

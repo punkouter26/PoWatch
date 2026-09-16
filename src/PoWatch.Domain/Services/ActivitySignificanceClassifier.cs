@@ -74,11 +74,14 @@ public static class ActivitySignificanceClassifier
     [
         (ActivitySignificance.Urgent, "Possible fall — someone appears to be on the floor",
             ["fallen", "has fallen", "fell", "falling", "collapsed", "on the floor", "on the ground",
-             "lying on the floor", "lying on the ground", "slumped", "face down"]),
+             "lying on the floor", "lying on the ground", "slumped", "face down", "slipped",
+             "slid to the floor", "slid off bed", "slid onto the floor", "kneeling on the floor",
+             "sprawled on the floor", "unable to get up"]),
 
         (ActivitySignificance.Urgent, "Someone may need help",
             ["unconscious", "unresponsive", "not moving", "motionless", "seizure", "convulsing",
-             "calling for help", "waving for help", "bleeding", "blood", "injured", "in pain"]),
+             "calling for help", "waving for help", "bleeding", "blood", "injured", "in pain",
+             "clutching chest", "gasping", "difficulty breathing", "choking", "disoriented"]),
 
         (ActivitySignificance.Notable, "Signs of distress",
             ["distress", "distressed", "crying", "agitated", "shouting", "screaming", "upset",
@@ -101,8 +104,9 @@ public static class ActivitySignificanceClassifier
 
         (ActivitySignificance.Notable, "Changed position",
             ["standing up", "stands up", "getting up", "gets up", "sitting down", "lying down",
-             "getting into bed", "getting out of bed", "climbing", "reaching up", "bending over",
-             "stumbling", "unsteady", "holding onto"]),
+             "getting into bed", "getting out of bed", "sitting on edge of bed", "attempting to stand",
+             "climbing", "reaching up", "bending over", "stumbling", "unsteady", "holding onto",
+             "restless", "pacing", "reaching for assistance", "transferring to wheelchair"]),
     ];
 
     /// <summary>

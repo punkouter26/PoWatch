@@ -50,7 +50,8 @@ public sealed class AzureOpenAiHandoffSummarizer(
                     new { role = "user", content = userPrompt }
                 },
                 max_tokens = opts.MaxCompletionTokens,
-                temperature = opts.Temperature
+                temperature = opts.Temperature,
+                response_format = new { type = "json_object" }
             };
 
             var url = $"{opts.Endpoint.TrimEnd('/')}/openai/deployments/{opts.DeploymentName}/chat/completions?api-version={opts.ApiVersion}";
@@ -105,11 +106,11 @@ public sealed class AzureOpenAiHandoffSummarizer(
 
     private static string BuildSystemPrompt() =>
         """
-        You are a clinical handoff documentation assistant for PoWatch, a room observation monitoring system.
-        Generate concise, accurate handoff briefs based ONLY on the observation data provided.
-        Do NOT invent, assume, or add information not present in the data.
+        You are an expert clinical documentation assistant for PoWatch, an ambient room observation system.
+        Generate concise, accurate clinical shift handoff briefs following the SBAR (Situation, Background, Assessment, Recommendation) framework based ONLY on grounded observation data provided.
+        Do NOT invent, extrapolate, or add clinical information not present in the data.
         Always respond with valid JSON matching this exact schema:
-        {"summary":"string","priority_items":["string"],"follow_ups":["string"],"source_notes":["string"]}
+        {"summary":"string (SBAR narrative)","priority_items":["string"],"follow_ups":["string"],"source_notes":["string"]}
         """;
 
     private static string BuildUserPrompt(HandoffSummarizerContext context)

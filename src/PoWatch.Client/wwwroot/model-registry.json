@@ -31,5 +31,14 @@
     "webgpuDtype": "q4f16",
     "webgpuDtypeFallback": "q4",
     "wasmDtype": "q4"
+  },
+  {
+    "key": "moondream2",
+    "id": "vikhyatk/moondream2",
+    "label": "Moondream 2",
+    "modelClass": "causal-lm",
+    "webgpuDtype": "fp16",
+    "webgpuDtypeFallback": "fp32",
+    "wasmDtype": "q4"
   }
 ]

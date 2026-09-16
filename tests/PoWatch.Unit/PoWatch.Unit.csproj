@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <TestCaseLimit>100</TestCaseLimit>
   </PropertyGroup>
 
   <!-- Unit suite: pure logic, No-I/O. Deliberately does NOT reference PoWatch.Api — pulling the web

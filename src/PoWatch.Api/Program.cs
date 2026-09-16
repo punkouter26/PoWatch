@@ -11,9 +11,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using PoWatch.Api.Features.Archives;
 using PoWatch.Api.Features.Diagnostics;
-using PoWatch.Api.Features.Fhir;
-using PoWatch.Api.Features.Handoff.Memos;
-using PoWatch.Api.Features.Share;
 using PoWatch.Api.Features.Identity;
 using PoWatch.Api.Features.Observer;
 using PoWatch.Api.Features.Auth;
@@ -78,6 +75,7 @@ builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection
 builder.Services.Configure<PoWatch.Application.Options.AlertThresholdOptions>(builder.Configuration.GetSection("AlertThresholds"));
 builder.Services.Configure<PoWatch.Application.Options.DriftRadarOptions>(builder.Configuration.GetSection("DriftRadar"));
 builder.Services.Configure<PoWatch.Application.Options.HandoffCoachOptions>(builder.Configuration.GetSection("HandoffCoach"));
+builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
 
 // Audit #2: fail-fast options — the startup-critical settings are validated and ValidateOnStart()
 // forces evaluation during host build, so a bad table name, polling interval, or Azure OpenAI range
@@ -340,10 +338,7 @@ app.MapAuthEndpoints();
 app.MapObserverFeature();
 app.MapArchivesFeature();
 app.MapIdentityFeature();
-app.MapFhirFeature();
 app.MapDiagnosticsFeature();
-app.MapHandoffMemoFeature();
-app.MapShareLinkFeature();
 // Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which
 // is what lets the portfolio dashboard poll them all and render one uptime grid.
 app.MapPoLiveness();

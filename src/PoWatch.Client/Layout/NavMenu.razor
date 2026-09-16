@@ -1,4 +1,4 @@
-﻿@using PoWatch.Client.Services
+@using PoWatch.Client.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @using System.Net.Http
@@ -55,7 +55,6 @@
                     <span aria-hidden="true">@(_theme == "light" ? "☀" : "☾")</span>
                     <span class="visually-hidden">Theme</span>
                 </button>
-                <PoWatch.Client.Components.Fx.MuteToggle />
                 @if (MockLabel is not null)
                 {
                     <span class="mock-chip" role="status" aria-live="polite" title="Mock data active — @MockLabel" data-test="mock-chip">
@@ -104,7 +103,6 @@
                     <button class="nav-link navbar-drawer-action" @onclick="ToggleThemeAsync">
                         Theme: @(_theme == "light" ? "light" : "dark")
                     </button>
-                    <PoWatch.Client.Components.Fx.MuteToggle />
                     @if (MockLabel is not null)
                     {
                         <span class="mock-chip" role="status">⚠ MOCK DATA</span>

@@ -1,670 +1,673 @@
-/* features.css — page-grid layout shell shared by every Blazor page.
-   Atoms (panel, metric, status-strip, hud-badge, nexus-frame) live in
-   /Components/*.razor.css. Page layouts live here. ~3 KB. */
-
-/* ═══ App shell + sector grid (used by every page) ═══════════════════════════ */
 .app-shell {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 1.2rem 1.2rem 1.6rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.2rem 1.2rem 1.6rem;
 }
 
 .sector-grid {
-    display: grid;
-    width: 100%;
-    gap: 1.1rem;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    align-items: start;
+  display: grid;
+  width: 100%;
+  gap: 1.1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
 }
+
 .sector-grid > .po-panel {
-    grid-column: span 12;
-    min-width: 0;
+  grid-column: span 12;
+  min-width: 0;
 }
 
-/* Observer page: camera | activity | monitor share one row on wide screens.
-   This file loads LAST, so the observer exception must live here too — the
-   12-col template above otherwise stomps app.css's 3-col layout while its
-   `grid-column: auto` survives, collapsing the Room Feed card to 1/12 width
-   (the "empty pill" bug, 2026-07-22). */
 @media (min-width: 1400px) {
-    /* Two columns since the Live Monitor panel was consolidated away: camera | activity. */
-    .sector-grid.observer-grid,
-    .sector-grid.observer-grid--active {
-        grid-template-columns: minmax(380px, 1fr) minmax(360px, 1.1fr);
-    }
-
-    .sector-grid.observer-grid > .po-panel,
-    .sector-grid.observer-grid--active > .po-panel {
-        grid-column: auto;
-    }
+  .sector-grid.observer-grid,
+  .sector-grid.observer-grid--active {
+    grid-template-columns: minmax(380px, 1fr) minmax(360px, 1.1fr);
+  }
+  .sector-grid.observer-grid > .po-panel,
+  .sector-grid.observer-grid--active > .po-panel {
+    grid-column: auto;
+  }
 }
 
-/* Below the 3-col breakpoint the camera panel stacks full-width like the rest, and the
-   viewport-fit internal scrolling (app.css "VIEWPORT-FIT LAYOUT" block) is switched off:
-   a scroll-container grid item has an automatic minimum size of 0, so in the stacked
-   layout its row collapses to bare padding (the 26px-tall camera card bug). Narrow
-   screens scroll the page naturally instead. */
 @media (max-width: 1399.98px) {
-    .sector-grid.observer-grid > .panel-main,
-    .sector-grid.observer-grid--active > .panel-main {
-        grid-column: span 12;
-    }
-
-    .observer-page {
-        height: auto;
-        overflow: visible;
-    }
-
-    .observer-page > .sector-grid.observer-grid,
-    .observer-page > .sector-grid.observer-grid.observer-grid--active {
-        overflow: visible;
-        align-items: start;
-    }
-
-    .observer-grid .panel-main,
-    .observer-grid--active .panel-main {
-        overflow-y: visible;
-    }
+  .sector-grid.observer-grid > .panel-main,
+  .sector-grid.observer-grid--active > .panel-main {
+    grid-column: span 12;
+  }
+  .observer-page {
+    height: auto;
+    overflow: visible;
+  }
+  .observer-page > .sector-grid.observer-grid,
+  .observer-page > .sector-grid.observer-grid.observer-grid--active {
+    overflow: visible;
+    align-items: start;
+  }
+  .observer-grid .panel-main,
+  .observer-grid--active .panel-main {
+    overflow-y: visible;
+  }
 }
 
-/* People page goes single-column. An earlier fix in app.css ("#4 Identity") already
-   collapsed this because the collapsed Merge accordion left the whole right column
-   empty; this file loads LAST, so re-declaring the 8/4 split here silently undid
-   that fix and the empty column came back. Keep them in agreement. */
 .identity-grid .panel-library,
-.identity-grid .panel-merge { grid-column: span 12; }
+.identity-grid .panel-merge {
+  grid-column: span 12;
+}
 
 .archives-grid .panel-chapter,
-.archives-grid .panel-timeline { grid-column: span 12; }
-
-/* Radzen DataGrid fills panel width inside activity panel. */
-.observer-grid .panel-activity .rz-data-grid,
-.observer-grid .panel-activity .rz-data-grid-table {
-    width: 100% !important;
+.archives-grid .panel-timeline {
+  grid-column: span 12;
 }
 
-/* ═══ Unified alert strip (consolidation #7): every non-critical warning renders here
-   with one visual language; the full-screen overlay is reserved for critical alerts. ══ */
 .alert-strip {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
-.alert-strip .threshold-alert-banner { margin-bottom: 0; }
 
-/* ═══ Live Room startup-failure card (Fix #2): pinned until the operator dismisses it,
-   so a kiosk Start that failed (no camera / permission denied / model not loadable) is
-   unmissable. Sits between the alert strip and the hero. ═══════════════════════════ */
+.alert-strip .threshold-alert-banner {
+  margin-bottom: 0;
+}
+
 .startup-error-card {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-3);
-    background: var(--state-danger-bg);
-    border: 1px solid var(--state-danger-border);
-    color: var(--state-danger-fg);
-    border-radius: var(--radius-md, 8px);
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: var(--state-danger-bg);
+  border: 1px solid var(--state-danger-border);
+  color: var(--state-danger-fg);
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
 }
+
 .startup-error-icon {
-    font-size: 1.6rem;
-    line-height: 1;
-    flex-shrink: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
 }
+
 .startup-error-body {
-    flex: 1;
-    min-width: 0;
+  flex: 1;
+  min-width: 0;
 }
+
 .startup-error-title {
-    display: block;
-    font-size: 1rem;
-    margin-bottom: var(--space-1, 4px);
+  display: block;
+  font-size: 1rem;
+  margin-bottom: var(--space-1, 4px);
 }
+
 .startup-error-message {
-    margin: 0 0 var(--space-1, 4px) 0;
-    font-weight: 500;
+  margin: 0 0 var(--space-1, 4px) 0;
+  font-weight: 500;
 }
+
 .startup-error-meta {
-    margin: 0;
-    opacity: 0.85;
-    font-size: 0.85rem;
+  margin: 0;
+  opacity: 0.85;
+  font-size: 0.85rem;
 }
+
 .startup-error-dismiss {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: inherit;
-    font-size: 1.25rem;
-    line-height: 1;
-    padding: 0 var(--space-1);
-    align-self: flex-start;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0 var(--space-1);
+  align-self: flex-start;
 }
 
-/* Warning/error tints reuse the banner structure with state tokens. */
 .threshold-alert-banner--warn {
-    background: var(--state-warning-bg);
-    border-color: var(--state-warning-border);
-    color: var(--state-warning-fg);
-}
-.threshold-alert-banner--error {
-    background: var(--state-danger-bg);
-    border-color: var(--state-danger-border);
-    color: var(--state-danger-fg);
-}
-.threshold-alert-dismiss {
-    background: none; border: none; cursor: pointer;
-    color: inherit; font-size: 1.1rem; line-height: 1; padding: 0 var(--space-1);
-    margin-left: auto;
+  background: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
+  color: var(--state-warning-fg);
 }
 
-/* ═══ Observer settings drawer (consolidation #5) ══════════════════════════ */
+.threshold-alert-banner--error {
+  background: var(--state-danger-bg);
+  border-color: var(--state-danger-border);
+  color: var(--state-danger-fg);
+}
+
+.threshold-alert-dismiss {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 var(--space-1);
+  margin-left: auto;
+}
+
 .settings-drawer-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(5, 3, 10, 0.45);
-    z-index: 1200;
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 3, 10, 0.45);
+  z-index: 1200;
 }
+
 .settings-drawer {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: min(420px, 92vw);
-    background: var(--color-surface-1);
-    border-left: 1px solid var(--color-border-subtle);
-    box-shadow: var(--shadow-lg);
-    z-index: 1201;
-    padding: var(--space-5);
-    overflow-y: auto;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  background: var(--color-surface-1);
+  border-left: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-lg);
+  z-index: 1201;
+  padding: var(--space-5);
+  overflow-y: auto;
 }
+
 .settings-drawer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
 }
-.settings-drawer-header h2 { margin: 0; font-size: var(--text-xl); }
+
+.settings-drawer-header h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
 .settings-drawer-close {
-    background: none; border: none; cursor: pointer;
-    font-size: 1.4rem; line-height: 1; color: var(--color-text-muted);
-    padding: var(--space-1);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  padding: var(--space-1);
 }
-.settings-drawer-close:hover { color: var(--color-text-primary); }
-.settings-drawer-note { color: var(--color-text-muted); }
+
+.settings-drawer-close:hover {
+  color: var(--color-text-primary);
+}
+
+.settings-drawer-note {
+  color: var(--color-text-muted);
+}
 
 .settings-gear {
-    background: none;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    padding: var(--space-1) var(--space-2);
-    color: var(--color-text-muted);
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-muted);
 }
-.settings-gear:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
 
-/* ═══ People-page glance grid (consolidation #1 — ported from the Overview page) ══ */
-.identity-grid .panel-glance { grid-column: span 12; }
+.settings-gear:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.identity-grid .panel-glance {
+  grid-column: span 12;
+}
+
 .glance-grid-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
-.glance-grid-header h2 { margin: 0; }
+
+.glance-grid-header h2 {
+  margin: 0;
+}
+
 .glance-grid-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
-.livedashboard-filter-input { width: 200px; }
-.livedashboard-progress { height: 4px; width: 80px; align-self: center; }
+
+.livedashboard-filter-input {
+  width: 200px;
+}
+
+.livedashboard-progress {
+  height: 4px;
+  width: 80px;
+  align-self: center;
+}
+
 .live-dashboard-empty {
-    color: var(--color-text-muted);
-    background: var(--color-surface-overlay);
-    border: 1px dashed var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    padding: var(--space-6);
-    text-align: center;
+  color: var(--color-text-muted);
+  background: var(--color-surface-overlay);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
 }
 
-/* Dev-only "Clear data" affordance on the Room Activity panel — right-aligned, unobtrusive. */
-.activity-clear-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: var(--space-2);
-}
-
-/* System page: section label inside the merged Health card (consolidation #8). */
 .health-section-label {
-    margin: var(--space-6) 0 var(--space-2);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--color-border-subtle);
-    font-size: var(--text-lg);
+  margin: var(--space-6) 0 var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--text-lg);
 }
 
-/* ═══ Threshold Alert Banner (global alert strip across the app) ═══════════ */
-
-/* ═══ Viewport-fit polish (audit idea #3 / #6) ═════════════════════════════ */
-
-/* On narrow viewports the Live Room hero's action buttons stack vertically so the title and
-   orb stay readable instead of being pushed off-centre by a Stop + End shift pair. */
 @media (max-width: 720px) {
-    .room-status-hero {
-        flex-wrap: wrap;
-    }
-
-    .room-status-actions {
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .room-status-actions .rz-button {
-        width: 100%;
-    }
-
-    /* The decorative orb is a wide-only flourish; removing it on phones reclaims ~80px and
-       keeps the hero ≤ 220px tall on a 360×640 viewport. */
-    .room-status-orb {
-        display: none;
-    }
-}
-
-/* The model telemetry strip collapses to two columns on a phone; p95 latency and reply
-   quality drop into a "More" disclosure so the panel doesn't grow ~120px taller with six
-   stacked tiles. The disclosure is wired in ObserverHub.razor — the CSS just hides it on
-   wide viewports. */
-@media (max-width: 720px) {
-    .model-stats-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.4rem;
-    }
-
-    .model-stat-sub {
-        white-space: normal;
-    }
-}
-
-/* Camera frame: aspect-ratio over a hard-coded max-height so the feed never gets squashed
-   under the panel header + telemetry strip + status banner. Previously `max-height: 42vh`
-   forced <20vh on a small viewport, leaving the live feed looking like a postage stamp. */
-.nexus-frame {
-    aspect-ratio: 16 / 9;
-    width: 100%;
-    max-height: 50svh;
-}
-
-@media (min-width: 1400px) {
-    .nexus-frame { max-height: 42vh; }
-}
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-3);
-    background: var(--state-danger-bg);
-    border: 1px solid var(--state-danger-border);
-    border-radius: var(--radius-md);
-    color: var(--state-danger-fg);
-}
-.threshold-alert-icon { font-size: 1.25rem; flex-shrink: 0; padding-top: 2px; }
-.threshold-alert-list { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); }
-.threshold-alert-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--text-sm);
+  .room-status-hero {
     flex-wrap: wrap;
+  }
+  .room-status-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .room-status-actions .rz-button {
+    width: 100%;
+  }
+  .room-status-orb {
+    display: none;
+  }
 }
-.threshold-alert-time {
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-}
-.threshold-alert-dismiss {
-    background: none; border: none; color: var(--color-text-muted);
-    cursor: pointer; font-size: 1rem; padding: 0 var(--space-1); line-height: 1;
-}
-.threshold-alert-dismiss:hover { color: var(--state-danger-fg); }
-.threshold-alert-dismiss-all {
-    flex-shrink: 0;
-    background: var(--state-danger-bg);
-    border: 1px solid var(--state-danger-border);
-    border-radius: var(--radius-sm);
-    color: var(--state-danger-fg);
-    cursor: pointer;
-    font-size: var(--text-xs);
-    padding: var(--space-1) var(--space-2);
-    align-self: flex-start;
-}
-.threshold-alert-dismiss-all:hover { background: var(--state-danger-border); }
 
-/* ═══ ObserverHub-specific grid layout ═════════════════════════════════════
-   The viewport-fit shell (fixed height + internally-scrolling panels) only fits
-   the ≥1400px 3-column layout. Applied unconditionally it re-imposed
-   overflow:hidden below the breakpoint, overriding the stacked-layout fixes in
-   the max-width block above (cards collapsed/overlapped on phones, 2026-07-22). */
+@media (max-width: 720px) {
+  .model-stats-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .model-stat-sub {
+    white-space: normal;
+  }
+}
+
+.nexus-frame {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  max-height: 50svh;
+}
+
 @media (min-width: 1400px) {
-    .observer-page {
-        display: grid;
-        /* hero row sizes to content; the panel grid gets ALL remaining height. A single
-           `1fr` here handed the leftover space to the hero instead — giant status card. */
-        grid-template-rows: auto minmax(0, 1fr);
-        grid-template-columns: 1fr;
-        gap: 0.55rem;
-        height: calc(100svh - var(--topbar-h) - 2rem);
-        overflow: hidden;
-    }
-    .observer-grid { min-height: 0; overflow: hidden; align-items: stretch; }
-    .observer-grid .panel-main,
-    .observer-grid .panel-stats,
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-main,
-    .observer-grid--active .panel-stats,
-    .observer-grid--active .panel-activity {
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: var(--color-border-subtle) transparent;
-    }
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-activity { overflow-y: hidden; }
+  .nexus-frame {
+    max-height: 42vh;
+  }
 }
 
-/* ═══ Observer hero strip (title row + metrics) ═════════════════════════════ */
+.threshold-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  background: var(--state-danger-bg);
+  border: 1px solid var(--state-danger-border);
+  border-radius: var(--radius-md);
+  color: var(--state-danger-fg);
+}
+.threshold-alert-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
 
-/* ═══ Live Dashboard, Diagnostics, Identity scaffolding ════════════════════ */
-.diagnostics-page { animation: pageEnter var(--motion-enter) both; }
+.threshold-alert-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 
-/* ═══ Activity + Subject strip used in ObserverHub ═════════════════════════ */
-.activity-scroll-region {
-    flex: 1 1 0;
-    min-height: 80px;
+.threshold-alert-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+
+.threshold-alert-time {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.threshold-alert-dismiss {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 var(--space-1);
+  line-height: 1;
+}
+
+.threshold-alert-dismiss:hover {
+  color: var(--state-danger-fg);
+}
+
+.threshold-alert-dismiss-all {
+  flex-shrink: 0;
+  background: var(--state-danger-bg);
+  border: 1px solid var(--state-danger-border);
+  border-radius: var(--radius-sm);
+  color: var(--state-danger-fg);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  align-self: flex-start;
+}
+
+.threshold-alert-dismiss-all:hover {
+  background: var(--state-danger-border);
+}
+
+@media (min-width: 1400px) {
+  .observer-page {
+    display: grid;
+
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    height: calc(100svh - var(--topbar-h) - 2rem);
+    overflow: hidden;
+  }
+  .observer-grid {
+    min-height: 0;
+    overflow: hidden;
+    align-items: stretch;
+  }
+  .observer-grid .panel-main,
+  .observer-grid--active .panel-main {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--color-border-subtle) transparent;
+  }
 }
 
-.activity-list { max-height: none; }
+.diagnostics-page {
+  animation: pageEnter var(--motion-enter) both;
+}
+
+.activity-scroll-region {
+  flex: 1 1 0;
+  min-height: 80px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-subtle) transparent;
+}
+
+.activity-list {
+  max-height: none;
+}
 
 .panel-header-left {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .page-header-time {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--state-success-fg);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-}
-.page-header-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: 0.77rem;
-    color: var(--color-text-muted);
-    flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--state-success-fg);
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
-/* ═══ Subject cards (full + mini) — promoted to feature sheet ══════════════ */
+.page-header-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.77rem;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
 .subjects-in-panel {
-    flex-shrink: 0;
-    margin-top: var(--space-3);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .subjects-mini-row {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.2rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-subtle) transparent;
-    min-height: 74px;
-    align-items: stretch;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-subtle) transparent;
+  min-height: 74px;
+  align-items: stretch;
 }
+
 .subject-card--mini {
-    flex: 0 0 175px;
-    min-width: 0;
+  flex: 0 0 175px;
+  min-width: 0;
 }
 
-/* ═══ HUD bar — service-specific, pulled out of PoPanel ═══════════════════ */
-
-/* ═══ Motion + reduced-motion (global guard, app-wide) ════════════════════ */
-.subject-card{
-    will-change: transform, opacity;
-    transform: translateZ(0);
+.subject-card {
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-delay: 0ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        transition-delay: 0ms !important;
-        scroll-behavior: auto !important;
-    }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* Instant tap feedback (transform-only, sub-100ms) */
 .rz-button,
 .subject-card,
 .nav-logout,
-.archive-empty-cta{
-    transition: transform var(--motion-instant), border-color var(--motion-quick), box-shadow var(--motion-quick);
+.archive-empty-cta {
+  transition:
+    transform var(--motion-instant),
+    border-color var(--motion-quick),
+    box-shadow var(--motion-quick);
 }
+
 .rz-button:active:not(:disabled),
 .subject-card:active,
-.nav-logout:active:not(:disabled){
-    transform: scale(0.97) translateZ(0);
+.nav-logout:active:not(:disabled) {
+  transform: scale(0.97) translateZ(0);
 }
-.subject-card:hover { transform: translate3d(0, -2px, 0); }
+
+.subject-card:hover {
+  transform: translate3d(0, -2px, 0);
+}
 
 @keyframes pageEnter {
-    from { opacity: 0; transform: translate3d(0, 10px, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
+
 .observer-page > .sector-grid,
 .sector-grid.identity-grid,
-.diagnostics-page { animation: pageEnter var(--motion-enter) both; }
+.diagnostics-page {
+  animation: pageEnter var(--motion-enter) both;
+}
 
-/* ═══ Live model telemetry strip (under the Room Feed camera) ════════════════ */
 .model-stats-strip {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.5rem;
-    margin: -0.4rem 0 0.2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+  margin: -0.4rem 0 0.2rem;
 }
 
-/* ═══ NotFound page (Fix #7): route-quick-link rail so a 404 isn't a dead end. ═══ */
 .not-found-context {
-    margin: 0 0 var(--space-2, 8px) 0;
-    color: var(--color-text-muted);
+  margin: 0 0 var(--space-2, 8px) 0;
+  color: var(--color-text-muted);
 }
+
 .not-found-path {
-    margin: 0 0 var(--space-3, 12px) 0;
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
+  margin: 0 0 var(--space-3, 12px) 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
+
 .not-found-path code {
-    background: var(--color-surface-2, #1d1a26);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.85rem;
+  background: var(--color-surface-2, #1d1a26);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
 }
+
 .not-found-route-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--space-2, 8px);
-    margin-top: var(--space-2, 8px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-2, 8px);
 }
+
 .not-found-route-tile {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1, 4px);
-    padding: var(--space-3, 12px);
-    background: var(--color-surface-2, transparent);
-    border: 1px solid var(--color-border-subtle, transparent);
-    border-radius: var(--radius-md, 8px);
-    text-decoration: none;
-    color: inherit;
-    transition: transform var(--motion-fast, 120ms) ease, border-color var(--motion-fast, 120ms) ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  padding: var(--space-3, 12px);
+  background: var(--color-surface-2, transparent);
+  border: 1px solid var(--color-border-subtle, transparent);
+  border-radius: var(--radius-md, 8px);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform var(--motion-fast, 120ms) ease,
+    border-color var(--motion-fast, 120ms) ease;
 }
+
 .not-found-route-tile:hover,
 .not-found-route-tile:focus-visible {
-    transform: translate3d(0, -2px, 0);
-    border-color: var(--accent, currentColor);
-    outline: none;
+  transform: translate3d(0, -2px, 0);
+  border-color: var(--accent, currentColor);
+  outline: none;
 }
+
 .not-found-route-icon {
-    font-size: 1.4rem;
-    line-height: 1;
+  font-size: 1.4rem;
+  line-height: 1;
 }
+
 .not-found-route-name {
-    font-weight: 600;
+  font-weight: 600;
 }
+
 .not-found-route-desc {
-    color: var(--color-text-muted);
-    font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
 }
 
 .model-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-    padding: 0.45rem 0.6rem;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 6px;
-    background: var(--bg-panel-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  background: var(--bg-panel-soft);
 }
 
 .model-stat-label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    white-space: nowrap;
-    color: var(--text-label);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--text-label);
 }
 
 .model-stat-value {
-    font-size: 0.92rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text-bright);
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-bright);
 }
 
 .model-stat-sub {
-    font-size: 0.68rem;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
 }
 
-.model-stat--warn { border-color: var(--state-warning-border); }
-.model-stat--warn .model-stat-value { color: var(--state-warning-fg); }
+.model-stat--warn {
+  border-color: var(--state-warning-border);
+}
 
-/* ═══ Standby chip slot in the hero (#7) ═════════════════════════════════════ */
+.model-stat--warn .model-stat-value {
+  color: var(--state-warning-fg);
+}
+
 .room-status-standby {
-    margin-top: var(--space-2);
+  margin-top: var(--space-2);
 }
 
-/* ═══ Pattern comparison panel on Archives (#8) ══════════════════════════════ */
-.pattern-toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-    flex-wrap: wrap;
-}
-
-.pattern-select {
-    background: var(--color-surface-1);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    padding: var(--space-1) var(--space-2);
-    font: inherit;
-    min-width: 12rem;
-}
-
-.pattern-empty {
-    padding: var(--space-4);
-    color: var(--color-text-muted);
-    text-align: center;
-    font-size: var(--text-sm);
-}
-
-.panel-pattern {
-    grid-column: span 12;
-}
-
-@media (min-width: 1400px) {
-    .panel-pattern {
-        grid-column: span 12;
-    }
-}
-
-/* Inference stall banner — shown when every cycle's model reply is rejected, so a run that
-   records nothing can no longer read as a healthy idle loop. */
 .inference-stall {
-    margin-top: var(--space-3);
-    padding: var(--space-4);
-    border: 1px solid var(--state-danger-border);
-    border-radius: var(--radius-md);
-    background: var(--state-danger-bg);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--state-danger-border);
+  border-radius: var(--radius-md);
+  background: var(--state-danger-bg);
 }
 
 .inference-stall strong {
-    display: block;
-    color: var(--state-danger-fg);
-    margin-bottom: var(--space-2);
+  display: block;
+  color: var(--state-danger-fg);
+  margin-bottom: var(--space-2);
 }
 
 .inference-stall p {
-    margin: 0 0 var(--space-2);
-    font-size: 0.85rem;
-    color: var(--color-text-primary);
+  margin: 0 0 var(--space-2);
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
 }
 
 .inference-stall-reason code {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--color-text-bright);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-text-bright);
 }
 
 .inference-stall-label {
-    font-size: 0.78rem;
-    color: var(--color-text-muted);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
 }
 
 .inference-stall-raw {
-    margin: 0;
-    padding: var(--space-3);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-0);
-    color: var(--color-text-primary);
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    max-height: 12rem;
-    overflow-y: auto;
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 12rem;
+  overflow-y: auto;
 }

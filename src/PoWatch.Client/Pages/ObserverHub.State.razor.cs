@@ -188,14 +188,55 @@ public partial class ObserverHub
     private string _alertOverlayActivity = string.Empty;
     private string _alertOverlayTime = string.Empty;
     private string? _alertOverlayImage;
+    private readonly HashSet<string> _pendingAlertEventIds = [];
+    private bool _acknowledgingAlert;
+    private string? _acknowledgmentError;
 
-    private void AcknowledgeAlertOverlay()
+    private async Task AcknowledgeAlertOverlay()
     {
-        _alertOverlayVisible = false;
-        // Locally downgrade the surfaced alert so the calm hero returns. Server records are untouched;
-        // this is the caregiver saying "I've seen it", not a clinical acknowledgement of the event.
-        lastAlertLevel = AlertLevel.Normal;
-        lastAlertReason = "Acknowledged — watching again";
+        if (_acknowledgingAlert) return;
+        _acknowledgingAlert = true;
+        _acknowledgmentError = null;
+        var eventIds = _pendingAlertEventIds.ToArray();
+        try
+        {
+            var result = await ApiClient.AcknowledgeEventsAsync(eventIds);
+            if (result?.AcknowledgedCount != eventIds.Length)
+                throw new InvalidOperationException("The server did not acknowledge every event.");
+            _pendingAlertEventIds.ExceptWith(eventIds);
+            _alertOverlayVisible = _pendingAlertEventIds.Count > 0;
+            if (!_alertOverlayVisible)
+            {
+                lastAlertLevel = AlertLevel.Normal;
+                lastAlertReason = "Acknowledged — watching again";
+            }
+            await LoadSubjectsAsync();
+            await PlayCueAsync("ack");
+        }
+        catch (Exception)
+        {
+            _acknowledgmentError = "Could not save acknowledgment. Check the connection and try again.";
+        }
+        finally
+        {
+            _acknowledgingAlert = false;
+        }
+    }
+
+    private void ShowUrgentAlert(IngestObservationResultDto result, string activity, string? imageDataUrl)
+    {
+        if (result.Dropped || result.SkippedAsRedundant) return;
+        if (!string.IsNullOrWhiteSpace(result.EventId)) _pendingAlertEventIds.Add(result.EventId);
+        lastAlertLevel = AlertLevel.Urgent;
+        lastAlertReason = result.Detail;
+        _alertOverlaySubject = DisplayText.SubjectName(result.SubjectDisplayName, false);
+        _alertOverlaySubjectId = result.SubjectId;
+        _alertOverlayReason = string.IsNullOrWhiteSpace(result.Detail) ? "Unusual activity detected in the room." : result.Detail;
+        _alertOverlayActivity = activity;
+        _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        _alertOverlayImage = imageDataUrl;
+        _settingsOpen = false;
+        _alertOverlayVisible = true;
     }
 
     private void ViewAlertSubject()
@@ -214,33 +255,14 @@ public partial class ObserverHub
             : "Night";
     }
 
-    // Reused as the static step list for #2/#9 handoff arpeggios (CA1861: const array as static readonly).
-    private static readonly int[] HandoffArpeggio = [0, 2, 4];
-    private void StartHandoff()
-    {
-        // #9: one-tap handoff now earns the full beam ceremony — sound + shader transition.
-        // The chime arpeggio is async fire-and-forget: missing JS or muted state is harmless.
-        var mood = DateTimeOffset.Now.Hour is >= 6 and < 18 ? "day" : "night";
-        if (PowatchFx is not null)
-        {
-            _ = PowatchFx.ArpeggioAsync(mood, HandoffArpeggio);
-            _ = PowatchFx.HushForAsync(2200);
-            _ = PowatchFx.StartHandoffBeamAsync(2200);
-        }
+    private void StartHandoff() =>
         Navigation.NavigateTo($"/archives?handoff=1&shift={DetectCurrentShift()}");
-    }
-
-    // Wraps the Fx service so the partial has somewhere to reach it; constructor-injected.
-    [Inject] private PoWatch.Client.Services.PowatchFxService? PowatchFx { get; set; }
 
     private const string PollingStorageKey = "pw_polling_interval";
     private double _emaInferenceMs = 0.0;
     // Sane default until OnInitializedAsync loads the persisted preference — the settings
     // drawer can render before that completes and must not show "0 s".
     private int _livePollingSeconds = 10;
-    // Breath envelope rate used by the #7 backdrop pulse — calm default; never above the user's
-    // typical resting breath rate. The shader consumes it as the inverse of monitoring intensity.
-    private int BreathBpm => monitoring ? 13 : 0;
     private string _selectedGpuPreference = "default";
     private readonly Queue<long> _latencyHistory = new();
     private readonly long[] _p95Buffer = new long[100]; // reused each cycle; matches _latencyHistory cap

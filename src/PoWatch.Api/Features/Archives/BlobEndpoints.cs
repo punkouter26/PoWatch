@@ -1,6 +1,5 @@
 using PoWatch.Application.Contracts;
 using PoWatch.Shared.Models;
-using System.Collections.Generic;
 
 namespace PoWatch.Api.Features.Archives;
 
@@ -65,50 +64,6 @@ internal static class BlobEndpoints
         })
         .WithName("BlobReadAccess")
         .WithSummary("Get a signed read URL for a blob (for image retrieval).");
-
-        // Evidence integrity check endpoint (checks multiple blobs and returns status)
-        group.MapPost("/integrity", async (
-            string[] blobPaths,
-            IBlobSasProvider provider,
-            CancellationToken cancellationToken) =>
-        {
-            if (blobPaths?.Length == 0)
-                return Results.BadRequest(new { message = "At least one blobPath is required." });
-
-            var results = new List<BlobIntegrityCheckDto>();
-
-            foreach (var blobPath in blobPaths ?? [])
-            {
-                try
-                {
-                    var readUrl = await provider.CreateReadAccessUrlAsync(blobPath, cancellationToken);
-                    var hasSasToken = readUrl.Contains('?', StringComparison.Ordinal) && readUrl.Contains("sig=", StringComparison.Ordinal);
-
-                    results.Add(new BlobIntegrityCheckDto
-                    {
-                        BlobPath = blobPath,
-                        Status = hasSasToken ? "HasValidSas" : "NoSasToken",
-                        ReadUrl = readUrl,
-                        ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30),
-                        IsViewable = hasSasToken
-                    });
-                }
-                catch (Exception ex)
-                {
-                    results.Add(new BlobIntegrityCheckDto
-                    {
-                        BlobPath = blobPath,
-                        Status = "Error",
-                        ErrorMessage = ex.Message,
-                        IsViewable = false
-                    });
-                }
-            }
-
-            return Results.Ok(new { totalChecked = results.Count, results });
-        })
-        .WithName("BlobIntegrityCheck")
-        .WithSummary("Check integrity and viewability of multiple evidence blobs (read-access validation).");
 
         return app;
     }

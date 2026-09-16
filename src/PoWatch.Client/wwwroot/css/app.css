@@ -1,72 +1,69 @@
-/* ── app.css — feature-specific styles, vendor overrides, and the bits that
-       hadn't yet been promoted into a scoped .razor.css file.
-
-       Tokens and element reset now live in tokens.css and base.css. Do not
-       re-declare palette or focus-ring values here — extend the tokens or
-       use a scoped stylesheet. ──────────────────────────────────────────── */
-
 .glass {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
-/* ═══ GPU compositing + motion (audit #4) ═════════════════════════════════════
-   Promote animated layers to their own compositor layer so transitions run on the
-   GPU thread, off the main thread — critical for a low-power always-on kiosk. ─── */
-.subject-card{
-    will-change: transform, opacity;
-    transform: translateZ(0);
+.subject-card {
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
-/* Reduced-motion users get instant, non-animated feedback. This is an UNSCOPED global
-   rule, so its !important declarations cascade into every Blazor component-scoped
-   stylesheet too (MainLayout/NavMenu/Archives/Diagnostics/Login/ObserverSetupPanel) —
-   neutralizing their transitions, keyframe animations, stagger delays and smooth scroll
-   in one place, without needing a per-file @media block. */
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-delay: 0ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        transition-delay: 0ms !important;
-        scroll-behavior: auto !important;
-    }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* Instant tap feedback (audit #4/#7) — a sub-100ms transform-only press response so every
-   interaction feels immediate. Applies to Radzen buttons and our interactive cards/links. */
 .rz-button,
 .subject-card,
 .nav-logout,
-.archive-empty-cta{
-    transition: transform var(--motion-instant), border-color var(--motion-quick), box-shadow var(--motion-quick);
-}
-.rz-button:active:not(:disabled),
-.subject-card:active,
-.nav-logout:active:not(:disabled){
-    transform: scale(0.97) translateZ(0);
-}
-.subject-card:hover {
-    transform: translate3d(0, -2px, 0);
+.archive-empty-cta {
+  transition:
+    transform var(--motion-instant),
+    border-color var(--motion-quick),
+    box-shadow var(--motion-quick);
 }
 
-/* Page-entry transition — panels rise + fade using transform/opacity only. */
+.rz-button:active:not(:disabled),
+.subject-card:active,
+.nav-logout:active:not(:disabled) {
+  transform: scale(0.97) translateZ(0);
+}
+
+.subject-card:hover {
+  transform: translate3d(0, -2px, 0);
+}
+
 @keyframes pageEnter {
-    from { opacity: 0; transform: translate3d(0, 10px, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .observer-page > .sector-grid,
 .sector-grid.identity-grid,
 .diagnostics-page {
-    animation: pageEnter var(--motion-enter) both;
+  animation: pageEnter var(--motion-enter) both;
 }
 
 html,
-body { /* moved to base.css */ }
+body {
+}
+
 a,
 p,
 small,
@@ -75,7 +72,7 @@ label,
 h1,
 h2,
 h3 {
-    color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .hud-grid span,
@@ -86,968 +83,819 @@ code,
 .activity-time,
 .activity-note,
 .refresh-indicator {
-    font-family: var(--font-mono);
+  font-family: var(--font-mono);
 }
 
 .app-shell {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 1.2rem 1.2rem 1.6rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.2rem 1.2rem 1.6rem;
 }
 
 .sector-grid {
-    display: grid;
-    width: 100%;
-    gap: 1.1rem;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    align-items: start;
+  display: grid;
+  width: 100%;
+  gap: 1.1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
 }
 
 .sector-grid > .panel {
-    grid-column: span 12;
-    min-width: 0;
+  grid-column: span 12;
+  min-width: 0;
 }
 
-/* ── Threshold Alert Banner ─────────────────────────────────────────────── */
 .threshold-alert-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.75rem;
-    background: rgba(220, 60, 60, 0.15);
-    border: 1px solid rgba(220, 80, 80, 0.5);
-    border-radius: 10px;
-    color: #ffb3b3;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  background: rgba(220, 60, 60, 0.15);
+  border: 1px solid rgba(220, 80, 80, 0.5);
+  border-radius: 10px;
+  color: #ffb3b3;
 }
 
 .threshold-alert-icon {
-    font-size: 1.25rem;
-    flex-shrink: 0;
-    padding-top: 2px;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .threshold-alert-list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .threshold-alert-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .threshold-alert-time {
-    color: rgba(255, 179, 179, 0.6);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
+  color: rgba(255, 179, 179, 0.6);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
 }
 
 .threshold-alert-dismiss {
-    background: none;
-    border: none;
-    color: rgba(255, 179, 179, 0.7);
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 0 0.25rem;
-    line-height: 1;
+  background: none;
+  border: none;
+  color: rgba(255, 179, 179, 0.7);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 0.25rem;
+  line-height: 1;
 }
 
-.threshold-alert-dismiss:hover { color: #ffb3b3; }
+.threshold-alert-dismiss:hover {
+  color: #ffb3b3;
+}
 
 .threshold-alert-dismiss-all {
-    flex-shrink: 0;
-    background: rgba(220, 60, 60, 0.25);
-    border: 1px solid rgba(220, 80, 80, 0.4);
-    border-radius: 6px;
-    color: #ffb3b3;
-    cursor: pointer;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.6rem;
-    align-self: flex-start;
+  flex-shrink: 0;
+  background: rgba(220, 60, 60, 0.25);
+  border: 1px solid rgba(220, 80, 80, 0.4);
+  border-radius: 6px;
+  color: #ffb3b3;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  align-self: flex-start;
 }
 
-.threshold-alert-dismiss-all:hover { background: rgba(220, 60, 60, 0.4); }
+.threshold-alert-dismiss-all:hover {
+  background: rgba(220, 60, 60, 0.4);
+}
 
 .observer-page {
-    /* Flex column so the fixed-height page can hold the calm-state hero (auto height) ABOVE the
-       scrollable panel grid (fills the rest) — the old single-row grid clipped everything once the
-       hero became a second child. The HUD is position:fixed, so it stays out of this flow. */
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    height: calc(100svh - var(--topbar-h) - 2rem);
-    overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  height: calc(100svh - var(--topbar-h) - 2rem);
+  overflow: hidden;
 }
 
-/* Compact hero strip when monitoring is active — metrics shown in HUD float pill */
-
 .identity-grid .panel-library {
-    grid-column: span 8;
+  grid-column: span 8;
 }
 
 .identity-grid .panel-merge {
-    grid-column: span 4;
+  grid-column: span 4;
 }
 
 .archives-grid .panel-chapter,
 .archives-grid .panel-timeline {
-    grid-column: span 12;
-}
-
-.observer-grid .panel-activity .rz-data-grid,
-.observer-grid .panel-activity .rz-data-grid-table {
-    width: 100% !important;
+  grid-column: span 12;
 }
 
 .panel,
 .rz-card.panel {
-    background: var(--color-surface-overlay) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--color-border-subtle) !important;
-    border-radius: 18px !important;
-    box-shadow: var(--elevation-base);
-    padding: 1rem 1.05rem !important;
+  background: var(--color-surface-overlay) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--elevation-base);
+  padding: 1rem 1.05rem !important;
 }
 
 :root[data-theme="dark"] .rz-card.panel {
-    background: linear-gradient(180deg, rgba(15, 11, 31, 0.92) 0%, rgba(10, 8, 23, 0.94) 100%) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 11, 31, 0.92) 0%,
+    rgba(10, 8, 23, 0.94) 100%
+  ) !important;
 }
 
-/* The "watching" state is a steady glow, not a pulsing one. It used to animate
-   (activeGlow, 2s infinite), but this panel holds the live camera feed, so the glow
-   cycled directly against the video and read as a flicker on an always-on display.
-   Static matches .po-panel--active, which has always shown active this way. */
 .panel--active {
-    border-color: rgba(56, 255, 168, 0.6) !important;
-    box-shadow: 0 0 0 2px rgba(56, 255, 168, 0.16), 0 0 24px rgba(56, 255, 168, 0.08), 0 16px 36px rgba(0, 0, 0, 0.28);
+  border-color: rgba(56, 255, 168, 0.6) !important;
+  box-shadow:
+    0 0 0 2px rgba(56, 255, 168, 0.16),
+    0 0 24px rgba(56, 255, 168, 0.08),
+    0 16px 36px rgba(0, 0, 0, 0.28);
 }
 
 .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    flex-wrap: wrap;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .panel-header.compact {
-    margin-bottom: 0.7rem;
+  margin-bottom: 0.7rem;
 }
 
-.panel-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.35rem 0.7rem;
-    border-radius: 999px;
-    border: 1px solid rgba(158, 162, 188, 0.28);
-    color: #d7dcef;
-    background: rgba(158, 162, 188, 0.08);
-    font-size: 0.78rem;
-    font-weight: 700;
-}
-
-.panel-badge--live {
-    border-color: rgba(56, 255, 168, 0.32);
-    background: rgba(56, 255, 168, 0.12);
-    color: #afffd7;
-}
-
-/* Single source of truth for the live-camera frame; earlier and later dupe rules
-   (which only re-declared subsets of these properties) have been merged here. */
 .nexus-frame {
-    position: relative;
-    aspect-ratio: 16 / 9;
-    max-height: 42vh;
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    background: #000;
-    overflow: hidden;
-    margin: 0.5rem 0 0.6rem;
-    box-shadow: var(--shadow-md), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: 42vh;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: #000;
+  overflow: hidden;
+  margin: 0.5rem 0 0.6rem;
+  box-shadow:
+    var(--shadow-md),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .live-camera-feed {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: linear-gradient(135deg, #0f1325, #040608);
-    /* No filter: the camera view stays true-to-life (special effects removed 2026-07-22). */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: linear-gradient(135deg, #0f1325, #040608);
 }
 
 .nexus-frame .video-sub {
-    position: absolute;
-    bottom: 1rem;
-    left: 1rem;
-    z-index: 2;
-    color: var(--text-primary);
-    text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 2;
+  color: var(--text-primary);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
 }
 
-/* .archive-toolbar is owned by Archives.razor.css (scoped) */
-.controls-row,
 .dev-tools-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: center;
-}
-
-.archive-toolbar-divider {
-    display: inline-block;
-    width: 1px;
-    height: 24px;
-    background: rgba(111, 61, 227, 0.3);
-    margin: 0 0.1rem;
-    align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .auto-refresh-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-left: auto;
-}
-
-.mute-toggle .mute-label {
-    color: var(--color-text-muted);
-    font-size: var(--text-sm);
-    cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
 }
 
 .hud-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 0.6rem;
-    margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.8rem;
 }
 
 .hud-grid div {
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 6px;
-    background: var(--color-surface-2);
-    padding: 0.65rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  padding: 0.65rem;
 }
 
 .hud-grid label {
-    display: block;
-    color: var(--text-label);
-    font-size: 0.82rem;
-}
-
-/* When status-strip is inline inside controls-row, suppress its own margins/bg */
-.controls-row--primary .status-strip {
-    margin: 0;
-    padding: 0;
-    background: none;
-    border: none;
-    border-radius: 0;
+  display: block;
+  color: var(--text-label);
+  font-size: 0.82rem;
 }
 
 @keyframes livePulse {
-    0% { box-shadow: 0 0 0 0 rgba(56, 255, 168, 0.5); }
-    70% { box-shadow: 0 0 0 8px rgba(56, 255, 168, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(56, 255, 168, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(56, 255, 168, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(56, 255, 168, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(56, 255, 168, 0);
+  }
 }
 
 @keyframes blink {
-    50% { opacity: 0.4; }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .setup-row,
 .dev-tools-row {
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(111, 61, 227, 0.2);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(111, 61, 227, 0.2);
 }
 
 .setup-row label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-bottom: 0.4rem;
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
 }
 
-.dev-tools-toggle{
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    cursor: pointer;
-    padding: 0;
-    width: 100%;
-    text-align: left;
+.dev-tools-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  text-align: left;
 }
 
-.dev-tools-toggle:hover{
-    color: var(--text-primary);
+.dev-tools-toggle:hover {
+  color: var(--text-primary);
 }
 
 .merge-form {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.65rem;
-    margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
 }
-
-/* .narrative and .evidence-grid are scoped to Archives.razor.css */
 
 .clock {
-    color: var(--neon-green);
-    font-weight: 700;
+  color: var(--neon-green);
+  font-weight: 700;
 }
 
-/* ── Activity List (replaces Radzen DataGrid) ──────────────────────────── */
 .activity-empty {
-    margin-top: 0.8rem;
-    color: var(--text-muted);
-    font-style: italic;
-    font-size: 0.9rem;
-    text-align: center;
-    padding: 1.4rem 0;
+  margin-top: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1.4rem 0;
 }
 
 .activity-list {
-    list-style: none;
-    margin: 0.5rem 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    max-height: 420px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
 }
 
 .activity-item {
-    padding: 0.5rem 0.7rem;
-    border-bottom: 1px solid rgba(111, 61, 227, 0.12);
-    border-left: 3px solid transparent;
-    transition: background 0.15s;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid rgba(111, 61, 227, 0.12);
+  border-left: 3px solid transparent;
+  transition: background 0.15s;
 }
 
 .activity-item:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .activity-item:hover {
-    background: rgba(56, 255, 168, 0.04);
+  background: rgba(56, 255, 168, 0.04);
 }
 
 .activity-item--significant {
-    border-left-color: rgba(56, 255, 168, 0.5);
+  border-left-color: rgba(56, 255, 168, 0.5);
 }
 
 .activity-item--outlier {
-    border-left-color: rgba(220, 60, 60, 0.7);
-    background: rgba(220, 60, 60, 0.04);
+  border-left-color: rgba(220, 60, 60, 0.7);
+  background: rgba(220, 60, 60, 0.04);
 }
 
 .activity-item-header {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-/* The three header cells are laid out on a fixed grid so the timestamps, names and activity
-   text line up down the column. Flex-with-wrap let every row set its own column positions,
-   which is what made the feed read as a ragged dump rather than a log. */
 .activity-time {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-    width: 4.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 4.6rem;
 }
 
 .activity-subject {
-    font-size: 0.82rem;
-    font-weight: 600;
-    /* Was a fixed pale lavender picked for the dark theme; on the light theme's white panel it
-       fell to roughly 1.6:1 against the background and the name was effectively invisible. */
-    color: var(--color-text-label);
-    white-space: nowrap;
-    flex-shrink: 0;
-    width: 6.5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-size: 0.82rem;
+  font-weight: 600;
+
+  color: var(--color-text-label);
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 6.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* The activity is the substance of the row, so it gets primary ink — it was muted, leaving
-   the row with no full-contrast text at all. */
 .activity-activity {
-    font-size: 0.82rem;
-    color: var(--color-text-primary);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 0.82rem;
+  color: var(--color-text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-badge {
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 0.1em 0.45em;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1em 0.45em;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
-/* "Notable" is a call for attention, so it uses the warning ramp. It was on the SUCCESS ramp
-   (green) — the same colour the app uses for healthy/connected — so a flagged event read as
-   "all good". Both badges now use state tokens instead of hard-coded hexes, which also makes
-   them legible in the light theme (the fixed neon green failed contrast on white). */
 .activity-badge--significant {
-    background: var(--state-warning-bg);
-    color: var(--state-warning-fg);
-    border: 1px solid var(--state-warning-border);
+  background: var(--state-warning-bg);
+  color: var(--state-warning-fg);
+  border: 1px solid var(--state-warning-border);
 }
 
 .activity-badge--outlier {
-    background: var(--state-danger-bg);
-    color: var(--state-danger-fg);
-    border: 1px solid var(--state-danger-border);
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+  border: 1px solid var(--state-danger-border);
 }
 
 .activity-note {
-    margin-top: 0.2rem;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    line-height: 1.45;
-    padding-left: 0.1rem;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  padding-left: 0.1rem;
 }
 
-.controls-row .rz-button,
 .dev-tools-actions .rz-button {
-    min-width: 110px;
-    border-radius: 10px !important;
-    font-weight: 700;
+  min-width: 110px;
+  border-radius: 10px !important;
+  font-weight: 700;
 }
 
-/* Dropdown trigger — theme tokens, never hard-coded dark (black-slab bug, 2026-07-22) */
 .setup-row .rz-dropdown,
 .setup-row .rz-dropdown-label,
 .setup-row .rz-text {
-    background: var(--color-surface-2) !important;
-    color: var(--text-primary) !important;
+  background: var(--color-surface-2) !important;
+  color: var(--text-primary) !important;
 }
 
-/* Dropdown popup panel */
 .rz-dropdown-panel,
 .rz-multiselect-panel {
-    background: var(--color-surface-1) !important;
-    border: 1px solid var(--color-border-subtle) !important;
-    border-radius: 10px !important;
-    box-shadow: var(--shadow-lg) !important;
+  background: var(--color-surface-1) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 
-/* Each option item */
 .rz-dropdown-panel .rz-dropdown-item,
 .rz-dropdown-panel li {
-    background: transparent !important;
-    color: var(--text-primary) !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
 }
 
-/* Hover state */
 .rz-dropdown-panel .rz-dropdown-item:hover,
 .rz-dropdown-panel li:hover {
-    background: var(--color-accent-soft) !important;
-    color: var(--color-text-bright) !important;
+  background: var(--color-accent-soft) !important;
+  color: var(--color-text-bright) !important;
 }
 
-/* Selected / highlighted item */
 .rz-dropdown-panel .rz-dropdown-item.rz-state-highlight,
 .rz-dropdown-panel li.rz-state-highlight {
-    background: var(--color-accent) !important;
-    color: #ffffff !important;
+  background: var(--color-accent) !important;
+  color: #ffffff !important;
 }
 
 #blazor-error-ui {
-    background: #2f0014;
-    color: #fff;
-    bottom: 0;
-    display: none;
-    left: 0;
-    padding: 0.8rem;
-    position: fixed;
-    width: 100%;
-    z-index: 1000;
+  background: #2f0014;
+  color: #fff;
+  bottom: 0;
+  display: none;
+  left: 0;
+  padding: 0.8rem;
+  position: fixed;
+  width: 100%;
+  z-index: 1000;
 }
 
 .loading-progress circle:last-child {
-    stroke: #6f3de3;
+  stroke: #6f3de3;
 }
 
-/* Camera left (7 cols), stats right (5 cols), activity full-width below */
 .observer-page > .sector-grid {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 61, 227, 0.35) transparent;
 }
 
-/* Hero keeps its natural height and never gets squeezed by the flex sibling. */
 .observer-page > .room-status-hero {
-    flex: 0 0 auto;
+  flex: 0 0 auto;
 }
 
-/* 3-column compact layout: camera (5) | activity+subjects (4) | stats (3) — all in one row */
 .observer-grid .panel-main,
 .observer-grid--active .panel-main {
-    grid-column: span 5;
-    min-width: 0;
+  grid-column: span 5;
+  min-width: 0;
 }
-
-.observer-grid .panel-activity,
-.observer-grid--active .panel-activity {
-    grid-column: span 4;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow-y: hidden;
-}
-
-.observer-grid .panel-stats,
-.observer-grid--active .panel-stats {
-    grid-column: span 3;
-    min-width: 0;
-    overflow-y: auto;
-    max-height: calc(100svh - var(--topbar-h) - 4rem);
-}
-
-/* Stats panel: section dividers */
-
-/* ── Live Dashboard ─────────────────────────────────────────────────────── */
 
 .live-dashboard-empty {
-    padding: 2rem;
-    text-align: center;
-    color: var(--text-muted);
-    border: 1px dashed rgba(111, 61, 227, 0.3);
-    border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed rgba(111, 61, 227, 0.3);
+  border-radius: 12px;
 }
 
 .subject-card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .subject-card {
-    padding: 1rem 1.1rem;
-    border-radius: 14px;
-    /* Theme-aware surfaces (contrast fix): cards now read correctly in BOTH light and dark,
-       instead of hardcoded dark navy that turned into dark-text-on-dark in light mode. */
-    border: 1px solid var(--color-border-subtle);
-    background: var(--color-surface-1);
-    box-shadow: var(--shadow-sm);
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    /* SignificanceScore halo: the SubjectGlanceGrid passes --card-score-opacity from the most
-       recent significant observation's Score in [0.0, 1.0]. Default 0 means "no signal" — the
-       outline below fades in smoothly as the score climbs. The card keeps its discrete band
-       state (alert/outlier) for the categorical reading; this halo adds the strength-of-signal
-       dimension on top. */
-    --card-score-opacity: 0;
-    box-shadow: var(--shadow-sm),
-                0 0 0 calc(var(--card-score-opacity, 0) * 4px)
-                color-mix(in srgb, var(--color-accent) calc(var(--card-score-opacity, 0) * 60%), transparent);
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+
+  --card-score-opacity: 0;
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 calc(var(--card-score-opacity, 0) * 4px)
+      color-mix(
+        in srgb,
+        var(--color-accent) calc(var(--card-score-opacity, 0) * 60%),
+        transparent
+      );
 }
 
 .subject-card:hover {
-    border-color: var(--color-accent);
-    background: var(--color-surface-2);
-    box-shadow: var(--shadow-md);
+  border-color: var(--color-accent);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-md);
 }
 
 .subject-card--alert {
-    border-color: var(--state-warning-border);
-    background: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
+  background: var(--state-warning-bg);
 }
 
 .subject-card--outlier {
-    border-color: var(--state-danger-border);
-    background: var(--state-danger-bg);
+  border-color: var(--state-danger-border);
+  background: var(--state-danger-bg);
 }
 
 .subject-card-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .subject-card-name {
-    font-weight: 600;
-    font-size: 0.95rem;
-    flex: 1;
-    color: var(--color-text-bright);
+  font-weight: 600;
+  font-size: 0.95rem;
+  flex: 1;
+  color: var(--color-text-bright);
 }
 
 .subject-card-activity strong,
-.subject-card-value { color: var(--color-text-primary); }
+.subject-card-value {
+  color: var(--color-text-primary);
+}
 
 .subject-card-badge {
-    font-size: 0.68rem;
-    font-family: var(--font-mono);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    padding: 0.1rem 0.4rem;
-    border-radius: 4px;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
 }
 
 .subject-card-badge--alert {
-    background: var(--state-warning-bg);
-    color: var(--state-warning-fg);
-    border: 1px solid var(--state-warning-border);
+  background: var(--state-warning-bg);
+  color: var(--state-warning-fg);
+  border: 1px solid var(--state-warning-border);
 }
 
 .subject-card-badge--outlier {
-    background: var(--state-danger-bg);
-    color: var(--state-danger-fg);
-    border: 1px solid var(--state-danger-border);
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+  border: 1px solid var(--state-danger-border);
 }
 
 .subject-card-badge--unknown {
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
-    border: 1px solid var(--color-border-subtle);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border-subtle);
 }
 
 .subject-card-activity,
 .subject-card-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .subject-card-label {
-    font-size: 0.72rem;
-    color: var(--text-label);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .subject-card-value {
-    font-size: 0.85rem;
+  font-size: 0.85rem;
 }
 
 .subject-card-mono {
-    font-family: var(--font-mono);
+  font-family: var(--font-mono);
 }
 
-/* Legacy dot classes kept for fallback */
-
-/* Inference analytics subsection — 2-column grid */
-
 @media (max-width: 820px) {
-    .observer-grid .panel-main,
-    .observer-grid .panel-stats,
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-main,
-    .observer-grid--active .panel-stats,
-    .observer-grid--active .panel-activity {
-        grid-column: span 12;
-    }
-
-    .observer-grid .panel-stats,
-    .observer-grid--active .panel-stats {
-        max-height: none;
-    }
+  .observer-grid .panel-main,
+  .observer-grid--active .panel-main {
+    grid-column: span 12;
+  }
 }
 
 @media (min-width: 1400px) {
-    .observer-grid,
-    .observer-grid--active {
-        grid-template-columns: minmax(340px, 1.1fr) minmax(280px, 0.9fr) minmax(300px, 0.85fr);
-    }
-
-    .observer-grid .panel-main,
-    .observer-grid .panel-stats,
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-main,
-    .observer-grid--active .panel-stats,
-    .observer-grid--active .panel-activity {
-        grid-column: auto;
-    }
-
+  .observer-grid,
+  .observer-grid--active {
+    grid-template-columns: minmax(340px, 1.1fr) minmax(280px, 0.9fr) minmax(
+        300px,
+        0.85fr
+      );
+  }
+  .observer-grid .panel-main,
+  .observer-grid--active .panel-main {
+    grid-column: auto;
+  }
 }
 
 .identity-grid-table {
-    margin-top: 0.6rem;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--color-surface-1);
+  margin-top: 0.6rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-surface-1);
 }
 
-.archive-timeline-grid .rz-datatable-thead th,
-.archive-timeline-grid .rz-sortable-column,
-.archive-timeline-grid .rz-data-grid-header,
 .identity-grid-table .rz-datatable-thead th,
 .identity-grid-table .rz-sortable-column,
 .identity-grid-table .rz-data-grid-header,
 .identity-grid-table .rz-data-grid-data thead th,
 .identity-grid-table .rz-grid-table thead th,
 .identity-grid-table th.rz-unselectable-text {
-    background: var(--color-surface-2) !important;
-    color: var(--color-text-label) !important;
-    border-color: var(--color-border-subtle) !important;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.74rem;
+  background: var(--color-surface-2) !important;
+  color: var(--color-text-label) !important;
+  border-color: var(--color-border-subtle) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
 }
 
-.archive-timeline-grid .rz-data-grid-data td,
-.archive-timeline-grid .rz-grid-table td,
-.archive-timeline-grid .rz-datatable-data td,
-.archive-timeline-grid .rz-cell-data,
 .identity-grid-table .rz-data-grid-data td,
 .identity-grid-table .rz-grid-table td,
 .identity-grid-table .rz-datatable-data td,
 .identity-grid-table .rz-cell-data {
-    background: transparent !important;
-    color: var(--text-primary) !important;
-    border-color: var(--color-border-subtle) !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border-color: var(--color-border-subtle) !important;
 }
 
-.archive-timeline-grid .rz-data-row:hover td,
-.archive-timeline-grid .rz-datatable-even:hover td,
 .identity-grid-table .rz-data-row:hover td,
 .identity-grid-table .rz-datatable-even:hover td {
-    background: var(--color-accent-soft) !important;
+  background: var(--color-accent-soft) !important;
 }
 
-/* Disabled buttons keep readable text instead of vanishing (item #9). */
 .rz-button:disabled,
 .rz-button.rz-state-disabled {
-    opacity: 0.55;
+  opacity: 0.55;
 }
 
-/* Horizontal subject strip: fade the clipped edge so overflow reads as scrollable (item #10). */
 .subjects-mini-row {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 42px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 42px), transparent);
-    scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 42px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 42px), transparent);
+  scrollbar-width: thin;
 }
 
 @media (max-width: 1100px) {
-    .observer-grid .panel-main,
-    .observer-grid .panel-stats,
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-main,
-    .observer-grid--active .panel-stats,
-    .observer-grid--active .panel-activity,
-    .identity-grid .panel-library,
-    .identity-grid .panel-merge,
-    .archives-grid .panel-chapter,
-    .archives-grid .panel-timeline,
-    .sector-grid > .panel {
-        grid-column: span 12;
-    }
+  .observer-grid .panel-main,
+  .observer-grid--active .panel-main,
+  .identity-grid .panel-library,
+  .identity-grid .panel-merge,
+  .archives-grid .panel-chapter,
+  .archives-grid .panel-timeline,
+  .sector-grid > .panel {
+    grid-column: span 12;
+  }
 }
 
-/* Mid-range: camera + activity side by side, stats below */
 @media (min-width: 768px) and (max-width: 1100px) {
-    .observer-grid .panel-main,
-    .observer-grid--active .panel-main {
-        grid-column: span 5;
-    }
-
-    .observer-grid .panel-activity,
-    .observer-grid--active .panel-activity {
-        grid-column: span 7;
-    }
-
-    .observer-grid .panel-stats,
-    .observer-grid--active .panel-stats {
-        grid-column: span 12;
-        max-height: none;
-    }
-
+  .observer-grid .panel-main,
+  .observer-grid--active .panel-main {
+    grid-column: span 5;
+  }
 }
 
 @media (max-width: 900px) {
-    .app-shell {
-        padding: 0.9rem 0.8rem 1.2rem;
-    }
-
-    .sector-grid {
-        gap: 0.85rem;
-    }
-
-    .panel,
-    .rz-card.panel {
-        padding: 0.8rem 0.82rem !important;
-        border-radius: 14px !important;
-    }
-
-    .panel-header {
-        gap: 0.55rem;
-    }
-
-    .identity-grid-table {
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .archive-timeline-grid .rz-data-grid-table,
-    .identity-grid-table .rz-data-grid-table {
-        min-width: 620px;
-    }
-
-    .activity-grid .rz-data-grid-table {
-        min-width: 540px;
-    }
-
-    .activity-grid .rz-data-grid-data td,
-    .activity-grid .rz-grid-table td,
-    .activity-grid .rz-datatable-data td,
-    .activity-grid .rz-cell-data {
-        padding: 0.42rem 0.46rem !important;
-    }
-
-    .subject-card-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 0.75rem;
-    }
+  .app-shell {
+    padding: 0.9rem 0.8rem 1.2rem;
+  }
+  .sector-grid {
+    gap: 0.85rem;
+  }
+  .panel,
+  .rz-card.panel {
+    padding: 0.8rem 0.82rem !important;
+    border-radius: 14px !important;
+  }
+  .panel-header {
+    gap: 0.55rem;
+  }
+  .identity-grid-table {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .identity-grid-table .rz-data-grid-table {
+    min-width: 620px;
+  }
+  .subject-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.75rem;
+  }
 }
 
 @media (max-width: 640px) {
-    .app-shell {
-        padding: 0.75rem 0.56rem 1rem;
-    }
-
-    .subject-card-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .subject-card {
-        padding: 0.82rem 0.86rem;
-    }
-
-    .identity-grid-table {
-        border-radius: 10px;
-    }
+  .app-shell {
+    padding: 0.75rem 0.56rem 1rem;
+  }
+  .subject-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .subject-card {
+    padding: 0.82rem 0.86rem;
+  }
+  .identity-grid-table {
+    border-radius: 10px;
+  }
 }
 
-/* ══ Monitor (consolidated) page ════════════════════════════════════════ */
-
-/* Fix Radzen material-base border on h1/h2 in page headers */
-h1, h2 {
-    border: none;
-    outline: none;
+h1,
+h2 {
+  border: none;
+  outline: none;
 }
 
-/* ── Tab bar ─────────────────────────────────────────────────────────── */
-
-/* ── Tab panel ───────────────────────────────────────────────────────── */
-
-/* ── Archives compact timeline ───────────────────────────────────────── */
-.activity-list--archives {
-    max-height: 600px;
-}
-
-/* ── Enhanced subject card ───────────────────────────────────────────── */
-
-.subject-card:hover .card-rename-btn {
-    opacity: 1;
-}
-
-/* ── Card thumbnail ──────────────────────────────────────────────────── */
-
-/* ── Profiles tab layout ─────────────────────────────────────────────── */
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MODERN UI/UX ENHANCEMENTS (2025/2026)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ── UI-2: Micro-Interactions & Motion Design ─────────────────────────────── */
-
-/* Staggered entrance animations for grid items */
 @keyframes fadeSlideUp {
-    from {
-        opacity: 0;
-        transform: translateY(12px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(-8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes scaleIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes shimmer {
-    0% {
-        background-position: -200% 0;
-    }
-    100% {
-        background-position: 200% 0;
-    }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-/* Apply entrance animations */
 .subject-card,
 .evidence-card {
-    animation: fadeSlideUp 0.4s ease-out backwards;
+  animation: fadeSlideUp 0.4s ease-out backwards;
 }
 
-/* Stagger delays for grid items */
-.subject-card:nth-child(1) { animation-delay: 0ms; }
-.subject-card:nth-child(2) { animation-delay: 50ms; }
-.subject-card:nth-child(3) { animation-delay: 100ms; }
-.subject-card:nth-child(4) { animation-delay: 150ms; }
-.subject-card:nth-child(5) { animation-delay: 200ms; }
-.subject-card:nth-child(6) { animation-delay: 250ms; }
-.subject-card:nth-child(7) { animation-delay: 300ms; }
-.subject-card:nth-child(8) { animation-delay: 350ms; }
-
-/* Card hover lift effect */
-.subject-card:hover{
-    transform: translateY(-4px);
-    box-shadow: var(--elevation-raised);
+.subject-card:nth-child(1) {
+  animation-delay: 0ms;
 }
 
-/* Smooth transitions for all interactive elements */
+.subject-card:nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.subject-card:nth-child(3) {
+  animation-delay: 100ms;
+}
+
+.subject-card:nth-child(4) {
+  animation-delay: 150ms;
+}
+
+.subject-card:nth-child(5) {
+  animation-delay: 200ms;
+}
+
+.subject-card:nth-child(6) {
+  animation-delay: 250ms;
+}
+
+.subject-card:nth-child(7) {
+  animation-delay: 300ms;
+}
+
+.subject-card:nth-child(8) {
+  animation-delay: 350ms;
+}
+
+.subject-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--elevation-raised);
+}
+
 button,
 .nav-link,
 .subject-card,
@@ -1055,1101 +903,929 @@ button,
 input,
 select,
 textarea {
-    transition: all var(--transition-base);
+  transition: all var(--transition-base);
 }
 
-/* Focus states with glow */
 *:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--neon-green-dim), 0 0 0 4px var(--neon-green-glow);
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--neon-green-dim),
+    0 0 0 4px var(--neon-green-glow);
 }
 
-/* Button press effect */
 button:active:not(:disabled) {
-    transform: scale(0.97);
+  transform: scale(0.97);
 }
 
-/* Loading shimmer effect */
 .skeleton-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .skeleton-line {
-    height: 1rem;
-    background: linear-gradient(
-        90deg,
-        rgba(111, 61, 227, 0.1) 0%,
-        rgba(111, 61, 227, 0.2) 50%,
-        rgba(111, 61, 227, 0.1) 100%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
-    border-radius: var(--radius-sm);
+  height: 1rem;
+  background: linear-gradient(
+    90deg,
+    rgba(111, 61, 227, 0.1) 0%,
+    rgba(111, 61, 227, 0.2) 50%,
+    rgba(111, 61, 227, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
 }
 
-.skeleton-line--wide { width: 100%; }
-.skeleton-line--medium { width: 70%; }
-.skeleton-line--short { width: 40%; }
+.skeleton-line--wide {
+  width: 100%;
+}
 
-/* ── Floating HUD Diagnostics Widget (Suggestion 6) ─────────────────────── */
+.skeleton-line--medium {
+  width: 70%;
+}
 
-/* ── Handoff brief ────────────────────────────────────────────────────────
-   Every colour here resolves through a theme token. This panel used to paint a
-   hard-coded near-black background while its text read var(--text-primary) — in the
-   light theme that token is near-black too, so the title, both lists and the source
-   notes rendered black-on-black and the whole brief was unreadable. A surface may
-   not be fixed while the ink on it moves with the theme. ───────────────────── */
+.skeleton-line--short {
+  width: 40%;
+}
+
 .handoff-brief-panel {
-    margin-top: var(--space-4);
-    padding: var(--space-4) var(--space-5);
-    background: var(--color-surface-2);
-    border: 1px solid var(--color-border-subtle);
-    border-left: 3px solid var(--color-accent);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    animation: fadeSlideUp 0.3s ease-out;
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  animation: fadeSlideUp 0.3s ease-out;
 }
 
 .handoff-brief-header {
-    margin-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .brief-title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .handoff-brief-header h3 {
-    margin: 0;
-    font-size: var(--text-lg);
-    color: var(--color-text-primary);
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
 }
 
 .brief-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--radius-full);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .brief-badge--ai {
-    background: var(--color-accent-soft);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
 }
 
 .brief-badge--template {
-    background: var(--color-surface-3);
-    border: 1px solid var(--color-border-subtle);
-    color: var(--color-text-muted);
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
 }
 
 .brief-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.4rem;
-    margin: var(--space-2) 0 0;
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }
 
 .brief-meta-strong {
-    color: var(--color-text-label);
-    font-weight: 700;
+  color: var(--color-text-label);
+  font-weight: 700;
 }
 
 .brief-meta-sep {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 .brief-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    font-size: 1.25rem;
-    line-height: 1;
-    padding: 0 0.2rem;
-    border-radius: var(--radius-sm);
-    transition: color var(--motion-quick), background var(--motion-quick);
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--motion-quick),
+    background var(--motion-quick);
 }
 
 .brief-close:hover {
-    color: var(--color-text-primary);
-    background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  background: var(--color-surface-3);
 }
 
 .brief-summary {
-    color: var(--color-text-primary);
-    line-height: 1.6;
-    font-size: var(--text-base);
-    margin: 0 0 var(--space-3);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  font-size: var(--text-base);
+  margin: 0 0 var(--space-3);
 }
 
-/* Figures the prose was written from, so the reader can reconcile it against the timeline. */
 .brief-stats,
 .day-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin: var(--space-3) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
 }
 
 .brief-stat,
 .day-stat {
-    flex: 1 1 auto;
-    min-width: 5.5rem;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-surface-1);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
+  flex: 1 1 auto;
+  min-width: 5.5rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
 }
 
 .brief-stat dt,
 .day-stat dt {
-    margin: 0;
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-muted);
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
 }
 
 .brief-stat dd,
 .day-stat dd {
-    margin: 0.15rem 0 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-xl);
-    font-weight: 700;
-    color: var(--color-text-primary);
-    line-height: 1.1;
+  margin: 0.15rem 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.1;
 }
 
-/* A count only earns colour when it is non-zero — a wall of amber zeroes trains the eye
-   to ignore the row that is supposed to catch it. */
 .brief-stat--notable,
 .day-stat--notable {
-    border-color: var(--state-warning-border);
+  border-color: var(--state-warning-border);
 }
 
 .brief-stat--notable dd,
 .day-stat--notable dd {
-    color: var(--state-warning-fg);
+  color: var(--state-warning-fg);
 }
 
 .brief-stat--unusual,
 .day-stat--unusual {
-    border-color: var(--state-danger-border);
+  border-color: var(--state-danger-border);
 }
 
 .brief-stat--unusual dd,
 .day-stat--unusual dd {
-    color: var(--state-danger-fg);
+  color: var(--state-danger-fg);
 }
 
 .day-stat--wide dd {
-    font-size: var(--text-base);
+  font-size: var(--text-base);
 }
 
 .brief-section {
-    margin-top: var(--space-4);
+  margin-top: var(--space-4);
 }
 
 .brief-section-label {
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--color-text-muted);
-    margin: 0 0 var(--space-2);
-    font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-mono);
 }
 
 .brief-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-/* Severity reads off the left rail rather than a list marker, so a scan down the edge of
-   the brief separates outliers from routine notes without reading a word. */
 .brief-item {
-    font-size: var(--text-sm);
-    color: var(--color-text-primary);
-    line-height: 1.5;
-    padding: 0.35rem var(--space-3);
-    border-left: 3px solid var(--color-border-subtle);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--color-surface-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  padding: 0.35rem var(--space-3);
+  border-left: 3px solid var(--color-border-subtle);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-surface-1);
 }
 
-.brief-item--outlier { border-left-color: var(--state-danger-fg); }
-.brief-item--drift { border-left-color: var(--state-warning-fg); }
-.brief-item--notable { border-left-color: var(--color-accent); }
-.brief-item--followup { border-left-color: var(--color-accent); }
+.brief-item--outlier {
+  border-left-color: var(--state-danger-fg);
+}
+
+.brief-item--drift {
+  border-left-color: var(--state-warning-fg);
+}
+
+.brief-item--notable {
+  border-left-color: var(--color-accent);
+}
+
+.brief-item--followup {
+  border-left-color: var(--color-accent);
+}
 
 .brief-item--more {
-    border-left-color: transparent;
-    background: none;
-    color: var(--color-text-muted);
-    font-style: italic;
+  border-left-color: transparent;
+  background: none;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 .brief-empty {
-    margin: 0;
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    font-style: italic;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 .brief-source-notes {
-    margin-top: var(--space-4);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-border-subtle);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
 .brief-source-notes summary {
-    cursor: pointer;
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-    letter-spacing: 0.04em;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
 }
 
 .brief-source-notes ul {
-    margin: var(--space-2) 0 0;
-    padding-left: 1.1rem;
+  margin: var(--space-2) 0 0;
+  padding-left: 1.1rem;
 }
 
 .brief-source-notes li {
-    color: var(--color-text-muted);
-    line-height: 1.6;
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
-/* ── Undo Toast (Suggestion 2 — elevation-float) ────────────────────────── */
-
-/* ── Editable Subject Name (Suggestion 9) ───────────────────────────────── */
 .subject-name-editable {
-    cursor: pointer;
-    border-bottom: 1px dotted rgba(111, 61, 227, 0.4);
-    padding-bottom: 1px;
-    transition: border-color 0.15s, color 0.15s;
+  cursor: pointer;
+  border-bottom: 1px dotted rgba(111, 61, 227, 0.4);
+  padding-bottom: 1px;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .subject-name-editable:hover {
-    color: #ecf1ff;
-    border-bottom-color: var(--neon-green);
+  color: #ecf1ff;
+  border-bottom-color: var(--neon-green);
 }
 
 .name-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-/* ── UI-4: Enhanced Card & Panel Polish ──────────────────────────────────── */
-
-/* Gradient border effect for panels */
 .panel,
 .rz-card.panel {
-    position: relative;
+  position: relative;
 }
 
 .panel::before,
 .rz-card.panel::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-        135deg,
-        rgba(56, 255, 168, 0.3) 0%,
-        rgba(111, 61, 227, 0.3) 50%,
-        rgba(56, 255, 168, 0.1) 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0.5;
-    transition: opacity var(--transition-base);
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(56, 255, 168, 0.3) 0%,
+    rgba(111, 61, 227, 0.3) 50%,
+    rgba(56, 255, 168, 0.1) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity var(--transition-base);
 }
 
 .panel:hover::before,
 .rz-card.panel:hover::before {
-    opacity: 1;
+  opacity: 1;
 }
 
-/* Enhanced badge styling with glow */
-.panel-badge,
 .activity-badge,
 .subject-card-badge {
-    position: relative;
-    overflow: hidden;
+  position: relative;
+  overflow: hidden;
 }
 
-.panel-badge::before,
 .activity-badge::before,
 .subject-card-badge::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.1) 0%,
-        transparent 50%
-    );
-    pointer-events: none;
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
 }
 
-/* Pulse animation for live indicators */
 @keyframes subtlePulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.6;
-    }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
-.pulse {
-    animation: subtlePulse 2s ease-in-out infinite;
-}
-
-/* ── UX-6: Keyboard Shortcuts ────────────────────────────────────────────── */
-
-/* Keyboard shortcut hint styling */
-
-/* Command palette overlay */
 .command-palette-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(5, 3, 10, 0.85);
-    backdrop-filter: blur(8px);
-    z-index: 9999;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 15vh;
-    animation: fadeIn 0.15s ease-out;
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 3, 10, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  animation: fadeIn 0.15s ease-out;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .command-palette {
-    width: 100%;
-    max-width: 560px;
-    background: var(--bg-panel);
-    border: 1px solid rgba(111, 61, 227, 0.4);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
-    overflow: hidden;
-    animation: scaleIn 0.2s ease-out;
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-panel);
+  border: 1px solid rgba(111, 61, 227, 0.4);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
+  overflow: hidden;
+  animation: scaleIn 0.2s ease-out;
 }
 
 .command-palette-input {
-    width: 100%;
-    padding: 1rem 1.25rem;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid rgba(111, 61, 227, 0.2);
-    color: var(--text-primary);
-    font-size: var(--text-lg);
-    outline: none;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(111, 61, 227, 0.2);
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  outline: none;
 }
 
 .command-palette-input::placeholder {
-    color: var(--text-muted);
+  color: var(--text-muted);
 }
 
 .command-palette-results {
-    max-height: 400px;
-    overflow-y: auto;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .command-palette-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1.25rem;
-    cursor: pointer;
-    transition: background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
 .command-palette-item:hover,
 .command-palette-item--selected {
-    background: rgba(111, 61, 227, 0.15);
+  background: rgba(111, 61, 227, 0.15);
 }
 
 .command-palette-item-icon {
-    width: 20px;
-    height: 20px;
-    color: var(--neon-green);
+  width: 20px;
+  height: 20px;
+  color: var(--neon-green);
 }
 
 .command-palette-item-label {
-    flex: 1;
-    color: var(--text-primary);
+  flex: 1;
+  color: var(--text-primary);
 }
 
 .command-palette-item-shortcut {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
-/* ── UX-7: Smart Filtering & Search ─────────────────────────────────────── */
-
-/* Search input with icon */
-
-/* Filter chips */
-
-/* ── UX-8: Bulk Actions ─────────────────────────────────────────────────── */
-
-/* Bulk action toolbar */
-
-/* Checkbox styling */
-
-/* ── UX-9: Enhanced Real-Time Feedback ───────────────────────────────────── */
-
-/* Toast notification enhancements */
 .rz-notification-container {
-    font-family: var(--font-ui);
+  font-family: var(--font-ui);
 }
 
 .rz-notification {
-    border-radius: var(--radius-md) !important;
-    backdrop-filter: blur(12px);
+  border-radius: var(--radius-md) !important;
+  backdrop-filter: blur(12px);
 }
 
-/* Connection status indicator */
-
-/* Relative time display */
-
-/* ── UX-10: User Preferences ─────────────────────────────────────────────── */
-
-/* Theme toggle */
 .theme-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.75rem;
-    background: rgba(111, 61, 227, 0.1);
-    border: 1px solid rgba(111, 61, 227, 0.2);
-    border-radius: var(--radius-full);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(111, 61, 227, 0.1);
+  border: 1px solid rgba(111, 61, 227, 0.2);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .theme-toggle:hover {
-    background: rgba(111, 61, 227, 0.2);
+  background: rgba(111, 61, 227, 0.2);
 }
 
-/* Compact mode toggle */
-.compact-mode .subject-card {
-    padding: 0.75rem;
-}
-
-/* Preferences panel */
-
-/* ── Utility Classes ─────────────────────────────────────────────────────── */
-
-/* Text gradient effect */
-
-/* Subtle glow on text */
-
-/* Glass effect */
 .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-/* Noise texture overlay */
-
-/* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(111, 61, 227, 0.3);
-    border-radius: 4px;
+  background: rgba(111, 61, 227, 0.3);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(111, 61, 227, 0.5);
+  background: rgba(111, 61, 227, 0.5);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   UX IMPROVEMENTS IMPLEMENTATION (2026)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ── UX-6: Actionable Empty States ──────────────────────────────────────── */
-
 .actionable-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 2.5rem 1.5rem;
-    background: rgba(56, 255, 168, 0.05);
-    border: 1px dashed rgba(56, 255, 168, 0.25);
-    border-radius: 14px;
-    margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  background: rgba(56, 255, 168, 0.05);
+  border: 1px dashed rgba(56, 255, 168, 0.25);
+  border-radius: 14px;
+  margin-top: 1rem;
 }
 
 .actionable-empty .empty-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    opacity: 0.8;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.8;
 }
 
 .actionable-empty .empty-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
 }
 
 .actionable-empty .empty-subtitle {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    margin: 0 0 1.25rem;
-    max-width: 320px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.25rem;
+  max-width: 320px;
 }
 
 .archive-empty-cta.primary-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.25rem;
-    background: var(--neon-green-dim);
-    border: 1px solid var(--neon-green);
-    border-radius: var(--radius-md);
-    color: var(--neon-green);
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-decoration: none;
-    transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: var(--neon-green-dim);
+  border: 1px solid var(--neon-green);
+  border-radius: var(--radius-md);
+  color: var(--neon-green);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all var(--transition-fast);
 }
 
 .archive-empty-cta.primary-cta:hover {
-    background: rgba(56, 255, 168, 0.2);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(56, 255, 168, 0.2);
+  background: rgba(56, 255, 168, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(56, 255, 168, 0.2);
 }
 
-/* ── UI-1: Command Center Layout ──────────────────────────────────────────── */
-
-/* ── UI-2: Floating Action Button (FAB) ───────────────────────────────────── */
-
-/* ── UX-7: Global Monitoring Indicator ─────────────────────────────────── */
-
-/* ── UX-8: Quick Settings Slide-over ────────────────────────────────────── */
-
-/* ── UX-9: Inline Edit Improvements ──────────────────────────────────────── */
-
 .name-cell {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .name-cell .subject-name {
-    flex: 1;
+  flex: 1;
 }
 
-/* Always show edit button at low opacity; full opacity on row hover */
 .name-cell .rz-button {
-    opacity: 0.35;
-    transition: opacity 0.15s;
+  opacity: 0.35;
+  transition: opacity 0.15s;
 }
 
 .name-cell:hover .rz-button,
 .name-cell .rz-button:focus {
-    opacity: 1;
+  opacity: 1;
 }
 
 .inline-edit-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-/* ── Identity Nexus: Add Known Subject bar ───────────────────────────────── */
 .identity-register-bar {
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    flex-wrap: wrap;               /* NET_RUN_10: let the Add button drop below the field on narrow screens instead of clipping */
-    margin-bottom: 1rem;
-}
-.identity-register-bar .rz-button { flex: 0 0 auto; white-space: nowrap; }
-
-/* ── UX-10: Smart Date Navigation ────────────────────────────────────────── */
-
-/* ── Responsive Adjustments ───────────────────────────────────────────────── */
-
-@media (max-width: 900px) {
-
-    
-    .fab-container {
-        bottom: 1rem;
-        right: 1rem;
-    }
-
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   VIEWPORT-FIT LAYOUT & SIMPLIFICATION OVERHAUL (2026)
-   ═══════════════════════════════════════════════════════════════════════════ */
+.identity-register-bar .rz-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 
-/* ── Observer grid: stretch panels to fill the 1fr row ─────────────────── */
 .observer-page > .sector-grid.observer-grid,
 .observer-page > .sector-grid.observer-grid.observer-grid--active {
-    min-height: 0; /* critical: allows grid children to shrink inside a grid row */
-    overflow: hidden;
-    align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
 }
 
 .observer-grid .panel-main,
-.observer-grid .panel-stats,
-.observer-grid .panel-activity,
-.observer-grid--active .panel-main,
-.observer-grid--active .panel-stats,
-.observer-grid--active .panel-activity {
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
+.observer-grid--active .panel-main {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
 }
 
-/* Activity panel uses flex-column; its inner regions scroll individually */
-.observer-grid .panel-activity,
-.observer-grid--active .panel-activity {
-    overflow-y: hidden;
-}
-
-/* Activity scroll region grows to fill available space */
-.observer-grid .panel-activity .activity-scroll-region,
-.observer-grid--active .panel-activity .activity-scroll-region {
-    flex: 1 1 0;
-    min-height: 80px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
-}
-
-/* Remove fixed max-height from activity list — scroll region handles it */
-.observer-grid .panel-activity .activity-list,
-.observer-grid--active .panel-activity .activity-list {
-    max-height: none;
-}
-
-/* ── Panel header left group (title + badge + session time) ─────────────── */
 .panel-header-left {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
-
-/* Page Header Strip helpers (used by ObserverHub panel headers) */
 
 .page-header-time {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--neon-green);
-    font-weight: 700;
-    letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--neon-green);
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .page-header-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    font-size: 0.77rem;
-    color: var(--text-muted);
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
 }
 
-/* ── Help Tip (? tooltip trigger) ──────────────────────────────────────── */
-
-/* ── Subjects Strip ─────────────────────────────────────────────────────── */
-
-/* ── Subjects In Panel (embedded inside activity panel) ─────────────────── */
 .subjects-in-panel {
-    flex-shrink: 0;
-    margin-top: 0.6rem;
-    padding-top: 0.6rem;
-    border-top: 1px solid rgba(111, 61, 227, 0.22);
+  flex-shrink: 0;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(111, 61, 227, 0.22);
 }
 
 .subjects-mini-row {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.2rem;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
-    min-height: 74px;
-    align-items: stretch;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 61, 227, 0.3) transparent;
+  min-height: 74px;
+  align-items: stretch;
 }
 
 .subject-card--mini {
-    flex: 0 0 175px;
-    min-width: 0;
-    padding: 0.48rem 0.6rem !important;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+  flex: 0 0 175px;
+  min-width: 0;
+  padding: 0.48rem 0.6rem !important;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 
 .subject-card--mini:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(56, 255, 168, 0.12), var(--elevation-base);
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 16px rgba(56, 255, 168, 0.12),
+    var(--elevation-base);
 }
 
 .subject-card--mini .subject-card-name {
-    font-size: 0.82rem;
+  font-size: 0.82rem;
 }
 
 .subject-card--mini .subject-card-activity {
-    margin-top: 0.3rem;
+  margin-top: 0.3rem;
 }
 
 .subject-card--mini .subject-card-activity strong {
-    font-size: 0.79rem;
-    line-height: 1.3;
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 0.79rem;
+  line-height: 1.3;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .subject-card--mini .subject-card-meta {
-    margin-top: 0.2rem;
-    font-size: 0.69rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
+  margin-top: 0.2rem;
+  font-size: 0.69rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .subjects-empty {
-    display: flex;
-    align-items: center;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    font-style: italic;
-    padding: 0.3rem 0;
-    white-space: nowrap;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  padding: 0.3rem 0;
+  white-space: nowrap;
 }
 
 .subjects-manage-link {
-    margin-left: auto;
-    color: var(--neon-green);
-    font-size: 0.76rem;
-    text-decoration: none;
-    white-space: nowrap;
-    opacity: 0.85;
-    transition: opacity 0.15s;
-    flex-shrink: 0;
+  margin-left: auto;
+  color: var(--neon-green);
+  font-size: 0.76rem;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
 }
 
 .subjects-manage-link:hover {
-    opacity: 1;
+  opacity: 1;
 }
 
-/* ── Panel h2 compact style for simplified headers ─────────────────────── */
 .panel-header.observer-panel-header > h2 {
-    font-size: 0.98rem;
-    margin: 0;
-    cursor: default;
+  font-size: 0.98rem;
+  margin: 0;
+  cursor: default;
 }
 
 .panel-header.observer-panel-header > h2[title] {
-    cursor: help;
-    text-decoration: underline dotted rgba(111, 61, 227, 0.4);
-    text-underline-offset: 3px;
+  cursor: help;
+  text-decoration: underline dotted rgba(111, 61, 227, 0.4);
+  text-underline-offset: 3px;
 }
 
-/* Make panel-main a flex column so content stretches to fill remaining height */
 .panel-main {
-    display: flex !important;
-    flex-direction: column;
+  display: flex !important;
+  flex-direction: column;
 }
 
 .panel-main .nexus-frame {
-    flex-shrink: 0;
+  flex-shrink: 0;
 }
 
-.panel-main .controls-row--primary {
-    flex-shrink: 0;
-}
-
-/* ── Compact panel padding to reclaim vertical space ───────────────────── */
 .panel,
 .rz-card.panel {
-    padding: 0.75rem 0.9rem !important;
+  padding: 0.75rem 0.9rem !important;
 }
 
-/* ── Primary controls row — always pinned above camera ──────────────────── */
-.controls-row--primary {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    padding: 0.5rem 0 0.75rem;
-    border-bottom: 1px solid rgba(111, 61, 227, 0.2);
-    margin-bottom: 0.5rem;
-}
-
-/* ── Compact stats-section spacing ─────────────────────────────────────── */
-
-/* ── Responsive: subjects strip stacks on very small screens ────────────── */
 @media (max-width: 640px) {
-    .subjects-strip-header {
-        flex-wrap: wrap;
-    }
-
-    .subject-card--mini {
-        flex: 0 0 155px;
-    }
-
-    .observer-page {
-        height: auto;
-        overflow: visible;
-        grid-template-rows: auto;
-    }
+  .subjects-strip-header {
+    flex-wrap: wrap;
+  }
+  .subject-card--mini {
+    flex: 0 0 155px;
+  }
+  .observer-page {
+    height: auto;
+    overflow: visible;
+    grid-template-rows: auto;
+  }
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   EVIDENCE HIGHLIGHTS & ARCHIVES (Item 3-5: Status Chips)
-   ═══════════════════════════════════════════════════════════════════════════ */
 
 .evidence-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .evidence-card {
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid rgba(111, 61, 227, 0.25);
-    transition: all 0.25s ease;
-    background: rgba(5, 3, 10, 0.4);
-    display: flex;
-    flex-direction: column;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgba(111, 61, 227, 0.25);
+  transition: all 0.25s ease;
+  background: rgba(5, 3, 10, 0.4);
+  display: flex;
+  flex-direction: column;
 }
 
 .evidence-card:hover {
-    border-color: rgba(111, 61, 227, 0.5);
-    box-shadow: var(--elevation-raised);
-    transform: translateY(-4px);
+  border-color: rgba(111, 61, 227, 0.5);
+  box-shadow: var(--elevation-raised);
+  transform: translateY(-4px);
 }
 
 .evidence-image-wrap {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: rgba(0, 0, 0, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .evidence-full-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .evidence-placeholder {
-    background: linear-gradient(135deg, rgba(111, 61, 227, 0.15) 0%, rgba(56, 255, 168, 0.05) 100%);
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 1rem;
+  background: linear-gradient(
+    135deg,
+    rgba(111, 61, 227, 0.15) 0%,
+    rgba(56, 255, 168, 0.05) 100%
+  );
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
 }
 
 .evidence-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(5, 3, 10, 0.8) 0%, transparent 60%);
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    opacity: 0;
-    transition: opacity 0.25s ease;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(5, 3, 10, 0.8) 0%, transparent 60%);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .evidence-card:hover .evidence-overlay {
-    opacity: 1;
+  opacity: 1;
 }
 
 .evidence-subject {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #38ffa8;
-    line-height: 1.3;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #38ffa8;
+  line-height: 1.3;
 }
 
 .evidence-activity {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-}
-
-/* Status chips for image loading state (Item 5) */
-.evidence-status-chip {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.35rem 0.6rem;
-    background: rgba(5, 3, 10, 0.95);
-    border: 1px solid rgba(111, 61, 227, 0.5);
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
 }
 
 .evidence-caption {
-    padding: 0.6rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    flex-grow: 1;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex-grow: 1;
 }
 
 .evidence-caption small {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .evidence-time {
-    color: var(--text-muted);
-    font-size: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   UX AUDIT — DATA-TO-PIXEL / ZERO-WASTE PASS (2026)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ── Pipeline-health latch banner (idea 7): the one failure class that matters
-   on an unattended kiosk, made impossible to miss and persistent until dismissed. */
-
-/* ── HUD de-dup note (idea 2) ─────────────────────────────────────────────── */
-
-/* Nav right region + sign-out styling lives in the scoped NavMenu.razor.css (rule 6.11); the global
-   copies were removed to eliminate a conflicting duplicate .navbar-account selector. The .nav-logout
-   :active tap-feedback transform stays in the global motion block above as a cross-cutting design token. */
-
-/* ── Setup "Advanced" disclosure (idea 8) ─────────────────────────────────── */
-.setup-advanced { margin-top: 0.4rem; }
+.setup-advanced {
+  margin-top: 0.4rem;
+}
 
 .setup-advanced-toggle {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    cursor: pointer;
-    padding: 0.3rem 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.3rem 0;
 }
-.setup-advanced-toggle:hover { color: var(--text-primary); }
 
-/* ── Mobile-portrait density audit (audit #6): tighten padding/gaps on small screens using the
-   spacing tokens so panels stop wasting vertical space, and neutralize a doubled inner separator
-   line under panel headers (the header border + the grid's own top edge read as two rules). */
+.setup-advanced-toggle:hover {
+  color: var(--text-primary);
+}
+
 @media (max-width: 430px) {
-    .observer-page,
-    .sector-grid,
-    .observer-grid {
-        gap: var(--space-2);
-    }
-
-    .subject-card-grid,
-    .subjects-mini-row {
-        gap: var(--space-2);
-    }
-
-    .panel-header,
-    .observer-panel-header {
-        margin-bottom: var(--space-2);
-        padding-bottom: var(--space-1);
-    }
-
-    /* Collapse doubled borders: when a bordered panel already frames the content, drop the
-       redundant inner separator so small screens show a single clean edge. */
+  .observer-page,
+  .sector-grid,
+  .observer-grid {
+    gap: var(--space-2);
+  }
+  .subject-card-grid,
+  .subjects-mini-row {
+    gap: var(--space-2);
+  }
+  .panel-header,
+  .observer-panel-header {
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-1);
+  }
 }
 
-/* ── Idea 9: on small screens dock the floating HUD as a full-width bottom sheet
-   so it never overlaps the live subject feed, and keep its expanded body scrollable. */
-
-/* ══════════════════════════════════════════════════════════════════════════
-   NET_RUN_10 — UI consolidation & dark-theme normalization
-   Fixes wasted blank space and contrast/theming defects found by driving the
-   running app with Playwright (mobile-portrait + desktop). Appended last so
-   these rules win by source order over the base cascade above.
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/* ── #1 + #7  Radzen dark-theme normalization ──────────────────────────────
-   material-base.css ships light form controls + a near-white "Light" button.
-   On our dark shell those render as glaring white boxes / near-invisible icons
-   (Archives prev/next/today, Live Dashboard "Refresh"). Re-skin every shared
-   Radzen surface so it belongs to the dark theme and its icon glyph is legible. */
 .rz-button.rz-light,
 .rz-button.rz-secondary.rz-light {
-    background: var(--bg-panel-soft) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid rgba(200, 205, 232, 0.20) !important;
+  background: var(--bg-panel-soft) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(200, 205, 232, 0.2) !important;
 }
+
 .rz-button.rz-light:hover:not(:disabled),
 .rz-button.rz-light:focus-visible {
-    background: #201a3a !important;
-    border-color: var(--accent-purple) !important;
+  background: #201a3a !important;
+  border-color: var(--accent-purple) !important;
 }
-.rz-button.rz-light .rzi,
-.rz-button.rz-light .rz-button-text { color: var(--text-primary) !important; }
-.rz-button.rz-light:disabled { opacity: 0.45; }
 
-/* Text inputs, date pickers, dropdowns & textareas → dark surfaces with light text */
+.rz-button.rz-light .rzi,
+.rz-button.rz-light .rz-button-text {
+  color: var(--text-primary) !important;
+}
+
+.rz-button.rz-light:disabled {
+  opacity: 0.45;
+}
+
 .rz-textbox,
 .rz-textarea,
 .rz-datepicker,
@@ -2157,558 +1833,603 @@ button:active:not(:disabled) {
 .rz-datepicker input,
 .rz-dropdown,
 .rz-numeric .rz-inputtext {
-    background-color: var(--bg-panel-soft) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid rgba(200, 205, 232, 0.20) !important;
+  background-color: var(--bg-panel-soft) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(200, 205, 232, 0.2) !important;
 }
+
 .rz-textbox::placeholder,
-.rz-datepicker input::placeholder { color: var(--text-muted) !important; opacity: 1; }
+.rz-datepicker input::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1;
+}
+
 .rz-textbox:focus,
 .rz-datepicker input:focus,
 .rz-dropdown:focus,
-.rz-dropdown.rz-state-focused { border-color: var(--accent-purple) !important; outline: none; }
+.rz-dropdown.rz-state-focused {
+  border-color: var(--accent-purple) !important;
+  outline: none;
+}
+
 .rz-datepicker .rz-datepicker-trigger,
 .rz-datepicker .rz-datepicker-trigger .rzi,
 .rz-dropdown .rz-dropdown-trigger,
-.rz-dropdown .rz-dropdown-trigger .rzi { color: var(--text-muted) !important; }
+.rz-dropdown .rz-dropdown-trigger .rzi {
+  color: var(--text-muted) !important;
+}
 
-/* ── #3  System page tile layout.
-   This block used to force a 2-column grid because the page had two stacked cards.
-   Consolidation #8 merged them into ONE card, so the 2-up rule left the single
-   surviving card at half width with the right half of the viewport empty — the
-   exact bug it was written to fix. The card now spans the full width; only the
-   metric tiles inside it stay 2-up. ─────────────────────────────────────────── */
 @media (min-width: 960px) {
-    .diagnostics-page .diagnostics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .diagnostics-page .diagnostics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-/* ── #4  Identity: the collapsed "Merge" panel used to leave the entire right
-   column empty. Go single-column: the library uses the full width (more room
-   for the table) and Merge becomes a full-width accordion strip below it. ─── */
-.identity-grid .panel-library { grid-column: span 12; }
-.identity-grid .panel-merge { grid-column: span 12; }
+.identity-grid .panel-library {
+  grid-column: span 12;
+}
 
-/* ── #5  Observer Hub: let the stats (Live Monitor) column stretch to the full
-   grid-row height instead of being capped shorter, which left a black void
-   under the card. align-items:stretch already exists; drop the max-height cap. */
-.observer-grid .panel-stats,
-.observer-grid--active .panel-stats { max-height: none; }
+.identity-grid .panel-merge {
+  grid-column: span 12;
+}
 
-/* ── #6  Observer Hub subject mini-cards: wrap instead of clipping the 3rd card
-   off the right edge of a fixed-height horizontal strip. ─────────────────── */
 .subjects-mini-row {
-    flex-wrap: wrap;
-    overflow-x: visible;
-    overflow-y: auto;
-    max-height: 230px;      /* wrap into rows but stay compact & scroll — no clipping, no runaway height */
-    min-height: 0;
+  flex-wrap: wrap;
+  overflow-x: visible;
+  overflow-y: auto;
+  max-height: 230px;
+  min-height: 0;
 }
-.subject-card--mini { flex: 1 1 150px; max-width: 260px; }
 
-/* ── #8  Live Dashboard cards: denser grid, tighter internal gaps, and a full-
-   width sparkline so each card carries signal instead of a lone dot in a tall
-   empty body. ────────────────────────────────────────────────────────────── */
-.subject-card-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); align-content: start; }
-.subject-card-grid .subject-card { gap: 0.4rem; }
-.subject-card-grid .subject-card-sparkline { margin-top: auto; }
-.subject-card-grid .subject-card-sparkline .sparkline-svg { width: 100%; height: 26px; }
+.subject-card--mini {
+  flex: 1 1 150px;
+  max-width: 260px;
+}
 
-/* ── #9  CollapsibleSection: was a bare "▸ Title" that read as a stray checkbox.
-   Style it as a real full-width accordion header with border, hover & padding. */
-.collapsible-section { border-top: 1px solid rgba(111, 61, 227, 0.20); margin-top: 0.6rem; }
+.subject-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-content: start;
+}
+
+.subject-card-grid .subject-card {
+  gap: 0.4rem;
+}
+
+.collapsible-section {
+  border-top: 1px solid rgba(111, 61, 227, 0.2);
+  margin-top: 0.6rem;
+}
+
 .collapsible-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.6rem 0.15rem;
-    background: transparent;
-    border: none;
-    color: var(--text-label);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.15rem;
+  background: transparent;
+  border: none;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s;
 }
-.collapsible-toggle:hover { color: var(--neon-green); }
+
+.collapsible-toggle:hover {
+  color: var(--neon-green);
+}
+
 .collapsible-toggle > span[aria-hidden] {
-    display: inline-flex;
-    width: 1.1em;
-    color: var(--accent-purple);
-    font-size: 0.9rem;
+  display: inline-flex;
+  width: 1.1em;
+  color: var(--accent-purple);
+  font-size: 0.9rem;
 }
-.collapsible-content { padding-top: 0.35rem; }
 
-/* ── #2  Archives evidence header row + compact "no saved image" note ─────── */
-.evidence-header-row { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.collapsible-content {
+  padding-top: 0.35rem;
+}
+
+.evidence-header-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .evidence-missing-note {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    padding: 0.15rem 0.5rem;
-    border: 1px solid rgba(200, 205, 232, 0.18);
-    border-radius: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 0.15rem 0.5rem;
+  border: 1px solid rgba(200, 205, 232, 0.18);
+  border-radius: 6px;
 }
 
-/* ── #10  Live inference badge in the page HUD (replaces static "Inference
-   ready"). State-coloured dot + label reflecting the real engine status. ──── */
+@keyframes hudPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
 
-@keyframes hudPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-@media (prefers-reduced-motion: reduce) { .hud-badge--loading .hud-badge-dot { animation: none; } }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   UI polish — ObserverHub surface (appended 2026-07-06, additive only)
-   Three concerns:
-     1. Panel-header rhythm + hierarchy
-     2. nexus-frame (live camera) gets a real "screen" treatment + thinking glow
-     3. controls-row gets proper button spacing, status pinned to far right
-   Tokenized throughout. Revert by deleting this block.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* 1 ── panel-header rhythm ──────────────────────────────────────────────── */
 .panel-header {
-    padding: var(--space-5) var(--space-6) var(--space-4);
-    border-bottom: 1px solid rgba(111, 61, 227, 0.12);
-    margin-bottom: var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-4);
+  border-bottom: 1px solid rgba(111, 61, 227, 0.12);
+  margin-bottom: var(--space-3);
 }
 
 .panel-header h2 {
-    font-size: var(--text-lg);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--text-primary);
-    margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
 }
 
-.panel-header .panel-badge {
-    padding: 0.2rem 0.55rem;
-    font-size: var(--text-xs);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-/* controls-row rhythm + status pinned right */
-.controls-row--primary {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-6);
-}
-
-.controls-row--primary .rz-button {
-    min-height: 44px;
-    min-width: 140px;
-    border-radius: var(--radius-md);
-    font-weight: 600;
-}
-
-.controls-row--primary .status-strip {
-    margin-left: auto;
-    padding-left: var(--space-4);
-    border-left: 1px solid rgba(111, 61, 227, 0.15);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   UI polish — LiveDashboard subject-card surface (appended 2026-07-06, additive)
-   Three concerns:
-     1. Add :focus-visible + :focus-within so keyboard users see a focus ring
-     2. KPI-style polish on the card body — label/value rhythm
-     3. Sparkline gets real visual weight (was 26px tall, near-invisible)
-   Revert by deleting this block.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* 1 ── keyboard focus ring on subject cards ────────────────────────────── */
 .subject-card:focus-visible,
 .subject-card:focus-within {
-    outline: 2px solid var(--neon-green);
-    outline-offset: 3px;
-    border-color: rgba(56, 255, 168, 0.6);
-    box-shadow: var(--shadow-glow-green);
+  outline: 2px solid var(--neon-green);
+  outline-offset: 3px;
+  border-color: rgba(56, 255, 168, 0.6);
+  box-shadow: var(--shadow-glow-green);
 }
 
-/* 2 ── card body rhythm ────────────────────────────────────────────────── */
 .subject-card {
-    gap: var(--space-3);                     /* was 0.55rem — align to scale */
-    padding: var(--space-4) var(--space-5);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
 }
 
 .subject-card-name {
-    font-size: var(--text-base);             /* was 0.95rem */
-    letter-spacing: -0.005em;
+  font-size: var(--text-base);
+  letter-spacing: -0.005em;
 }
 
 .subject-card-label {
-    font-size: var(--text-xs);               /* was 0.72rem */
-    color: var(--text-label);
+  font-size: var(--text-xs);
+  color: var(--text-label);
 }
 
 .subject-card-value {
-    font-size: var(--text-sm);               /* was 0.85rem — slightly smaller, more dashboard-y */
-    color: var(--text-primary);
-    font-weight: 500;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
-/* 3 ── sparkline weight ────────────────────────────────────────────────── */
-.subject-card-grid .subject-card-sparkline .sparkline-svg {
-    height: 32px;                            /* was 26px */
-    opacity: 0.95;
-}
-
-.subject-card-grid .subject-card-sparkline {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    border-top: 1px solid rgba(111, 61, 227, 0.1);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE PORTRAIT (audit #6) — single-column, 44 px tap targets, sticky bottom CTA
-   The previous layout was a fluid 12-col grid that worked on tablet but cramped on
-   phone-portrait. This block reorganises the Observer Hub into a vertical flow
-   with a sticky primary CTA above the iOS safe area.
-   ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
-    .app-shell { padding: var(--space-3) var(--space-3) calc(env(safe-area-inset-bottom, 0) + 6rem); }
-    .sector-grid { gap: var(--space-3); }
-    .sector-grid > .panel { grid-column: 1 / -1; }
-
-    .observer-grid,
-    .identity-grid,
-    .archives-grid,
-    .diagnostics-page {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* Subjects strip becomes a horizontal chip row (no wrap, swipeable). */
-    .subjects-mini-row {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
-    }
-    .subject-card--mini { scroll-snap-align: start; }
-
-    /* Make every interactive target ≥44 px to satisfy WCAG 2.2 AA Target Size. */
-    .rz-button,
-    .nav-link,
-    .login-btn,
-    .subject-card,
-    .theme-toggle,
-    .nav-logout,
-    .archive-empty-cta,
-    .evidence-card,
-    .rz-switch {
-        min-height: 44px;
-    }
-    .rz-button { min-width: 44px; }
-
-    /* Primary CTA stays visible above the keyboard / soft-nav. */
-    .controls-row--primary {
-        position: sticky;
-        bottom: 0;
-        z-index: 5;
-        background: var(--color-surface-overlay);
-        border-top: 1px solid var(--color-border-subtle);
-        margin: 0 calc(-1 * var(--space-3));
-        padding: var(--space-3);
-        padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0));
-        backdrop-filter: var(--glass-blur);
-    }
-    .controls-row--primary .rz-button {
-        flex: 1 1 auto;
-        min-width: 0;
-        font-size: var(--text-base);
-    }
-
-    /* Activity panel — use a slightly smaller heading & full-bleed scroll area. */
-    .panel-header h2 { font-size: var(--text-md, var(--text-lg)); }
-
-    /* Hide non-essential hero text to reduce vertical mass. */
-
-    /* Hero strip collapses to single line on phone. */
-    .page-hud {
-        padding: var(--space-2) var(--space-3);
-        gap: var(--space-2);
-    }
-    .page-hud-subtitle { display: none; }
+  .app-shell {
+    padding: var(--space-3) var(--space-3)
+      calc(env(safe-area-inset-bottom, 0) + 6rem);
+  }
+  .sector-grid {
+    gap: var(--space-3);
+  }
+  .sector-grid > .panel {
+    grid-column: 1 / -1;
+  }
+  .observer-grid,
+  .identity-grid,
+  .archives-grid,
+  .diagnostics-page {
+    grid-template-columns: 1fr !important;
+  }
+  .subjects-mini-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .subject-card--mini {
+    scroll-snap-align: start;
+  }
+  .rz-button,
+  .nav-link,
+  .login-btn,
+  .subject-card,
+  .theme-toggle,
+  .nav-logout,
+  .archive-empty-cta,
+  .evidence-card,
+  .rz-switch {
+    min-height: 44px;
+  }
+  .rz-button {
+    min-width: 44px;
+  }
+  .panel-header h2 {
+    font-size: var(--text-md, var(--text-lg));
+  }
+  .page-hud {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+  .page-hud-subtitle {
+    display: none;
+  }
 }
 
-/* ============================================================================
-   UX Transformation — Calm State, Trust, Alert Takeover, Handoff, Motion
-   (Top-10 wins). Appended as one block; reuses design tokens from tokens.css.
-   Reduced-motion is handled globally by the rule near the top of this file.
-   ============================================================================ */
-
-/* -- Win #1/#6: Calm-state Room Status hero -- */
 .room-status-hero {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    /* Compact strip: one glanceable row, minimum vertical footprint. */
-    padding: var(--space-2) var(--space-5);
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--color-border-subtle);
-    background: var(--color-surface-1);
-    box-shadow: var(--elevation-base);
-    transition: border-color var(--transition-base), background var(--transition-base);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  box-shadow: var(--elevation-base);
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base);
 }
-.room-status-copy { flex: 1 1 auto; min-width: 0; }
+
+.room-status-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .room-status-eyebrow {
-    margin: 0;
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
+  margin: 0;
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
+
 .room-status-headline {
-    margin: 0.1rem 0;
-    font-size: var(--text-xl);
-    line-height: 1.1;
-    color: var(--color-text-bright);
+  margin: 0.1rem 0;
+  font-size: var(--text-xl);
+  line-height: 1.1;
+  color: var(--color-text-bright);
 }
+
 .room-status-subline {
-    margin: 0;
-    font-size: var(--text-base);
-    color: var(--color-text-label);
-    overflow: hidden;
-    text-overflow: ellipsis;
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--color-text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .room-status-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
 }
 
-/* The breathing orb: quiet = a slow, reassuring pulse; alert = an urgent one. */
 .room-status-orb {
-    flex: 0 0 auto;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-full);
-    display: grid;
-    place-items: center;
-    background: var(--state-success-bg);
-    border: 2px solid var(--state-success-border);
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  background: var(--state-success-bg);
+  border: 2px solid var(--state-success-border);
 }
+
 .room-status-orb-core {
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-full);
-    background: var(--state-success-fg);
-    animation: roomBreathe 4.5s ease-in-out infinite;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--state-success-fg);
+  animation: roomBreathe 4.5s ease-in-out infinite;
 }
+
 @keyframes roomBreathe {
-    0%, 100% { transform: scale(0.82); opacity: 0.65; }
-    50%      { transform: scale(1);    opacity: 1; }
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-.room-status-hero--idle { border-color: var(--color-border-subtle); }
+.room-status-hero--idle {
+  border-color: var(--color-border-subtle);
+}
+
 .room-status-hero--idle .room-status-orb {
-    background: var(--color-surface-3);
-    border-color: var(--color-border-subtle);
+  background: var(--color-surface-3);
+  border-color: var(--color-border-subtle);
 }
+
 .room-status-hero--idle .room-status-orb-core {
-    background: var(--color-text-muted);
-    animation: none;
+  background: var(--color-text-muted);
+  animation: none;
 }
-.room-status-hero--calm { border-color: var(--state-success-border); }
-.room-status-hero--watch { border-color: var(--state-warning-border); }
+
+.room-status-hero--calm {
+  border-color: var(--state-success-border);
+}
+
+.room-status-hero--watch {
+  border-color: var(--state-warning-border);
+}
+
 .room-status-hero--watch .room-status-orb {
-    background: var(--state-warning-bg);
-    border-color: var(--state-warning-border);
+  background: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
 }
+
 .room-status-hero--watch .room-status-orb-core {
-    background: var(--state-warning-fg);
-    animation-duration: 2.6s;
+  background: var(--state-warning-fg);
+  animation-duration: 2.6s;
 }
+
 .room-status-hero--alert {
-    border-color: var(--state-danger-border);
-    background: var(--state-danger-bg);
+  border-color: var(--state-danger-border);
+  background: var(--state-danger-bg);
 }
+
 .room-status-hero--alert .room-status-orb {
-    background: var(--state-danger-bg);
-    border-color: var(--state-danger-border);
+  background: var(--state-danger-bg);
+  border-color: var(--state-danger-border);
 }
+
 .room-status-hero--alert .room-status-orb-core {
-    background: var(--state-danger-fg);
-    animation-duration: 1s;
+  background: var(--state-danger-fg);
+  animation-duration: 1s;
 }
+
 @media (max-width: 640px) {
-    .room-status-hero { flex-wrap: wrap; padding: var(--space-4); gap: var(--space-3); }
-    .room-status-actions { width: 100%; }
-    .room-status-actions .rz-button { flex: 1 1 auto; }
-}
-
-/* -- Win #6: caregiver summary above the demoted telemetry -- */
-
-/* -- Win #3: "why flagged" trust line on timeline events -- */
-.activity-why {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    margin-top: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-2);
-    font-size: var(--text-sm);
-}
-.activity-why-label {
-    flex: 0 0 auto;
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--state-warning-fg);
-    font-weight: 600;
-}
-.activity-why-text { color: var(--color-text-label); }
-
-/* -- Win #4: full-screen alert takeover -- */
-.alert-takeover {
-    position: fixed;
-    inset: 0;
-    z-index: 2000;
-    display: grid;
-    place-items: center;
-    padding: var(--space-4);
-    background: rgba(5, 3, 10, 0.82);
-    backdrop-filter: blur(6px);
-    animation: alertFade var(--motion-enter) both;
-}
-@keyframes alertFade { from { opacity: 0; } to { opacity: 1; } }
-.alert-takeover-card {
-    position: relative;
-    width: min(520px, 100%);
-    text-align: center;
-    padding: var(--space-8) var(--space-6);
-    border-radius: var(--radius-xl);
-    background: var(--color-surface-1);
-    border: 2px solid var(--state-danger-border);
-    box-shadow: 0 0 0 4px var(--state-danger-bg), var(--shadow-lg);
-    animation: alertPop var(--transition-spring) both;
-}
-@keyframes alertPop {
-    from { transform: scale(0.9); opacity: 0; }
-    to   { transform: scale(1); opacity: 1; }
-}
-.alert-takeover-pulse {
-    position: absolute;
-    inset: -2px;
-    border-radius: inherit;
-    border: 2px solid var(--state-danger-fg);
-    animation: alertRing 1.6s ease-out infinite;
-    pointer-events: none;
-}
-@keyframes alertRing {
-    0%   { opacity: 0.7; transform: scale(1); }
-    100% { opacity: 0;   transform: scale(1.06); }
-}
-.alert-takeover-eyebrow {
-    margin: 0;
-    font-size: var(--text-sm);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--state-danger-fg);
-}
-.alert-takeover-title {
-    margin: var(--space-2) 0;
-    font-size: var(--text-2xl);
-    color: var(--color-text-bright);
-}
-.alert-takeover-frame {
-    margin: var(--space-3) auto;
-    max-width: 320px;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    border: 1px solid var(--color-border-subtle);
-}
-.alert-takeover-frame img { display: block; width: 100%; height: auto; }
-.alert-takeover-reason {
-    margin: var(--space-3) 0;
-    font-size: var(--text-lg);
-    color: var(--color-text-primary);
-}
-.alert-takeover-meta {
-    display: flex;
-    justify-content: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-5);
+  .room-status-hero {
     flex-wrap: wrap;
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+  .room-status-actions {
+    width: 100%;
+  }
+  .room-status-actions .rz-button {
+    flex: 1 1 auto;
+  }
 }
+
+.activity-why {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  font-size: var(--text-sm);
+}
+
+.activity-why-label {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--state-warning-fg);
+  font-weight: 600;
+}
+
+.activity-why-text {
+  color: var(--color-text-label);
+}
+
+.alert-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(5, 3, 10, 0.82);
+  backdrop-filter: blur(6px);
+  animation: alertFade var(--motion-enter) both;
+}
+
+@keyframes alertFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.alert-takeover-card {
+  position: relative;
+  width: min(520px, 100%);
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-1);
+  border: 2px solid var(--state-danger-border);
+  box-shadow:
+    0 0 0 4px var(--state-danger-bg),
+    var(--shadow-lg);
+  animation: alertPop var(--transition-spring) both;
+}
+
+@keyframes alertPop {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.alert-takeover-pulse {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--state-danger-fg);
+  animation: alertRing 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes alertRing {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+.alert-takeover-eyebrow {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--state-danger-fg);
+}
+
+.alert-takeover-title {
+  margin: var(--space-2) 0;
+  font-size: var(--text-2xl);
+  color: var(--color-text-bright);
+}
+
+.alert-takeover-frame {
+  margin: var(--space-3) auto;
+  max-width: 320px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.alert-takeover-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.alert-takeover-reason {
+  margin: var(--space-3) 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+
+.alert-takeover-meta {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+
 .alert-takeover-chip {
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius-full);
-    background: var(--color-surface-2);
-    color: var(--color-text-label);
-    font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-label);
+  font-size: var(--text-sm);
 }
-.alert-takeover-chip--time { font-family: var(--font-mono); }
+
+.alert-takeover-chip--time {
+  font-family: var(--font-mono);
+}
+
 .alert-takeover-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
+
 .alert-takeover-btn {
-    min-height: 48px;
-    padding: 0 var(--space-5);
-    border-radius: var(--radius-md);
-    font-size: var(--text-lg);
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: transform var(--motion-instant), filter var(--motion-quick);
+  min-height: 48px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    transform var(--motion-instant),
+    filter var(--motion-quick);
 }
-.alert-takeover-btn:active { transform: scale(0.97); }
+
+.alert-takeover-btn:active {
+  transform: scale(0.97);
+}
+
 .alert-takeover-btn--primary {
-    background: var(--state-danger-fg);
-    color: var(--palette-ink-050);
+  background: var(--state-danger-fg);
+  color: var(--palette-ink-050);
 }
-.alert-takeover-btn--primary:hover { filter: brightness(1.08); }
+
+.alert-takeover-btn--primary:hover {
+  filter: brightness(1.08);
+}
+
 .alert-takeover-btn--ghost {
-    background: transparent;
-    border-color: var(--color-border-subtle);
-    color: var(--color-text-label);
+  background: transparent;
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-label);
 }
 
-/* -- Win #5: one-tap handoff dialog -- */
 .handoff-lead {
-    margin: 0 0 var(--space-3);
-    font-size: var(--text-base);
-    color: var(--color-text-primary);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
 }
-.handoff-input--primary { width: 100%; }
-.handoff-more { margin-top: var(--space-3); font-size: var(--text-sm); }
+
+.handoff-input--primary {
+  width: 100%;
+}
+
+.handoff-more {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+
 .handoff-more > summary {
-    cursor: pointer;
-    color: var(--color-text-muted);
-    padding: var(--space-1) 0;
-    min-height: 32px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: var(--space-1) 0;
+  min-height: 32px;
 }
-.handoff-more label { display: block; margin: var(--space-2) 0 var(--space-1); color: var(--color-text-label); }
+
+.handoff-more label {
+  display: block;
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-label);
+}
+
 .handoff-download-link {
-    display: inline-block;
-    margin-top: var(--space-3);
-    background: none;
-    border: none;
-    padding: var(--space-1) 0;
-    color: var(--color-accent);
-    cursor: pointer;
-    font-size: var(--text-sm);
-    text-decoration: underline;
+  display: inline-block;
+  margin-top: var(--space-3);
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  text-decoration: underline;
 }
 
-/* -- Win #7: de-emphasised "System" nav link -- */ .nav-link--muted.active { opacity: 1; }
-
-/* -- Win #10: accessibility — comfortable tap targets + visible focus -- */
 .room-status-actions .rz-button,
 .subjects-manage-link,
 .setup-advanced-toggle {
-    min-height: 44px;
+  min-height: 44px;
 }
-.subjects-manage-link { display: inline-flex; align-items: center; }
+
+.subjects-manage-link {
+  display: inline-flex;
+  align-items: center;
+}
+
 .alert-takeover-btn:focus-visible,
 .room-status-actions .rz-button:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: var(--focus-ring-offset);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

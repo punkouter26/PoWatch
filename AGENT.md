@@ -50,7 +50,7 @@ persists them to Azure Table + Blob Storage.
 │   ├── PoWatch.Client/            # Blazor WASM UI
 │   ├── PoWatch.Domain/            # Entities, strongly-typed ids, enums
 │   ├── PoWatch.Infrastructure/    # Azure persistence, runtime adapters
-│   └── PoWatch.Shared/            # DTOs shared across the BFF boundary
+│   └── PoWatch.Shared/            # DTOs and pure client derivations
 └── tests/
     ├── PoWatch.Unit/              # Pure logic, No-I/O
     ├── PoWatch.Integration/       # Azurite via Testcontainers
@@ -60,9 +60,8 @@ persists them to Azure Table + Blob Storage.
 
 Directory depth stays shallow — at most two levels inside a project.
 
-> **Known deviation.** The reference layout is a three-project `src/` (`API` / `Client` / `Shared`).
-> This repo additionally has `Domain`, `Application`, and `Infrastructure`. Collapsing them into the
-> feature slices is tracked work, not a licence to add a fourth layer.
+The six existing projects keep domain logic, application contracts, Azure adapters, transport DTOs,
+the API host, and the client separate. Preserve their enforced dependency direction.
 
 ### Vertical slices
 
@@ -171,21 +170,26 @@ Directory depth stays shallow — at most two levels inside a project.
 
 ## 5. Testing, CI/CD, hygiene
 
-- **Targets: 100 unit · 50 integration · 25 API E2E · 25 UI E2E.** Add tests with the feature
-  you are writing; do not let a suite fall back under its target. Track the actual count in the
-  suite's own project, not here — the parentheticals next to these targets rot.
+- **Maximums: 100 unit · 50 integration · 25 API E2E · 25 UI E2E.** Keep focused behavior
+  tests within these caps. Input matrices may run inside one behavior test; do not skip or exclude
+  tests to disguise an oversized suite. Each project owns its `TestCaseLimit`; CI checks actual
+  discovered cases with `SCRIPTS/check-test-caps.ps1`, including any remaining theory rows.
 - UI E2E tests must wait for the app to boot, not for the network to idle. A Blazor WASM cold start
   downloads and starts the .NET runtime, which takes far longer than Playwright's 5 s default expect
   timeout — use `PoWatchPage.SignedInAsync`, which waits on the navbar.
-- CI (`.github/workflows/deploy.yml`) restores, builds, verifies formatting, then runs **Unit,
-  Integration, and API E2E** before publishing. The `emergency` workflow-dispatch input skips the
+- CI (`.github/workflows/deploy.yml`) restores, builds, verifies formatting, then discovers all four suites to enforce caps and runs **Unit
+  and Integration** before publishing. API E2E is available for local/ad-hoc runs. The `emergency` workflow-dispatch input skips the
   formatting and test gates — it exists solely so a red test cannot trap a hotfix during an outage.
   Do not use it routinely.
-- **`PoWatch.E2EUI` is not run in CI.** It needs a Playwright browser download and a live
-  deployment to drive. Run it locally against a running instance:
-  `E2E_BASE_URL=https://... dotnet test tests/PoWatch.E2EUI`. The fixture self-skips when the
-  variable is unset, but the browser binary must still be present, so install it first with
+- **`PoWatch.E2EUI` is not executed in CI.** It requires Chromium. Run locally with `E2E_LOCAL=1`
+  for an isolated Test host and disposable Azurite, or set `E2E_BASE_URL` to an authorized live
+  instance. With neither setting the tests perform no browser work. Install Chromium first:
   `pwsh tests/PoWatch.E2EUI/bin/Release/net10.0/playwright.ps1 install chromium`.
+- CI also checks naming, shallow source directories, package versions, shell assets, and Bicep
+  compilation. `infra/deployment.json` supplies production names to both Bicep and CI. Shared
+  App Insights and Key Vault are referenced in PoShared; the Windows plan and storage are in PoWatch.
+- Handoff synthesis uses only `AiProvider:Provider` (Template, AzureOpenAi, Ollama); Template is the
+  default and fallback. Do not recreate separate provider enable flags.
 - Azure: resources live in resource groups **`PoShared`** (shared platform services) and
   **`PoWatch`**. Authenticate with system-assigned Managed Identity + Key Vault.
   **No raw connection strings in app settings.**

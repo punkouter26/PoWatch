@@ -1,4 +1,8 @@
 using Microsoft.Playwright;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Testcontainers.Azurite;
 
 namespace PoWatch.E2EUI;
 
@@ -7,13 +11,16 @@ namespace PoWatch.E2EUI;
 /// so each test doesn't pay the ~250 ms browser-launch cost. Tests get their own isolated
 /// <see cref="IBrowserContext"/> + <see cref="IPage"/> so cookies/storage don't bleed.
 /// </summary>
-public sealed class PlaywrightFixture : IAsyncLifetime
+public sealed class PlaywrightFixture : IAsyncLifetime, IAsyncDisposable
 {
     /// <summary>
     /// Set to the deployed base URL (e.g. https://localhost:5001). When null the entire
     /// collection is skipped so headless builds without a live server still succeed.
     /// </summary>
-    public static string? BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL");
+    public static string? BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL") ?? _localBaseUrl;
+    private static string? _localBaseUrl;
+    private AzuriteContainer? _azurite;
+    private LocalUiApplicationFactory? _localFactory;
 
     // Local dev cert is untrusted by Chromium — ignore for E2E runs.
     private static readonly string[] LaunchArgs = ["--ignore-certificate-errors"];
@@ -26,6 +33,15 @@ public sealed class PlaywrightFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        if (BaseUrl is null && Environment.GetEnvironmentVariable("E2E_LOCAL") == "1")
+        {
+            _azurite = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:latest").Build();
+            await _azurite.StartAsync();
+            _localFactory = new LocalUiApplicationFactory(_azurite.GetConnectionString());
+            _localFactory.UseKestrel(0);
+            using var client = _localFactory.CreateClient();
+            _localBaseUrl = client.BaseAddress!.ToString().TrimEnd('/');
+        }
         if (BaseUrl is null) return;
         _playwright = await Playwright.CreateAsync();
         // The app's stable selectors use data-test (see MainLayout/NavMenu), not Playwright's
@@ -43,6 +59,30 @@ public sealed class PlaywrightFixture : IAsyncLifetime
     {
         if (_browser is not null) await _browser.DisposeAsync();
         _playwright?.Dispose();
+        if (_localFactory is not null) await _localFactory.DisposeAsync();
+        if (_azurite is not null) await _azurite.DisposeAsync();
+        _localBaseUrl = null;
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync() => await DisposeAsync();
+}
+
+internal sealed class LocalUiApplicationFactory(string connectionString) : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Test");
+        builder.UseStaticWebAssets();
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AzureStorage:ConnectionString"] = connectionString,
+            ["AzureStorage:ServiceUri"] = "",
+            ["FeatureFlags:DeveloperBypassAuth"] = "true",
+            ["FeatureFlags:EnableKeyVault"] = "false",
+            ["FeatureFlags:AllowDataReset"] = "false",
+            ["AiProvider:Provider"] = "Template",
+            ["ApplicationInsights:ConnectionString"] = ""
+        }));
     }
 }
 

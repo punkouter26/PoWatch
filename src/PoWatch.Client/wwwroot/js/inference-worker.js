@@ -349,7 +349,7 @@ async function reloadModel(device, dtype) {
   self.postMessage({ type: 'STATE_UPDATE', loadState: 'ready' });
 }
 
-async function runInference(base64Frame, prompt, maxNewTokens = 96) {
+async function runInference(base64Frame, prompt, maxNewTokens = 32) {
   if (!base64Frame) {
     return {
       isAvailable: false,
@@ -389,8 +389,8 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
 
   const inferStart = performance.now();
   const safeMaxNewTokens = Number.isFinite(maxNewTokens)
-    ? Math.min(256, Math.max(32, Math.trunc(maxNewTokens)))
-    : 96;
+    ? Math.min(96, Math.max(16, Math.trunc(maxNewTokens)))
+    : 32;
 
   // Rebuild tensors after every backend switch. Reusing WebGPU inputs on wasm (or a poisoned
   // session) is how generate() started throwing a bare ONNX code with no .message — the UI then
@@ -408,6 +408,8 @@ async function runInference(base64Frame, prompt, maxNewTokens = 96) {
       generatedIds = await _model.generate({
         ...inputs,
         max_new_tokens: safeMaxNewTokens,
+        do_sample: false,
+        temperature: 0,
       });
     } catch (err) {
       generateError = describeError(err);

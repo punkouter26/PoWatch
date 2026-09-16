@@ -46,9 +46,6 @@
 
 <RadzenNotification />
 
-@* Ambient FX hosts (#6 fireflies, #7 breath pulse) — surface-level only, opt-in via flags. *@
-<PoWatch.Client.Components.Fx.FirefliesHost Intensity="0.4" />
-<PoWatch.Client.Components.Fx.BreathPulse Enabled="false" />
 @* RadzenDialog host — required for DialogService.Confirm/OpenAsync to render anything. Without
    it, the clear-data confirm, the System-page reset confirm, and the handoff dialog were all
    silent no-ops (added 2026-07-22). *@

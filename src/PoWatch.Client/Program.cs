@@ -43,7 +43,4 @@ builder.Services.AddScoped<UserPreferencesService>();
 // page's per-model self-test. Scoped so the fetch happens once per app load, not once per page.
 builder.Services.AddScoped<ModelRegistryService>();
 
-// Visual + audio FX bridge — wraps powatchAudio + powatchFx; trim-safe (passthrough only).
-builder.Services.AddScoped<PoWatch.Client.Services.PowatchFxService>();
-
 await builder.Build().RunAsync();

@@ -12,49 +12,52 @@ namespace PoWatch.Unit;
 public sealed class InfrastructureDependencyInjectionTests
 {
     [Fact]
-    public void AddPoWatchInfrastructure_UsesAzureRepositories_ForDevelopmentStorage()
+    public void AddPoWatchInfrastructure_UsesAzureRepositories_ForDevelopmentStorage_And_AddPoWatchInfrastructure_UsesAzureRepositories_ForServiceUriConfiguration()
     {
-        var services = new ServiceCollection();
-        services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
-        services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
-        services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
-        services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
+        // AddPoWatchInfrastructure_UsesAzureRepositories_ForDevelopmentStorage
         {
-            ConnectionString = "UseDevelopmentStorage=true"
-        }));
+            var services = new ServiceCollection();
+            services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
+            services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
+            services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
+            services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
+            {
+                ConnectionString = "UseDevelopmentStorage=true"
+            }));
 
-        services.AddPoWatchInfrastructure();
+            services.AddPoWatchInfrastructure();
 
-        using var serviceProvider = services.BuildServiceProvider();
+            using var serviceProvider = services.BuildServiceProvider();
 
-        var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
-        var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
+            var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
+            var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
 
-        Assert.IsType<AzureObservationRepository>(observationRepository);
-        Assert.IsType<AzureSubjectRepository>(subjectRepository);
-    }
+            Assert.IsType<AzureObservationRepository>(observationRepository);
+            Assert.IsType<AzureSubjectRepository>(subjectRepository);
 
-    [Fact]
-    public void AddPoWatchInfrastructure_UsesAzureRepositories_ForServiceUriConfiguration()
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
-        services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
-        services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
-        services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
+        }
+        // AddPoWatchInfrastructure_UsesAzureRepositories_ForServiceUriConfiguration
         {
-            ServiceUri = "https://powatchsa.table.core.windows.net/"
-        }));
+            var services = new ServiceCollection();
+            services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
+            services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
+            services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
+            services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
+            {
+                ServiceUri = "https://powatchsa.table.core.windows.net/"
+            }));
 
-        services.AddPoWatchInfrastructure();
+            services.AddPoWatchInfrastructure();
 
-        using var serviceProvider = services.BuildServiceProvider();
+            using var serviceProvider = services.BuildServiceProvider();
 
-        var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
-        var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
+            var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
+            var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
 
-        Assert.IsType<AzureObservationRepository>(observationRepository);
-        Assert.IsType<AzureSubjectRepository>(subjectRepository);
+            Assert.IsType<AzureObservationRepository>(observationRepository);
+            Assert.IsType<AzureSubjectRepository>(subjectRepository);
+
+        }
     }
 
     [Fact]

@@ -1,22 +1,15 @@
 // Azure Storage Account (Table + Blob) for PoWatch.
-// Placed in PoWatch-App-RG (app-specific, not PoWatch-Shared-RG).
+// Placed in PoWatch, the application resource group.
 // Access via Managed Identity — no connection strings.
 
 param location string
-param environment string
+param storageAccountName string
 
-@description('Allowed browser origins for direct Blob SAS upload/download requests')
-param blobCorsAllowedOrigins array = [
-  'https://app-powatch-web-prod-wus2-001.azurewebsites.net'
-  'http://localhost:5000'
-  'http://localhost:7000'
-  'http://localhost:7099'
-]
-
-var storageName = 'stpowatch${environment}wus2001'
+@description('Allowed application origins for evidence upload and download')
+param blobCorsAllowedOrigins array
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
-  name: storageName
+  name: storageAccountName
   location: location
   sku: {
     name: 'Standard_LRS'
@@ -30,7 +23,8 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 }
 
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
-  name: '${storageAccount.name}/default'
+  parent: storageAccount
+  name: 'default'
   properties: {
     cors: {
       corsRules: [
@@ -58,7 +52,8 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
 
 // Blob container for significant-event images
 resource imageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  name: '${storageAccount.name}/default/significant-images'
+  parent: blobService
+  name: 'significant-images'
   properties: {
     publicAccess: 'None'
   }

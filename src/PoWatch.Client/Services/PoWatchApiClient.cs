@@ -7,29 +7,29 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 {
     private static readonly PoWatchJsonContext Json = PoWatchJsonContext.Default;
 
+    public async Task<AcknowledgeEventsResultDto?> AcknowledgeEventsAsync(IReadOnlyList<string> eventIds)
+    {
+        var request = new AcknowledgeEventsRequestDto { EventIds = eventIds, AcknowledgedBy = "Caregiver" };
+        using var response = await httpClient.PostAsJsonAsync("api/observer/acknowledge", request, Json.AcknowledgeEventsRequestDto);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(Json.AcknowledgeEventsResultDto);
+    }
+
     public async Task<ObserverRuntimeStateDto?> GetObserverStateAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("api/observer/state", Json.ObserverRuntimeStateDto, cancellationToken);
 
     public async Task<IngestObservationResultDto?> IngestObservationAsync(IngestObservationRequestDto request, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsJsonAsync("api/observer/ingest", request, Json.IngestObservationRequestDto, cancellationToken);
+        using var response = await httpClient.PostAsJsonAsync("api/observer/ingest", request, Json.IngestObservationRequestDto, cancellationToken);
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.IngestObservationResultDto, cancellationToken);
     }
 
     public async Task<DailyChapterDto?> GetChapterAsync(DateOnly date, NarrativeMode mode = NarrativeMode.Prose, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync($"api/archives/{date:yyyy-MM-dd}?mode={mode}", Json.DailyChapterDto, cancellationToken);
 
-    public async Task<BlobAccessDescriptorDto?> GetBlobUploadAccessAsync(string subjectId, DateOnly date, CancellationToken cancellationToken = default) =>
-        await httpClient.GetFromJsonAsync($"api/blobs/sas?subjectId={Uri.EscapeDataString(subjectId)}&date={date:yyyyMMdd}", Json.BlobAccessDescriptorDto, cancellationToken);
-
     public async Task<BlobAccessDescriptorDto?> GetBlobUploadAccessForPathAsync(string blobPath, CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync($"api/blobs/sas?blobPath={Uri.EscapeDataString(blobPath)}&upload=true", Json.BlobAccessDescriptorDto, cancellationToken);
-
-    public async Task<string?> GetBlobReadUrlAsync(string blobPath, CancellationToken cancellationToken = default)
-    {
-        var access = await httpClient.GetFromJsonAsync($"api/blobs/sas?blobPath={Uri.EscapeDataString(blobPath)}", Json.BlobAccessDescriptorDto, cancellationToken);
-        return access?.SasUrl;
-    }
 
     /// <summary>
     /// Get a signed read URL for a blob directly from the /read endpoint (preferred method).
@@ -45,75 +45,10 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 
     public async Task<SubjectProfileDto?> RegisterSubjectAsync(RegisterSubjectRequestDto request, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsJsonAsync("api/identity/subjects", request, Json.RegisterSubjectRequestDto, cancellationToken);
+        using var response = await httpClient.PostAsJsonAsync("api/identity/subjects", request, Json.RegisterSubjectRequestDto, cancellationToken);
         if (!response.IsSuccessStatusCode) return null;
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.SubjectProfileDto, cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<SubjectRevisionEventDto>> GetSubjectHistoryAsync(string subjectId, CancellationToken cancellationToken = default)
-    {
-        var items = await httpClient.GetFromJsonAsync(
-            $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}/history",
-            Json.ListSubjectRevisionEventDto,
-            cancellationToken);
-        return items ?? [];
-    }
-
-    public async Task<HandoffMemoDto?> UploadHandoffMemoAsync(
-        byte[] bytes,
-        string contentType,
-        int durationMs,
-        string? subjectId,
-        CancellationToken cancellationToken = default)
-    {
-        // Multipart upload. The form field "file" carries the audio bytes; metadata fields ride
-        // alongside. The browser-set Content-Type on the file part is what the server trusts for
-        // codec, so we forward the same value verbatim rather than forcing a server-side mapping.
-        using var form = new MultipartFormDataContent();
-        using var fileContent = new ByteArrayContent(bytes);
-        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
-        form.Add(fileContent, "file", "memo.bin");
-        form.Add(new StringContent(durationMs.ToString(System.Globalization.CultureInfo.InvariantCulture)), "durationMs");
-        if (!string.IsNullOrWhiteSpace(subjectId))
-        {
-            form.Add(new StringContent(subjectId), "subjectId");
-        }
-
-        using var response = await httpClient.PostAsync("api/handoff/memos", form, cancellationToken);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync(Json.HandoffMemoDto, cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<HandoffMemoDto>> ListRecentHandoffMemosAsync(int limit = 20, CancellationToken cancellationToken = default)
-    {
-        var items = await httpClient.GetFromJsonAsync(
-            $"api/handoff/memos?limit={Math.Clamp(limit, 1, 100)}",
-            Json.ListHandoffMemoDto,
-            cancellationToken);
-        return items ?? [];
-    }
-
-    public async Task<ShareLinkSummaryDto?> CreateShareLinkAsync(DateOnly? date = null, int? ttlHours = null, CancellationToken cancellationToken = default)
-    {
-        var body = new CreateShareLinkRequestDto { Date = date, TtlHours = ttlHours };
-        var response = await httpClient.PostAsJsonAsync("api/share/links", body, Json.CreateShareLinkRequestDto, cancellationToken);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync(Json.ShareLinkSummaryDto, cancellationToken);
-    }
-
-    public async Task<bool> RevokeShareLinkAsync(string id, CancellationToken cancellationToken = default)
-    {
-        using var response = await httpClient.DeleteAsync($"api/share/links/{Uri.EscapeDataString(id)}", cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
-
-    public async Task<ShareLinkViewDto?> ViewShareLinkAsync(string id, CancellationToken cancellationToken = default)
-    {
-        // The family-view endpoint is anonymous and uses the regular HttpClient — the BFF cookie
-        // is not sent for an AllowAnonymous route, so this works whether or not the viewer is
-        // logged in.
-        var items = await httpClient.GetFromJsonAsync($"api/share/view/{Uri.EscapeDataString(id)}", Json.ShareLinkViewDto, cancellationToken);
-        return items;
     }
 
     public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken = default)
@@ -130,12 +65,14 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         };
 
         using var response = await httpClient.SendAsync(message, cancellationToken);
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.IdentityRevisionResultDto, cancellationToken);
     }
 
     public async Task<IdentityRevisionResultDto?> MergeIdentityAsync(MergeIdentityRequestDto request, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsJsonAsync("api/identity/merge", request, Json.MergeIdentityRequestDto, cancellationToken);
+        using var response = await httpClient.PostAsJsonAsync("api/identity/merge", request, Json.MergeIdentityRequestDto, cancellationToken);
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.IdentityRevisionResultDto, cancellationToken);
     }
 
@@ -161,26 +98,17 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 
     public async Task<HandoffBriefDto?> GenerateHandoffBriefAsync(DateOnly date, GenerateHandoffBriefRequestDto request, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsJsonAsync($"api/archives/{date:yyyy-MM-dd}/handoff-brief", request, Json.GenerateHandoffBriefRequestDto, cancellationToken);
+        using var response = await httpClient.PostAsJsonAsync($"api/archives/{date:yyyy-MM-dd}/handoff-brief", request, Json.GenerateHandoffBriefRequestDto, cancellationToken);
         if (!response.IsSuccessStatusCode) return null;
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.HandoffBriefDto, cancellationToken);
     }
 
     public async Task<StorageResetResultDto?> ClearAllDataAsync(CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsync("api/diagnostics/reset", null, cancellationToken);
+        using var response = await httpClient.PostAsync("api/diagnostics/reset", null, cancellationToken);
         if (!response.IsSuccessStatusCode) return null;
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.StorageResetResultDto, cancellationToken);
-    }
-
-    /// <summary>
-    /// Fetch the per-subject 7-day behavioural baseline. The endpoint already returns
-    /// both the baseline vector and the today vector, so the client-side pattern comparison
-    /// panel can render directly from this single call.
-    /// </summary>
-    public async Task<SubjectBaselineDto?> GetSubjectBaselineAsync(string subjectId, int days = 7, CancellationToken cancellationToken = default)
-    {
-        var path = $"api/identity/subjects/{Uri.EscapeDataString(subjectId)}/baseline?days={days}";
-        return await httpClient.GetFromJsonAsync(path, Json.SubjectBaselineDto, cancellationToken);
     }
 }
