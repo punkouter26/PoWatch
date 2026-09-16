@@ -8,7 +8,7 @@
 @inject NotificationService NotificationService
 @inject DialogService DialogService
 @inject PoWatch.Client.Services.ModelRegistryService ModelRegistry
-@implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>PoWatch | System</PageTitle>
 
@@ -261,7 +261,7 @@
     private bool autoRefresh = true;
     private DateTime? lastRefreshed;
     private int _autoRefreshIntervalSeconds;
-    private CancellationTokenSource _cts = new();
+    private readonly PoWatch.Client.Services.PollLoop _poll = new();
     private bool resetBusy;
     private StorageResetResultDto? resetResult;
 
@@ -291,41 +291,24 @@
         // Auto-refresh is the default (consolidation #8) — a health page that shows stale
         // numbers until someone clicks Refresh reads as broken.
         if (autoRefresh)
-            _ = AutoRefreshLoopAsync(_cts.Token);
+            StartPoll();
+    }
+
+    private void StartPoll()
+    {
+        // PollLoop replaces any previous loop atomically, so toggling repeatedly no longer
+        // leaks a CancellationTokenSource per flip (idea #4).
+        _poll.Start(TimeSpan.FromSeconds(_autoRefreshIntervalSeconds), async _ => await LoadAsync(), InvokeAsync);
     }
 
     private void OnAutoRefreshChanged(bool value)
     {
         autoRefresh = value;
-        // Dispose the old source before replacing it — toggling repeatedly used to leak one
-        // CancellationTokenSource (and its registrations) per flip.
-        _cts.Cancel();
-        _cts.Dispose();
-        _cts = new CancellationTokenSource();
-
-        if (autoRefresh)
-            _ = AutoRefreshLoopAsync(_cts.Token);
+        if (autoRefresh) StartPoll();
+        else _poll.Stop();
     }
 
-    private async Task AutoRefreshLoopAsync(CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(_autoRefreshIntervalSeconds), ct);
-                await LoadAsync();
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-    }
+    public async ValueTask DisposeAsync() => await _poll.DisposeAsync();
 
     private async Task LoadAsync()
     {

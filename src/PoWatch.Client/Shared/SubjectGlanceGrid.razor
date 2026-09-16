@@ -103,7 +103,7 @@
     private List<SubjectDriftStatusDto> _driftStatus = [];
     private bool loading;
     private string subjectFilter = string.Empty;
-    private CancellationTokenSource? _timerCts;
+    private readonly PoWatch.Client.Services.PollLoop _poll = new();
 
     /// <summary>Raised after each successful refresh so the host page can sync (optional).</summary>
     [Parameter] public EventCallback<string> OnSubjectFocused { get; set; }
@@ -160,19 +160,8 @@
 
     private void StartAutoRefresh()
     {
-        _timerCts = new CancellationTokenSource();
-        var token = _timerCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            while (!token.IsCancellationRequested)
-            {
-                try { await Task.Delay(TimeSpan.FromSeconds(RefreshIntervalSeconds), token); }
-                catch (OperationCanceledException) { break; }
-
-                await InvokeAsync(RefreshAsync);
-            }
-        }, token);
+        // PollLoop owns the CTS lifecycle, so disposing the host page disposes the loop.
+        _poll.Start(TimeSpan.FromSeconds(RefreshIntervalSeconds), async _ => await RefreshAsync(), InvokeAsync);
     }
 
     private static string GetCardClass(SubjectLiveStatusDto subject)
@@ -223,10 +212,5 @@
             new DialogOptions { Width = "640px", Resizable = true, CloseDialogOnOverlayClick = true });
     }
 
-    public ValueTask DisposeAsync()
-    {
-        _timerCts?.Cancel();
-        _timerCts?.Dispose();
-        return ValueTask.CompletedTask;
-    }
+    public ValueTask DisposeAsync() => _poll.DisposeAsync();
 }

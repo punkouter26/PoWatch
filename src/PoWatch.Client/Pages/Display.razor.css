@@ -21,7 +21,9 @@
 }
 
 .display--calm {
-    background: var(--state-info-bg);
+    /* A calmer than steady but warmer than idle wash. token doesn't exist, so compose from
+       the surface and warning tokens via color-mix so the page is theme-aware. */
+    background: color-mix(in srgb, var(--color-surface-2) 70%, var(--state-warning-bg) 30%);
 }
 
 .display--steady {

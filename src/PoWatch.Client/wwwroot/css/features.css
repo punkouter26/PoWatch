@@ -249,7 +249,60 @@
 }
 
 /* ═══ Threshold Alert Banner (global alert strip across the app) ═══════════ */
-.threshold-alert-banner {
+
+/* ═══ Viewport-fit polish (audit idea #3 / #6) ═════════════════════════════ */
+
+/* On narrow viewports the Live Room hero's action buttons stack vertically so the title and
+   orb stay readable instead of being pushed off-centre by a Stop + End shift pair. */
+@media (max-width: 720px) {
+    .room-status-hero {
+        flex-wrap: wrap;
+    }
+
+    .room-status-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .room-status-actions .rz-button {
+        width: 100%;
+    }
+
+    /* The decorative orb is a wide-only flourish; removing it on phones reclaims ~80px and
+       keeps the hero ≤ 220px tall on a 360×640 viewport. */
+    .room-status-orb {
+        display: none;
+    }
+}
+
+/* The model telemetry strip collapses to two columns on a phone; p95 latency and reply
+   quality drop into a "More" disclosure so the panel doesn't grow ~120px taller with six
+   stacked tiles. The disclosure is wired in ObserverHub.razor — the CSS just hides it on
+   wide viewports. */
+@media (max-width: 720px) {
+    .model-stats-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
+    }
+
+    .model-stat-sub {
+        white-space: normal;
+    }
+}
+
+/* Camera frame: aspect-ratio over a hard-coded max-height so the feed never gets squashed
+   under the panel header + telemetry strip + status banner. Previously `max-height: 42vh`
+   forced <20vh on a small viewport, leaving the live feed looking like a postage stamp. */
+.nexus-frame {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    max-height: 50svh;
+}
+
+@media (min-width: 1400px) {
+    .nexus-frame { max-height: 42vh; }
+}
     display: flex;
     align-items: flex-start;
     gap: var(--space-3);

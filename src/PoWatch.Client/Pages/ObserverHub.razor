@@ -80,7 +80,15 @@
 
     @* Calm-state hero: THE single owner of monitoring state and start/stop (consolidation #2/#3).
        The subline also carries person-detection so no separate summary panel is needed. *@
-    <section class="room-status-hero room-status-hero--@RoomStatusKey" aria-live="polite" data-test="room-status-hero">
+    <section class="room-status-hero room-status-hero--@RoomStatusKey" aria-live="polite" data-test="room-status-hero"
+             style="position:relative">
+        @* PebbleField only renders on wide viewports — on a phone it adds 30-60ms paint per
+           frame behind the camera, which is the last place we want extra cost (idea #6). *@
+        @if (!_compactLayout)
+        {
+            <PoWatch.Client.Components.Fx.PebbleField />
+        }
+
         <div class="room-status-orb" aria-hidden="true">
             <span class="room-status-orb-core"></span>
         </div>
@@ -119,14 +127,29 @@
     </section>
 
     @* Daily activity heatmap (#2): 24-hour density strip rendered between the hero and the
-       activity grid. Pure derivation — it never makes an API call of its own. *@
+       activity grid. Pure derivation — it never makes an API call of its own.
+       Compact mode below 720px so a phone doesn't burn ~140px before the camera appears (idea #3). *@
     <PoWatch.Client.Components.DailyActivityHeatmap Buckets="_heatmapBuckets"
                                                     Title="@HeatmapTitle"
                                                     Meta="@HeatmapMeta"
                                                     NowLocal="DateTime.Now"
-                                                    DisplayCap="_heatmapDisplayCap" />
+                                                    DisplayCap="_heatmapDisplayCap"
+                                                    Compact="@_compactLayout" />
 
-    <div class="sector-grid observer-grid @(monitoring ? "observer-grid--active" : string.Empty)">
+    @* Breath pulse only on wide viewports — on a phone it competes with the camera preview for
+       attention without adding information, and costs ~30-60ms paint per cycle. *@
+    @if (!_compactLayout)
+    {
+        <PoWatch.Client.Components.Fx.BreathPulse Enabled="@monitoring" Bpm="@BreathBpm" />
+    }
+    @* HandoffBeam is a fixed fullscreen overlay — only render on wide viewports where it reads as
+       intentional ambient FX, not a sticker covering the camera feed on a phone. *@
+    @if (!_compactLayout)
+    {
+        <PoWatch.Client.Components.Fx.HandoffBeam Style="position:fixed;inset:0;pointer-events:none;z-index:50" Class="" />
+    }
+
+    <div class="sector-grid observer-grid @(monitoring ? "observer-grid--active" : string.Empty)" data-parallax-tilt="2.5">
         <RadzenCard class="@("panel panel-main" + (monitoring ? " panel--active" : string.Empty))">
             <header class="panel-header observer-panel-header">
                 <div class="panel-header-left">
@@ -241,6 +264,7 @@
                loudest control on the daily-use screen, for a destructive dev-only action. It now
                lives beside the other developer tools in the settings drawer. *@
             <div class="activity-scroll-region">
+                <PoWatch.Client.Components.Fx.TimelineRiver />
                 <ActivityTimeline Items="@streamItems" ShowSubjectBadge="true" EmptyMessage="No activity recorded yet. Start monitoring to capture events." />
             </div>
 
@@ -297,13 +321,16 @@
 </div>
 
 @* Consolidation #5: model/GPU/polling setup and developer tools live in a slide-over settings
-   drawer, off the daily-use screen. Opened via the ⚙ in the Room Feed header. *@
+   drawer, off the daily-use screen. Opened via the ⚙ in the Room Feed header. Focus trap +
+   Escape-to-close added in the viewport-fit pass (idea #9). *@
 @if (_settingsOpen)
 {
     <div class="settings-drawer-backdrop" @onclick="@(() => _settingsOpen = false)"></div>
-    <aside class="settings-drawer" role="dialog" aria-label="Observer settings" data-test="observer-settings-drawer">
+    <aside class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-drawer-title"
+           tabindex="-1" @ref="_settingsDrawerRef" data-test="observer-settings-drawer"
+           @onkeydown="HandleSettingsDrawerKeyDown">
         <header class="settings-drawer-header">
-            <h2>Observer settings</h2>
+            <h2 id="settings-drawer-title">Observer settings</h2>
             <button class="settings-drawer-close" @onclick="@(() => _settingsOpen = false)" aria-label="Close settings">×</button>
         </header>
         @if (monitoring || thinking)

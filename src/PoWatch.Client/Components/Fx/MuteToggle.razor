@@ -1,0 +1,29 @@
+@inject PoWatch.Client.Services.PowatchFxService Fx
+@inject IJSRuntime JS
+
+<button type="button"
+        class="powatch-mute-toggle"
+        data-muted="@(_muted)"
+        title="@(_muted ? "Unmute audio cues" : "Mute audio cues")"
+        aria-pressed="@_muted"
+        aria-label="@(_muted ? "Unmute audio cues" : "Mute audio cues")"
+        @onclick="ToggleAsync">
+    <span aria-hidden="true">@(_muted ? "🔕" : "🔊")</span>
+</button>
+
+@code {
+    private bool _muted;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var flag = await JS.TryInvokeAsync<bool?>("powatchAudio.isMuted");
+        _muted = flag == true;
+        StateHasChanged();
+    }
+
+    private async Task ToggleAsync()
+    {
+        _muted = !_muted;
+        await Fx.SetMutedAsync(_muted);
+    }
+}

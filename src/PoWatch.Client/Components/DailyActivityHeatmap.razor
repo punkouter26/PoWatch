@@ -5,64 +5,50 @@
    routine (cool), notable (warm), urgent (hot). The strip is the single
    quickest answer to "when was today busy?" — readable in a glance. *@
 
-<div class="heatmap" data-test="daily-activity-heatmap" aria-label="Activity density across today">
+<div class="heatmap @(Compact ? "heatmap--compact" : null)" data-test="daily-activity-heatmap" aria-label="Activity density across today">
     <div class="heatmap-header">
         <span class="heatmap-title">@Title</span>
         <span class="heatmap-meta">@Meta</span>
     </div>
 
-    <div class="heatmap-strip" role="list">
-        @for (var h = 0; h < 24; h++)
-        {
-            var routine = Buckets.Routine[h];
-            var notable = Buckets.Notable[h];
-            var urgent = Buckets.Urgent[h];
-            var total = routine + notable + urgent;
-
-            var routineIntensity = Normalise(routine, DisplayCap);
-            var notableIntensity = Normalise(notable, DisplayCap);
-            var urgentIntensity = Normalise(urgent, DisplayCap);
-
-            var nowHour = NowLocal.Hour;
-            var isPast = h < nowHour;
-            var isCurrent = h == nowHour;
-            var isFuture = h > nowHour;
-
-            <div class="heatmap-cell @HeatmapCellClass(isPast, isCurrent, isFuture)"
-                 role="listitem"
-                 data-test="heatmap-cell"
-                 data-hour="@h"
-                 title="@HourTitle(h, routine, notable, urgent)">
-                <div class="heatmap-bar-stack" aria-hidden="true">
-                    @if (urgent > 0)
-                    {
-                        <span class="heatmap-bar heatmap-bar--urgent" style="--bar-height:@(FormatPercent(urgentIntensity))"></span>
-                    }
-                    @if (notable > 0)
-                    {
-                        <span class="heatmap-bar heatmap-bar--notable" style="--bar-height:@(FormatPercent(notableIntensity))"></span>
-                    }
-                    @if (routine > 0)
-                    {
-                        <span class="heatmap-bar heatmap-bar--routine" style="--bar-height:@(FormatPercent(routineIntensity))"></span>
-                    }
-                </div>
-                <span class="heatmap-hour-label" aria-hidden="@(h % 3 == 0 ? "false" : "true")">
-                    @(h % 3 == 0 ? h.ToString("00") : string.Empty)
-                </span>
-                @if (total > 0)
+    @if (Compact)
+    {
+        // Compact mode is for narrow viewports: a single "Today's activity" line that surfaces
+        // totals + the busiest bucket, so a phone user sees the answer in one row instead of a
+        // 140-px tall strip they have to scroll past to reach the camera.
+        var totalEvents = Buckets.Routine.Sum() + Buckets.Notable.Sum() + Buckets.Urgent.Sum();
+        var peakHour = PeakHour();
+        <div class="heatmap-compact-summary" role="list">
+            <span class="heatmap-compact-total"><strong>@totalEvents</strong> events</span>
+            @if (peakHour is { } peak)
+            {
+                <span class="heatmap-compact-peak">peak @($"{peak.hour:00}:00")</span>
+            }
+            <span class="heatmap-compact-bars" aria-hidden="true">
+                @for (var h = 0; h < 24; h++)
                 {
-                    <span class="heatmap-count" aria-hidden="true">@total</span>
+                    var total = Buckets.Routine[h] + Buckets.Notable[h] + Buckets.Urgent[h];
+                    var intensity = Normalise(total, DisplayCap);
+                    <span class="heatmap-compact-cell @(intensity > 0 ? "heatmap-compact-cell--active" : null)" style="--bar-height:@(FormatPercent(intensity))"></span>
                 }
-            </div>
-        }
-    </div>
+            </span>
+        </div>
+    }
+    else
+    {
+    <PoWatch.Client.Components.DataStrip Mode="PoWatch.Client.Components.DataStrip.StripMode.Stacked"
+        BuildCells="BuildHeatmapCell"
+        CellTitle="@(h => HourTitle(h, Buckets.Routine[h], Buckets.Notable[h], Buckets.Urgent[h]))"
+        CurrentHour="NowLocal.Hour"
+        AriaLabel="Activity density across today"
+        TestId="daily-activity-strip" />
 
     <div class="heatmap-legend" aria-hidden="true">
         <span class="heatmap-legend-item"><span class="heatmap-legend-swatch heatmap-legend-swatch--routine"></span>Routine</span>
         <span class="heatmap-legend-item"><span class="heatmap-legend-swatch heatmap-legend-swatch--notable"></span>Notable</span>
         <span class="heatmap-legend-item"><span class="heatmap-legend-swatch heatmap-legend-swatch--urgent"></span>Urgent</span>
     </div>
+    }
 </div>
 
 @code {
@@ -85,6 +71,41 @@
     /// <summary>Cap applied to a single bucket so one very busy hour doesn't wash out the rest of the strip.</summary>
     [Parameter]
     public int DisplayCap { get; set; } = 6;
+
+    /// <summary>Compact rendering: a single summary row instead of the full 24-hour strip.
+    /// Used on narrow viewports so the Live Room hero stays compact.</summary>
+    [Parameter]
+    public bool Compact { get; set; }
+
+    private (int hour, int count)? PeakHour()
+    {
+        (int hour, int count) peak = (-1, 0);
+        for (var h = 0; h < 24; h++)
+        {
+            var t = Buckets.Routine[h] + Buckets.Notable[h] + Buckets.Urgent[h];
+            if (t > peak.count) peak = (h, t);
+        }
+        return peak.count > 0 ? peak : null;
+    }
+
+    /// <summary>Per-cell builder passed into DataStrip. Stacks routine → notable → urgent in
+    /// a single column; cells with no activity return empty so DataStrip renders the
+    /// "future hour" empty state.</summary>
+    private PoWatch.Client.Components.DataStrip.StripCell[] BuildHeatmapCell(int hour)
+    {
+        var routine = Normalise(Buckets.Routine[hour], DisplayCap);
+        var notable = Normalise(Buckets.Notable[hour], DisplayCap);
+        var urgent = Normalise(Buckets.Urgent[hour], DisplayCap);
+
+        // Stacked order matters: routine on bottom, urgent on top so the most-urgent tier is
+        // visible from the bar tip even when other tiers are tall.
+        return new[]
+        {
+            new PoWatch.Client.Components.DataStrip.StripCell("routine", routine),
+            new PoWatch.Client.Components.DataStrip.StripCell("notable", notable),
+            new PoWatch.Client.Components.DataStrip.StripCell("urgent", urgent),
+        };
+    }
 
     protected override void OnParametersSet()
     {

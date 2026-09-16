@@ -4,9 +4,10 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    background: var(--state-warning-bg);
-    color: var(--state-warning-fg);
-    border: 1px solid var(--state-warning-border);
+    background: rgba(255, 159, 64, 0.12) !important;
+    background-image: none !important;
+    color: var(--topbar-warning-ink) !important;
+    border: 1px solid rgba(255, 159, 64, 0.45);
     font-weight: 800;
     letter-spacing: 0.05em;
     padding: 0.28rem 0.6rem;
@@ -14,19 +15,17 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     white-space: nowrap;
-    animation: mock-flash 1.2s ease-in-out infinite;
+    animation: mockGlow 2s ease-in-out infinite;
 }
 
-/* WCAG 2.3.1 (Animation from Interactions): flashing >3 Hz is out, our pulse is
-   1.2 s/cycle (~0.83 Hz) which is permitted. Still — under prefers-reduced-motion
-   we lock opacity to 1.0 so the chip never appears or disappears for low-vision
-   or vestibular-sensitive operators. */
-@keyframes mock-flash {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.85; }
+@keyframes mockGlow {
+    0%, 100% { border-color: rgba(255, 159, 64, 0.45); box-shadow: 0 0 0 0 rgba(255, 159, 64, 0.2); }
+    50%      { border-color: rgba(255, 159, 64, 0.75); box-shadow: 0 0 8px 0 rgba(255, 159, 64, 0.35); }
 }
+
+/* Reduced-motion users lose the glow but keep the colour. */
 @media (prefers-reduced-motion: reduce) {
-    .mock-chip { animation: none; opacity: 1; }
+    .mock-chip { animation: none; }
 }
 
 /* ── Theme toggle button (right rail, between mock-chip and user chip) ── */
@@ -59,7 +58,6 @@
     .theme-toggle { transition: none; }
 }
 
-/* Visually-hidden helper — used for accessible label strings (theme name etc.) */
 .visually-hidden {
     position: absolute;
     width: 1px;
@@ -72,7 +70,7 @@
     border: 0;
 }
 
-/* ── PoWatch top navbar (Phase 4 standardization) ── */
+/* ── PoWatch top navbar ── */
 
 .app-navbar {
     background: var(--topbar-bg);
@@ -80,11 +78,11 @@
     min-height: var(--topbar-h);
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
     position: sticky;
     top: 0;
     z-index: 100;
     box-shadow: 0 1px 0 var(--topbar-hairline);
+    gap: var(--space-3);
 }
 
 .navbar-brand {
@@ -93,7 +91,6 @@
     gap: var(--space-2);
     text-decoration: none;
     color: var(--text-bright);
-    margin-right: var(--space-6);
     padding: var(--space-2) 0;
 }
 
@@ -118,6 +115,7 @@
     color: var(--topbar-ink-muted);
 }
 
+/* Hamburger toggler — only visible on narrow viewports. */
 .navbar-toggler {
     background: var(--topbar-hairline);
     border: none;
@@ -126,6 +124,7 @@
     cursor: pointer;
     margin-left: auto;
     color: var(--text-bright);
+    display: none; /* shown by media query below */
 }
 
 .navbar-toggler-icon {
@@ -149,28 +148,26 @@
 .navbar-toggler-icon::before { top: -6px; }
 .navbar-toggler-icon::after { top: 6px; }
 
-.navbar-collapse {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center; /* CENTER region: nav actions */
-}
-
+/* ── Desktop nav-link row (the "center" column) ── */
 .navbar-nav {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    flex: 1;
+    justify-content: center;
 }
 
-/* RIGHT region: mock guard + session/logout, pinned to the far edge */
+/* Right region: account rail, pinned to the far edge. */
 .navbar-account {
-    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 0.6rem;
+    margin-left: auto;
+    padding-left: var(--space-4);
+    border-left: 1px solid rgba(111, 61, 227, 0.15);
 }
 
-/* System/diagnostics gear (consolidation #10) — rendered by NavLink, so ::deep is required. */
+/* ::deep required: NavLink renders the <a> in a child component. */
 ::deep .nav-gear {
     color: var(--topbar-ink-muted) !important;
     font-size: 1.05rem;
@@ -182,13 +179,10 @@
 ::deep .nav-gear:hover { background: var(--topbar-hover); color: var(--topbar-ink-strong) !important; }
 ::deep .nav-gear.active { background: var(--topbar-active-bg); color: var(--topbar-active-ink) !important; }
 
-/* Sign-out affordance — scoped to the nav (rule 6.11). Cross-cutting :active tap motion is a global token. */
 .nav-logout {
     background: none;
     border: 1px solid var(--topbar-border);
     border-radius: 8px;
-    /* Fixed light ink: the navbar surface is always dark, so this must NOT flip with
-       the page theme (--text-secondary was also never defined — links rendered invisible). */
     color: var(--topbar-ink);
     font-size: 0.8rem;
     padding: 0.35rem 0.85rem;
@@ -196,8 +190,9 @@
     transition: border-color 0.2s, color 0.2s;
 }
 
-/* Signed-in user chip — shows email / UPN to the left of Sign out, surfaced from /auth/me
-   after Microsoft OAuth login. Truncates with an ellipsis on long addresses. */
+.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--topbar-ink-strong); }
+.nav-logout:disabled { opacity: 0.6; cursor: default; }
+
 .user-email {
     font-size: 0.8rem;
     color: var(--topbar-ink);
@@ -207,12 +202,12 @@
     white-space: nowrap;
     padding: 0.2rem 0.4rem;
 }
-.nav-logout:hover:not(:disabled) { border-color: var(--neon-green); color: var(--topbar-ink-strong); }
-.nav-logout:disabled { opacity: 0.6; cursor: default; }
 
-/* ::deep is required: the <a> tags are rendered by the NavLink CHILD component, so a
-   plainly-scoped .nav-link selector never matches and the links fall back to browser
-   defaults (dark underlined text on the dark navbar — the invisible-nav bug). */
+.nav-logout:focus-visible {
+    outline: 2px solid var(--neon-green);
+    outline-offset: 3px;
+}
+
 ::deep .nav-link {
     color: var(--topbar-ink-muted) !important;
     padding: 0.45rem 0.8rem;
@@ -220,6 +215,7 @@
     text-decoration: none;
     font-size: 0.9rem;
     transition: background 0.15s, color 0.15s;
+    display: inline-block;
 }
 
 ::deep .nav-link:hover {
@@ -233,57 +229,100 @@
     font-weight: 600;
 }
 
-/* ── Mobile ── */
-@media (max-width: 640px) {
+/* ── Mobile drawer (slide-down panel below the topbar) ── */
+.navbar-drawer-backdrop {
+    position: fixed;
+    inset: var(--topbar-h) 0 0 0;
+    background: rgba(5, 3, 10, 0.45);
+    z-index: 99;
+    animation: navbar-drawer-fade var(--motion-quick) ease-out;
+}
+
+.navbar-drawer {
+    position: fixed;
+    top: var(--topbar-h);
+    left: 0;
+    right: 0;
+    max-height: calc(100svh - var(--topbar-h));
+    overflow-y: auto;
+    background: var(--color-surface-1);
+    border-bottom: 1px solid var(--color-border-subtle);
+    box-shadow: var(--shadow-lg);
+    z-index: 101;
+    padding: var(--space-3) var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    animation: navbar-drawer-slide var(--motion-quick) ease-out;
+    outline: none;
+}
+
+@keyframes navbar-drawer-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes navbar-drawer-slide {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.navbar-drawer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.navbar-drawer-section:last-child {
+    border-bottom: none;
+}
+
+.navbar-drawer-section--end {
+    margin-top: var(--space-2);
+}
+
+.navbar-drawer-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    padding: 0 var(--space-2) 0.2rem;
+}
+
+::deep .navbar-drawer .nav-link,
+.navbar-drawer-action {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: var(--color-text-primary);
+    padding: 0.65rem 0.8rem;
+    border-radius: var(--radius-sm);
+}
+
+::deep .navbar-drawer .nav-link:hover,
+.navbar-drawer-action:hover {
+    background: var(--color-surface-2);
+}
+
+::deep .navbar-drawer .nav-link.active {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
+/* ── Breakpoint: collapse to hamburger + drawer below 720px ── */
+@media (max-width: 720px) {
     .navbar-toggler { display: flex; }
-
-    .navbar-collapse {
-        display: none;
-        width: 100%;
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 0.5rem 0;
-    }
-
-    .navbar-collapse.show { display: flex; }
-    .navbar-nav { flex-direction: column; width: 100%; }
+    .navbar-nav--desktop { display: none; }
+    .navbar-account--desktop { display: none; }
 }
 
-@media (min-width: 641px) {
-    .navbar-toggler { display: none; }
-    .navbar-collapse { display: flex !important; }
-}
-
-
-/* ── NavMenu polish (appended 2026-07-06) ──────────────────────────────────
-   1. Tame the WCAG-flunking repeating-stripe on .mock-chip — switch to a
-      subtle border-glow that stays legible.
-   2. Apply the same status-rail pattern from controls-row#3 to navbar-account
-      so the right-side controls read as a distinct region.
-   ──────────────────────────────────────────────────────────────────────── */
-
-/* 1 ── mock-chip: subtle, WCAG-passing replacement for the diagonal stripes */
-.mock-chip {
-    background: rgba(255, 159, 64, 0.12) !important;       /* was repeating-linear-gradient stripes */
-    background-image: none !important;
-    color: var(--topbar-warning-ink) !important;           /* softer on the dark top bar */
-    border: 1px solid rgba(255, 159, 64, 0.45);
-    animation: mockGlow 2s ease-in-out infinite;
-}
-
-@keyframes mockGlow {
-    0%, 100% { border-color: rgba(255, 159, 64, 0.45); box-shadow: 0 0 0 0 rgba(255, 159, 64, 0.2); }
-    50%      { border-color: rgba(255, 159, 64, 0.75); box-shadow: 0 0 8px 0 rgba(255, 159, 64, 0.35); }
-}
-
-/* 2 ── status-rail pattern for the right region (sign-out, user email, chip) */
-.navbar-account {
-    padding-left: var(--space-4);
-    border-left: 1px solid rgba(111, 61, 227, 0.15);
-}
-
-/* Subtle focus ring on the sign-out button (was missing) */
-.nav-logout:focus-visible {
-    outline: 2px solid var(--neon-green);
-    outline-offset: 3px;
+@media (min-width: 721px) {
+    .navbar-drawer-backdrop,
+    .navbar-drawer { display: none; }
 }

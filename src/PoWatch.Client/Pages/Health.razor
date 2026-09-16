@@ -2,7 +2,7 @@
 @using System.Globalization
 @using PoWatch.Shared.Models
 @inject PoWatch.Client.Services.PoWatchApiClient ApiClient
-@implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>PoWatch | Connection health</PageTitle>
 
@@ -81,12 +81,13 @@
     private string? _error;
     private bool _busy;
     private DateTimeOffset? _lastChecked;
-    private CancellationTokenSource _cts = new();
+    // 15 s refresh — a health page showing stale values reads as broken (idea #4).
+    private readonly PoWatch.Client.Services.PollLoop _poll = new();
 
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
-        _ = AutoRefreshLoopAsync(_cts.Token);
+        _poll.Start(TimeSpan.FromSeconds(15), _ => LoadAsync(), InvokeAsync);
     }
 
     private async Task LoadAsync()
@@ -94,7 +95,7 @@
         _busy = true;
         try
         {
-            _report = await ApiClient.GetHealthAsync(_cts.Token);
+            _report = await ApiClient.GetHealthAsync();
             _error = _report is null ? "The server returned an empty health document." : null;
         }
         catch (OperationCanceledException)
@@ -113,26 +114,7 @@
         }
     }
 
-    // A health page showing stale values reads as broken, so it refreshes itself.
-    private async Task AutoRefreshLoopAsync(CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(15), ct);
-                await LoadAsync();
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _cts.Dispose();
-    }
+    public async ValueTask DisposeAsync() => await _poll.DisposeAsync();
 
     private static string OverallClass(string status) => status switch
     {

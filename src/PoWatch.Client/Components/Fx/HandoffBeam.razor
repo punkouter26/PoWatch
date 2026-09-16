@@ -1,0 +1,27 @@
+@inject PoWatch.Client.Services.PowatchFxService Fx
+@inject Microsoft.Extensions.Options.IOptions<PoWatch.Client.ClientFeatureFlagsOptions> Flags
+
+<div class="@Class" id="@_id" style="position:relative;@Style" @ref="_root">
+</div>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public int DurationMs { get; set; } = 2200;
+    private ElementReference _root;
+    private string? _id;
+    private bool _started;
+
+    protected override void OnInitialized() => _id = "powatch-handoff-" + Guid.NewGuid().ToString("N");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_started || !firstRender) return;
+        var flags = Flags.Value;
+        if (!flags.FxEnabled || !flags.FxHandoffBeam) { _started = true; return; }
+        await Fx.InitHandoffAsync(_id!);
+        _started = true;
+    }
+
+    public Task BeamAsync() => Fx.StartHandoffBeamAsync(DurationMs);
+}

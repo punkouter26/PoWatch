@@ -1,0 +1,20 @@
+@inject PoWatch.Client.Services.PowatchFxService Fx
+@inject Microsoft.Extensions.Options.IOptions<PoWatch.Client.ClientFeatureFlagsOptions> Flags
+
+@code {
+    [Parameter] public double Intensity { get; set; } = 0.45;
+    private bool _started;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_started || !firstRender) return;
+        var flags = Flags.Value;
+        if (!flags.FxEnabled || !flags.FxFireflies) return;
+        await Fx.InitFirefliesAsync();
+        await Fx.SetFireflyIntensityAsync(Intensity);
+        _started = true;
+    }
+
+    public Task SetIntensityAsync(double v) => Fx.SetFireflyIntensityAsync(v);
+    public Task BoostAsync(int count) => Fx.FireflyBoostAsync(count);
+}

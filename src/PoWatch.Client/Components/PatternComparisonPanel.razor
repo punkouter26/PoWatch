@@ -22,26 +22,13 @@ else
             </span>
         </div>
 
-        <div class="pattern-bars" role="list">
-            @for (var h = 0; h < 24; h++)
-            {
-                var baseline = Comparison.Baseline[h];
-                var today = Comparison.Today[h];
-                var baselineHeight = (int)Math.Round(baseline * 100);
-                var todayHeight = (int)Math.Round(today * 100);
-                var isCurrentHour = h == CurrentHour;
-
-                <div class="pattern-bar-pair @(isCurrentHour ? "pattern-bar-pair--current" : null)" role="listitem" data-test="pattern-bar-pair" data-hour="@h"
-                     title="@HourTitle(h, baseline, today)">
-                    <span class="pattern-bar pattern-bar--today" style="--bar-height:@(FormatPercent(todayHeight))" aria-hidden="true"></span>
-                    <span class="pattern-bar pattern-bar--baseline" style="--bar-height:@(FormatPercent(baselineHeight))" aria-hidden="true"></span>
-                    @if (h % 6 == 0)
-                    {
-                        <span class="pattern-hour-label">@(h == 0 ? "00" : h.ToString())</span>
-                    }
-                </div>
-            }
-        </div>
+<PoWatch.Client.Components.DataStrip Mode="PoWatch.Client.Components.DataStrip.StripMode.Paired"
+        BuildCells="BuildPatternCell"
+        CellTitle="@(h => HourTitle(h, Comparison.Baseline[h], Comparison.Today[h]))"
+        CurrentHour="CurrentHour"
+        HourTickEvery="6"
+        AriaLabel="@($"Pattern comparison for {Comparison.DisplayName}")"
+        TestId="pattern-comparison-strip" />
 
         <div class="pattern-legend" aria-hidden="true">
             <span class="pattern-legend-item"><span class="pattern-legend-swatch pattern-legend-swatch--today"></span>Today</span>
@@ -60,8 +47,6 @@ else
     [Parameter]
     public int CurrentHour { get; set; } = DateTime.Now.Hour;
 
-    private static string FormatPercent(int pct) => pct <= 0 ? "2%" : $"{pct}%";
-
     private static string DriftClass(string label, double score)
     {
         if (score >= 60) return "high";
@@ -74,5 +59,19 @@ else
         var b = (int)Math.Round(baseline * 100);
         var t = (int)Math.Round(today * 100);
         return $"{hour:00}:00 — today {t}%, baseline {b}%";
+    }
+
+    /// <summary>Per-cell builder for the DataStrip: today and baseline sit side-by-side
+    /// inside each hour column.</summary>
+    private PoWatch.Client.Components.DataStrip.StripCell[] BuildPatternCell(int hour)
+    {
+        var comp = Comparison ?? throw new InvalidOperationException("Comparison must be set before rendering the strip");
+        var baseline = comp.Baseline[hour];
+        var today = comp.Today[hour];
+        return new[]
+        {
+            new PoWatch.Client.Components.DataStrip.StripCell("today", today),
+            new PoWatch.Client.Components.DataStrip.StripCell("baseline", baseline),
+        };
     }
 }

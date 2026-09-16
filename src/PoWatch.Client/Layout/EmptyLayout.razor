@@ -1,0 +1,25 @@
+@inherits LayoutComponentBase
+@*
+    A chrome-free shell used by routes that should NOT render the topbar/notification/dialog
+    hosts (e.g. /login before auth, /display on a kiosk). The MainLayout owns the Radzen hosts
+    (Notification, Dialog, Tooltip, ContextMenu, ErrorBoundary). For a fully anonymous
+    experience we still mount ErrorBoundary and RadzenNotification because the latter is the
+    only safe channel for "Microsoft sign-in returned an error" feedback — but we omit the
+    topbar entirely so a sign-in screen doesn't show an empty brand rail.
+*@
+
+<CascadingAuthenticationState>
+    <ErrorBoundary>
+        <ChildContent>
+            @Body
+        </ChildContent>
+        <ErrorContent>
+            <div class="po-error-panel" role="alert">
+                <h2>Something went wrong</h2>
+                <p>This page hit an unexpected error. Reload the page to try again.</p>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+</CascadingAuthenticationState>
+
+<RadzenNotification />

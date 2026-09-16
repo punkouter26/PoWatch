@@ -35,6 +35,11 @@ public partial class ObserverHub
     private bool thinking;
     private bool monitoring;
     private bool _settingsOpen;
+    // Tracks the viewport width class so markup can drop the heatmap's 24-hour strip down to a
+    // single summary row, hide FX layers that compete with the camera on a phone, and shrink
+    // hero padding. Refreshed in OnAfterRenderAsync on resize (idea #3).
+    private bool _compactLayout;
+    private ElementReference _settingsDrawerRef;
     private ElementReference liveCameraFeed;
     private CancellationTokenSource? monitorCts;
     // Fallback only: LoadModelRegistryAsync replaces this with the registry's first entry on
@@ -209,14 +214,33 @@ public partial class ObserverHub
             : "Night";
     }
 
-    private void StartHandoff() =>
+    // Reused as the static step list for #2/#9 handoff arpeggios (CA1861: const array as static readonly).
+    private static readonly int[] HandoffArpeggio = [0, 2, 4];
+    private void StartHandoff()
+    {
+        // #9: one-tap handoff now earns the full beam ceremony — sound + shader transition.
+        // The chime arpeggio is async fire-and-forget: missing JS or muted state is harmless.
+        var mood = DateTimeOffset.Now.Hour is >= 6 and < 18 ? "day" : "night";
+        if (PowatchFx is not null)
+        {
+            _ = PowatchFx.ArpeggioAsync(mood, HandoffArpeggio);
+            _ = PowatchFx.HushForAsync(2200);
+            _ = PowatchFx.StartHandoffBeamAsync(2200);
+        }
         Navigation.NavigateTo($"/archives?handoff=1&shift={DetectCurrentShift()}");
+    }
+
+    // Wraps the Fx service so the partial has somewhere to reach it; constructor-injected.
+    [Inject] private PoWatch.Client.Services.PowatchFxService? PowatchFx { get; set; }
 
     private const string PollingStorageKey = "pw_polling_interval";
     private double _emaInferenceMs = 0.0;
     // Sane default until OnInitializedAsync loads the persisted preference — the settings
     // drawer can render before that completes and must not show "0 s".
     private int _livePollingSeconds = 10;
+    // Breath envelope rate used by the #7 backdrop pulse — calm default; never above the user's
+    // typical resting breath rate. The shader consumes it as the inverse of monitoring intensity.
+    private int BreathBpm => monitoring ? 13 : 0;
     private string _selectedGpuPreference = "default";
     private readonly Queue<long> _latencyHistory = new();
     private readonly long[] _p95Buffer = new long[100]; // reused each cycle; matches _latencyHistory cap
