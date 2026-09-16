@@ -235,6 +235,10 @@ if (!app.Environment.IsDevelopment())
 app.UseRateLimiter();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
+// Idempotency middleware sits after auth so unauthenticated retries don't poison the cache,
+// and before the rest of the pipeline so it can buffer the response body for replay.
+app.UseMiddleware<IdempotencyMiddleware>();
+
 // Auth middleware — always active (BFF cookie session + OIDC/guest schemes)
 app.UseAuthentication();
 app.UseAuthorization();

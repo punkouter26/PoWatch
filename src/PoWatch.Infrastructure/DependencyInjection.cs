@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
@@ -83,6 +84,12 @@ public static class DependencyInjection
         // implementation honours the product promise.
         services.AddSingleton<IShareLinkRepository, InMemoryShareLinkRepository>();
         services.AddSingleton<ShareLinkService>();
+
+        // Idempotency cache for ingest retries. 10-minute TTL is the load-bearing product
+        // promise: long enough to span a WiFi blip, short enough to keep the dictionary bounded.
+        services.AddSingleton<IIdempotencyCache>(sp => new InMemoryIdempotencyCache(
+            ttl: TimeSpan.FromMinutes(10),
+            logger: sp.GetRequiredService<ILogger<InMemoryIdempotencyCache>>()));
 
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
