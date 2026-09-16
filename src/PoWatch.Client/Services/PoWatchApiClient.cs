@@ -59,6 +59,40 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return items ?? [];
     }
 
+    public async Task<HandoffMemoDto?> UploadHandoffMemoAsync(
+        byte[] bytes,
+        string contentType,
+        int durationMs,
+        string? subjectId,
+        CancellationToken cancellationToken = default)
+    {
+        // Multipart upload. The form field "file" carries the audio bytes; metadata fields ride
+        // alongside. The browser-set Content-Type on the file part is what the server trusts for
+        // codec, so we forward the same value verbatim rather than forcing a server-side mapping.
+        using var form = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(fileContent, "file", "memo.bin");
+        form.Add(new StringContent(durationMs.ToString(System.Globalization.CultureInfo.InvariantCulture)), "durationMs");
+        if (!string.IsNullOrWhiteSpace(subjectId))
+        {
+            form.Add(new StringContent(subjectId), "subjectId");
+        }
+
+        using var response = await httpClient.PostAsync("api/handoff/memos", form, cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync(Json.HandoffMemoDto, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<HandoffMemoDto>> ListRecentHandoffMemosAsync(int limit = 20, CancellationToken cancellationToken = default)
+    {
+        var items = await httpClient.GetFromJsonAsync(
+            $"api/handoff/memos?limit={Math.Clamp(limit, 1, 100)}",
+            Json.ListHandoffMemoDto,
+            cancellationToken);
+        return items ?? [];
+    }
+
     public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken = default)
     {
         var items = await httpClient.GetFromJsonAsync("api/identity/subjects/live-status", Json.ListSubjectLiveStatusDto, cancellationToken);

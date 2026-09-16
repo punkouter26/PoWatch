@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
+using PoWatch.Application.Services;
 using PoWatch.Infrastructure.Persistence;
 using PoWatch.Infrastructure.Runtime;
 
@@ -70,6 +71,12 @@ public static class DependencyInjection
         // belongs alongside AzureSubjectRepository once the rest of the app's table-init pipeline
         // (AzureStorageInitializer) is read for it.
         services.AddSingleton<ISubjectRevisionEventRepository, InMemorySubjectRevisionEventRepository>();
+
+        // Handoff memos: metadata store + blob store, both in-memory until an Azure-backed variant
+        // is added in lockstep with the rest of the storage pipeline.
+        services.AddSingleton<IHandoffMemoRepository, InMemoryHandoffMemoRepository>();
+        services.AddSingleton<IHandoffMemoStore, InMemoryHandoffMemoStore>();
+        services.AddSingleton<HandoffMemoService>();
 
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
