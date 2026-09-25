@@ -101,7 +101,8 @@
     _clock = new Worker(CLOCK_URL, { type: 'module' });
     _clock.onmessage = () => {
       const s = sample(video);
-      if (s) dotnetRef.invokeMethodAsync('OnPixelSample', s).catch(() => { /* circuit gone */ });
+      // JSON text, parsed by .NET's source-generated context: trim-safe, no reflection.
+      if (s) dotnetRef.invokeMethodAsync('OnPixelSample', JSON.stringify(s)).catch(() => { /* circuit gone */ });
     };
     _clock.postMessage({ intervalMs: intervalMs || 250 });
 

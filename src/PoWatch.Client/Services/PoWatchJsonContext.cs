@@ -47,4 +47,6 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(List<SessionDto>))]
 [JsonSerializable(typeof(IngestBatchDto))]
 [JsonSerializable(typeof(IngestBatchResultDto))]
+[JsonSerializable(typeof(PixelSamplePayload))]
+[JsonSerializable(typeof(DetectionsPayload))]
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;

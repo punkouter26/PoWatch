@@ -22,6 +22,9 @@ builder.Services.AddScoped(sp => new HttpClient(new CorrelationHandler(sessionId
 });
 builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddScoped<PoWatchApiClient>();
+builder.Services.AddSingleton(TimeProvider.System);
+// One sensing session per browser tab; the Live page and the stats wall both read its state.
+builder.Services.AddScoped<SensingSession>();
 builder.Services.AddRadzenComponents();
 
 // BFF auth: server cookie holds the session; client derives state from /auth/me (rule 4).

@@ -59,11 +59,11 @@
       try {
         const result = await detect(video, threshold ?? 0.5);
         if (result) {
-          await dotnetRef.invokeMethodAsync('OnDetections', {
+          await dotnetRef.invokeMethodAsync('OnDetections', JSON.stringify({
             atUtc: new Date().toISOString(),
             latencyMs: result.latencyMs,
             detections: result.detections,
-          });
+          }));
         }
       } catch (err) {
         dotnetRef.invokeMethodAsync('OnDetectorError', String(err?.message ?? err)).catch(() => { });

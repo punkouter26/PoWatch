@@ -130,8 +130,12 @@ Rules for every task:
   - Done as: the prompt asks for one plain sentence (small VLMs are unreliable at strict JSON);
     `CaptionParser` takes JSON when offered, otherwise keyword taxonomy. `VlmScheduler` maps
     smoothed pixel motion through `AdaptiveCadence`; the live sensing loop (E2) uses it.
-- [ ] **D5** `SyntheticSampleSource` (seeded, trim-safe) behind `MockInferenceService` / Demo mode.
+- [x] **D5** `SyntheticSampleSource` (seeded, trim-safe) behind `MockInferenceService` / Demo mode.
   - AC: a fresh clone with no camera shows nonzero counters within 15 s. **CHECKPOINT**
+  - Done: `SyntheticScene` (seeded walker, cat and mug) plus the client `SensingSession`, which
+    drives pixel, detector and VLM (or the demo scene) into the tracker, batcher and outbox, and
+    `LiveSensingState` for the UI. JS callbacks carry JSON text parsed by the source-generated
+    context. The 15 s acceptance check runs through the Live page in E2.
 
 ### Phase 3 gate — done: "Terminal" chosen, component hierarchy confirmed (see SPEC §2a).
 

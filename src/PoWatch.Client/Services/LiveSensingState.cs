@@ -1,0 +1,127 @@
+using PoWatch.Shared.Models;
+using PoWatch.Shared.Services.Sensing;
+using PoWatch.Shared.Services.Tracking;
+
+namespace PoWatch.Client.Services;
+
+/// <summary>What the Live page shows while a session runs: counters, rates, rolling histories.</summary>
+public sealed class LiveSensingState
+{
+    public const int HistoryLength = 240;
+    private static readonly TimeSpan RateWindow = TimeSpan.FromSeconds(10);
+
+    private readonly Queue<DateTimeOffset> _pixelTimes = new();
+    private readonly Queue<DateTimeOffset> _detectorTimes = new();
+    private readonly List<double> _motion = [];
+    private readonly List<double> _luminance = [];
+    private readonly List<string> _events = [];
+    private readonly float[] _heat = new float[144];
+
+    public SessionDto? Session { get; set; }
+    public bool Demo { get; init; }
+    public DateTimeOffset? StartedUtc { get; init; }
+
+    public long PixelSamples { get; private set; }
+    public long DetectorFrames { get; private set; }
+    public double PixelHz { get; private set; }
+    public double DetectorHz { get; private set; }
+    public double DetectorLatencyMs { get; set; }
+    public string? DetectorModel { get; set; }
+    public string? DetectorDevice { get; set; }
+    public string? VlmStatus { get; set; }
+
+    public int PeopleNow { get; private set; }
+    public int AnimalsNow { get; private set; }
+    public IReadOnlyDictionary<string, int> ClassesNow { get; private set; } = new Dictionary<string, int>();
+    public IReadOnlyList<TrackState> Tracks { get; private set; } = [];
+    public long Visits { get; private set; }
+    public int PeakConcurrency { get; private set; }
+    public IReadOnlyDictionary<string, int> ClassesSeen => _classesSeen;
+    private readonly Dictionary<string, int> _classesSeen = new(StringComparer.OrdinalIgnoreCase);
+
+    public double Motion { get; private set; }
+    public double Luminance { get; private set; }
+    public IReadOnlyList<int> Palette { get; private set; } = [];
+    public IReadOnlyList<double> MotionHistory => _motion;
+    public IReadOnlyList<double> LuminanceHistory => _luminance;
+
+    /// <summary>Exponentially smoothed motion per grid cell, for the overlay.</summary>
+    public IReadOnlyList<float> Heat => _heat;
+
+    public string? LastCaption { get; private set; }
+    public IReadOnlyList<string> LastActivities { get; private set; } = [];
+    public DateTimeOffset? LastCaptionUtc { get; private set; }
+    public int Captions { get; private set; }
+
+    /// <summary>Newest first, for the ticker and the event wire.</summary>
+    public IReadOnlyList<string> RecentEvents => _events;
+
+    public long BatchesSent { get; set; }
+    public long RejectedBatches { get; set; }
+    public int PendingBatches { get; set; }
+    public long LostTicks { get; set; }
+    public string? LastError { get; set; }
+
+    public void RecordPixel(PixelSample sample, DateTimeOffset nowUtc)
+    {
+        PixelSamples++;
+        PixelHz = Rate(_pixelTimes, nowUtc);
+        Motion = sample.Motion;
+        Luminance = sample.Luminance;
+        Palette = sample.Palette;
+        Push(_motion, sample.Motion);
+        Push(_luminance, sample.Luminance);
+        if (sample.Grid.Count == _heat.Length)
+        {
+            for (var i = 0; i < _heat.Length; i++) _heat[i] = (0.85f * _heat[i]) + (0.15f * sample.Grid[i]);
+        }
+    }
+
+    public void RecordDetections(TrackerFrame frame, DateTimeOffset nowUtc)
+    {
+        DetectorFrames++;
+        DetectorHz = Rate(_detectorTimes, nowUtc);
+        ClassesNow = frame.CountsByLabel;
+        Tracks = frame.Active;
+        PeopleNow = frame.CountsByLabel.GetValueOrDefault("person");
+        AnimalsNow = frame.CountsByLabel.Where(kv => kv.Key != "person" && CentroidTracker.IsPresence(kv.Key)).Sum(kv => kv.Value);
+        PeakConcurrency = Math.Max(PeakConcurrency, PeopleNow + AnimalsNow);
+
+        foreach (var entered in frame.Entered)
+        {
+            _classesSeen[entered.Label] = _classesSeen.GetValueOrDefault(entered.Label) + 1;
+            if (CentroidTracker.IsPresence(entered.Label)) Visits++;
+            Log($"{entered.AtUtc.ToLocalTime():HH:mm:ss} + {entered.Label} {entered.TrackId} via {entered.Edge.ToUpperInvariant()}");
+        }
+        foreach (var exited in frame.Exited)
+            Log($"{exited.AtUtc.ToLocalTime():HH:mm:ss} − {exited.Label} {exited.TrackId} after {exited.DwellSeconds:0}s");
+    }
+
+    public void RecordCaption(ParsedCaption caption, DateTimeOffset atUtc)
+    {
+        Captions++;
+        LastCaption = caption.Text;
+        LastActivities = caption.Activities;
+        LastCaptionUtc = atUtc;
+        Log($"{atUtc.ToLocalTime():HH:mm:ss} VLM {caption.Text}");
+    }
+
+    private void Log(string line)
+    {
+        _events.Insert(0, line);
+        if (_events.Count > 50) _events.RemoveAt(_events.Count - 1);
+    }
+
+    private static void Push(List<double> history, double value)
+    {
+        history.Add(value);
+        if (history.Count > HistoryLength) history.RemoveAt(0);
+    }
+
+    private static double Rate(Queue<DateTimeOffset> times, DateTimeOffset nowUtc)
+    {
+        times.Enqueue(nowUtc);
+        while (times.Count > 0 && nowUtc - times.Peek() > RateWindow) times.Dequeue();
+        return times.Count / RateWindow.TotalSeconds;
+    }
+}
