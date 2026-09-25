@@ -114,9 +114,15 @@ Rules for every task:
   - Verified in headless Chromium with a fake camera: 19 samples in 5 s at a 250 ms interval
     (4 Hz steady), 144-cell grid, 5-colour palette, motion 0.13 on the moving test pattern.
     The System page readout comes with E5.
-- [ ] **D2** L1 detector: `wwwroot/js/sensing/detector-worker.js` (RF-DETR Nano, fallback
+- [x] **D2** L1 detector: `wwwroot/js/sensing/detector-worker.js` (RF-DETR Nano, fallback
   RT-DETRv2) + `Shared/Services/Tracking/CentroidTracker.cs` (IoU match, 3 s gap merge, enter/exit edge)
   + tracker tests.
+  - Verified in headless Chromium on Hugging Face's `cats.jpg`: RF-DETR Nano finds both cats (0.99,
+    0.92) and both remotes (0.99, 0.89). WebGPU on Chromium's software GPU returned out-of-frame
+    garbage, so the worker now runs a grey calibration frame after loading and falls back to WASM
+    when boxes land outside the frame. WASM latency is about 1.5 s per frame on this CPU; the bridge
+    skips frames while busy. The ≥ 0.8 Hz WebGPU target needs a real GPU (Phase 5).
+  - Unit room: shift-window 4 → 2 and old significance 6 → 2 tests merged, all assertions kept.
 - [ ] **D3** `Shared/Services/Sensing/TickBatcher.cs` (10 s fold, 1 h replay queue, batch keys) +
   FakeTimeProvider tests + an ApiClient method.
 - [ ] **D4** L2 VLM: a structured JSON prompt, `Shared/Services/Sensing/CaptionParser.cs` (tolerant

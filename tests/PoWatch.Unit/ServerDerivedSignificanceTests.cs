@@ -17,114 +17,111 @@ namespace PoWatch.Unit;
 public sealed class ServerDerivedSignificanceTests
 {
     [Fact]
-    public async Task An_ordinary_caption_is_not_flagged_even_when_the_client_claims_it_is()
+    public async Task The_server_derives_the_verdict_and_echoes_it()
     {
-        var service = BuildService(out var observations);
-
-        var result = await service.IngestAsync(new IngestObservationRequestDto
+        // An_ordinary_caption_is_not_flagged_even_when_the_client_claims_it_is
         {
-            SubjectHint = "Kim",
-            Activity = "Person seated using laptop",
-            ClinicalPayload = "<S>Person seated using laptop.<E>",
-            // The old worker set this on every well-formed caption. It must no longer be believed.
-            IsSignificant = true
-        }, CancellationToken.None);
+            var service = BuildService(out var observations);
 
-        Assert.True(result.Accepted);
-        Assert.False(result.IsSignificant);
-        Assert.False(observations.Items[0].IsSignificant);
-        Assert.Null(result.SignificantReason);
+            var result = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                SubjectHint = "Kim",
+                Activity = "Person seated using laptop",
+                ClinicalPayload = "<S>Person seated using laptop.<E>",
+                // The old worker set this on every well-formed caption. It must no longer be believed.
+                IsSignificant = true
+            }, CancellationToken.None);
+
+            Assert.True(result.Accepted);
+            Assert.False(result.IsSignificant);
+            Assert.False(observations.Items[0].IsSignificant);
+            Assert.Null(result.SignificantReason);
+        }
+        // A_fall_is_flagged_even_when_the_client_says_nothing
+        {
+            var service = BuildService(out var observations);
+
+            var result = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                SubjectHint = "Kim",
+                Activity = "Person has fallen beside the bed",
+                ClinicalPayload = "<S>Person has fallen beside the bed.<E>",
+                IsSignificant = false
+            }, CancellationToken.None);
+
+            Assert.True(result.IsSignificant);
+            Assert.True(observations.Items[0].IsSignificant);
+            Assert.Contains("fall", result.SignificantReason, StringComparison.OrdinalIgnoreCase);
+        }
+        // The_verdict_is_echoed_on_the_response_so_the_client_need_not_guess
+        {
+            var service = BuildService(out var observations);
+
+            var result = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                Activity = "A person entering the room",
+                ClinicalPayload = "<S>A person entering the room.<E>"
+            }, CancellationToken.None);
+
+            Assert.Equal(observations.Items[0].IsSignificant, result.IsSignificant);
+            Assert.Equal(observations.Items[0].SignificantReason, result.SignificantReason);
+        }
     }
 
     [Fact]
-    public async Task A_fall_is_flagged_even_when_the_client_says_nothing()
+    public async Task Caller_reasons_win_and_only_flagged_events_reserve_evidence()
     {
-        var service = BuildService(out var observations);
-
-        var result = await service.IngestAsync(new IngestObservationRequestDto
+        // An_explicit_caller_reason_is_honoured
         {
-            SubjectHint = "Kim",
-            Activity = "Person has fallen beside the bed",
-            ClinicalPayload = "<S>Person has fallen beside the bed.<E>",
-            IsSignificant = false
-        }, CancellationToken.None);
+            var service = BuildService(out var observations);
 
-        Assert.True(result.IsSignificant);
-        Assert.True(observations.Items[0].IsSignificant);
-        Assert.Contains("fall", result.SignificantReason, StringComparison.OrdinalIgnoreCase);
+            var result = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                SubjectHint = "Kim",
+                Activity = "Desk Work",
+                ClinicalPayload = "<S>Known subject entered and resumed desk work.<E>",
+                IsSignificant = true,
+                SignificantReason = "Known person entered"
+            }, CancellationToken.None);
+
+            Assert.True(result.IsSignificant);
+            Assert.Equal("Known person entered", result.SignificantReason);
+            Assert.Equal("Known person entered", observations.Items[0].SignificantReason);
+        }
+        // An_explicit_caller_reason_can_also_suppress_the_flag
+        {
+            var service = BuildService(out _);
+
+            var result = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                Activity = "Person has fallen",
+                ClinicalPayload = "<S>Rehearsal frame, not a real event.<E>",
+                IsSignificant = false,
+                SignificantReason = "Suppressed by the caller"
+            }, CancellationToken.None);
+
+            Assert.False(result.IsSignificant);
+        }
+        // Only_flagged_observations_reserve_an_evidence_image
+        {
+            var service = BuildService(out _);
+
+            var routine = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                Activity = "Person seated using laptop",
+                ClinicalPayload = "<S>Person seated using laptop.<E>"
+            }, CancellationToken.None);
+
+            var flagged = await service.IngestAsync(new IngestObservationRequestDto
+            {
+                Activity = "Someone is standing up from the chair",
+                ClinicalPayload = "<S>Someone is standing up from the chair.<E>"
+            }, CancellationToken.None);
+
+            Assert.Null(routine.ImageReference);
+            Assert.False(string.IsNullOrWhiteSpace(flagged.ImageReference));
+        }
     }
-
-    [Fact]
-    public async Task An_explicit_caller_reason_is_honoured()
-    {
-        var service = BuildService(out var observations);
-
-        var result = await service.IngestAsync(new IngestObservationRequestDto
-        {
-            SubjectHint = "Kim",
-            Activity = "Desk Work",
-            ClinicalPayload = "<S>Known subject entered and resumed desk work.<E>",
-            IsSignificant = true,
-            SignificantReason = "Known person entered"
-        }, CancellationToken.None);
-
-        Assert.True(result.IsSignificant);
-        Assert.Equal("Known person entered", result.SignificantReason);
-        Assert.Equal("Known person entered", observations.Items[0].SignificantReason);
-    }
-
-    [Fact]
-    public async Task An_explicit_caller_reason_can_also_suppress_the_flag()
-    {
-        var service = BuildService(out _);
-
-        var result = await service.IngestAsync(new IngestObservationRequestDto
-        {
-            Activity = "Person has fallen",
-            ClinicalPayload = "<S>Rehearsal frame, not a real event.<E>",
-            IsSignificant = false,
-            SignificantReason = "Suppressed by the caller"
-        }, CancellationToken.None);
-
-        Assert.False(result.IsSignificant);
-    }
-
-    [Fact]
-    public async Task Only_flagged_observations_reserve_an_evidence_image()
-    {
-        var service = BuildService(out _);
-
-        var routine = await service.IngestAsync(new IngestObservationRequestDto
-        {
-            Activity = "Person seated using laptop",
-            ClinicalPayload = "<S>Person seated using laptop.<E>"
-        }, CancellationToken.None);
-
-        var flagged = await service.IngestAsync(new IngestObservationRequestDto
-        {
-            Activity = "Someone is standing up from the chair",
-            ClinicalPayload = "<S>Someone is standing up from the chair.<E>"
-        }, CancellationToken.None);
-
-        Assert.Null(routine.ImageReference);
-        Assert.False(string.IsNullOrWhiteSpace(flagged.ImageReference));
-    }
-
-    [Fact]
-    public async Task The_verdict_is_echoed_on_the_response_so_the_client_need_not_guess()
-    {
-        var service = BuildService(out var observations);
-
-        var result = await service.IngestAsync(new IngestObservationRequestDto
-        {
-            Activity = "A person entering the room",
-            ClinicalPayload = "<S>A person entering the room.<E>"
-        }, CancellationToken.None);
-
-        Assert.Equal(observations.Items[0].IsSignificant, result.IsSignificant);
-        Assert.Equal(observations.Items[0].SignificantReason, result.SignificantReason);
-    }
-
 
     private static ObservationService BuildService(out FakeObservations observations)
     {
