@@ -9,6 +9,11 @@
 
 <PageTitle>PoWatch | Live</PageTitle>
 
+@if (_away is { } away)
+{
+    <AwayCard Session="@away.Session" AwayFor="@away.For" OnClose="@(() => _away = null)" />
+}
+
 <div class="term-grid live-grid">
     <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2" Test="live-camera" Flush="true">
         <Aside>
@@ -240,6 +245,8 @@
     private static readonly string[] Edges = ["Left", "Top", "Right", "Bottom"];
 
     private ElementReference _slot;
+    private (SessionDto Session, TimeSpan? For)? _away;
+    private DotNetObjectReference<Live>? _self;
     private bool _starting;
     private bool _enableVlm = true;
     private bool _showHeat = true;
@@ -282,6 +289,8 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+        _self = DotNetObjectReference.Create(this);
+        await JS.TryInvokeVoidAsync("powatchFeed.watchReturn", _self, 300);
         await DockFeedAsync();
         if (Sensing.IsRunning || StartMode is null) return;
         Navigation.NavigateTo("", replace: true);
@@ -315,6 +324,7 @@
     private async Task StopAsync()
     {
         await Sensing.StopAsync();
+        if (Sensing.Live.Session is { } session) _away = (session, null);
         await DockFeedAsync();
         await RefreshStatsAsync();
     }
@@ -365,6 +375,16 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>The tab was hidden for five minutes or more: show what happened meanwhile.</summary>
+    [JSInvokable]
+    public async Task OnReturned(int secondsAway)
+    {
+        if (!Sensing.IsRunning || Sensing.Live.Session is not { } session) return;
+        var refreshed = await Api.ListSessionsAsync(5);
+        _away = (refreshed.FirstOrDefault(s => s.Id == session.Id) ?? session, TimeSpan.FromSeconds(secondsAway));
+        await InvokeAsync(StateHasChanged);
+    }
+
     /// <summary>Shows the camera over the slot while a camera session runs; hides it otherwise.</summary>
     private async Task DockFeedAsync()
     {
@@ -388,6 +408,8 @@
         Sensing.Changed -= OnSensingChanged;
         Feed.Changed -= OnStatsChanged;
         await JS.TryInvokeVoidAsync("powatchFeed.undock");
+        await JS.TryInvokeVoidAsync("powatchFeed.unwatchReturn");
+        _self?.Dispose();
         if (_refresh is not null)
         {
             await _refresh.CancelAsync();

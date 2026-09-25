@@ -712,3 +712,21 @@ html, body {
 }
 
 .term-wall-exit:hover, .term-wall-exit:focus-visible { opacity: 1; color: var(--term-text); }
+
+/* ── While you were away ───────────────────────────────────────────────── */
+
+.away-card { margin-bottom: var(--term-gap); border-color: var(--term-accent); }
+.away-card .term-panel-head .term-icon-button { min-width: 28px; min-height: 28px; }
+
+.away-moments {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.away-moments li { display: grid; gap: 4px; font: 12px var(--term-mono); color: var(--term-muted); }
+.away-moments img, .away-noimage { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--term-line); border-radius: 2px; background: var(--term-bg); }
+.away-noimage { display: grid; place-items: center; color: var(--term-dim); }

@@ -97,6 +97,16 @@ public sealed class LiveSensingState
             Log($"{exited.AtUtc.ToLocalTime():HH:mm:ss} − {exited.Label} {exited.TrackId} after {exited.DwellSeconds:0}s");
     }
 
+    public int Moments { get; private set; }
+    public int Snapshots { get; private set; }
+
+    public void RecordMoment(Highlight highlight, DateTimeOffset atUtc, bool withSnapshot)
+    {
+        Moments++;
+        if (withSnapshot) Snapshots++;
+        Log($"{atUtc.ToLocalTime():HH:mm:ss} * {highlight.Reason}{(withSnapshot ? " [snap]" : string.Empty)}");
+    }
+
     public void RecordCaption(ParsedCaption caption, DateTimeOffset atUtc)
     {
         Captions++;

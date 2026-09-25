@@ -22,6 +22,8 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private readonly CentroidTracker _tracker = new();
     private TickBatcher _batcher = new(time);
     private VlmScheduler _vlm = new(time);
+    private HighlightRules _highlights = new(time);
+    private bool _capturing;
     private SyntheticScene? _scene;
     private DotNetObjectReference<SensingSession>? _self;
     private ElementReference? _video;
@@ -59,6 +61,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _vlmEnabled = enableVlm && !demo;
         _batcher = new TickBatcher(time);
         _vlm = new VlmScheduler(time);
+        _highlights = new HighlightRules(time);
         _scene = demo ? new SyntheticScene() : null;
         _demoStep = 0;
         _cts = new CancellationTokenSource();
@@ -125,6 +128,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _batcher.AddPixel(sample);
         _vlm.ObserveMotion(sample.Motion);
         Live.RecordPixel(sample, time.GetUtcNow());
+        Consider(_highlights.OnPixel(sample), sample.AtUtc);
         Notify();
     }
 
@@ -133,6 +137,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         var frame = _tracker.Update(atUtc, detections);
         _batcher.AddDetections(atUtc, frame);
         Live.RecordDetections(frame, time.GetUtcNow());
+        Consider(_highlights.OnDetections(frame), atUtc);
         Notify();
     }
 
@@ -141,6 +146,54 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         if (CaptionParser.Parse(raw) is not { } caption) return;
         _batcher.AddCaption(atUtc, caption.Text, caption.Notable ? 1 : null);
         Live.RecordCaption(caption, atUtc);
+        Consider(_highlights.OnCaption(caption), atUtc);
+        Notify();
+    }
+
+    /// <summary>
+    /// Records a highlight as a Notable moment. With a camera, a snapshot of the frame is uploaded
+    /// first (the only image that ever leaves the browser); in demo mode, or without image storage,
+    /// the moment is kept without a picture.
+    /// </summary>
+    private void Consider(Highlight? highlight, DateTimeOffset atUtc)
+    {
+        if (highlight is null) return;
+        if (_scene is not null || _capturing || _video is null)
+        {
+            AddMoment(highlight, atUtc, imagePath: null);
+            return;
+        }
+
+        _capturing = true;
+        _ = CaptureAsync(highlight, atUtc);
+    }
+
+    private async Task CaptureAsync(Highlight highlight, DateTimeOffset atUtc)
+    {
+        string? path = null;
+        try
+        {
+            var image = await js.TryInvokeAsync<string>("powatchPixels.snapshot", _video);
+            var upload = image is null ? null : await api.CreateSnapshotUploadAsync(DateOnly.FromDateTime(atUtc.ToLocalTime().DateTime));
+            if (upload is not null && await js.TryInvokeVoidAsync("powatchBlobUpload.uploadFrame", upload.UploadUrl, image))
+                path = upload.Path;
+        }
+        catch (HttpRequestException)
+        {
+            // Offline: keep the moment, lose the picture.
+        }
+        finally
+        {
+            _capturing = false;
+        }
+
+        AddMoment(highlight, atUtc, path);
+    }
+
+    private void AddMoment(Highlight highlight, DateTimeOffset atUtc, string? imagePath)
+    {
+        _batcher.AddEvent(new SceneEventDto { AtUtc = atUtc, Kind = "Notable", Text = highlight.Reason, Score = highlight.Score, ImagePath = imagePath });
+        Live.RecordMoment(highlight, atUtc, imagePath is not null);
         Notify();
     }
 

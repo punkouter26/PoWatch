@@ -39,6 +39,13 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 
         await page.GetByTestId("stop-session").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
+
+        // Stopping shows the recap: the session's own numbers and its moments.
+        await Assertions.Expect(page.GetByTestId("away-card")).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await Assertions.Expect(page.GetByTestId("away-visits")).Not.ToContainTextAsync("0", new() { Timeout = 15_000 });
+        await Assertions.Expect(page.GetByTestId("away-card")).ToContainTextAsync("of the session");
+        await page.GetByTestId("away-close").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("away-card")).Not.ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
     }
 

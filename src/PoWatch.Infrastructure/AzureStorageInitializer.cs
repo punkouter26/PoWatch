@@ -60,6 +60,10 @@ public sealed class AzureStorageInitializer(
                 .GetBlobContainerClient(options.Value.SignificantImagesContainer)
                 .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
+            await clients.BlobService
+                .GetBlobContainerClient(options.Value.SnapshotsContainer)
+                .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
             // Container for the persisted Data Protection keyring (BFF cookie encryption keys). The blob
             // provider creates the key blob on demand but never the container, so ensure it exists here.
             await clients.BlobService

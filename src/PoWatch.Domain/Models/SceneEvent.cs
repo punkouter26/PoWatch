@@ -43,6 +43,9 @@ public sealed record SceneEvent
     /// <summary>On <see cref="SceneEventKind.TrackExit"/>, how long the track was in frame.</summary>
     public double? DwellSeconds { get; init; }
 
+    /// <summary>On <see cref="SceneEventKind.Notable"/>, the highlight snapshot's blob path, if one was kept.</summary>
+    public string? ImagePath { get; init; }
+
     public IReadOnlyList<string> Validate(DateTimeOffset nowUtc)
     {
         var errors = new List<string>();
@@ -53,6 +56,8 @@ public sealed record SceneEvent
             errors.Add($"{nameof(AtUtc)} is more than {Tick.MaxClockSkew.TotalMinutes:0} minutes in the future.");
         if (Score is < 0 or > 1)
             errors.Add($"{nameof(Score)} must be in [0, 1].");
+        if (ImagePath is { } path && (path.Length > 200 || path.Contains("..", StringComparison.Ordinal) || path.StartsWith('/')))
+            errors.Add($"{nameof(ImagePath)} is not a snapshot path.");
         if (DwellSeconds is < 0)
             errors.Add($"{nameof(DwellSeconds)} cannot be negative.");
         if (Text is { Length: > MaxTextLength })

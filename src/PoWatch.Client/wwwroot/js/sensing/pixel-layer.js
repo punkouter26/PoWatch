@@ -117,5 +117,17 @@
     _previous = null;
   }
 
-  window.powatchPixels = { sample, start, stop, cols: COLS, rows: ROWS };
+  /** A highlight snapshot: the current frame as a 640-px-wide JPEG data URL, or null without a frame. */
+  function snapshot(video) {
+    if (!video || video.readyState < 2 || !video.videoWidth) return null;
+    const width = Math.min(640, video.videoWidth);
+    const height = Math.round(width * video.videoHeight / video.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(video, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.8);
+  }
+
+  window.powatchPixels = { sample, start, stop, snapshot, cols: COLS, rows: ROWS };
 })();

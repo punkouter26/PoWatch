@@ -96,7 +96,8 @@ internal static class IngestEndpoints
         Edge = string.IsNullOrWhiteSpace(dto.Edge) ? FrameEdge.None : Enum.Parse<FrameEdge>(dto.Edge, ignoreCase: true),
         Text = dto.Text,
         Score = dto.Score,
-        DwellSeconds = dto.DwellSeconds
+        DwellSeconds = dto.DwellSeconds,
+        ImagePath = dto.ImagePath
     };
 }
 

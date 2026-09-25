@@ -52,6 +52,25 @@ public sealed class SceneEventDto
     public string? Text { get; init; }
     public double? Score { get; init; }
     public double? DwellSeconds { get; init; }
+
+    /// <summary>Snapshot blob path for a Notable event, from <c>POST /api/snapshots</c>.</summary>
+    public string? ImagePath { get; init; }
+}
+
+/// <summary>Where to upload one highlight snapshot, and the path to cite in the Notable event.</summary>
+public sealed class SnapshotUploadDto
+{
+    public string Path { get; init; } = string.Empty;
+    public string UploadUrl { get; init; } = string.Empty;
+}
+
+/// <summary>A notable moment of a session, with a short-lived link to its snapshot when there is one.</summary>
+public sealed class MomentDto
+{
+    public DateTimeOffset AtUtc { get; init; }
+    public string Text { get; init; } = string.Empty;
+    public double Score { get; init; }
+    public string? ImageUrl { get; init; }
 }
 
 public sealed class IngestBatchResultDto

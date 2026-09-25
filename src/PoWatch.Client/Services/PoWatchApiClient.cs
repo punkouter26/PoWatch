@@ -36,6 +36,19 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(Json.IngestBatchResultDto, cancellationToken);
     }
 
+    /// <summary>A write link for one highlight snapshot; null when there is no image storage or today's cap is reached.</summary>
+    public async Task<SnapshotUploadDto?> CreateSnapshotUploadAsync(DateOnly localDay, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsync($"api/snapshots?day={localDay:yyyy-MM-dd}", content: null, cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.SnapshotUploadDto, cancellationToken) : null;
+    }
+
+    public async Task<IReadOnlyList<MomentDto>> GetMomentsAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync($"api/sessions/{sessionId}/moments", cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.ListMomentDto, cancellationToken) ?? [] : [];
+    }
+
     public Task<PresenceStatsDto?> GetPresenceAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
         GetStatsAsync("presence", query, Json.PresenceStatsDto, cancellationToken);
 

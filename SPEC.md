@@ -150,9 +150,7 @@ The **ingest path** validates the batch, upserts ticks and events idempotently (
 merges them into minute/hour/day rollups plus AllTime. Stat queries read rollups only, except the stats
 marked *raw* (weirdest caption, word cloud), which read at most one day of events.
 
-**Highlight snapshot rules.** A snapshot is kept for the first sighting of a new class or regular, the
-busiest minute of each hour, VLM `notable: true`, and achievement unlocks. The cap is 200 snapshots per
-day per user.
+**Highlight snapshot rules.** A snapshot (640 px JPEG, uploaded straight from the browser with a 5-minute write-only link) is kept for: the first sighting of each class in a session, a motion spike (pixel motion ≥ 0.15, at most one per 10 minutes) and a caption the model flags as notable. The browser keeps at most 20 an hour; the server issues at most 200 upload links per user per local day, only under that user's own {user}/{yyyyMMdd}/ prefix, and read links only for the owner. Each snapshot is recorded as a Notable scene event with its path; demo mode and in-memory storage keep the moment without a picture.
 
 ## 7. Commands
 

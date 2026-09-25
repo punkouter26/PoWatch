@@ -36,6 +36,10 @@ public sealed class AzureStorageOptions
     [Required, MinLength(3)]
     public string AchievementsTable { get; init; } = "PoWatchAchievements";
 
+    /// <summary>Highlight snapshots, at {user}/{yyyyMMdd}/{id}.jpg.</summary>
+    [Required, MinLength(3)]
+    public string SnapshotsContainer { get; init; } = "snapshots";
+
     [Required, MinLength(3)]
     public string SignificantImagesContainer { get; init; } = "significant-images";
 

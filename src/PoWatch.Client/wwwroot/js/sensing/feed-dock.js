@@ -44,5 +44,24 @@
   addEventListener('resize', place);
   addEventListener('scroll', place, true);
 
-  window.powatchFeed = { dock, undock };
+  // "While you were away": tell .NET when the tab comes back after being hidden for a while.
+  let _hiddenAt = null;
+  let _returnRef = null;
+  let _returnAfterSeconds = 300;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { _hiddenAt = Date.now(); return; }
+    if (_hiddenAt && _returnRef && (Date.now() - _hiddenAt) / 1000 >= _returnAfterSeconds) {
+      _returnRef.invokeMethodAsync('OnReturned', Math.round((Date.now() - _hiddenAt) / 1000)).catch(() => { });
+    }
+    _hiddenAt = null;
+  });
+
+  function watchReturn(dotnetRef, afterSeconds) {
+    _returnRef = dotnetRef;
+    _returnAfterSeconds = afterSeconds || 300;
+  }
+
+  function unwatchReturn() { _returnRef = null; }
+
+  window.powatchFeed = { dock, undock, watchReturn, unwatchReturn };
 })();
