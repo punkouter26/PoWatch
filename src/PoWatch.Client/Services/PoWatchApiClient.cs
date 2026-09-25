@@ -7,6 +7,35 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 {
     private static readonly PoWatchJsonContext Json = PoWatchJsonContext.Default;
 
+    public async Task<SessionDto?> StartSessionAsync(StartSessionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync("api/sessions", request, Json.StartSessionRequestDto, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(Json.SessionDto, cancellationToken);
+    }
+
+    public async Task<SessionDto?> StopSessionAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsync($"api/sessions/{sessionId}/stop", content: null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(Json.SessionDto, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SessionDto>> ListSessionsAsync(int take = 20, CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync($"api/sessions?take={take}", Json.ListSessionDto, cancellationToken) ?? [];
+
+    /// <summary>
+    /// Posts one ingest batch. Returns null when the server refused it outright (4xx) so the caller
+    /// can drop it; throws on transport or server errors so the caller keeps it for a retry.
+    /// </summary>
+    public async Task<IngestBatchResultDto?> PostBatchAsync(Guid sessionId, IngestBatchDto batch, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"api/sessions/{sessionId}/batches", batch, Json.IngestBatchDto, cancellationToken);
+        if ((int)response.StatusCode is >= 400 and < 500) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(Json.IngestBatchResultDto, cancellationToken);
+    }
+
     public async Task<ObserverRuntimeStateDto?> GetObserverStateAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("api/observer/state", Json.ObserverRuntimeStateDto, cancellationToken);
 

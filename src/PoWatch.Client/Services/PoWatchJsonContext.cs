@@ -42,4 +42,9 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(AuthStateDto))]
 [JsonSerializable(typeof(AuthConfigDto))]
 [JsonSerializable(typeof(HealthReportDto))]
+[JsonSerializable(typeof(StartSessionRequestDto))]
+[JsonSerializable(typeof(SessionDto))]
+[JsonSerializable(typeof(List<SessionDto>))]
+[JsonSerializable(typeof(IngestBatchDto))]
+[JsonSerializable(typeof(IngestBatchResultDto))]
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;
