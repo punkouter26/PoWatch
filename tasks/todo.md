@@ -111,7 +111,7 @@ Rules for every task:
 - [ ] **D5** `SyntheticSampleSource` (seeded, trim-safe) behind `MockInferenceService` / Demo mode.
   - AC: a fresh clone with no camera shows nonzero counters within 15 s. **CHECKPOINT**
 
-### Phase 3 gate — `/design`, 10 concepts, you pick. Then the component hierarchy is confirmed.
+### Phase 3 gate — done: "Terminal" chosen, component hierarchy confirmed (see SPEC §2a).
 
 ### E — UI (Radzen first, mission-control theme)
 - [ ] **E1** Theme tokens (dark default, `--rz-*` mapping, monospace numerals) + new nav (Live, Stats,

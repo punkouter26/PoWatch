@@ -38,6 +38,29 @@ telemetry. When you come back, it tells you what you missed.
    monitor or TV.
 9. **System.** `/system` shows model readiness, a WebGPU self-test, storage, and pipeline telemetry.
 
+## 2a. UI layout (Phase 3 decision: "Terminal")
+
+Chosen from the 10 concepts on the design canvas (https://claude.ai/artifact/LChbbaQuhHyLXRg26N5URg,
+board "1 · Terminal"). A dense Bloomberg-style grid of numbered panels, F-key navigation and a ticker.
+
+```
+MainLayout → TerminalShell
+├─ TerminalHeader      brand · session # · source · uptime · status · MOCK/SAMPLE chip · clock · Start/Stop
+├─ FunctionKeyBar      F1 LIVE · F2 STATS · F3 HISTORY · F4 REGULARS · F5 TROPHIES · F6 SYSTEM (F-key shortcuts)
+│  └─ CommandLine      PWCH> quick commands ("stats 7d", "regular bob", "start")
+├─ @Body
+└─ TickerTape          latest events
+F1 Live "/" → TerminalGrid 4×3 (single column on phones):
+  01 Camera · 02 Key metrics · 03 Regulars · 04 Census · 05 Pipeline · 06 Motion grid + edges
+  07 Light + palette · 08 Hour×weekday pattern · 09 Caption wire
+F2 Stats: range picker + tabs, same panels larger · F3 History · F4 Regulars · F5 Trophies · F6 System
+/display: TerminalGrid full screen, no chrome, auto-refresh
+Shared: TerminalPanel, StatCell, Sparkline, ZChip, HeatGrid, SampleDataChip
+```
+
+Radzen supplies the tables, charts, tabs and pickers. Per-row sparklines and heat cells are small
+custom SVG components, because a chart instance per table row is too heavy.
+
 ## 3. Sensing pipeline (client, in-browser)
 
 Frames never leave the browser except as chosen **highlight snapshots** (§6).
@@ -297,6 +320,7 @@ See `CAPABILITY-MAP.md` → *Subsystem disposition*. In summary:
 Decided:
 - **Detector:** RF-DETR Nano (§5). YOLOv10 is excluded because of its AGPL-3.0 license.
 - **Test caps:** they stay at **100 / 50 / 25 / 25**, with breadth covered by CsCheck property tests.
+  When a suite is full, adjacent tests in suites being retired are merged (every assertion kept).
 - **Ponytail** (MIT Claude Code plugin) is installed before Phase 4, and `/ponytail-review` joins
   Phase 5.
 - **Existing production data:** the caregiver-era tables and the `significant-images` container are
