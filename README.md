@@ -24,7 +24,9 @@ Run the setup script from the repository root:
 .\SCRIPTS\setup.ps1
 ```
 
-The script prepares local tooling, starts Azurite through Docker Compose, and walks the Azure login path when needed. The development API listens on `http://localhost:5000` and `https://localhost:5001` when configured.
+The script prepares local tooling, starts Azurite through Docker Compose, and walks the Azure login path when needed. The development API listens on `http://localhost` (port 80, set by `PoWatch:Ports:Http` in
+`appsettings.Development.json`) and `https://localhost:5001`. If port 80 is taken, the dev port
+negotiator falls back to the next free port and logs it.
 
 Useful commands:
 
