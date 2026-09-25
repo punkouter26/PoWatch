@@ -322,7 +322,7 @@
 
     // Fix #5: the raw values from the API are dev-only labels (Azurite is a local emulator,
     // masked-endpoint / masked-key rows are designed for screenshots, not users). Translate
-    // them into caregiver-friendly copy without losing the actual status signal.
+    // them into plain-language copy without losing the actual status signal.
     private static string FriendlyStorageLabel(string? status)
     {
         if (string.IsNullOrWhiteSpace(status)) return "Not connected";

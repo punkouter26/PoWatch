@@ -40,7 +40,7 @@ public static class AuthenticationSetup
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             // Kiosk-durable session: an always-on wall display should survive a full unattended
             // day and slide forward on each authenticated poll, so it never blanks to /login
-            // mid-shift. Still HttpOnly + SameSite=Strict + Secure — no guardrail relaxed.
+            // mid-session. Still HttpOnly + SameSite=Strict + Secure — no guardrail relaxed.
             options.ExpireTimeSpan = TimeSpan.FromHours(24);
             options.SlidingExpiration = true;
             // BFF proxies XHR: answer with status codes rather than HTML redirects.

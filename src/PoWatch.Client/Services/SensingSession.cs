@@ -284,7 +284,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
             _vlm.MarkRun();
             var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", CaptionParser.Prompt, _video, 48);
             if (result is { IsAvailable: true })
-                AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.ClinicalPayload) ? result.Activity : result.ClinicalPayload);
+                AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.Caption) ? result.Activity : result.Caption);
             else if (result is not null)
                 Live.VlmStatus = result.Status;
         }

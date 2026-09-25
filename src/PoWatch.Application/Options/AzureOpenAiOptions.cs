@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PoWatch.Application.Options;
 
-/// <summary>Configures the Azure OpenAI connection used by the Handoff Coach feature.</summary>
+/// <summary>The Azure OpenAI deployment used for recaps when AiProvider is AzureOpenAi.</summary>
 public sealed class AzureOpenAiOptions
 {
     /// <summary>Azure OpenAI resource endpoint, e.g. https://my-resource.openai.azure.com/</summary>

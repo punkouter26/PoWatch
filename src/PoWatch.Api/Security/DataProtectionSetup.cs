@@ -8,7 +8,7 @@ namespace PoWatch.Api.Security;
 /// Kiosk-durable session keys (audit #1). The BFF auth cookie (<c>PoWatch.Auth</c>) is encrypted with
 /// ASP.NET Core Data Protection. By default the keyring is generated per-instance and held only in
 /// memory, so every App Service recycle, deploy, or scale-out event rotates the keys and silently
-/// invalidates every existing cookie — the always-on wall display drops to /login mid-shift.
+/// invalidates every existing cookie — the always-on wall display drops to /login mid-session.
 ///
 /// This wires a <b>durable, shared</b> keyring plus a stable application name so keys survive restarts
 /// and are shared across scaled-out instances:

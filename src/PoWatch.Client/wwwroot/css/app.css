@@ -948,20 +948,7 @@ button:active:not(:disabled) {
   width: 40%;
 }
 
-.handoff-brief-panel {
-  margin-top: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border-subtle);
-  border-left: 3px solid var(--color-accent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  animation: fadeSlideUp 0.3s ease-out;
-}
 
-.handoff-brief-header {
-  margin-bottom: var(--space-3);
-}
 
 .brief-title-row {
   display: flex;
@@ -969,11 +956,6 @@ button:active:not(:disabled) {
   gap: var(--space-3);
 }
 
-.handoff-brief-header h3 {
-  margin: 0;
-  font-size: var(--text-lg);
-  color: var(--color-text-primary);
-}
 
 .brief-badge {
   display: inline-flex;
@@ -2377,45 +2359,11 @@ button:active:not(:disabled) {
   color: var(--color-text-label);
 }
 
-.handoff-lead {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-base);
-  color: var(--color-text-primary);
-}
 
-.handoff-input--primary {
-  width: 100%;
-}
 
-.handoff-more {
-  margin-top: var(--space-3);
-  font-size: var(--text-sm);
-}
 
-.handoff-more > summary {
-  cursor: pointer;
-  color: var(--color-text-muted);
-  padding: var(--space-1) 0;
-  min-height: 32px;
-}
 
-.handoff-more label {
-  display: block;
-  margin: var(--space-2) 0 var(--space-1);
-  color: var(--color-text-label);
-}
 
-.handoff-download-link {
-  display: inline-block;
-  margin-top: var(--space-3);
-  background: none;
-  border: none;
-  padding: var(--space-1) 0;
-  color: var(--color-accent);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  text-decoration: underline;
-}
 
 .room-status-actions .rz-button,
 .subjects-manage-link,

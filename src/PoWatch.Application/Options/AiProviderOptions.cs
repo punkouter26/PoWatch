@@ -2,20 +2,20 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PoWatch.Application.Options;
 
-/// <summary>Supported AI backends for clinical synthesis and handoff brief generation.</summary>
+/// <summary>Who writes the recap paragraph.</summary>
 public enum AiProviderType
 {
     /// <summary>Azure OpenAI Service deployment (default cloud provider).</summary>
     AzureOpenAi,
 
-    /// <summary>Local facility edge gateway running Ollama (zero-cloud, HIPAA-isolated on-premise).</summary>
+    /// <summary>A local Ollama server (nothing leaves the machine).</summary>
     Ollama,
 
     /// <summary>Deterministic template-based synthesis without external LLM calls.</summary>
     Template
 }
 
-/// <summary>Configures the unified AI provider used by Handoff Coach and server-side synthesis.</summary>
+/// <summary>Picks the recap writer: Template (default), Ollama or Azure OpenAI.</summary>
 public sealed class AiProviderOptions
 {
     /// <summary>Selected AI provider. Defaults to Template; external providers fall back to Template on failure.</summary>

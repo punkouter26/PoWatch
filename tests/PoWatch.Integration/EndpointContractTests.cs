@@ -100,7 +100,7 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
     }
 
     [Fact]
-    public async Task The_retired_caregiver_endpoints_are_gone()
+    public async Task The_retired_pre_pivot_endpoints_are_gone()
     {
         foreach (var route in new[] { "/api/observer/state", "/api/archives/2026-01-01", "/api/identity/subjects", "/api/blobs/read?blobPath=x.jpg" })
             Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync(route)).StatusCode);

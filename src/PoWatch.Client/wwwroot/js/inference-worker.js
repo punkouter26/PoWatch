@@ -356,7 +356,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
       status: 'No frame captured',
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -379,7 +379,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         : `Model unavailable: ${detail}`,
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -455,7 +455,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         || (generateError ? `generateFailed device=${_device} dtype=${_dtype} error=${generateError}` : null),
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -493,7 +493,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
   }
 
   let activity;
-  let clinicalNote;
+  let note;
   let isUnstructured = false;
 
   if (!labelMatch) {
@@ -515,7 +515,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         rawOutput: output,
         subjectHint: null,
         activity: 'Unavailable',
-        clinicalPayload: '',
+        caption: '',
         isSignificant: false,
         significantReason: null,
         confidenceScore: 0.18,
@@ -524,13 +524,13 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
     }
 
     activity = normalizedSentence;
-    clinicalNote = rawTrimmed.slice(0, 200);
+    note = rawTrimmed.slice(0, 200);
     isUnstructured = true;
   } else {
     activity = labelMatch[1].trim().slice(0, 80);
     // When NOTE is absent, fall back to the activity text to avoid storing the raw
-    // "LABEL: <text>" prefix in the clinical description field.
-    clinicalNote = noteMatch?.[1]?.trim() ?? activity;
+    // "LABEL: <text>" prefix in the note.
+    note = noteMatch?.[1]?.trim() ?? activity;
   }
 
   // Guard: reject any output that echoes prompt placeholder tokens (e.g. "<5 word activity>")
@@ -541,7 +541,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -557,7 +557,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0.24,
@@ -574,7 +574,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -600,7 +600,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
       rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -618,7 +618,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
         rawOutput: output,
       subjectHint: null,
       activity: 'Unavailable',
-      clinicalPayload: '',
+      caption: '',
       isSignificant: false,
       significantReason: null,
       confidenceScore: 0,
@@ -626,12 +626,8 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
     };
   }
 
-  // Significance is NOT decided here any more. This used to be `clinicalNote.length > 10`, which
-  // every well-formed caption satisfied, so 100% of observations arrived flagged "Notable" — the
-  // amber tint, the unacknowledged counters and the spoken announcements all lost their meaning.
-  // The server now classifies from the caption's content (ActivitySignificanceClassifier) and
-  // returns its verdict on the ingest response; the worker just reports what it saw.
-  const clinicalPayload = `<S>${clinicalNote}<E>`;
+  // The worker only reports what it saw; the C# caption layer decides what counts as notable.
+  const caption = `<S>${note}<E>`;
 
   // A plain caption is now the EXPECTED result, not a degraded one: the prompt asks a question
   // rather than demanding a LABEL/NOTE format the small models cannot produce. Capping captions at
@@ -640,7 +636,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
   const confidenceScore = Math.max(0.40, Math.min(isUnstructured ? 0.88 : 0.98,
     (isUnstructured ? 0.46 : 0.58) +
     Math.min(activity.length, 32) / 120 +
-    Math.min(clinicalNote.length, 160) / 500 +
+    Math.min(note.length, 160) / 500 +
     (noteMatch ? 0.07 : 0)));
   const confidenceLabel = confidenceScore >= 0.85 ? 'High' : confidenceScore >= 0.72 ? 'Medium' : 'Low';
 
@@ -649,7 +645,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
     status: 'OK',
     subjectHint: null,
     activity,
-    clinicalPayload,
+    caption,
     isSignificant: false,
     significantReason: null,
     confidenceScore: Number(confidenceScore.toFixed(2)),
@@ -780,7 +776,7 @@ self.onmessage = async (e) => {
           status: `Inference error: ${describeError(err)}`,
           subjectHint: null,
           activity: 'Unavailable',
-          clinicalPayload: '',
+          caption: '',
           isSignificant: false,
           significantReason: null,
           confidenceScore: 0,

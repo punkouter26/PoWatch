@@ -201,8 +201,12 @@ Rules for every task:
     Domain models, dead flags/config, the System page's data-reset "danger zone", the `/archives`
     and `/identity` aliases, and 3 unused JS files. Unknown `/api/*` routes now 404 instead of
     serving the SPA page. Tests after the prune: Unit 34, Integration 15, API 13, UI 23.
-- [ ] **G2** `check-hygiene.ps1`: banned-words check (caregiver, clinical, handoff, shift, nurse,
+- [x] **G2** `check-hygiene.ps1`: banned-words check (caregiver, clinical, handoff, shift, nurse,
   patient, acknowledge).
+  - Done as: scans src/ and tests/ (not vendored lib/ or build output). "Shift" and "acknowledge"
+    are only banned in their caregiver sense (shift window/clock/report, mid-shift,
+    acknowledgement), since batch acks and bit shifts are legit. The VLM result's
+    `clinicalPayload` is now `caption`; dead `.handoff-*` CSS removed.
 - [ ] **G3** `tests/PoWatch.Benchmarks` (BenchmarkDotNet, excluded from the cap script) for rollup
   merge and stats queries.
 - [ ] **G4** Docs: README, `docs/` refresh, retire `docs/cleanup.md`; sync `SPEC.md`. **CHECKPOINT**

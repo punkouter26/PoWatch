@@ -44,5 +44,6 @@ public sealed class VlmResultPayload
     public bool IsAvailable { get; init; }
     public string Status { get; init; } = string.Empty;
     public string Activity { get; init; } = string.Empty;
-    public string ClinicalPayload { get; init; } = string.Empty;
+    /// <summary>The model's reply, wrapped in &lt;S&gt;…&lt;E&gt;; the caption parser strips the markers.</summary>
+    public string Caption { get; init; } = string.Empty;
 }
