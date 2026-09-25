@@ -30,7 +30,8 @@ telemetry. When you come back, it tells you what you missed.
    **Presence & Motion**, **Space**, **Objects & Regulars**, **Patterns & Anomalies**, **Environment &
    Captions**, **Pipeline**.
 5. **Browse history.** `/history` shows a calendar heatmap of days. Pick a day to see its sessions,
-   timeline, snapshots, and recap, with PDF export.
+   timeline, snapshots, and recap, with PDF export, plus that day's **time-lapse** when this device
+   recorded one (see §6, on-device storage).
 6. **Curate regulars.** When a new person (or cat or dog) has been in frame for a few seconds, the
    Live page shows a small, non-blocking **"New person spotted — name them?"** card with their
    snapshot. Typing a name saves it; ignoring it (or "Not now") lets the card fade after a minute and
@@ -67,7 +68,8 @@ custom SVG components, because a chart instance per table row is too heavy.
 
 ## 3. Sensing pipeline (client, in-browser)
 
-Frames never leave the browser except as chosen **highlight snapshots** (§6).
+Frames never leave the browser except as chosen **highlight snapshots** (§6). The on-device
+time-lapse (§6) stays in the browser too.
 
 | Layer | Cadence | Output per sample |
 |---|---|---|
@@ -162,6 +164,13 @@ marked *raw* (weirdest caption, word cloud), which read at most one day of event
 
 **Highlight snapshot rules.** A snapshot (640 px JPEG, uploaded straight from the browser with a 5-minute write-only link) is kept for: the first sighting of each class in a session, a motion spike (pixel motion ≥ 0.15, at most one per 10 minutes) and a caption the model flags as notable. The browser keeps at most 20 an hour; the server issues at most 200 upload links per user per local day, only under that user's own {user}/{yyyyMMdd}/ prefix, and read links only for the owner. Each snapshot is recorded as a Notable scene event with its path; demo mode and in-memory storage keep the moment without a picture.
 
+**On-device storage (IndexedDB, never uploaded).** `powatch-outbox` holds every ingest batch until
+the server acknowledges it (capped at 360 ≈ 1 h), so a reload, crash or closed tab loses nothing:
+leftovers from earlier page loads are re-posted when the app opens and when a session starts.
+`powatch-timelapse` holds one 480 px JPEG a minute while a camera session runs, keyed by local day and
+pruned after 7 days. `/history` plays a day's frames as a flipbook and records a WebM with the native
+`MediaRecorder`, so there is no extra dependency. The app is installable (web manifest).
+
 ## 7. Commands
 
 ```powershell
@@ -254,8 +263,8 @@ internal static class StatsEndpoints
 
 ## 12. Out of scope (MVP)
 
-Custom natural-language counters (the next trajectory) · data export/API · multi-camera · time-lapse
-and highlight reels · public multi-user accounts, sharing, and leaderboards · push notifications ·
+Custom natural-language counters (the next trajectory) · data export/API · multi-camera · highlight
+reels · public multi-user accounts, sharing, and leaderboards · push notifications ·
 audio analysis · native mobile apps · any safety or alerting use case.
 
 ## 13. Edge cases
@@ -266,8 +275,10 @@ audio analysis · native mobile apps · any safety or alerting use case.
   only and show a notice.
 - Tab hidden or throttled → ticks carry the actual sample counts, so rates stay honest. Gaps are shown
   as gaps, not zeros.
-- Laptop sleep or network loss → the client queues up to 1 h of batches in memory and replays them with
-  idempotency keys. Anything older is dropped and counted as "lost ticks" (F).
+- Laptop sleep or network loss → the client queues up to 1 h of batches in IndexedDB (§6) and replays
+  them with idempotency keys, also after a reload or crash. An expired sign-in, a timeout or rate
+  limiting counts as "retry later", not as a refusal. Anything older is dropped and counted as "lost
+  ticks" (F).
 - A session crosses midnight → ticks are bucketed by the user's local day, and the session is linked
   from both days.
 - Scene changes (camera moved) → a luminance/palette discontinuity starts a new "scene epoch", so the

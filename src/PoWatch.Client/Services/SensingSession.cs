@@ -36,6 +36,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private ElementReference? _video;
     private CancellationTokenSource? _cts;
     private bool _vlmBusy;
+    private bool _sending;
     private bool _vlmEnabled;
     private int _demoStep;
 
@@ -53,6 +54,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     public async Task<string?> StartAsync(ElementReference? video, bool demo, bool enableVlm, string timeZoneId)
     {
         if (IsRunning) return null;
+        await ResendLeftoversAsync();
 
         if (!demo)
         {
@@ -99,7 +101,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         await js.TryInvokeVoidAsync("powatchDetector.stop");
         if (_scene is null) await js.TryInvokeVoidAsync("powatchInference.stopMonitor");
 
-        _batcher.Flush(final: true);
+        await KeepAsync(_batcher.Flush(final: true));
         await SendPendingAsync(CancellationToken.None);
         if (Live.Session is { } session)
             Live.Session = await api.StopSessionAsync(session.Id) ?? session;
@@ -311,33 +313,84 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     private async Task FlushAsync(CancellationToken ct)
     {
-        _batcher.Flush();
-        await SendPendingAsync(ct);
+        await KeepAsync(_batcher.Flush());
+        // Sending runs beside this loop: a request hanging on a dead network must not stop new
+        // batches from reaching the durable outbox.
+        if (!_sending) _ = SendPendingAsync(ct);
+    }
+
+    /// <summary>Copies a new batch to the durable outbox, so a reload or crash cannot lose it.</summary>
+    private async Task KeepAsync(IngestBatchDto? batch)
+    {
+        if (batch is null || Live.Session is not { } session) return;
+        await js.TryInvokeVoidAsync("powatchOutbox.put", batch.BatchKey.ToString(), session.Id.ToString(), JsonSerializer.Serialize(batch, Json.IngestBatchDto));
+    }
+
+    /// <summary>
+    /// Posts the batches an earlier page load left in the durable outbox (reloaded, crashed or
+    /// closed mid-session, or stopped while offline). Replays are safe: the server counts a batch
+    /// key once. Stops at the first transport failure; the rest wait for the next call.
+    /// </summary>
+    public async Task ResendLeftoversAsync()
+    {
+        var running = IsRunning ? Live.Session?.Id.ToString() : null;
+        foreach (var sessionId in await js.TryInvokeAsync<string[]>("powatchOutbox.sessions") ?? [])
+        {
+            if (sessionId == running || !Guid.TryParse(sessionId, out var id)) continue;
+            foreach (var json in await js.TryInvokeAsync<string[]>("powatchOutbox.batches", sessionId) ?? [])
+            {
+                if (JsonSerializer.Deserialize(json, Json.IngestBatchDto) is not { } batch) continue;
+                try
+                {
+                    await api.PostBatchAsync(id, batch);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+                {
+                    return;
+                }
+
+                await js.TryInvokeVoidAsync("powatchOutbox.remove", batch.BatchKey.ToString());
+            }
+        }
     }
 
     private async Task SendPendingAsync(CancellationToken ct)
     {
         if (Live.Session is not { } session) return;
-        foreach (var batch in _batcher.Pending.ToList())
+        _sending = true;
+        try
         {
-            try
-            {
-                var result = await api.PostBatchAsync(session.Id, batch, ct);
-                // Null means the server refused it outright; retrying would never help.
-                if (result is null) Live.RejectedBatches++;
-                else Live.BatchesSent++;
-                _batcher.Acknowledge(batch.BatchKey);
-            }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-            {
-                Live.LastError = "Offline — batches are queued and will be resent.";
-                break;
-            }
+            await SendEachAsync(session.Id, ct);
+        }
+        finally
+        {
+            _sending = false;
         }
 
         Live.PendingBatches = _batcher.Pending.Count;
         Live.LostTicks = _batcher.LostTicks;
         Notify();
+    }
+
+    private async Task SendEachAsync(Guid sessionId, CancellationToken ct)
+    {
+        foreach (var batch in _batcher.Pending.ToList())
+        {
+            try
+            {
+                var result = await api.PostBatchAsync(sessionId, batch, ct);
+                // Null means the server refused it outright; retrying would never help.
+                if (result is null) Live.RejectedBatches++;
+                else Live.BatchesSent++;
+                _batcher.Acknowledge(batch.BatchKey);
+                await js.TryInvokeVoidAsync("powatchOutbox.remove", batch.BatchKey.ToString());
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                Live.LastError = "Offline — batches are queued and will be resent.";
+                return;
+            }
+        }
     }
 
     private static async Task RunLoopAsync(TimeSpan period, Func<CancellationToken, Task> step, CancellationToken ct)

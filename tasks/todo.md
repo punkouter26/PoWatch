@@ -206,3 +206,20 @@ Rules for every task:
 
 Then Phase 5: full suite, `/code-review`, `/security-review`, `/simplify`, `/ponytail-review`, and
 evidence for SPEC §15 criteria 1–15.
+
+### H — Extras (asked for by the user on 2026-09-25)
+- [x] **H1** Durable outbox + installable app.
+  - `wwwroot/js/outbox.js` (IndexedDB), `SensingSession` keeps each batch there until acknowledged and
+    re-posts leftovers from earlier page loads at app open and at Start. Sending no longer blocks the
+    flush loop, so a request hanging on a dead network can't stop batches from being persisted.
+    `PostBatchAsync` treats 401/408/429 as retryable (SPEC §14: keep the queue when sign-in expires).
+    `manifest.webmanifest` + 192/512 icons.
+  - Verified in Chromium: no installability errors; going offline queued 2 batches, killing the tab and
+    reopening posted both (200) and emptied the outbox.
+- [x] **H2** On-device time-lapse.
+  - `wwwroot/js/timelapse.js`: the pixel layer's worker clock saves one 480 px JPEG a minute (first
+    one as soon as the camera has a frame), 7-day retention. `/history` panel H7 plays the day and
+    offers the `MediaRecorder` WebM as a download.
+  - Verified: 72 frames play with a time stamp and record a 110 KB WebM. History UI test asserts the panel.
+  - Not done: no offline app shell (service worker); stale leftover sessions stay "running" on the server.
+

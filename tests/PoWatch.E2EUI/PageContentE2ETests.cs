@@ -145,6 +145,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("history-calendar")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
+        await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
 
         var today = await page.GetByTestId("history-day").TextContentAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Previous day" }).ClickAsync();

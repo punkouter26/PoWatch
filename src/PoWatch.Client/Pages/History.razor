@@ -2,6 +2,7 @@
 @page "/archives"
 @using System.Globalization
 @inject PoWatchApiClient Api
+@inject IJSRuntime JS
 
 <PageTitle>PoWatch | History</PageTitle>
 
@@ -123,6 +124,28 @@
             }
         </ChildContent>
     </TerminalPanel>
+
+    <TerminalPanel Number="H7" Title="Time-lapse" Class="term-span-2" Test="history-timelapse">
+        <Aside>@_frames FRAMES · THIS DEVICE</Aside>
+        <ChildContent>
+            @if (_frames == 0)
+            {
+                <p class="term-empty">No time-lapse for this day on this device. While a camera session runs, one frame a minute is saved in this browser only, for 7 days.</p>
+            }
+            else
+            {
+                <canvas @ref="_timelapse" class="timelapse-canvas" aria-label="Time-lapse of the day"></canvas>
+                <div class="timelapse-actions">
+                    <button class="term-button" @onclick="PlayTimelapseAsync" disabled="@_playing" data-test="timelapse-play">@(_playing ? "Playing…" : "▶ Play")</button>
+                    @if (_videoUrl is { } url)
+                    {
+                        <a class="term-button" href="@url" download="powatch-@(DayKey).webm" data-test="timelapse-save">Save video</a>
+                    }
+                    <span class="term-stat-hint">@Duration((double)_frames / TimelapseFps) at @TimelapseFps fps</span>
+                </div>
+            }
+        </ChildContent>
+    </TerminalPanel>
 </div>
 
 @code {
@@ -139,6 +162,14 @@
     private List<MomentDto> _moments = [];
     private List<double> _calendarCells = [];
     private Dictionary<int, DateOnly> _calendarDates = [];
+
+    private const int TimelapseFps = 24;
+    private ElementReference _timelapse;
+    private int _frames;
+    private bool _playing;
+    private string? _videoUrl;
+
+    private string DayKey => _day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     protected override async Task OnInitializedAsync()
     {
@@ -181,11 +212,22 @@
             .OrderBy(s => s.StartedUtc)
             .ToList();
 
+        _videoUrl = null;
+        _frames = await JS.TryInvokeAsync<int>("powatchTimelapse.count", DayKey);
+
         var moments = await Task.WhenAll(_sessions.Select(s => Api.GetMomentsAsync(s.Id)));
         _moments = moments.SelectMany(m => m)
             .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == _day)
             .OrderByDescending(m => m.Score)
             .ToList();
+    }
+
+    /// <summary>Plays the day's frames (stored only in this browser) and offers the recording as a download.</summary>
+    private async Task PlayTimelapseAsync()
+    {
+        _playing = true;
+        _videoUrl = await JS.TryInvokeAsync<string>("powatchTimelapse.play", _timelapse, DayKey, TimelapseFps);
+        _playing = false;
     }
 
     private void BuildCalendar()

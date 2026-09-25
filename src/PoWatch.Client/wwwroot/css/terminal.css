@@ -831,3 +831,8 @@ html, body {
 .trophy-toast-kicker { font: 600 10px var(--term-mono); letter-spacing: 0.08em; color: var(--term-accent); }
 
 @media (prefers-reduced-motion: reduce) { .trophy-toast { animation: none; } }
+
+/* ── Time-lapse (History) ─────────────────────────────────────────────── */
+
+.timelapse-canvas { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: 2px; }
+.timelapse-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }

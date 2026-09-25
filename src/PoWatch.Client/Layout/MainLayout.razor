@@ -69,6 +69,7 @@ else
         if (!firstRender) return;
         Sensing.Feed = _feed;
         await JS.TryInvokeVoidAsync("powatchKeybindings.setup");
+        await Sensing.ResendLeftoversAsync();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)

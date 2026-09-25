@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 
@@ -26,12 +27,14 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 
     /// <summary>
     /// Posts one ingest batch. Returns null when the server refused it outright (4xx) so the caller
-    /// can drop it; throws on transport or server errors so the caller keeps it for a retry.
+    /// can drop it; throws on transport or server errors, an expired sign-in, a timeout or rate
+    /// limiting, so the caller keeps it for a retry.
     /// </summary>
     public async Task<IngestBatchResultDto?> PostBatchAsync(Guid sessionId, IngestBatchDto batch, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.PostAsJsonAsync($"api/sessions/{sessionId}/batches", batch, Json.IngestBatchDto, cancellationToken);
-        if ((int)response.StatusCode is >= 400 and < 500) return null;
+        var retryable = response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests;
+        if (!retryable && (int)response.StatusCode is >= 400 and < 500) return null;
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(Json.IngestBatchResultDto, cancellationToken);
     }

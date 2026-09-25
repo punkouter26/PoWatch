@@ -18,6 +18,7 @@
   const WIDTH = COLS * CELL;   // 64
   const HEIGHT = ROWS * CELL;  // 36
   const DELTA = 28;            // same per-pixel threshold as the VLM's frame-diff gate
+  const TIMELAPSE_MS = 60000;  // one time-lapse frame a minute (timelapse.js)
 
   // currentScript is only set while this file first runs, so resolve the worker URL now.
   const CLOCK_URL = new URL('./sample-clock.js', document.currentScript?.src ?? location.href);
@@ -98,9 +99,13 @@
   async function start(video, dotnetRef, intervalMs) {
     stop();
     _previous = null;
+    const every = Math.max(1, Math.round(TIMELAPSE_MS / (intervalMs || 250)));
+    let ticks = 0;
     _clock = new Worker(CLOCK_URL, { type: 'module' });
     _clock.onmessage = () => {
       const s = sample(video);
+      // Only ticks with a frame count, so the first time-lapse frame lands as soon as the camera has one.
+      if (s && ticks++ % every === 0) window.powatchTimelapse?.capture(video);
       // JSON text, parsed by .NET's source-generated context: trim-safe, no reflection.
       if (s) dotnetRef.invokeMethodAsync('OnPixelSample', JSON.stringify(s)).catch(() => { /* circuit gone */ });
     };
