@@ -140,8 +140,13 @@ Rules for every task:
 ### Phase 3 gate — done: "Terminal" chosen, component hierarchy confirmed (see SPEC §2a).
 
 ### E — UI (Radzen first, mission-control theme)
-- [ ] **E1** Theme tokens (dark default, `--rz-*` mapping, monospace numerals) + new nav (Live, Stats,
+- [x] **E1** Theme tokens (dark default, `--rz-*` mapping, monospace numerals) + new nav (Live, Stats,
   History, Regulars, Trophies, System).
+  - Done: `terminal.css` (self-hosted JetBrains Mono and Space Grotesk, `--rz-*` mapped, old tokens
+    re-pointed), header, key bar with `PWCH>` command line, ticker, and panel primitives
+    (`TerminalPanel`, `StatCell`, `Sparkline`, `ZChip`, `HeatGrid`). Number keys and Ctrl+1–6
+    navigate (F-keys and Ctrl+R stay with the browser). The shell is one viewport tall and only
+    `<main>` scrolls. Old routes keep aliases until their pages are rebuilt. Dev HTTP port is now 80.
 - [ ] **E2** Live page rewrite: overlay canvas (boxes + motion heat), live counters and sparklines,
   Start/Stop session, Wake Lock.
 - [ ] **E3** `/stats` shell + range picker + Presence & Motion + Space tabs.
