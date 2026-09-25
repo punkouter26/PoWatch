@@ -29,6 +29,7 @@
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" />
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Bogus" />
   </ItemGroup>
 
   <ItemGroup>

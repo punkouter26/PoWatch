@@ -89,14 +89,19 @@ Rules for every task:
   - Done: one `StatsStoreContractTests` script runs every store against in-memory and Azurite
     (3 tests), including 20 concurrent merges into one bucket. An `IIngestLedger` claims each
     batch key once so replays never double-count rollups.
-- [ ] **C4** `SessionService` + `/api/sessions` (start with tz, stop, list, get) + DTOs + JSON ctx.
+- [x] **C4** `SessionService` + `/api/sessions` (start with tz, stop, list, get) + DTOs + JSON ctx.
   - AC: API E2E session lifecycle passes.
-- [ ] **C5** `IngestService` + `POST /api/sessions/{id}/batches` (FluentValidation; idempotency
+- [x] **C5** `IngestService` + `POST /api/sessions/{id}/batches` (FluentValidation; idempotency
   extended to `batchKey`; writes ticks and events, merges rollups; HybridCache tag eviction).
   - AC: replaying ×3 gives identical rollups; a future tick gets 400.
-- [ ] **C6** `StatsQueryService` + `/api/stats/{family}?range=` (A–D, F) + the dev-only Bogus seed
+  - Done as: the durable `IIngestLedger` plus idempotent upserts handle replays, so the in-memory
+    10-minute idempotency middleware was not extended. Accepted batches evict the user's stats cache tag.
+- [x] **C6** `StatsQueryService` + `/api/stats/{family}?range=` (A–D, F) + the dev-only Bogus seed
   endpoint.
   - AC: Today ≤ 1.5 s and all-time over 365 seeded days ≤ 2 s (API E2E timing). **CHECKPOINT**
+  - Done: six families (`presence`, `space`, `objects`, `patterns`, `environment`, `pipeline`) with
+    HybridCache per user; seed endpoint exists only in Development/Test. API E2E merged 25 → 17
+    before adding the session and stats tests (now 21/25).
 
 ### D — Client sensing
 - [ ] **D0 (spike, no commit unless adopted)** Background-tab behavior: worker timer +

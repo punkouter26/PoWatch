@@ -70,6 +70,8 @@
   <!-- Stats math -->
   <ItemGroup>
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.12" />
+    <!-- Synthetic history for the dev seed endpoint and perf fixtures (server only: reflection-based) -->
+    <PackageVersion Include="Bogus" Version="35.6.5" />
   </ItemGroup>
   <!-- Polly for resilience -->
   <ItemGroup>

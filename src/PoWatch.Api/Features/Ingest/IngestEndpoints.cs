@@ -1,4 +1,6 @@
 using FluentValidation;
+using Microsoft.Extensions.Caching.Hybrid;
+using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
@@ -16,6 +18,7 @@ internal static class IngestEndpoints
                 HttpContext http,
                 IValidator<IngestBatchDto> validator,
                 IngestService service,
+                HybridCache cache,
                 CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
@@ -34,6 +37,7 @@ internal static class IngestEndpoints
 
                 if (!outcome.SessionFound) return Results.NotFound();
                 if (!outcome.Accepted) return Results.BadRequest(Rejected(outcome.Errors));
+                if (!outcome.Replayed) await cache.RemoveByTagAsync(StatsEndpoints.CacheTag(userId), ct);
 
                 return Results.Ok(new IngestBatchResultDto
                 {
