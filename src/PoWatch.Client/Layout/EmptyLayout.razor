@@ -1,16 +1,11 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Nav
-@*
-    A chrome-free shell used by routes that should NOT render the topbar/notification/dialog
-    hosts (e.g. /login before auth, /display on a kiosk). The MainLayout owns the Radzen hosts
-    (Notification, Dialog, Tooltip, ContextMenu, ErrorBoundary). For a fully anonymous
-    experience we still mount ErrorBoundary and RadzenNotification because the latter is the
-    only safe channel for "Microsoft sign-in returned an error" feedback — but we omit the
-    topbar entirely so a sign-in screen doesn't show an empty brand rail.
-*@
+@* A chrome-free shell for routes that must not show the header (e.g. /login before auth). *@
 
 <CascadingAuthenticationState>
-    <ErrorBoundary @key="Nav.Uri">
+    @* App.razor focuses "main" after navigation; without one, keyboard users land nowhere on sign-in. *@
+    <main tabindex="-1">
+    <ErrorBoundary @key="new Uri(Nav.Uri).AbsolutePath">
         <ChildContent>
             @Body
         </ChildContent>
@@ -21,6 +16,5 @@
             </div>
         </ErrorContent>
     </ErrorBoundary>
+    </main>
 </CascadingAuthenticationState>
-
-<RadzenNotification />

@@ -17,12 +17,20 @@
   // off the main thread so the browser UI stays responsive.
   // ---------------------------------------------------------------------------
   let _worker = null;
+
+  // The caption model picked on Live, remembered per browser. It rides on every RUN_INFERENCE, so a
+  // fresh worker (after a reload or a crash) switches to it before its first caption.
+  const MODEL_KEY = 'powatch.vlm-model';
+  function savedModel() {
+    try { return localStorage.getItem(MODEL_KEY); } catch { return null; }
+  }
+
   let _pendingMessages = new Map(); // msgId -> { resolve, reject }
   let _msgId = 0;
 
   function getWorker() {
     if (!_worker) {
-      _worker = new Worker('/js/inference-worker.js?v=20260820-model-selftest', { type: 'module' });
+      _worker = new Worker('/js/inference-worker.js?v=20260925-early-messages', { type: 'module' });
       _worker.onmessage = (e) => {
         const { id, type, ...rest } = e.data;
         // Unsolicited state broadcasts from the worker (e.g. during model loading)
@@ -329,6 +337,7 @@
         base64Frame,
         prompt,
         maxNewTokens: maxInferenceTokens,
+        modelKey: savedModel(),
       });
       return {
         ...res.result,
@@ -387,8 +396,14 @@
     },
 
     setModel(modelKey) {
+      try { localStorage.setItem(MODEL_KEY, modelKey); } catch { /* private mode: this tab only */ }
       _cachedLoadState = 'idle';
       postToWorker('SET_MODEL', { modelKey });
+    },
+
+    /** The saved caption model key, or null for the registry default. */
+    getModel() {
+      return savedModel();
     },
 
     setPowerPreference(preference) {

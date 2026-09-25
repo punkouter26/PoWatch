@@ -7,21 +7,21 @@
 else
 {
     <div class="term-grid" data-test="stats-space">
-        <TerminalPanel Number="A3" Title="Where motion happens" Class="term-span-2">
+        <TerminalPanel Number="A3" Title="Where motion happens">
             <Aside>@(Data.HottestCell >= 0 ? $"HOTTEST {Cell(Data.HottestCell)}" : "NO MOTION YET")</Aside>
             <ChildContent>
                 <HeatGrid Values="@Data.MotionHeat" Label="Motion across the frame" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0} of the hottest")" />
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="A4" Title="Where people & animals hang out" Class="term-span-2">
+        <TerminalPanel Number="A4" Title="Where people & animals hang out">
             <Aside>@(Data.FavouriteSpotCell >= 0 ? $"FAVOURITE {Cell(Data.FavouriteSpotCell)}" : "NOBODY YET")</Aside>
             <ChildContent>
                 <HeatGrid Values="@Data.PresenceHeat" Label="Where tracked people and animals were centred" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0}")" />
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="A5" Title="Doors · entry and exit edges" Class="term-span-4" Flush="true">
+        <TerminalPanel Number="A5" Title="Doors · entry and exit edges" Class="term-span-2" Flush="true">
             <Aside>BUSIEST: @Data.BusiestEdge.ToUpperInvariant()</Aside>
             <ChildContent>
                 <table class="term-table">

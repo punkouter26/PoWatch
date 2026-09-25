@@ -56,5 +56,12 @@
     return all.filter((b) => b.sessionId === sessionId).sort((a, b) => a.at - b.at).map((b) => b.json);
   }
 
-  window.powatchOutbox = { put, remove, sessions, batches };
+  // A tab closed or reloaded mid-session never reaches Stop, and the server would list that session as
+  // running forever. End it on the way out; its unsent batches still replay from this outbox later.
+  let running = null;
+  addEventListener('pagehide', () => { if (running) navigator.sendBeacon(`api/sessions/${running}/stop`); });
+  const guard = (sessionId) => { running = sessionId; };
+  const unguard = () => { running = null; };
+
+  window.powatchOutbox = { put, remove, sessions, batches, guard, unguard };
 })();

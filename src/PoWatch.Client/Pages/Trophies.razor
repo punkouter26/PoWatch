@@ -6,7 +6,7 @@
 
 <PageTitle>PoWatch | Trophies</PageTitle>
 
-@* One panel: personal records as a strip, then what you have unlocked, with the locked ones folded away. *@
+@* One panel: personal records as a strip, then what you have unlocked, then (dimmed, foldable) what is still locked. *@
 <TerminalPanel Number="E1" Title="Trophy cabinet" Test="trophy-cabinet">
     <Aside>@Unlocked.Count / @(_cabinet?.Achievements.Count ?? 0) UNLOCKED</Aside>
     <ChildContent>
@@ -44,7 +44,7 @@
 
             @if (Locked.Count > 0)
             {
-                <details class="trophy-locked">
+                <details class="trophy-locked" open>
                     <summary>@Locked.Count still locked</summary>
                     <ul class="trophy-grid trophy-grid--locked">
                         @foreach (var a in Locked)

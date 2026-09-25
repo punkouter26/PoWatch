@@ -7,7 +7,7 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 
-@* One row: brand, section keys + command line, one status chip, Start/Stop, and a settings menu.
+@* One row (two on a phone, where the keys drop below): brand, section keys, one status chip, Start/Stop, and a settings menu.
    The active key names the section, so there is no separate page title. *@
 <header class="term-header" data-test="term-header">
     <a class="term-brand" href="" aria-label="PoWatch home">
@@ -53,6 +53,9 @@
             <button class="term-menu-item" @onclick="ToggleThemeAsync" data-test="theme-toggle">
                 <span>Theme</span><b>@_theme.ToUpperInvariant()</b>
             </button>
+            <a class="term-menu-item" href="display" data-test="menu-wall" title="Full-screen stats for a second monitor or a TV">
+                <span>Stats wall</span><b>OPEN</b>
+            </a>
             <button class="term-menu-item" @onclick="SignOutAsync" disabled="@_signingOut" data-test="sign-out">
                 <span>Sign out</span><b class="term-menu-email">@_email</b>
             </button>

@@ -28,7 +28,7 @@
     <span class="term-stat-hint" data-test="stats-window">@WindowLabel</span>
 </div>
 
-<RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Client" data-test="stats-tabs">
+<RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Server" data-test="stats-tabs">
     <Tabs>
         @* Pipeline numbers are operations, not the room: they live on System. *@
         <RadzenTabsItem Text="Presence & space">
@@ -58,6 +58,9 @@
     private DateTimeOffset _lastPush;
 
     [SupplyParameterFromQuery(Name = "range")] public string? RangeParameter { get; set; }
+
+    /// <summary>A session to open straight away (History links each of its sessions here).</summary>
+    [SupplyParameterFromQuery(Name = "session")] public Guid? SessionParameter { get; set; }
 
     private string WindowLabel => _range switch
     {
@@ -92,6 +95,13 @@
 
     protected override void OnParametersSet()
     {
+        if (SessionParameter is { } session && (session != _sessionId || _range != "session"))
+        {
+            (_range, _sessionId) = ("session", session);
+            Apply();
+            return;
+        }
+
         if (RangeParameter is "session" or "today" or "7d" or "30d" or "all" && RangeParameter != _range)
         {
             _range = RangeParameter;

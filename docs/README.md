@@ -4,8 +4,7 @@ PoWatch is a stat-heavy webcam app. Point a camera at anything, press **Start**,
 back to a nerdy statistical picture of what happened. It is a single-user, hosted app: a Blazor
 WebAssembly client served by an ASP.NET Core API on .NET 10.
 
-`SPEC.md` (repo root) is the source of truth for behavior; `CAPABILITY-MAP.md` says which project owns
-what. This page is the short tour.
+This page is the source of truth for behavior; the code and tests fill in the detail.
 
 ## How it works
 
@@ -46,7 +45,7 @@ camera ──► browser (all sensing on-device)                        server
 
 `/` Live · `/stats` four tabs with a range picker · `/history` calendar → day (stats, recap + PDF,
 sessions, moments, captions, time-lapse) · `/regulars` name/rename/merge · `/trophies` · `/display`
-full-screen stats wall · `/system` (also `/health`) connections, runtime, inference, pipeline and model self-tests.
+full-screen stats wall (settings menu → Stats wall) · `/system` (also `/health`) connections, runtime, inference, pipeline and model self-tests.
 
 **Scene effects** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) come only from live numbers:
 a Web Audio drone (light → pitch, motion → filter, who's in frame → chord), arrival plucks, anomaly

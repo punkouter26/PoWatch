@@ -27,7 +27,7 @@ else
                     <RadzenAreaSeries Data="@_points" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Motion)" Title="Mean motion" Smooth="false" />
                     <RadzenLineSeries Data="@_points" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Occupancy)" Title="Occupancy (rolling)" />
                     <RadzenCategoryAxis Formatter="@FormatAxis" />
-                    <RadzenValueAxis Min="0" />
+                    <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
                     <RadzenLegend Position="LegendPosition.Top" />
                 </RadzenChart>
             </ChildContent>

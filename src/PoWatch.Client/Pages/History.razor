@@ -14,8 +14,8 @@
 </div>
 
 <div class="term-grid">
-    <TerminalPanel Number="H1" Title="The year" Class="term-span-4" Test="history-calendar">
-        <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS RECORDED · CLICK A DAY TO OPEN IT</Aside>
+    <TerminalPanel Number="H1" Title="The year" Class="term-span-2" Test="history-calendar">
+        <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS · CLICK ONE TO OPEN IT</Aside>
         <ChildContent>
             <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
                       Selected="@CellFor(_day)" OnCellClick="@(i => DayFor(i) is { } d ? GoAsync(d) : Task.CompletedTask)"
@@ -23,7 +23,7 @@
         </ChildContent>
     </TerminalPanel>
 
-    <TerminalPanel Number="H2" Title="The day" Class="term-span-4" Test="history-day-stats">
+    <TerminalPanel Number="H2" Title="The day" Class="term-span-2" Test="history-day-stats">
         <Aside>
             @if (_recap is not null && _presence is { SecondsObserved: > 0 })
             {
@@ -31,7 +31,11 @@
             }
         </Aside>
         <ChildContent>
-            @if (_presence is null || _presence.SecondsObserved == 0)
+            @if (!_loaded)
+            {
+                <p class="term-empty">Loading…</p>
+            }
+            else if (_presence is null || _presence.SecondsObserved == 0)
             {
                 <p class="term-empty" data-test="history-empty">Nothing was observed on this day.</p>
             }
@@ -70,7 +74,7 @@
         <RadzenChart class="history-chart" aria-label="Motion across the day">
             <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
             <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
-            <RadzenValueAxis Min="0" />
+            <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
             <RadzenLegend Visible="false" />
         </RadzenChart>
     </TerminalPanel>
@@ -78,7 +82,11 @@
     <TerminalPanel Number="H4" Title="Sessions" Class="term-span-2" Test="history-sessions" Flush="true">
         <Aside>@_sessions.Count THAT DAY</Aside>
         <ChildContent>
-            @if (_sessions.Count == 0)
+            @if (!_loaded)
+            {
+                <p class="term-empty">Loading…</p>
+            }
+            else if (_sessions.Count == 0)
             {
                 <p class="term-empty">No sessions ran on this day.</p>
             }
@@ -94,7 +102,7 @@
                                 <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
                                 <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
                                 <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
-                                <td class="r"><a href="stats?range=session" title="Open the Stats page for sessions">stats</a></td>
+                                <td class="r"><a href="stats?session=@s.Id" title="Open this session on the Stats page">stats</a></td>
                             </tr>
                         }
                     </tbody>
@@ -181,6 +189,7 @@
     private static DateOnly CalendarStart => Today.AddDays(-(52 * 7) - (int)Today.DayOfWeek);
 
     private DateOnly _day = Today;
+    private bool _loaded;
     private PresenceStatsDto? _presence;
     private RecapDto? _recap;
     private EnvironmentStatsDto? _environment;
@@ -233,12 +242,15 @@
 
     private async Task LoadDayAsync()
     {
+        var day = _day;
+        _loaded = false;
         var query = StatsQuery.ForDay(_day);
         var presence = Api.GetPresenceAsync(query);
         var environment = Api.GetEnvironmentAsync(query);
         var sessions = Api.ListSessionsAsync(100);
         var recap = Api.GetDayRecapAsync(_day, TimeZoneInfo.Local.Id);
         await Task.WhenAll(presence, environment, sessions, recap);
+        if (day != _day) return; // A newer ◀/▶ press owns the panels now.
 
         _recap = recap.Result;
 
@@ -253,11 +265,13 @@
             .Where(s => s.StartedUtc.LocalDateTime < end && (s.EndedUtc?.LocalDateTime ?? DateTime.Now) >= start)
             .OrderBy(s => s.StartedUtc)
             .ToList();
+        _loaded = true;
 
         _videoUrl = null;
         _frames = await JS.TryInvokeAsync<int>("powatchTimelapse.count", DayKey);
 
         var moments = await Task.WhenAll(_sessions.Select(s => Api.GetMomentsAsync(s.Id)));
+        if (day != _day) return;
         _moments = moments.SelectMany(m => m)
             .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == _day)
             .OrderByDescending(m => m.Score)

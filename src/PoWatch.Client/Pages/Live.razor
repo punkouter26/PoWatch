@@ -6,181 +6,202 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject StatsFeed Feed
+@inject ModelRegistryService Registry
 
 <PageTitle>PoWatch | Live</PageTitle>
 
 @* Four panels: the camera, the numbers, who and what is in frame, and where it moves. Recent events
-   scroll on the tape below; pipeline details live on System. *@
+   scroll on the tape below; pipeline details live on System. On a wide screen the two columns fill
+   the viewport (the camera grows into the height left over); narrower, they fall back to the grid. *@
 <div class="term-grid live-grid">
-    <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2" Test="live-camera" Flush="true">
-        <Aside>
-            @if (Sensing.IsRunning)
-            {
-                <span data-test="stat-pixel-hz">@L.PixelHz.ToString("0.0", CultureInfo.InvariantCulture)</span>
-                @($" FPS · DETECTOR {L.DetectorHz.ToString("0.0", CultureInfo.InvariantCulture)} Hz · {L.Tracks.Count} TRACKS")
-            }
-            else
-            {
-                @("STANDBY")
-            }
-        </Aside>
-        <ChildContent>
-            @* The camera element itself lives in the layout and is docked over this slot. *@
-            <div class="live-feed" @ref="_slot">
-                @* Comet trails of everyone in frame, drawn by fx.js. *@
-                <canvas class="fx-trails" data-fx-trails aria-hidden="true"></canvas>
-
-                @foreach (var track in L.Tracks)
+    <div class="live-col live-col--main">
+        <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2 live-camera" Test="live-camera" Flush="true">
+            <Aside>
+                @if (Sensing.IsRunning)
                 {
-                    <div class="live-box @(track.Label == "person" ? "live-box--person" : string.Empty)"
-                         style="left: @Pct(track.Box.X0 * 100)%; top: @Pct(track.Box.Y0 * 100)%; width: @Pct((track.Box.X1 - track.Box.X0) * 100)%; height: @Pct((track.Box.Y1 - track.Box.Y0) * 100)%;">
-                        <span>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label) @track.Box.Score.ToString("0.00", CultureInfo.InvariantCulture) · #@track.TrackId</span>
-                    </div>
-                }
-
-                @if (!Sensing.IsRunning)
-                {
-                    <div class="live-standby" data-test="live-standby">
-                        <p>Point a camera at anything, press Start, walk away.</p>
-                        <div class="live-actions">
-                            <button class="term-button term-button--primary" @onclick="() => StartAsync(demo: false)" disabled="@_starting" data-test="start-camera">Start camera</button>
-                            <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">Demo scene</button>
-                            <label class="live-toggle">
-                                <input type="checkbox" @bind="Sensing.Captions" /> Captions (vision model)
-                            </label>
-                        </div>
-                        @if (_error is not null)
-                        {
-                            <p class="live-error" role="alert" data-test="live-error">@_error</p>
-                        }
-                    </div>
-                }
-                else if (Sensing.Live.Demo)
-                {
-                    <div class="live-demo-note" aria-hidden="true">DEMO SCENE · SYNTHETIC</div>
-                }
-            </div>
-            <div class="live-caption" data-test="live-caption">
-                <span class="live-caption-tag">VLM @(L.LastCaptionUtc?.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture) ?? "--:--:--")</span>
-                @if (L.LastCaption is { } caption)
-                {
-                    @* Keyed, so each new caption types itself out afresh. *@
-                    <span @key="L.LastCaptionUtc" class="fx-type" style="--chars: @caption.Length">@caption</span>
+                    <span data-test="stat-pixel-hz">@L.PixelHz.ToString("0.0", CultureInfo.InvariantCulture)</span>
+                    @($" FPS · DETECTOR {L.DetectorHz.ToString("0.0", CultureInfo.InvariantCulture)} Hz · {L.Tracks.Count} TRACKS")
                 }
                 else
                 {
-                    <span>@(Sensing.IsRunning ? "Waiting for the first caption…" : "—")</span>
+                    @("STANDBY")
                 }
-                @if (L.LastError is not null)
-                {
-                    <span class="live-error" role="status">@L.LastError</span>
-                }
-            </div>
-        </ChildContent>
-    </TerminalPanel>
+            </Aside>
+            <ChildContent>
+                @* The camera element itself lives in the layout and is docked over this slot. *@
+                <div class="live-stage">
+                    <div class="live-feed" @ref="_slot">
+                        @* Comet trails of everyone in frame, drawn by fx.js. *@
+                        <canvas class="fx-trails" data-fx-trails aria-hidden="true"></canvas>
 
-    <TerminalPanel Number="02" Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
-        <Aside>TODAY vs USUAL</Aside>
-        <ChildContent>
-            <table class="term-table">
-                <thead><tr><th>Metric</th><th class="r">Now</th><th class="r">Chg</th><th class="live-trend">Trend</th></tr></thead>
-                <tbody>
-                    <tr data-test="metric-occupancy">
-                        <td>OCCUPANCY TODAY</td>
-                        <td class="r">@Percent(_today?.Occupancy)</td>
-                        <td class="r"><ZChip Z="@Anomaly("occupancy")" /></td>
-                        <td><Sparkline Values="@(_today?.Series.Select(p => p.Occupancy).TakeLast(120).ToList() ?? [])" Max="1" Label="Occupancy today" /></td>
-                    </tr>
-                    <tr>
-                        <td>VISITS / HR TODAY</td>
-                        <td class="r">@(_today is null ? "—" : _today.VisitsPerHour.ToString("0.0", CultureInfo.InvariantCulture))</td>
-                        <td class="r"><ZChip Z="@Anomaly("visits/hour")" /></td>
-                        <td><Sparkline Values="@(_today?.Series.Select(p => (double)p.Visits).TakeLast(120).ToList() ?? [])" Cyan="true" Label="Visits today" /></td>
-                    </tr>
-                    <tr>
-                        <td>MOTION NOW</td>
-                        <td class="r" data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</td>
-                        <td class="r"><ZChip Z="@Anomaly("motion")" /></td>
-                        <td><Sparkline Values="@L.MotionHistory" Label="Motion, last minute" /></td>
-                    </tr>
-                    <tr data-test="live-light">
-                        <td>LIGHT · COLOURS NOW</td>
-                        <td class="r">@L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</td>
-                        <td class="r"></td>
-                        <td>
-                            <Sparkline Values="@L.LuminanceHistory" Max="1" Cyan="true" Label="Light, last minute" />
-                            <div class="term-swatches live-swatches" aria-label="Colours in frame now">
-                                @foreach (var color in L.Palette)
+                        @foreach (var track in L.Tracks)
+                        {
+                            <div class="live-box @(track.Label == "person" ? "live-box--person" : string.Empty)"
+                                 style="left: @Pct(track.Box.X0 * 100)%; top: @Pct(track.Box.Y0 * 100)%; width: @Pct((track.Box.X1 - track.Box.X0) * 100)%; height: @Pct((track.Box.Y1 - track.Box.Y0) * 100)%;">
+                                <span>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label) @track.Box.Score.ToString("0.00", CultureInfo.InvariantCulture) · #@track.TrackId</span>
+                            </div>
+                        }
+
+                        @if (!Sensing.IsRunning)
+                        {
+                            <div class="live-standby" data-test="live-standby">
+                                <p>Point a camera at anything, press Start, walk away.</p>
+                                <div class="live-actions">
+                                    <button class="term-button term-button--primary" @onclick="() => StartAsync(demo: false)" disabled="@_starting" data-test="start-camera">Start camera</button>
+                                    <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">Demo scene</button>
+                                    <label class="live-toggle">
+                                        <input type="checkbox" @bind="Sensing.Captions" /> Captions (vision model)
+                                    </label>
+                                    @if (_models.Length > 0)
+                                    {
+                                        @* Runs in this browser; the pick is remembered here (inference-bridge.js). *@
+                                        <label class="live-toggle">
+                                            Model
+                                            <select @bind="_model" @bind:after="PickModelAsync" disabled="@(!Sensing.Captions)" data-test="caption-model">
+                                                @foreach (var model in _models)
+                                                {
+                                                    <option value="@model.Key">@model.Label@(model == _models[0] ? " (default)" : string.Empty)</option>
+                                                }
+                                            </select>
+                                        </label>
+                                    }
+                                </div>
+                                @if (_error is not null)
                                 {
-                                    <span style="background: #@color.ToString("x6", CultureInfo.InvariantCulture)"></span>
+                                    <p class="live-error" role="alert" data-test="live-error">@_error</p>
                                 }
                             </div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>PEOPLE · ANIMALS NOW</td>
-                        <td class="r" data-test="metric-people">@L.PeopleNow · @L.AnimalsNow</td>
-                        <td class="r"></td>
-                        <td class="term-stat-hint">peak @L.PeakConcurrency this session</td>
-                    </tr>
-                    <tr>
-                        <td>VISITS THIS SESSION</td>
-                        <td class="r" data-test="metric-visits">@L.Visits</td>
-                        <td class="r"></td>
-                        <td class="term-stat-hint">@L.Captions captions</td>
-                    </tr>
-                </tbody>
-            </table>
-        </ChildContent>
-    </TerminalPanel>
-
-    <TerminalPanel Number="03" Title="In frame" Test="live-tracks" Flush="true">
-        <Aside>@L.Tracks.Count TRACKED · @CensusRows.Count CLASSES</Aside>
-        <ChildContent>
-            @if (L.Tracks.Count > 0)
-            {
-                <ul class="live-who" aria-label="Tracked right now">
-                    @foreach (var track in L.Tracks.Take(8))
-                    {
-                        <li>#@track.TrackId <b>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label)</b> @DisplayText.Duration((DateTimeOffset.UtcNow - track.FirstSeenUtc).TotalSeconds)</li>
-                    }
-                </ul>
-            }
-            @if (CensusRows.Count == 0)
-            {
-                <p class="term-empty">Nothing seen yet.</p>
-            }
-            else
-            {
-                <table class="term-table" data-test="live-census">
-                    <thead><tr><th>Class</th><th class="r">Now</th><th class="r">Peak</th><th class="r">Share</th></tr></thead>
-                    <tbody>
-                        @foreach (var row in CensusRows.Take(8))
-                        {
-                            <tr><td>@row.Name</td><td class="r">@L.ClassesNow.GetValueOrDefault(row.Name)</td><td class="r">@row.Peak</td><td class="r">@Percent(row.Share)</td></tr>
                         }
+                        else if (Sensing.Live.Demo)
+                        {
+                            <div class="live-demo-note" aria-hidden="true">DEMO SCENE · SYNTHETIC</div>
+                        }
+                    </div>
+                </div>
+                <div class="live-caption" data-test="live-caption">
+                    <span class="live-caption-tag">VLM @(L.LastCaptionUtc?.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture) ?? "--:--:--")</span>
+                    @if (L.LastCaption is { } caption)
+                    {
+                        @* Keyed, so each new caption types itself out afresh. *@
+                        <span @key="L.LastCaptionUtc" class="fx-type" style="--chars: @caption.Length">@caption</span>
+                    }
+                    else
+                    {
+                        <span>@(Sensing.IsRunning ? "Waiting for the first caption…" : "—")</span>
+                    }
+                    @if (L.LastError is not null)
+                    {
+                        <span class="live-error" role="status">@L.LastError</span>
+                    }
+                </div>
+            </ChildContent>
+        </TerminalPanel>
+
+        <TerminalPanel Number="02" Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
+            <Aside>TODAY vs USUAL</Aside>
+            <ChildContent>
+                <table class="term-table">
+                    <thead><tr><th>Metric</th><th class="r">Now</th><th class="r">Chg</th><th class="live-trend">Trend</th></tr></thead>
+                    <tbody>
+                        <tr data-test="metric-occupancy">
+                            <td>OCCUPANCY TODAY</td>
+                            <td class="r">@Percent(_today?.Occupancy)</td>
+                            <td class="r"><ZChip Z="@Anomaly("occupancy")" /></td>
+                            <td><Sparkline Values="@(_today?.Series.Select(p => p.Occupancy).TakeLast(120).ToList() ?? [])" Max="1" Label="Occupancy today" /></td>
+                        </tr>
+                        <tr>
+                            <td>VISITS / HR TODAY</td>
+                            <td class="r">@(_today is null ? "—" : _today.VisitsPerHour.ToString("0.0", CultureInfo.InvariantCulture))</td>
+                            <td class="r"><ZChip Z="@Anomaly("visits/hour")" /></td>
+                            <td><Sparkline Values="@(_today?.Series.Select(p => (double)p.Visits).TakeLast(120).ToList() ?? [])" Cyan="true" Label="Visits today" /></td>
+                        </tr>
+                        <tr>
+                            <td>MOTION NOW</td>
+                            <td class="r" data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</td>
+                            <td class="r"><ZChip Z="@Anomaly("motion")" /></td>
+                            <td><Sparkline Values="@L.MotionHistory" Label="Motion, last minute" /></td>
+                        </tr>
+                        <tr data-test="live-light">
+                            <td>LIGHT · COLOURS NOW</td>
+                            <td class="r">@L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</td>
+                            <td class="r"></td>
+                            <td>
+                                <Sparkline Values="@L.LuminanceHistory" Max="1" Cyan="true" Label="Light, last minute" />
+                                <div class="term-swatches live-swatches" aria-label="Colours in frame now">
+                                    @foreach (var color in L.Palette)
+                                    {
+                                        <span style="background: #@color.ToString("x6", CultureInfo.InvariantCulture)"></span>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>PEOPLE · ANIMALS NOW</td>
+                            <td class="r" data-test="metric-people">@L.PeopleNow · @L.AnimalsNow</td>
+                            <td class="r"></td>
+                            <td class="term-stat-hint">peak @L.PeakConcurrency this session</td>
+                        </tr>
+                        <tr>
+                            <td>VISITS THIS SESSION</td>
+                            <td class="r" data-test="metric-visits">@L.Visits</td>
+                            <td class="r"></td>
+                            <td class="term-stat-hint">@L.Captions captions</td>
+                        </tr>
                     </tbody>
                 </table>
-            }
-        </ChildContent>
-    </TerminalPanel>
+            </ChildContent>
+        </TerminalPanel>
+    </div>
 
-    <TerminalPanel Number="04" Title="Motion grid" Test="live-motion-grid">
-        <Aside>16×9 · EDGES TODAY</Aside>
-        <ChildContent>
-            @* The shader canvas covers the plain grid once WebGL2 is up (fx.js). *@
-            <div class="fx-heat-wrap">
-                <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
-                <canvas class="fx-heat" data-fx-heat aria-hidden="true"></canvas>
-            </div>
-            <div class="live-edges">
-                @foreach (var edge in Edges)
+    <div class="live-col">
+        <TerminalPanel Number="03" Title="In frame" Class="live-grow" Test="live-tracks" Flush="true">
+            <Aside>@L.Tracks.Count TRACKED · @CensusRows.Count CLASSES</Aside>
+            <ChildContent>
+                @if (L.Tracks.Count > 0)
                 {
-                    <span>@edge <b>@(_space?.Entries.GetValueOrDefault(edge) ?? 0)↓ @(_space?.Exits.GetValueOrDefault(edge) ?? 0)↑</b></span>
+                    <ul class="live-who" aria-label="Tracked right now">
+                        @foreach (var track in L.Tracks.Take(8))
+                        {
+                            <li>#@track.TrackId <b>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label)</b> @DisplayText.Duration((DateTimeOffset.UtcNow - track.FirstSeenUtc).TotalSeconds)</li>
+                        }
+                    </ul>
                 }
-            </div>
-        </ChildContent>
-    </TerminalPanel>
+                @if (CensusRows.Count == 0)
+                {
+                    <p class="term-empty">Nothing seen yet.</p>
+                }
+                else
+                {
+                    <table class="term-table" data-test="live-census">
+                        <thead><tr><th>Class</th><th class="r">Now</th><th class="r">Peak</th><th class="r">Share</th></tr></thead>
+                        <tbody>
+                            @foreach (var row in CensusRows.Take(8))
+                            {
+                                <tr><td>@row.Name</td><td class="r">@L.ClassesNow.GetValueOrDefault(row.Name)</td><td class="r">@row.Peak</td><td class="r">@Percent(row.Share)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </ChildContent>
+        </TerminalPanel>
+
+        <TerminalPanel Number="04" Title="Motion grid" Test="live-motion-grid">
+            <Aside>16×9 · EDGES TODAY</Aside>
+            <ChildContent>
+                @* The shader canvas covers the plain grid once WebGL2 is up (fx.js). *@
+                <div class="fx-heat-wrap">
+                    <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+                    <canvas class="fx-heat" data-fx-heat aria-hidden="true"></canvas>
+                </div>
+                <div class="live-edges">
+                    @foreach (var edge in Edges)
+                    {
+                        <span>@edge <b>@(_space?.Entries.GetValueOrDefault(edge) ?? 0)↓ @(_space?.Exits.GetValueOrDefault(edge) ?? 0)↑</b></span>
+                    }
+                </div>
+            </ChildContent>
+        </TerminalPanel>
+    </div>
 </div>
 
 @code {
@@ -196,6 +217,8 @@
     private PatternStatsDto? _patterns;
     private ObjectStatsDto? _objects;
     private CancellationTokenSource? _refresh;
+    private ModelRegistryEntry[] _models = [];
+    private string? _model;
     private DateTimeOffset _lastRender;
     private DateTimeOffset _lastPush;
 
@@ -229,13 +252,33 @@
             _self = DotNetObjectReference.Create(this);
             await JS.TryInvokeVoidAsync("powatchFeed.watchReturn", _self, 300);
             await DockFeedAsync();
+            await LoadModelsAsync();
         }
 
-        // ?start=camera|demo (header Start, command line) works whether or not Live was already open.
+        // ?start=camera|demo (header Start, or a typed URL) works whether or not Live was already open.
         if (StartMode is not { } mode || Sensing.IsRunning || _starting) return;
         Navigation.NavigateTo("", replace: true);
         await StartAsync(demo: mode == "demo");
     }
+
+    /// <summary>Fills the caption-model picker: the saved pick, else the registry default.</summary>
+    private async Task LoadModelsAsync()
+    {
+        try
+        {
+            _models = await Registry.GetAsync();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return; // No list, no picker: captions still run on the worker's default model.
+        }
+
+        var saved = await JS.TryInvokeAsync<string>("powatchInference.getModel");
+        _model = _models.Any(m => m.Key == saved) ? saved : _models[0].Key;
+        StateHasChanged();
+    }
+
+    private async Task PickModelAsync() => await JS.TryInvokeVoidAsync("powatchInference.setModel", _model);
 
     private async Task StartAsync(bool demo)
     {

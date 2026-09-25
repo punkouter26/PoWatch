@@ -34,7 +34,12 @@ public sealed class IngestService(
             return new IngestOutcome(false, false, false, []);
 
         var now = time.GetUtcNow();
+        // Without this a client could backdate ticks into any past day and rewrite its stats.
+        bool OutsideSession(DateTimeOffset at) => at < session.StartedUtc - Tick.MaxClockSkew
+            || (session.EndedUtc is { } ended && at > ended + Tick.MaxClockSkew);
         var errors = ticks.SelectMany(t => t.Validate(now))
+            .Concat(ticks.Where(t => OutsideSession(t.StartUtc)).Select(_ => "A tick falls outside its session."))
+            .Concat(events.Where(e => OutsideSession(e.AtUtc)).Select(_ => "An event falls outside its session."))
             .Concat(events.SelectMany(e => e.Validate(now)))
             .Concat(ticks.Where(t => t.SessionId != sessionId).Select(_ => "A tick belongs to a different session."))
             .Concat(events.Where(e => e.SessionId != sessionId).Select(_ => "An event belongs to a different session."))

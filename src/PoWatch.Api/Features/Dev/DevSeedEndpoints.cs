@@ -32,6 +32,11 @@ internal static class DevSeedEndpoints
                 CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
+                // Rollups merge, so a second seed would stack another copy of history on top (a 15-hour
+                // day reading 149 h observed). UI tests seed the shared guest on every run: seed once.
+                if ((await rollups.GetAllTimeAsync(userId, ct)).Ticks > 0)
+                    return Results.Ok(new { days = 0, buckets = 0 });
+
                 var dayCount = Math.Clamp(days ?? 30, 1, MaxDays);
                 var zone = !string.IsNullOrWhiteSpace(tz) && TimeZoneInfo.TryFindSystemTimeZoneById(tz, out var found) ? found : TimeZoneInfo.Utc;
 

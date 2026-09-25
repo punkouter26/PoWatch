@@ -9,6 +9,13 @@
 // vendor a new dist folder (transformers.min.js + ort-wasm-simd-threaded.jsep.{mjs,wasm}) and bump this line.
 // The version lives in the folder NAME rather than a nested subfolder so the asset tree stays within the
 // 2-level depth budget while keeping the pin explicit.
+// Chrome does NOT hold messages while this module's top-level await (the registry fetch below) runs,
+// and the real handler is only attached at the bottom of the file, so anything posted to a brand-new
+// worker was silently dropped: the first caption of a fresh page never came back and the caption loop
+// stayed busy for good. Buffer from the first line; the bottom of the file replays the buffer.
+const _early = [];
+self.onmessage = (e) => _early.push(e);
+
 const _TRANSFORMERS_VERSION = '3.8.1';
 const _TRANSFORMERS_BASE = new URL(`../lib/transformers-${_TRANSFORMERS_VERSION}/`, import.meta.url);
 const _TRANSFORMERS_URL = new URL('transformers.min.js', _TRANSFORMERS_BASE).href;
@@ -68,8 +75,7 @@ self.fetch = fetchWithRetry;
 // Single source of truth for the model registry (rule 1.5): /model-registry.json, shared verbatim with
 // the C# model picker. modelClass drives the loader (causal-lm vs image-text-to-text); the webgpu/wasm
 // dtype fields drive the fallback chain (§7). To add a model, edit ONLY the JSON — no code in three places.
-// This is a module worker, so top-level await guarantees _MODELS is populated before any message is
-// processed (message events are queued until module evaluation, including this await, completes).
+// Top-level await: _MODELS is populated before the real message handler exists (early messages wait in _early).
 const _MODELS = await (async () => {
   const res = await fetch(new URL('../model-registry.json', import.meta.url));
   if (!res.ok) throw new Error(`model-registry.json failed to load (${res.status})`);
@@ -760,12 +766,24 @@ async function runModelTest(modelKey, base64Frame, prompt, maxNewTokens) {
 
 // Message handler — each request carries a unique `id` so the bridge can
 // match responses to the correct awaiting Promise.
+// Makes a registry model the active one, dropping whatever was loaded; unknown or null keys are ignored.
+async function useModel(modelKey) {
+  if (!_MODELS[modelKey] || _activeModelKey === modelKey) return;
+  _activeModelKey = modelKey;
+  await unloadModel();
+  self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
+}
+
 self.onmessage = async (e) => {
   const { id, type, payload } = e.data;
 
   switch (type) {
     case 'RUN_INFERENCE': {
-      const run = _inferLock.then(() => runInference(payload.base64Frame, payload.prompt, payload.maxNewTokens));
+      // The page's model pick travels with each request; switching inside the lock never cuts a run short.
+      const run = _inferLock.then(async () => {
+        await useModel(payload.modelKey);
+        return runInference(payload.base64Frame, payload.prompt, payload.maxNewTokens);
+      });
       _inferLock = run.then(() => undefined, () => undefined);
       let result;
       try {
@@ -827,11 +845,7 @@ self.onmessage = async (e) => {
     }
 
     case 'SET_MODEL': {
-      if (_MODELS[payload.modelKey] && _activeModelKey !== payload.modelKey) {
-        _activeModelKey = payload.modelKey;
-        await unloadModel();
-        self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
-      }
+      await useModel(payload.modelKey);
       self.postMessage({ id, type: 'MODEL_SET' });
       break;
     }
@@ -891,3 +905,5 @@ self.onmessage = async (e) => {
     }
   }
 };
+
+for (const e of _early.splice(0)) self.onmessage(e);

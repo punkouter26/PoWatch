@@ -22,8 +22,18 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(Json.SessionDto, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<SessionDto>> ListSessionsAsync(int take = 20, CancellationToken cancellationToken = default) =>
-        await httpClient.GetFromJsonAsync($"api/sessions?take={take}", Json.ListSessionDto, cancellationToken) ?? [];
+    /// <summary>Empty on failure: Stats and History treat the list as optional, not as a reason to show the error page.</summary>
+    public async Task<IReadOnlyList<SessionDto>> ListSessionsAsync(int take = 20, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await httpClient.GetFromJsonAsync($"api/sessions?take={take}", Json.ListSessionDto, cancellationToken) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
+    }
 
     /// <summary>
     /// Posts one ingest batch. Returns null when the server refused it outright (4xx) so the caller
@@ -126,6 +136,11 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         }
         catch (HttpRequestException)
         {
+            return default;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // HttpClient timeout, not the caller cancelling: without this the pages' refresh loops end for good.
             return default;
         }
     }

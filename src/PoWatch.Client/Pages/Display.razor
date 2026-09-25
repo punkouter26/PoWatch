@@ -1,6 +1,6 @@
 @* The stats wall: full screen, no chrome, no scrolling, for a second monitor or a TV. It shares the
    main layout (which drops its header and key bar here) so a camera session started on Live keeps
-   running underneath. Refreshes on every stats push and at least every 5 s. *@
+   running underneath. Refreshes on stats pushes (at most every 5 s) and at least every 15 s (the clock rides on it). *@
 @page "/display"
 @implements IAsyncDisposable
 @using System.Globalization
@@ -42,7 +42,7 @@
         <RadzenChart Style="height: 100%; min-height: 0;" aria-label="Motion today">
             <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
             <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
-            <RadzenValueAxis Min="0" />
+            <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
             <RadzenLegend Visible="false" />
         </RadzenChart>
     </section>
@@ -98,6 +98,7 @@
     private CancellationTokenSource? _cts;
     private ElementReference _terrain;
     private PatternStatsDto? _terrainFor;
+    private DateTimeOffset _lastPush;
 
     protected override void OnInitialized()
     {
@@ -111,7 +112,7 @@
     private async Task LoopAsync(CancellationToken ct)
     {
         await RefreshAsync();
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
         try
         {
             while (await timer.WaitForNextTickAsync(ct))
@@ -150,7 +151,13 @@
         await JS.TryInvokeVoidAsync("powatchFx.terrain", _terrain, values, ((int)now.DayOfWeek * 24) + now.Hour);
     }
 
-    private void OnPush(StatsChangedDto change) => _ = RefreshAsync();
+    // Pushes arrive with every batch from every open session; six queries per push is plenty at 5 s.
+    private void OnPush(StatsChangedDto change)
+    {
+        if (DateTimeOffset.UtcNow - _lastPush < TimeSpan.FromSeconds(5)) return;
+        _lastPush = DateTimeOffset.UtcNow;
+        _ = RefreshAsync();
+    }
 
     private void OnSensing() => InvokeAsync(StateHasChanged);
 

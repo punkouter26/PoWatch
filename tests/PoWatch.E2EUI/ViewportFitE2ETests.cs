@@ -6,7 +6,7 @@ namespace PoWatch.E2EUI;
 /// Locks in the viewport-fit rules that the design system says every screen must obey:
 /// <list type="bullet">
 ///   <item><description>Pages with internal scrolling (Live, History) don't extend the body past the viewport.</description></item>
-///   <item><description>On narrow viewports the key bar scrolls instead of widening the page.</description></item>
+///   <item><description>On narrow viewports every section key stays visible without widening the page.</description></item>
 ///   <item><description>A camera session keeps sampling when you leave the Live page.</description></item>
 /// </list>
 /// These rules used to live only as a docstring in the design tokens. The audit pass moved them
@@ -116,7 +116,7 @@ public sealed class ViewportFitE2ETests
             await page.SetViewportSizeAsync(width, height);
             await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/display");
 
-            // Seeded numbers appear within one refresh cycle (5 s) of the wall rendering.
+            // Seeded numbers appear within one refresh cycle (15 s) of the wall rendering.
             await Assertions.Expect(page.GetByTestId("wall-occupancy")).Not.ToContainTextAsync("—", new() { Timeout = 30_000 });
             await Assertions.Expect(page.GetByTestId("term-header")).Not.ToBeVisibleAsync();
 
@@ -132,7 +132,7 @@ public sealed class ViewportFitE2ETests
     }
 
     [Fact]
-    public async Task On_a_phone_the_key_bar_scrolls_instead_of_widening_the_page()
+    public async Task On_a_phone_every_section_key_is_visible_without_widening_the_page()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
@@ -140,11 +140,10 @@ public sealed class ViewportFitE2ETests
         await page.WaitForTimeoutAsync(500);
 
         // Every section stays reachable from the key bar, and the page itself never scrolls sideways.
-        await Assertions.Expect(page.GetByTestId("nav-system")).ToBeAttachedAsync();
+        await Assertions.Expect(page.GetByTestId("nav-system")).ToBeInViewportAsync();
         var pageOverflow = await page.EvaluateAsync<bool>("() => document.documentElement.scrollWidth > window.innerWidth + 1");
         Assert.False(pageOverflow, "The page scrolls horizontally on a 360 px phone.");
 
-        await page.GetByTestId("nav-system").ScrollIntoViewIfNeededAsync();
         await page.GetByTestId("nav-system").ClickAsync();
         await page.ExpectSectionAsync("SYSTEM");
         await page.AssertNoBlazorErrorAsync();

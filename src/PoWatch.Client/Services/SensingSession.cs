@@ -86,6 +86,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _demoStep = 0;
         _cts = new CancellationTokenSource();
         Live = new LiveSensingState { Session = session, Demo = demo, StartedUtc = session.StartedUtc };
+        await js.TryInvokeVoidAsync("powatchOutbox.guard", session.Id.ToString());
 
         if (!demo)
         {
@@ -124,7 +125,15 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         await SendPendingAsync(CancellationToken.None);
         if (Live.Session is { } session)
         {
-            Live.Session = await api.StopSessionAsync(session.Id) ?? session;
+            try
+            {
+                Live.Session = await api.StopSessionAsync(session.Id) ?? session;
+                await js.TryInvokeVoidAsync("powatchOutbox.unguard");
+            }
+            catch (HttpRequestException)
+            {
+                // Offline or refused: keep the page-exit guard so leaving still ends the session server-side.
+            }
             Recap = new SessionRecap(Live.Session, null, exposure);
         }
 

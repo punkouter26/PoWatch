@@ -30,7 +30,7 @@ public sealed class StatsFeed(NavigationManager navigation) : IAsyncDisposable
         // The BFF cookie rides along on the same-origin WebSocket, so no token plumbing is needed.
         _connection = new HubConnectionBuilder()
             .WithUrl(navigation.ToAbsoluteUri("hubs/stats"))
-            .WithAutomaticReconnect()
+            .WithAutomaticReconnect(new RetryForever())
             .AddJsonProtocol(o => o.PayloadSerializerOptions.TypeInfoResolverChain.Insert(0, PoWatchJsonContext.Default))
             .Build();
 
@@ -46,6 +46,13 @@ public sealed class StatsFeed(NavigationManager navigation) : IAsyncDisposable
             // Offline or hub unavailable: pages fall back to their refresh timers.
             _connecting = null;
         }
+    }
+
+    /// <summary>The default policy stops after four tries (~42 s), which leaves push dead after a laptop sleep or a redeploy.</summary>
+    private sealed class RetryForever : IRetryPolicy
+    {
+        public TimeSpan? NextRetryDelay(RetryContext retryContext) =>
+            TimeSpan.FromSeconds(Math.Min(30, retryContext.PreviousRetryCount * 5));
     }
 
     public async ValueTask DisposeAsync()

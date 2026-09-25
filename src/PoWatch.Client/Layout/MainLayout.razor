@@ -13,12 +13,14 @@
         <TerminalHeader ShowStart="@(_section != "LIVE")" />
     }
 
-    <main class="term-body" id="main-content">
+    @* App.razor moves focus here after every navigation, so keyboard and screen-reader users land in the page. *@
+    <main class="term-body" id="main-content" tabindex="-1">
         @if (!_wall)
         {
             <AwayCard />
         }
-        <ErrorBoundary @key="Nav.Uri">
+        @* Keyed on the path, not the full URI: a query change (?range=, ?start=) must not rebuild the page. *@
+        <ErrorBoundary @key="new Uri(Nav.Uri).AbsolutePath">
             <ChildContent>
                 @Body
             </ChildContent>
@@ -49,11 +51,8 @@ else
    sampling) on every page; Live docks it over its camera panel. *@
 <video @ref="_feed" class="term-feed" autoplay muted playsinline aria-label="Live camera feed"></video>
 <FxBridge />
-
-<RadzenNotification />
-<RadzenDialog />
-<RadzenTooltip />
-<RadzenContextMenu />
+@* Host for chart hover tooltips; without it RadzenChart never shows one. *@
+<RadzenChartTooltip />
 
 @code {
     private string _section = "LIVE";
@@ -68,7 +67,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Number keys / Ctrl+number jump between sections; "/" focuses the command line.
+        // Number keys / Ctrl+number jump between sections.
         if (!firstRender) return;
         Sensing.Feed = _feed;
         await JS.TryInvokeVoidAsync("powatchKeybindings.setup");

@@ -50,9 +50,6 @@ between Bicep and CI in `infra/deployment.json`.
 
 - `AGENTS.md` — rules for any agent (or human) working in this repo.
 - `docs/README.md` — the project overview: pipeline, stat families, pages, API, storage.
-- `SPEC.md` — objective, journeys, stat catalog, stack, boundaries, success criteria.
-- `CAPABILITY-MAP.md` — which project owns which capability, and what each old subsystem became.
-- `tasks/plan.md` and `tasks/todo.md` — architecture decisions, risks, and the task checklist.
 
 This `README.md` stays at the level of "what is this app and how do I run it".
 

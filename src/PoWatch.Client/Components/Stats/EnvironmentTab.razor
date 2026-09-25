@@ -12,7 +12,7 @@ else
             <ChildContent>
                 <RadzenChart Style="height: 200px;" aria-label="Brightness over the range">
                     <RadzenAreaSeries Data="@_light" CategoryProperty="@nameof(LightPoint.At)" ValueProperty="@nameof(LightPoint.Luminance)" Title="Brightness" />
-                    <RadzenValueAxis Min="0" Max="1" />
+                    <RadzenValueAxis Min="0" Max="1" FormatString="{0:0.00}" />
                     <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("dd MMM HH:mm", System.Globalization.CultureInfo.CurrentCulture) : string.Empty)" />
                 </RadzenChart>
             </ChildContent>

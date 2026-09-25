@@ -9,14 +9,13 @@ namespace PoWatch.E2EUI;
 public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
 {
     [Fact]
-    public async Task The_terminal_shell_renders_header_keys_command_line_and_tape()
+    public async Task The_terminal_shell_renders_header_keys_and_tape()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await Assertions.Expect(page.GetByTestId("term-header")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("command-line")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("ticker")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
         await Assertions.Expect(page.GetByTestId("settings-menu")).ToBeVisibleAsync();
@@ -46,7 +45,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task Number_keys_the_key_bar_and_the_command_line_all_navigate()
+    public async Task Number_keys_and_the_key_bar_both_navigate()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
@@ -54,14 +53,8 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         await page.Keyboard.PressAsync("2");
         await page.ExpectSectionAsync("STATS");
 
-        await page.Keyboard.PressAsync("/");
-        await page.Keyboard.TypeAsync("regulars");
-        await page.Keyboard.PressAsync("Enter");
+        await page.GetByTestId("nav-regulars").ClickAsync();
         await page.ExpectSectionAsync("REGULARS");
-
-        await page.GetByTestId("command-line").FillAsync("nonsense");
-        await page.GetByTestId("command-line").PressAsync("Enter");
-        await Assertions.Expect(page.GetByTestId("command-hint")).ToContainTextAsync("Commands:");
 
         await page.GetByTestId("nav-live").ClickAsync();
         await page.ExpectSectionAsync("LIVE");

@@ -57,9 +57,11 @@ public sealed class IngestBatchTests(AzuriteWebApplicationFactory factory) : ICl
         Assert.Equal(2, (await log.GetTicksAsync(user, DateOnly.FromDateTime(start.UtcDateTime), CancellationToken.None)).Count);
         Assert.Equal(2, (await log.GetEventsAsync(user, DateOnly.FromDateTime(start.UtcDateTime), CancellationToken.None)).Count);
 
-        // A tick from the far future, an unknown event kind and an unknown session are all refused.
+        // A tick from the far future or from before the session, an unknown event kind and an unknown session are all refused.
         var future = new IngestBatchDto { BatchKey = Guid.NewGuid(), Ticks = [new() { StartUtc = DateTimeOffset.UtcNow.AddHours(1) }] };
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/sessions/{session.Id}/batches", future)).StatusCode);
+        var backdated = new IngestBatchDto { BatchKey = Guid.NewGuid(), Ticks = [new() { StartUtc = session.StartedUtc.AddDays(-3) }] };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/sessions/{session.Id}/batches", backdated)).StatusCode);
         var badKind = new IngestBatchDto { BatchKey = Guid.NewGuid(), Events = [new() { AtUtc = start, Kind = "Explosion", Text = "boom" }] };
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/sessions/{session.Id}/batches", badKind)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/sessions/{Guid.NewGuid()}/batches", batch)).StatusCode);
