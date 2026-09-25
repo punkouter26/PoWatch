@@ -12,5 +12,6 @@
     <Project Path="tests/PoWatch.Integration/PoWatch.Integration.csproj" />
     <Project Path="tests/PoWatch.E2EAPI/PoWatch.E2EAPI.csproj" />
     <Project Path="tests/PoWatch.E2EUI/PoWatch.E2EUI.csproj" />
+    <Project Path="tests/PoWatch.Benchmarks/PoWatch.Benchmarks.csproj" />
   </Folder>
 </Solution>

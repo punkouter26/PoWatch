@@ -102,3 +102,6 @@ __queuestorage__/
 
 # Verify snapshot runs
 *.received.*
+
+# BenchmarkDotNet run output
+BenchmarkDotNet.Artifacts/

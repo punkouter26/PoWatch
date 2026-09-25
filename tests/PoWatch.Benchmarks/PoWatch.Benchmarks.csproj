@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Micro-benchmarks, not a test suite: excluded from the test-case caps by construction
+       (check-test-caps.ps1 only counts Unit, Integration, E2EAPI and E2EUI).
+       Run from the repo root: see the README (dotnet run in Release, filter by class name). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PoWatch.Domain\PoWatch.Domain.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Application\PoWatch.Application.csproj" />
+    <ProjectReference Include="..\..\src\PoWatch.Infrastructure\PoWatch.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

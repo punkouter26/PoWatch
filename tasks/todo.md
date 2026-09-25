@@ -207,8 +207,11 @@ Rules for every task:
     are only banned in their caregiver sense (shift window/clock/report, mid-shift,
     acknowledgement), since batch acks and bit shifts are legit. The VLM result's
     `clinicalPayload` is now `caption`; dead `.handoff-*` CSS removed.
-- [ ] **G3** `tests/PoWatch.Benchmarks` (BenchmarkDotNet, excluded from the cap script) for rollup
+- [x] **G3** `tests/PoWatch.Benchmarks` (BenchmarkDotNet, excluded from the cap script) for rollup
   merge and stats queries.
+  - Done as: `tests/PoWatch.Benchmarks` (in the solution, not a test suite). First short run: merging
+    a day of minute rollups 5.6 ms, summarising it 6.1 ms, a 30-day presence query 33 ms. Merging
+    allocates ~53 MB per day of minutes (fresh maps/grids per merge), worth trimming if it ever shows.
 - [ ] **G4** Docs: README, `docs/` refresh, retire `docs/cleanup.md`; sync `SPEC.md`. **CHECKPOINT**
 - [ ] **G5 (gated deploy)** Push = production deploy. Before pushing: list the old tables and
   containers, get explicit confirmation, delete them, then push and verify the prod `/health`.
