@@ -84,6 +84,7 @@ public static class DependencyInjection
         AddStore<IRollupStore, AzureRollupStore, InMemoryRollupStore>(services);
         AddStore<IAchievementStore, AzureAchievementStore, InMemoryAchievementStore>(services);
         AddStore<ISnapshotStore, AzureSnapshotStore, InMemorySnapshotStore>(services);
+        AddStore<IRegularStore, AzureRegularStore, InMemoryRegularStore>(services);
 
         // Idempotency cache for ingest retries. 10-minute TTL is the load-bearing product
         // promise: long enough to span a WiFi blip, short enough to keep the dictionary bounded.

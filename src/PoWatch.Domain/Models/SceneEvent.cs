@@ -43,6 +43,9 @@ public sealed record SceneEvent
     /// <summary>On <see cref="SceneEventKind.TrackExit"/>, how long the track was in frame.</summary>
     public double? DwellSeconds { get; init; }
 
+    /// <summary>On track events, the regular the track was recognised as (once it was).</summary>
+    public string? RegularId { get; init; }
+
     /// <summary>On <see cref="SceneEventKind.Notable"/>, the highlight snapshot's blob path, if one was kept.</summary>
     public string? ImagePath { get; init; }
 

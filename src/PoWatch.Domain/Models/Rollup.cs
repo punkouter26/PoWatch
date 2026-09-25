@@ -29,6 +29,12 @@ public sealed record RunningStat(long Count, double Sum, double SumSquares, doub
         Math.Max(Max, other.Max));
 }
 
+/// <summary>Finished visits of one regular in a bucket and their total time in frame.</summary>
+public sealed record RegularTotals(long Visits, double DwellSeconds)
+{
+    public RegularTotals Merge(RegularTotals other) => new(Visits + other.Visits, DwellSeconds + other.DwellSeconds);
+}
+
 /// <summary>How often a class appeared in a bucket, its peak simultaneous count, and the summed per-tick means.</summary>
 public sealed record ClassTotals(long TicksPresent, int PeakCount, double MeanSum)
 {
@@ -85,6 +91,9 @@ public sealed record Rollup
     public IReadOnlyDictionary<FrameEdge, long> Entries { get; init; } = new Dictionary<FrameEdge, long>();
 
     public IReadOnlyDictionary<FrameEdge, long> Exits { get; init; } = new Dictionary<FrameEdge, long>();
+
+    /// <summary>Finished visits per regular id, for leaderboards over any range.</summary>
+    public IReadOnlyDictionary<string, RegularTotals> Regulars { get; init; } = new Dictionary<string, RegularTotals>();
 
     /// <summary>Colour histogram keyed by 12-bit 0xRGB bins.</summary>
     public IReadOnlyDictionary<int, long> Palette { get; init; } = new Dictionary<int, long>();
@@ -148,7 +157,10 @@ public sealed record Rollup
                 DwellHistogram = sceneEvent.DwellSeconds is { } dwell
                     ? new Dictionary<int, long> { [DwellBin(dwell)] = 1 }
                     : new Dictionary<int, long>(),
-                DwellMaxSeconds = sceneEvent.DwellSeconds ?? 0
+                DwellMaxSeconds = sceneEvent.DwellSeconds ?? 0,
+                Regulars = sceneEvent.RegularId is { } regular
+                    ? new Dictionary<string, RegularTotals> { [regular] = new(1, sceneEvent.DwellSeconds ?? 0) }
+                    : new Dictionary<string, RegularTotals>()
             },
             _ => rollup
         };
@@ -185,7 +197,8 @@ public sealed record Rollup
             DwellHistogram = MergeMaps(a.DwellHistogram, b.DwellHistogram, (x, y) => x + y),
             DwellMaxSeconds = Math.Max(a.DwellMaxSeconds, b.DwellMaxSeconds),
             Entries = MergeMaps(a.Entries, b.Entries, (x, y) => x + y),
-            Exits = MergeMaps(a.Exits, b.Exits, (x, y) => x + y)
+            Exits = MergeMaps(a.Exits, b.Exits, (x, y) => x + y),
+            Regulars = MergeMaps(a.Regulars, b.Regulars, (x, y) => x.Merge(y))
         };
     }
 

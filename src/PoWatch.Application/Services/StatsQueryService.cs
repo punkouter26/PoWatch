@@ -39,7 +39,7 @@ public sealed record StatsWindow(StatsRange Range, DateTimeOffset FromUtc, DateT
 /// Reads rollups for a window and runs the domain stat calculators over them. Everything here is
 /// composition; the maths lives in <c>PoWatch.Domain.Services</c> and is unit-tested there.
 /// </summary>
-public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, ISessionRepository sessions, TimeProvider time)
+public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, ISessionRepository sessions, IRegularStore regulars, TimeProvider time)
 {
     /// <summary>Days that make up "your usual".</summary>
     public const int BaselineDays = 28;
@@ -157,11 +157,28 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .ToList();
 
+        var known = total.Regulars.Count == 0
+            ? new Dictionary<string, Regular>()
+            : (await regulars.ListAsync(userId, cancellationToken)).ToDictionary(r => r.Id, StringComparer.Ordinal);
+
         return new ObjectStatsDto
         {
             Window = window.ToDto(),
             Classes = classes,
-            Rarest = classes.Count > 1 ? classes[^1].Name : null
+            Rarest = classes.Count > 1 ? classes[^1].Name : null,
+            Regulars = total.Regulars
+                .Where(kv => known.ContainsKey(kv.Key))
+                .Select(kv => new RegularStatDto
+                {
+                    Id = kv.Key,
+                    DisplayName = known[kv.Key].DisplayName,
+                    Class = known[kv.Key].Class,
+                    Visits = kv.Value.Visits,
+                    DwellSeconds = kv.Value.DwellSeconds
+                })
+                .OrderByDescending(r => r.Visits)
+                .ThenByDescending(r => r.DwellSeconds)
+                .ToList()
         };
     }
 

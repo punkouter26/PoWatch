@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<SessionService>();
         services.AddScoped<IngestService>();
         services.AddScoped<StatsQueryService>();
+        services.AddScoped<RegularsService>();
 
         return services;
     }

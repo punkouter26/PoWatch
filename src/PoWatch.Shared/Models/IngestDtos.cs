@@ -53,6 +53,9 @@ public sealed class SceneEventDto
     public double? Score { get; init; }
     public double? DwellSeconds { get; init; }
 
+    /// <summary>The regular a track was recognised as, from <c>POST /api/regulars/observe</c>.</summary>
+    public string? RegularId { get; init; }
+
     /// <summary>Snapshot blob path for a Notable event, from <c>POST /api/snapshots</c>.</summary>
     public string? ImagePath { get; init; }
 }

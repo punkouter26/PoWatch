@@ -34,6 +34,9 @@ public sealed class AzureStorageOptions
     public string RollupsTable { get; init; } = "PoWatchRollups";
 
     [Required, MinLength(3)]
+    public string RegularsTable { get; init; } = "PoWatchRegulars";
+
+    [Required, MinLength(3)]
     public string AchievementsTable { get; init; } = "PoWatchAchievements";
 
     /// <summary>Highlight snapshots, at {user}/{yyyyMMdd}/{id}.jpg.</summary>

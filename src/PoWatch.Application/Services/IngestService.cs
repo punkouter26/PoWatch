@@ -16,6 +16,7 @@ public sealed class IngestService(
     ISensingLog sensingLog,
     IIngestLedger ledger,
     IRollupStore rollups,
+    RegularsService regulars,
     TimeProvider time)
 {
     private static readonly RollupGrain[] BucketedGrains = [RollupGrain.Minute, RollupGrain.Hour, RollupGrain.Day];
@@ -80,6 +81,10 @@ public sealed class IngestService(
             var allTime = deltas.Select(d => d.Rollup).Aggregate(Rollup.Merge);
             await rollups.MergeAsync(userId, RollupGrain.AllTime, DateTimeOffset.UnixEpoch, allTime, cancellationToken);
         }
+
+        // Regulars' totals move with the rollups: only the first time a batch is claimed.
+        foreach (var exit in events.Where(e => e.Kind == SceneEventKind.TrackExit && e.RegularId is not null))
+            await regulars.RecordVisitAsync(userId, exit.RegularId!, exit.DwellSeconds ?? 0, exit.AtUtc, cancellationToken);
 
         return new IngestOutcome(true, true, false, []);
     }

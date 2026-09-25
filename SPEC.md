@@ -31,8 +31,12 @@ telemetry. When you come back, it tells you what you missed.
    Captions**, **Pipeline**.
 5. **Browse history.** `/history` shows a calendar heatmap of days. Pick a day to see its sessions,
    timeline, snapshots, and recap, with PDF export.
-6. **Curate regulars.** `/regulars` lists the recurring entities (people, pets, cars, objects). You can
-   name them, merge duplicates, and view per-regular stats and revision history.
+6. **Curate regulars.** When a new person (or cat or dog) has been in frame for a few seconds, the
+   Live page shows a small, non-blocking **"New person spotted — name them?"** card with their
+   snapshot. Typing a name saves it; ignoring it (or "Not now") lets the card fade after a minute and
+   they stay "Person N". `/regulars` lists every recurring entity (people, pets, cars, objects) with
+   visits, total time in frame and first/last seen, and lets you rename them and merge duplicates at
+   any time.
 7. **Trophies.** `/trophies` shows achievements (locked and unlocked) and all-time records.
 8. **Stats wall.** `/display` is a full-screen, no-scroll, auto-refreshing dashboard for a second
    monitor or TV.
@@ -84,6 +88,12 @@ Every stat is computable for any range from the rollups (§6), unless it is mark
 visits/hour · dwell-time distribution (p50/p90/max) · peak concurrency · longest empty streak · first
 and last activity of the day · motion energy timeline · busiest minute · stillness streaks · spatial
 activity heatmap (16×9) · entry/exit edge breakdown · path density (accumulated track centroids).
+
+**Regular matching (no biometrics).** A regular is recognised by an appearance signature: a
+64-bin colour histogram of the centre of its detector box, averaged over the track, compared by
+cosine similarity (≥ 0.85, same class). This is not face recognition and stores nothing biometric,
+so two people dressed alike can be confused and the same person in different clothes can appear as
+new; merging on `/regulars` fixes both.
 
 **B. Objects & regulars.** Object census (every class ever seen, with counts) · rarest sighting · new
 or disappeared objects (a static object present for more than 30 min, then gone) · per-regular

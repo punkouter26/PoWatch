@@ -97,7 +97,8 @@ internal static class IngestEndpoints
         Text = dto.Text,
         Score = dto.Score,
         DwellSeconds = dto.DwellSeconds,
-        ImagePath = dto.ImagePath
+        ImagePath = dto.ImagePath,
+        RegularId = dto.RegularId
     };
 }
 

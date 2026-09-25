@@ -158,7 +158,8 @@ internal static class RollupMapper
             ["DwellHistogram"] = JsonSerializer.Serialize(r.DwellHistogram),
             ["DwellMaxSeconds"] = r.DwellMaxSeconds,
             ["Entries"] = JsonSerializer.Serialize(r.Entries),
-            ["Exits"] = JsonSerializer.Serialize(r.Exits)
+            ["Exits"] = JsonSerializer.Serialize(r.Exits),
+            ["Regulars"] = JsonSerializer.Serialize(r.Regulars)
         };
         WriteStat(entity, "Motion", r.Motion);
         WriteStat(entity, "MotionPeak", r.MotionPeak);
@@ -186,7 +187,8 @@ internal static class RollupMapper
         DwellHistogram = StatsEntityMapper.Json<Dictionary<int, long>>(e, "DwellHistogram") ?? [],
         DwellMaxSeconds = e.GetDouble("DwellMaxSeconds") ?? 0,
         Entries = StatsEntityMapper.Json<Dictionary<FrameEdge, long>>(e, "Entries") ?? [],
-        Exits = StatsEntityMapper.Json<Dictionary<FrameEdge, long>>(e, "Exits") ?? []
+        Exits = StatsEntityMapper.Json<Dictionary<FrameEdge, long>>(e, "Exits") ?? [],
+        Regulars = StatsEntityMapper.Json<Dictionary<string, RegularTotals>>(e, "Regulars") ?? []
     };
 
     private static void WriteStat(TableEntity entity, string name, RunningStat stat)

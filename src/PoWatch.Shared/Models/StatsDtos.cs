@@ -76,12 +76,22 @@ public sealed class ClassStatDto
     public double Share { get; init; }
 }
 
-/// <summary>Stat family B — the object census.</summary>
+public sealed class RegularStatDto
+{
+    public string Id { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public string Class { get; init; } = string.Empty;
+    public long Visits { get; init; }
+    public double DwellSeconds { get; init; }
+}
+
+/// <summary>Stat family B — the object census and the regulars leaderboard.</summary>
 public sealed class ObjectStatsDto
 {
     public StatsWindowDto Window { get; init; } = new();
     public List<ClassStatDto> Classes { get; init; } = [];
     public string? Rarest { get; init; }
+    public List<RegularStatDto> Regulars { get; init; } = [];
 }
 
 public sealed class AnomalyDto

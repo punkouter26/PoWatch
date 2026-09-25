@@ -74,6 +74,7 @@ internal static class StatsEntityMapper
         if (sceneEvent.Score is { } score) entity["Score"] = score;
         if (sceneEvent.DwellSeconds is { } dwell) entity["DwellSeconds"] = dwell;
         if (sceneEvent.ImagePath is not null) entity["ImagePath"] = sceneEvent.ImagePath;
+        if (sceneEvent.RegularId is not null) entity["RegularId"] = sceneEvent.RegularId;
         return entity;
     }
 
@@ -88,7 +89,8 @@ internal static class StatsEntityMapper
         Text = e.GetString("Text"),
         Score = e.GetDouble("Score"),
         DwellSeconds = e.GetDouble("DwellSeconds"),
-        ImagePath = e.GetString("ImagePath")
+        ImagePath = e.GetString("ImagePath"),
+        RegularId = e.GetString("RegularId")
     };
 
     public static TableEntity ToEntity(Session session)

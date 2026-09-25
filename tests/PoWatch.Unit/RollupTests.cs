@@ -48,6 +48,7 @@ public sealed class RollupTests
             Kind = kind,
             TrackId = "T1",
             Class = "person",
+            RegularId = offset % 2 == 0 ? "r1" : "r2",
             Edge = edge,
             Text = "caption",
             DwellSeconds = dwell
@@ -143,7 +144,9 @@ public sealed class RollupTests
             && x.Visits == y.Visits && Close(x.DwellMaxSeconds, y.DwellMaxSeconds)
             && SameCounts(x.DwellHistogram, y.DwellHistogram)
             && SameCounts(x.Entries, y.Entries) && SameCounts(x.Exits, y.Exits)
-            && x.PresenceGrid.Length == y.PresenceGrid.Length;
+            && x.PresenceGrid.Length == y.PresenceGrid.Length
+            && x.Regulars.Count == y.Regulars.Count
+            && x.Regulars.All(kv => y.Regulars.TryGetValue(kv.Key, out var o) && o.Visits == kv.Value.Visits && Close(o.DwellSeconds, kv.Value.DwellSeconds));
     }
 
     private static bool SameCounts<TKey>(IReadOnlyDictionary<TKey, long> x, IReadOnlyDictionary<TKey, long> y)
