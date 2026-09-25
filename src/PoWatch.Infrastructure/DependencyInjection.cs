@@ -77,6 +77,13 @@ public static class DependencyInjection
                 ? sp.GetRequiredService<AzureSubjectRevisionEventRepository>()
                 : sp.GetRequiredService<InMemorySubjectRevisionEventRepository>());
 
+        // Stat-cam stores. In-memory until the Azure implementations land (C2/C3).
+        services.AddSingleton<ISessionRepository, InMemorySessionRepository>();
+        services.AddSingleton<ISensingLog, InMemorySensingLog>();
+        services.AddSingleton<IIngestLedger, InMemoryIngestLedger>();
+        services.AddSingleton<IRollupStore, InMemoryRollupStore>();
+        services.AddSingleton<IAchievementStore, InMemoryAchievementStore>();
+
         // Idempotency cache for ingest retries. 10-minute TTL is the load-bearing product
         // promise: long enough to span a WiFi blip, short enough to keep the dictionary bounded.
         services.AddSingleton<IIdempotencyCache>(sp => new InMemoryIdempotencyCache(
