@@ -74,11 +74,12 @@ internal static class AuthEndpoints
             if (!flags.Value.DeveloperBypassAuth || env.IsProduction())
                 return Results.NotFound(new { message = "Guest sign-in is not available in this environment." });
 
-            var name = string.IsNullOrWhiteSpace(user) ? "Guest" : user;
+            // The default guest keeps the same id as a headerless FakeAuth request, so data seeded by
+            // automated suites and the signed-in browser belong to one user.
             var claims = new List<Claim>
             {
-                new(ClaimTypes.NameIdentifier, name),
-                new(ClaimTypes.Name, name)
+                new(ClaimTypes.NameIdentifier, string.IsNullOrWhiteSpace(user) ? "guest" : user),
+                new(ClaimTypes.Name, string.IsNullOrWhiteSpace(user) ? "Guest" : user)
             };
             if (!string.IsNullOrWhiteSpace(roles))
                 claims.AddRange(roles

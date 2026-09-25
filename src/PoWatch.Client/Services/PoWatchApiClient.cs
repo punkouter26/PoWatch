@@ -46,6 +46,20 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.SnapshotUploadDto, cancellationToken) : null;
     }
 
+    public async Task<RecapDto?> GetDayRecapAsync(DateOnly day, string timeZoneId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.GetAsync(DayRecapPath(day, timeZoneId, pdf: false), cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.RecapDto, cancellationToken) : null;
+    }
+
+    /// <summary>Relative link to a day's recap PDF; the BFF cookie rides along on a plain download.</summary>
+    public static string DayRecapPdfUrl(DateOnly day, string timeZoneId) => DayRecapPath(day, timeZoneId, pdf: true);
+
+    public static string SessionRecapPdfUrl(Guid sessionId) => $"api/recaps/session/{sessionId}.pdf";
+
+    private static string DayRecapPath(DateOnly day, string timeZoneId, bool pdf) =>
+        $"api/recaps/day/{day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}{(pdf ? ".pdf" : string.Empty)}?tz={Uri.EscapeDataString(timeZoneId)}";
+
     public async Task<IReadOnlyList<MomentDto>> GetMomentsAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
         using var response = await httpClient.GetAsync($"api/sessions/{sessionId}/moments", cancellationToken);

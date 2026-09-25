@@ -836,3 +836,8 @@ html, body {
 
 .timelapse-canvas { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: 2px; }
 .timelapse-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+
+/* ── Recaps ───────────────────────────────────────────────────────────── */
+
+.recap-summary { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--term-text); max-width: 90ch; }
+.recap-highlights { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12px; color: var(--term-muted); }

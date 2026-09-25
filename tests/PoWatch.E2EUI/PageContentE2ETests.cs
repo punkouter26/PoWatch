@@ -26,7 +26,10 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task A_demo_session_fills_the_counters_unlocks_a_trophy_and_stops_cleanly()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        // A fresh user, so First Light is still locked whatever other tests ran first.
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"demo-{Guid.NewGuid():N}");
+        // Unlock toasts ride the stats hub; wait for it so the session-start unlock is not missed.
+        await Assertions.Expect(page.GetByTestId("trophy-toasts")).ToHaveAttributeAsync("data-hub", "up", new() { Timeout = 15_000 });
 
         await page.GetByTestId("start-demo").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
@@ -45,6 +48,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("away-card")).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await Assertions.Expect(page.GetByTestId("away-visits")).Not.ToContainTextAsync("0", new() { Timeout = 15_000 });
         await Assertions.Expect(page.GetByTestId("away-card")).ToContainTextAsync("of the session");
+        await Assertions.Expect(page.GetByTestId("away-pdf")).ToHaveAttributeAsync("href", new System.Text.RegularExpressions.Regex(@"^api/recaps/session/.+\.pdf$"));
         await page.GetByTestId("away-close").ClickAsync();
         await Assertions.Expect(page.GetByTestId("away-card")).Not.ToBeVisibleAsync();
 
@@ -146,6 +150,13 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
         await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
+
+        // The day's recap reads as a sentence and downloads as a real PDF.
+        await Assertions.Expect(page.GetByTestId("history-recap")).ToContainTextAsync("WRITTEN BY TEMPLATE");
+        var pdfHref = await page.GetByTestId("history-recap-pdf").GetAttributeAsync("href");
+        var pdf = await page.APIRequest.GetAsync($"{PlaywrightFixture.BaseUrl}/{pdfHref}");
+        Assert.True(pdf.Ok || pdf.Status == 503, $"recap PDF returned {pdf.Status}");
+        if (pdf.Ok) Assert.Equal("%PDF"u8.ToArray(), (await pdf.BodyAsync()).Take(4).ToArray());
 
         var today = await page.GetByTestId("history-day").TextContentAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Previous day" }).ClickAsync();

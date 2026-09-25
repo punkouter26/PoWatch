@@ -2,7 +2,7 @@
 @inject StatsFeed Feed
 
 @* Unlock toasts: pushed from the stats hub, shown for a few seconds, never blocking anything. *@
-<div class="trophy-toasts" role="status" aria-live="polite" data-test="trophy-toasts">
+<div class="trophy-toasts" role="status" aria-live="polite" data-test="trophy-toasts" data-hub="@(Feed.IsConnected ? "up" : "down")">
     @foreach (var toast in _toasts)
     {
         <a class="trophy-toast" href="trophies" data-test="trophy-toast">
@@ -21,6 +21,7 @@
     {
         Feed.Unlocked += OnUnlocked;
         await Feed.EnsureConnectedAsync();
+        StateHasChanged();
     }
 
     private void OnUnlocked(AchievementsUnlockedDto unlocked) => InvokeAsync(async () =>

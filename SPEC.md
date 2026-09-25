@@ -178,26 +178,27 @@ pruned after 7 days. `/history` plays a day's frames as a flipbook and records a
 dotnet restore PoWatch.slnx
 dotnet build PoWatch.slnx -c Release                       # warnings are errors
 dotnet format PoWatch.slnx --verify-no-changes             # lint / style gate
-dotnet run --project src/PoWatch.Api/PoWatch.Api.csproj    # http://localhost:5000
+dotnet run --project src/PoWatch.Api/PoWatch.Api.csproj    # http://localhost (port 80)
 dotnet test tests/PoWatch.Unit -c Release
 dotnet test tests/PoWatch.Integration -c Release           # needs Docker (Azurite testcontainer)
 dotnet test tests/PoWatch.E2EAPI -c Release
 $env:E2E_LOCAL=1; dotnet test tests/PoWatch.E2EUI -c Release
 ./SCRIPTS/check-test-caps.ps1; ./SCRIPTS/check-hygiene.ps1
+dotnet run -c Release --project tests/PoWatch.Benchmarks    # BenchmarkDotNet, not a test suite
 ```
 
 ## 8. Project structure
 
 ```
 src/
-  PoWatch.Domain/          Models/ (Session, Tick, SceneEvent, Rollup, Regular, Achievement) Services/ (stat calculators)
-  PoWatch.Application/     Contracts/ Services/ Options/ Mappers/
-  PoWatch.Infrastructure/  Persistence/ (Azure* + InMemory*) Runtime/ (summarizers, diagnostics)
-  PoWatch.Api/             Features/{Sessions,Ingest,Stats,Regulars,Snapshots,Recaps,Achievements,Diagnostics,Auth}/
+  PoWatch.Domain/          Models/ (Session, Tick, SceneEvent, Rollup, Regular) Services/ (stat calculators, achievement + record rules)
+  PoWatch.Application/     Contracts/ Services/ Options/
+  PoWatch.Infrastructure/  Persistence/ (Azure* + InMemory*) Runtime/ (recap AI, diagnostics)
+  PoWatch.Api/             Features/{Sessions,Ingest,Stats,Regulars,Snapshots,Recaps,Achievements,Diagnostics,Auth,Dev}/
   PoWatch.Shared/          Models/ (DTOs) Services/ (shared pure helpers)
   PoWatch.Client/          Pages/ (Live, Stats, History, Regulars, Trophies, Display, System, Health, Login)
                            Components/ Shared/ Services/ wwwroot/js/sensing/
-tests/  PoWatch.Unit  PoWatch.Integration  PoWatch.E2EAPI  PoWatch.E2EUI
+tests/  PoWatch.Unit  PoWatch.Integration  PoWatch.E2EAPI  PoWatch.E2EUI  PoWatch.Benchmarks
 ```
 
 ## 9. Code style & conventions
@@ -316,8 +317,9 @@ audio analysis · native mobile apps · any safety or alerting use case.
 10. `/display` at 1920×1080 and 1280×720 has no scrollbars and refreshes at least every 5 s (UI E2E).
 11. Pages at 390 px width have no horizontal scroll (UI E2E viewport tests).
 12. Session and day recap PDFs download and are valid PDF documents (API E2E).
-13. The hygiene script finds **zero** hits in `src/` for: `caregiver`, `clinical`, `handoff`, `shift`,
-    `nurse`, `patient`, `acknowledge`.
+13. The hygiene script finds **zero** hits in `src/` and `tests/` for: `caregiver`, `clinical`,
+    `handoff`, `nurse`, `patient`, and `shift`/`acknowledge` in their caregiver sense (shift
+    window/clock/report, mid-shift, acknowledgement). Plain "shift" and batch "acknowledge" are fine.
 14. Network inspection during a 5 min session shows no image payloads except highlight snapshot
     uploads.
 15. The Release build has 0 warnings, `dotnet format --verify-no-changes` passes, and the test caps
@@ -327,12 +329,13 @@ audio analysis · native mobile apps · any safety or alerting use case.
 
 See `CAPABILITY-MAP.md` → *Subsystem disposition*. In summary:
 
-- **Retained:** BFF auth, telemetry, Key Vault, Data Protection, idempotency, adaptive cadence,
-  health/diagnostics.
+- **Retained:** BFF auth, telemetry, Key Vault, Data Protection, adaptive cadence,
+  health/diagnostics. Request-level idempotency was replaced by the batch-key ledger.
 - **Refactored:** Observer Hub → Live · People → Regulars · Archives → History/Stats · Handoff → Recaps
   · Drift → Anomaly · Evidence → Snapshots · Kiosk → Stats wall · Significance → notable-moment score.
 - **Pruned:** urgent alerts, threshold rules, acknowledgment, clinical tag parser, shift clock, alert
-  audio.
+  audio, and the System page's "clear all data" reset (retention is keep-everything).
+- **Status:** done — tasks F3–F5 and G1–G2 removed the last of the old code paths.
 
 ## 17. Decisions (Phase 2) and open questions
 

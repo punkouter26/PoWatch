@@ -41,6 +41,28 @@
         }
     </TerminalPanel>
 
+    @if (_recap is not null && _presence is { SecondsObserved: > 0 })
+    {
+        <TerminalPanel Number="H2+" Title="Recap" Class="term-span-4" Test="history-recap">
+            <Aside>
+                WRITTEN BY @_recap.Source.ToUpperInvariant() ·
+                <a href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">PDF ↓</a>
+            </Aside>
+            <ChildContent>
+                <p class="recap-summary">@_recap.Summary</p>
+                @if (_recap.Highlights.Count > 0)
+                {
+                    <ul class="recap-highlights">
+                        @foreach (var highlight in _recap.Highlights)
+                        {
+                            <li>@highlight</li>
+                        }
+                    </ul>
+                }
+            </ChildContent>
+        </TerminalPanel>
+    }
+
     <TerminalPanel Number="H3" Title="Motion across the day" Class="term-span-2">
         <RadzenChart Style="height: 220px;" aria-label="Motion across the day">
             <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
@@ -154,6 +176,7 @@
 
     private DateOnly _day = Today;
     private PresenceStatsDto? _presence;
+    private RecapDto? _recap;
     private EnvironmentStatsDto? _environment;
     private PatternStatsDto? _patterns;
     private List<Point> _motion = [];
@@ -197,7 +220,10 @@
         var presence = Api.GetPresenceAsync(query);
         var environment = Api.GetEnvironmentAsync(query);
         var sessions = Api.ListSessionsAsync(100);
-        await Task.WhenAll(presence, environment, sessions);
+        var recap = Api.GetDayRecapAsync(_day, TimeZoneInfo.Local.Id);
+        await Task.WhenAll(presence, environment, sessions, recap);
+
+        _recap = recap.Result;
 
         _presence = presence.Result;
         _environment = environment.Result;

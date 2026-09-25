@@ -16,7 +16,8 @@ internal static class PoWatchPage
     /// <summary>Generous enough for a cold WASM boot on a slow host.</summary>
     private const int BootTimeoutMs = 60_000;
 
-    public static async Task<IPage> SignedInAsync(IBrowser browser, string route = "/")
+    /// <param name="user">A distinct guest identity, for tests that need a user with no history (e.g. first unlocks).</param>
+    public static async Task<IPage> SignedInAsync(IBrowser browser, string route = "/", string? user = null)
     {
         var page = await browser.NewPageAsync(new()
         {
@@ -27,7 +28,8 @@ internal static class PoWatchPage
         // BFF auth: anonymous visits redirect to /login. Sign in as the dev guest first — this sets
         // the session cookie server-side and redirects to returnUrl.
         await page.GotoAsync(
-            $"{PlaywrightFixture.BaseUrl}/auth/login/fake?returnUrl={Uri.EscapeDataString(route)}");
+            $"{PlaywrightFixture.BaseUrl}/auth/login/fake?returnUrl={Uri.EscapeDataString(route)}"
+            + (user is null ? string.Empty : $"&user={Uri.EscapeDataString(user)}"));
 
         await Assertions.Expect(page.GetByTestId("app-navbar"))
             .ToBeVisibleAsync(new() { Timeout = BootTimeoutMs });

@@ -8,6 +8,7 @@
         <span class="term-panel-no">★</span>
         <h2 id="away-title" style="font: inherit; margin: 0;">@Title</h2>
         <span class="term-panel-meta">SESSION #@Session.Id.ToString("N")[..4].ToUpperInvariant() · @Duration(Session.DurationSeconds)</span>
+        <a class="term-button" href="@PoWatchApiClient.SessionRecapPdfUrl(Session.Id)" download="PoWatch-session-@(Session.Id.ToString("N")[..4]).pdf" data-test="away-pdf">PDF ↓</a>
         <button class="term-icon-button" @onclick="OnClose" aria-label="Dismiss" data-test="away-close">✕</button>
     </header>
     <div class="term-panel-body">

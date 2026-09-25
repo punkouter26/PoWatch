@@ -212,7 +212,13 @@ Rules for every task:
   - Done as: `tests/PoWatch.Benchmarks` (in the solution, not a test suite). First short run: merging
     a day of minute rollups 5.6 ms, summarising it 6.1 ms, a 30-day presence query 33 ms. Merging
     allocates ~53 MB per day of minutes (fresh maps/grids per merge), worth trimming if it ever shows.
-- [ ] **G4** Docs: README, `docs/` refresh, retire `docs/cleanup.md`; sync `SPEC.md`. **CHECKPOINT**
+- [x] **G4** Docs: README, `docs/` refresh, retire `docs/cleanup.md`; sync `SPEC.md`. **CHECKPOINT**
+  - Done as: `docs/README.md` is the project overview (pipeline, families, pages, API, storage);
+    `CAPABILITY-MAP.md` rewritten against the real code; SPEC commands/structure/criterion 13 synced.
+    Found on the way: SPEC journey 5 promised a day recap + PDF on History and nothing showed recaps,
+    so History got a recap panel with a PDF link and the away card a session PDF link. Also fixed a
+    Dev/Test auth bug: headerless FakeAuth shadowed the signed-in cookie user, so every browser user
+    was "guest"; it now defers to a real cookie session.
 - [ ] **G5 (gated deploy)** Push = production deploy. Before pushing: list the old tables and
   containers, get explicit confirmation, delete them, then push and verify the prod `/health`.
 

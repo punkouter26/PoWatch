@@ -10,6 +10,8 @@ namespace PoWatch.Api.Security;
 /// X-Fake-Roles request headers to a <see cref="ClaimsPrincipal"/>.
 /// Registered only when DeveloperBypassAuth is true — and never in Production
 /// (registration throws in <c>Program</c> when the environment is Production).
+/// Without a header it signs in "guest", unless the request already carries a signed-in BFF cookie:
+/// both schemes back the default policy, and the fake identity would otherwise shadow the real one.
 /// </summary>
 public sealed class FakeAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -18,9 +20,13 @@ public sealed class FakeAuthHandler(
 {
     public const string SchemeName = "FakeAuth";
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var userName = Request.Headers["X-Fake-User"].FirstOrDefault() ?? "guest";
+        var header = Request.Headers["X-Fake-User"].FirstOrDefault();
+        if (header is null && (await Context.AuthenticateAsync(AuthenticationSetup.CookieScheme)).Succeeded)
+            return AuthenticateResult.NoResult();
+
+        var userName = header ?? "guest";
 
         var claims = new List<Claim>
         {
@@ -36,6 +42,6 @@ public sealed class FakeAuthHandler(
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name);
-        return Task.FromResult(AuthenticateResult.Success(ticket));
+        return AuthenticateResult.Success(ticket);
     }
 }

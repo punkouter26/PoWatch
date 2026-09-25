@@ -31,6 +31,7 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(PipelineStatsDto))]
 [JsonSerializable(typeof(StatsChangedDto))]
 [JsonSerializable(typeof(SnapshotUploadDto))]
+[JsonSerializable(typeof(RecapDto))]
 [JsonSerializable(typeof(TrophyCabinetDto))]
 [JsonSerializable(typeof(AchievementsUnlockedDto))]
 [JsonSerializable(typeof(RegularDto))]
