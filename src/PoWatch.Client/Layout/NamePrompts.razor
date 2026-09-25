@@ -1,0 +1,65 @@
+@* Passive naming: "New person spotted — name them?" Never modal, never required. Ignored prompts
+   fade after a minute and the regular simply stays "Person N" (renameable later on Regulars). *@
+@implements IDisposable
+@inject SensingSession Sensing
+@inject TimeProvider Time
+
+@if (Sensing.Live.Prompts.Count > 0)
+{
+    <aside class="name-prompts" aria-label="New people and pets you can name">
+        @foreach (var prompt in Sensing.Live.Prompts.TakeLast(3))
+        {
+            <section class="name-prompt" data-test="name-prompt" @key="prompt.Regular.Id">
+                @if (prompt.SnapshotDataUrl is { } image)
+                {
+                    <img src="@image" alt="The new @prompt.Regular.Class" />
+                }
+                <form @onsubmit="() => SaveAsync(prompt)">
+                    <label for="name-@prompt.Regular.Id">New @prompt.Regular.Class spotted — name them?</label>
+                    <input id="name-@prompt.Regular.Id" data-test="name-input" autocomplete="off" maxlength="40"
+                           placeholder="@prompt.Regular.DisplayName" @bind="_names[prompt.Regular.Id]" />
+                    <div class="name-prompt-actions">
+                        <button type="submit" class="term-button term-button--primary" data-test="name-save">Save</button>
+                        <button type="button" class="term-button" @onclick="() => DismissAsync(prompt)" data-test="name-skip">Not now</button>
+                        <span class="term-stat-hint">stays “@prompt.Regular.DisplayName” if you skip</span>
+                    </div>
+                </form>
+            </section>
+        }
+    </aside>
+}
+
+@code {
+    private readonly Dictionary<string, string?> _names = new(StringComparer.Ordinal);
+    private Timer? _expiry;
+
+    protected override void OnInitialized()
+    {
+        Sensing.Changed += OnChanged;
+        _expiry = new Timer(_ => InvokeAsync(() =>
+        {
+            if (Sensing.Live.ExpirePrompts(Time.GetUtcNow())) StateHasChanged();
+        }), null, 5000, 5000);
+    }
+
+    protected override void OnParametersSet()
+    {
+        foreach (var prompt in Sensing.Live.Prompts) _names.TryAdd(prompt.Regular.Id, null);
+    }
+
+    private Task SaveAsync(NamingPrompt prompt) => Sensing.NameAsync(prompt.Regular.Id, _names.GetValueOrDefault(prompt.Regular.Id));
+
+    private Task DismissAsync(NamingPrompt prompt) => Sensing.NameAsync(prompt.Regular.Id, null);
+
+    private void OnChanged() => InvokeAsync(() =>
+    {
+        foreach (var prompt in Sensing.Live.Prompts) _names.TryAdd(prompt.Regular.Id, null);
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        Sensing.Changed -= OnChanged;
+        _expiry?.Dispose();
+    }
+}

@@ -20,6 +20,9 @@ public sealed class DetectionPayload
     public double Y0 { get; init; }
     public double X1 { get; init; }
     public double Y1 { get; init; }
+
+    /// <summary>64-bin colour histogram of the box centre, for recognising regulars.</summary>
+    public List<float> Signature { get; init; } = [];
 }
 
 public sealed class DetectionsPayload

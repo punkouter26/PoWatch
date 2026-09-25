@@ -28,6 +28,11 @@ public sealed class SyntheticScene(int seed = 7)
         "A person glances at the camera while walking by.",
     ];
 
+    // Fixed looks, so the walker who crosses every 20 s comes back as the same regular.
+    private static readonly float[] WalkerLook = Look(52, 56, 21);
+    private static readonly float[] CatLook = Look(21, 42, 42);
+    private static readonly float[] MugLook = Look(63, 63, 42);
+
     private readonly Random _random = new(seed);
     private DateTimeOffset? _startUtc;
 
@@ -42,12 +47,12 @@ public sealed class SyntheticScene(int seed = 7)
         if (walking)
         {
             var x0 = -0.05 + (walkPhase / WalkSeconds * 1.0);
-            detections.Add(new Detection("person", Jitter(0.9), Math.Max(0, x0), 0.28, Math.Min(1, x0 + 0.14), 0.92));
+            detections.Add(new Detection("person", Jitter(0.9), Math.Max(0, x0), 0.28, Math.Min(1, x0 + 0.14), 0.92, WalkerLook));
         }
 
         var catHere = t % CatPeriodSeconds < CatSeconds;
-        if (catHere) detections.Add(new Detection("cat", Jitter(0.85), 0.56, 0.62, 0.70, 0.84));
-        detections.Add(new Detection("cup", Jitter(0.8), 0.72, 0.52, 0.76, 0.58));
+        if (catHere) detections.Add(new Detection("cat", Jitter(0.85), 0.56, 0.62, 0.70, 0.84, CatLook));
+        detections.Add(new Detection("cup", Jitter(0.8), 0.72, 0.52, 0.76, 0.58, MugLook));
 
         var grid = new float[Columns * Rows];
         foreach (var d in detections.Where(d => d.Label != "cup"))
@@ -63,6 +68,13 @@ public sealed class SyntheticScene(int seed = 7)
             : null;
 
         return new SyntheticFrame(new PixelSample(atUtc, motion, luminance, grid, palette), detections, caption);
+    }
+
+    private static float[] Look(params int[] bins)
+    {
+        var histogram = new float[64];
+        foreach (var bin in bins) histogram[bin] += 1f / bins.Length;
+        return histogram;
     }
 
     private double Jitter(double score) => Math.Clamp(score + ((_random.NextDouble() - 0.5) * 0.1), 0, 1);

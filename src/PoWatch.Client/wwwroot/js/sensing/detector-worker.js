@@ -71,6 +71,27 @@ async function producesSaneBoxes(candidate) {
   return output.every((d) => inside(d.box.xmin) && inside(d.box.ymin) && inside(d.box.xmax) && inside(d.box.ymax));
 }
 
+// Appearance signature for recognising regulars: a 64-bin colour histogram (4 levels per RGB
+// channel) of the centre 60% of the box, where the subject is rather than the background.
+// Colours only — no faces, landmarks or anything biometric.
+function signature(pixels, box) {
+  const { width, height, data } = pixels;
+  const clamp = (v, max) => Math.max(0, Math.min(max - 1, Math.round(v)));
+  const bw = (box.xmax - box.xmin) * width, bh = (box.ymax - box.ymin) * height;
+  const x0 = clamp(box.xmin * width + bw * 0.2, width), x1 = clamp(box.xmax * width - bw * 0.2, width);
+  const y0 = clamp(box.ymin * height + bh * 0.2, height), y1 = clamp(box.ymax * height - bh * 0.2, height);
+  const bins = new Array(64).fill(0);
+  let n = 0;
+  for (let y = y0; y <= y1; y += 2) {
+    for (let x = x0; x <= x1; x += 2) {
+      const i = (y * width + x) * 4;
+      bins[((data[i] >> 6) << 4) | ((data[i + 1] >> 6) << 2) | (data[i + 2] >> 6)]++;
+      n++;
+    }
+  }
+  return n === 0 ? [] : bins.map((c) => Math.round((c / n) * 10000) / 10000);
+}
+
 async function detect(bitmap, threshold) {
   await load();
   if (!canvas || canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
@@ -91,6 +112,7 @@ async function detect(bitmap, threshold) {
       label: d.label,
       score: d.score,
       x0: d.box.xmin, y0: d.box.ymin, x1: d.box.xmax, y1: d.box.ymax,
+      signature: signature(pixels, d.box),
     })),
   };
 }

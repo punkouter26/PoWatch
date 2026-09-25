@@ -77,7 +77,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/identity", "REGULARS");
+            await page.GoToAsync("/regulars", "REGULARS");
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);

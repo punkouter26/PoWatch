@@ -37,7 +37,7 @@
                 {
                     <div class="live-box @(track.Label == "person" ? "live-box--person" : string.Empty)"
                          style="left: @Pct(track.Box.X0 * 100)%; top: @Pct(track.Box.Y0 * 100)%; width: @Pct((track.Box.X1 - track.Box.X0) * 100)%; height: @Pct((track.Box.Y1 - track.Box.Y0) * 100)%;">
-                        <span>@track.Label @track.Box.Score.ToString("0.00", CultureInfo.InvariantCulture) · #@track.TrackId</span>
+                        <span>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label) @track.Box.Score.ToString("0.00", CultureInfo.InvariantCulture) · #@track.TrackId</span>
                     </div>
                 }
 
@@ -123,7 +123,7 @@
         </ChildContent>
     </TerminalPanel>
 
-    <TerminalPanel Number="03" Title="Active tracks" Test="live-tracks" Flush="true">
+    <TerminalPanel Number="03" Title="Who's here" Test="live-tracks" Flush="true">
         <Aside>@L.Tracks.Count LIVE</Aside>
         <ChildContent>
             @if (L.Tracks.Count == 0)
@@ -133,11 +133,11 @@
             else
             {
                 <table class="term-table">
-                    <thead><tr><th>ID</th><th>Class</th><th class="r">Dwell</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Who</th><th class="r">Dwell</th></tr></thead>
                     <tbody>
                         @foreach (var track in L.Tracks.Take(8))
                         {
-                            <tr><td>#@track.TrackId</td><td>@track.Label</td><td class="r">@Duration(DateTimeOffset.UtcNow - track.FirstSeenUtc)</td></tr>
+                            <tr><td>#@track.TrackId</td><td>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label)</td><td class="r">@Duration(DateTimeOffset.UtcNow - track.FirstSeenUtc)</td></tr>
                         }
                     </tbody>
                 </table>

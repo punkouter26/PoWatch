@@ -38,7 +38,8 @@ public sealed class TickBatcher(TimeProvider time, int maxPending = TickBatcher.
         WindowFor(sample.AtUtc).AddPixel(sample);
     }
 
-    public void AddDetections(DateTimeOffset atUtc, TrackerFrame frame)
+    /// <param name="regularOf">The regular a track was recognised as, if any; exits carry it so visits count per regular.</param>
+    public void AddDetections(DateTimeOffset atUtc, TrackerFrame frame, Func<string, string?>? regularOf = null)
     {
         ArgumentNullException.ThrowIfNull(frame);
         WindowFor(atUtc).AddDetections(frame);
@@ -58,7 +59,8 @@ public sealed class TickBatcher(TimeProvider time, int maxPending = TickBatcher.
             TrackId = e.TrackId,
             Class = e.Label,
             Edge = e.Edge,
-            DwellSeconds = e.DwellSeconds
+            DwellSeconds = e.DwellSeconds,
+            RegularId = regularOf?.Invoke(e.TrackId)
         }));
     }
 

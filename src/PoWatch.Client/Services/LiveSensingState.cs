@@ -97,6 +97,38 @@ public sealed class LiveSensingState
             Log($"{exited.AtUtc.ToLocalTime():HH:mm:ss} − {exited.Label} {exited.TrackId} after {exited.DwellSeconds:0}s");
     }
 
+    private readonly Dictionary<string, RegularDto> _regularByTrack = new(StringComparer.Ordinal);
+    private readonly List<NamingPrompt> _prompts = [];
+
+    /// <summary>New people and pets waiting (passively) for a name; ignored ones expire.</summary>
+    public IReadOnlyList<NamingPrompt> Prompts => _prompts;
+
+    public RegularDto? RegularFor(string trackId) => _regularByTrack.GetValueOrDefault(trackId);
+
+    public void AssignRegular(string trackId, RegularDto regular) => _regularByTrack[trackId] = regular;
+
+    public void ForgetTrack(string trackId) => _regularByTrack.Remove(trackId);
+
+    public void AddPrompt(NamingPrompt prompt)
+    {
+        _prompts.RemoveAll(p => p.Regular.Id == prompt.Regular.Id);
+        _prompts.Add(prompt);
+        Log($"{prompt.SeenUtc.ToLocalTime():HH:mm:ss} + new {prompt.Regular.Class}: {prompt.Regular.DisplayName}");
+    }
+
+    public void DismissPrompt(string regularId) => _prompts.RemoveAll(p => p.Regular.Id == regularId);
+
+    /// <summary>Drops prompts nobody answered; they stay unnamed ("Person N").</summary>
+    public bool ExpirePrompts(DateTimeOffset nowUtc) => _prompts.RemoveAll(p => nowUtc - p.SeenUtc > NamingPrompt.Lifetime) > 0;
+
+    /// <summary>A name was given: every live track of that regular shows it straight away.</summary>
+    public void Rename(RegularDto regular)
+    {
+        foreach (var trackId in _regularByTrack.Where(kv => kv.Value.Id == regular.Id).Select(kv => kv.Key).ToList())
+            _regularByTrack[trackId] = regular;
+        _prompts.RemoveAll(p => p.Regular.Id == regular.Id);
+    }
+
     public int Moments { get; private set; }
     public int Snapshots { get; private set; }
 

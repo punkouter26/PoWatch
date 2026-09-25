@@ -730,3 +730,43 @@ html, body {
 .away-moments li { display: grid; gap: 4px; font: 12px var(--term-mono); color: var(--term-muted); }
 .away-moments img, .away-noimage { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--term-line); border-radius: 2px; background: var(--term-bg); }
 .away-noimage { display: grid; place-items: center; color: var(--term-dim); }
+
+/* ── Naming prompts ───────────────────────────────────────────────────── */
+
+.name-prompts {
+    position: fixed;
+    right: 14px;
+    bottom: 40px;
+    z-index: 20;
+    display: grid;
+    gap: 8px;
+    width: min(360px, calc(100vw - 28px));
+}
+
+.name-prompt {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    padding: 10px;
+    background: var(--term-panel);
+    border: 1px solid var(--term-line);
+    border-left: 3px solid var(--term-accent);
+    border-radius: var(--term-radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    animation: name-prompt-in 0.25s ease-out;
+}
+
+.name-prompt img { width: 72px; height: 72px; object-fit: cover; border-radius: 2px; }
+.name-prompt form { display: grid; gap: 6px; }
+.name-prompt label { font: 600 12px var(--term-mono); color: var(--term-text); }
+.name-prompt input { min-height: 36px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 13px var(--term-font); padding: 0 8px; }
+.name-prompt input:focus-visible { outline: none; border-color: var(--term-accent); }
+.name-prompt-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+@keyframes name-prompt-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) { .name-prompt { animation: none; } }
+
+.regular-name { display: flex; gap: 6px; align-items: center; }
+.regular-name input { min-height: 32px; width: 180px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-mono); padding: 0 6px; }
+.regular-name .term-button { min-height: 32px; padding: 0 10px; }

@@ -78,38 +78,34 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task The_people_page_shows_the_glance_grid_and_the_full_list()
+    public async Task New_people_can_be_named_from_a_passive_prompt_or_left_unnamed()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/identity", "REGULARS");
 
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Everyone at a glance" }))
-            .ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "All people" }))
-            .ToBeVisibleAsync();
-    }
+        await page.GetByTestId("start-demo").ClickAsync();
 
-    [Fact]
-    public async Task The_people_filter_narrows_the_glance_grid()
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/identity", "REGULARS");
+        // The demo walker and the cat each get an offer to be named; nothing blocks the page meanwhile.
+        var person = page.GetByTestId("name-prompt").Filter(new() { HasText = "New person spotted" });
+        var cat = page.GetByTestId("name-prompt").Filter(new() { HasText = "New cat spotted" });
+        await Assertions.Expect(person).ToBeVisibleAsync(new() { Timeout = 20_000 });
+        await Assertions.Expect(cat).ToBeVisibleAsync(new() { Timeout = 20_000 });
 
-        // Let the grid populate first, so this asserts filtering rather than an empty database.
-        await page.WaitForTimeoutAsync(2500);
-        await page.GetByTestId("glance-filter").FillAsync("zzz-no-such-person");
-        await page.WaitForTimeoutAsync(800);
+        await person.GetByTestId("name-input").FillAsync("Bob");
+        await person.GetByTestId("name-save").ClickAsync();
+        await Assertions.Expect(person).Not.ToBeVisibleAsync();
+        await cat.GetByTestId("name-skip").ClickAsync();
+        await Assertions.Expect(cat).Not.ToBeVisibleAsync();
 
-        var cards = await page.Locator(".subject-card-grid .subject-card").CountAsync();
-        Assert.Equal(0, cards);
-
-        var text = await page.InnerTextAsync("body");
-        Assert.True(
-            text.Contains("No one matches", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("No one seen yet", StringComparison.OrdinalIgnoreCase),
-            "Filtering to a name nobody has should say so, not just show an empty grid.");
+        // Bob is recognised by name on the live overlay, and listed on Regulars; the cat stays unnamed.
+        await Assertions.Expect(page.GetByTestId("live-tracks")).ToContainTextAsync("Bob", new() { Timeout = 25_000 });
+        await page.GetByTestId("stop-session").ClickAsync();
+        await page.Keyboard.PressAsync("4");
+        await Assertions.Expect(page.GetByTestId("regulars-table")).ToBeVisibleAsync();
+        ILocator NameBox(string who) => page.Locator(".regular-name").Filter(new() { HasText = $"Name for {who}" }).Locator("input");
+        await Assertions.Expect(NameBox("Bob")).ToHaveValueAsync("Bob");
+        await Assertions.Expect(NameBox("Cat 1")).ToHaveValueAsync("");
+        await page.AssertNoBlazorErrorAsync();
     }
 
     [Fact]

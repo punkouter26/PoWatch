@@ -1,13 +1,19 @@
 namespace PoWatch.Shared.Services.Tracking;
 
-/// <summary>One detector box, with coordinates normalised to [0, 1] of the frame.</summary>
-public sealed record Detection(string Label, double Score, double X0, double Y0, double X1, double Y1)
+/// <summary>One detector box, with coordinates normalised to [0, 1] of the frame, and optionally its colour signature.</summary>
+public sealed record Detection(string Label, double Score, double X0, double Y0, double X1, double Y1, IReadOnlyList<float>? Signature = null)
 {
     public double CentreX => (X0 + X1) / 2;
     public double CentreY => (Y0 + Y1) / 2;
 }
 
-public sealed record TrackState(string TrackId, string Label, Detection Box, DateTimeOffset FirstSeenUtc, DateTimeOffset LastSeenUtc);
+public sealed record TrackState(string TrackId, string Label, Detection Box, DateTimeOffset FirstSeenUtc, DateTimeOffset LastSeenUtc)
+{
+    /// <summary>The track's look, averaged over its sightings (empty until the detector sends one).</summary>
+    public IReadOnlyList<float> Signature { get; init; } = [];
+
+    public TimeSpan Age => LastSeenUtc - FirstSeenUtc;
+}
 
 public sealed record TrackEntered(string TrackId, string Label, string Edge, DateTimeOffset AtUtc);
 
@@ -78,13 +84,13 @@ public sealed class CentroidTracker(TimeSpan? gap = null)
                 if (claimed.Contains(detection) || seen.Contains(track.TrackId)) continue;
                 claimed.Add(detection);
                 seen.Add(track.TrackId);
-                _tracks[track.TrackId] = track with { Box = detection, LastSeenUtc = atUtc };
+                _tracks[track.TrackId] = track with { Box = detection, LastSeenUtc = atUtc, Signature = Average(track.Signature, detection.Signature) };
             }
 
             foreach (var detection in byLabel.Where(d => !claimed.Contains(d)))
             {
                 var id = $"T{_nextId++}";
-                _tracks[id] = new TrackState(id, detection.Label, detection, atUtc, atUtc);
+                _tracks[id] = new TrackState(id, detection.Label, detection, atUtc, atUtc) { Signature = detection.Signature ?? [] };
                 seen.Add(id);
                 entered.Add(new TrackEntered(id, detection.Label, EdgeOf(detection), atUtc));
             }
@@ -118,6 +124,14 @@ public sealed class CentroidTracker(TimeSpan? gap = null)
         };
         var nearest = distances.MinBy(d => d.Distance);
         return nearest.Distance <= EdgeBand ? nearest.Edge : "None";
+    }
+
+    /// <summary>Exponential average (30% new) so one odd frame cannot redefine a track's look.</summary>
+    private static IReadOnlyList<float> Average(IReadOnlyList<float> current, IReadOnlyList<float>? incoming)
+    {
+        if (incoming is null || incoming.Count == 0) return current;
+        if (current.Count != incoming.Count) return incoming;
+        return current.Select((v, i) => (0.7f * v) + (0.3f * incoming[i])).ToArray();
     }
 
     private static int Cell(Detection box)

@@ -24,6 +24,13 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private VlmScheduler _vlm = new(time);
     private HighlightRules _highlights = new(time);
     private bool _capturing;
+    private readonly HashSet<string> _observing = new(StringComparer.Ordinal);
+
+    /// <summary>A track must be this old before we ask who it is, so the look has settled.</summary>
+    private static readonly TimeSpan RecogniseAfter = TimeSpan.FromSeconds(3);
+
+    /// <summary>Only these get a naming prompt; everything else is still tracked as a regular.</summary>
+    private static readonly HashSet<string> Nameable = new(StringComparer.OrdinalIgnoreCase) { "person", "cat", "dog" };
     private SyntheticScene? _scene;
     private DotNetObjectReference<SensingSession>? _self;
     private ElementReference? _video;
@@ -62,6 +69,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _batcher = new TickBatcher(time);
         _vlm = new VlmScheduler(time);
         _highlights = new HighlightRules(time);
+        _observing.Clear();
         _scene = demo ? new SyntheticScene() : null;
         _demoStep = 0;
         _cts = new CancellationTokenSource();
@@ -135,9 +143,12 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private void AddDetections(DateTimeOffset atUtc, IReadOnlyList<Detection> detections)
     {
         var frame = _tracker.Update(atUtc, detections);
-        _batcher.AddDetections(atUtc, frame);
+        _batcher.AddDetections(atUtc, frame, trackId => Live.RegularFor(trackId)?.Id);
         Live.RecordDetections(frame, time.GetUtcNow());
+        foreach (var exited in frame.Exited) Live.ForgetTrack(exited.TrackId);
         Consider(_highlights.OnDetections(frame), atUtc);
+        RecogniseStableTracks(frame);
+        Live.ExpirePrompts(time.GetUtcNow());
         Notify();
     }
 
@@ -194,6 +205,54 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     {
         _batcher.AddEvent(new SceneEventDto { AtUtc = atUtc, Kind = "Notable", Text = highlight.Reason, Score = highlight.Score, ImagePath = imagePath });
         Live.RecordMoment(highlight, atUtc, imagePath is not null);
+        Notify();
+    }
+
+    /// <summary>Asks the server who each settled person or pet is, once per track.</summary>
+    private void RecogniseStableTracks(TrackerFrame frame)
+    {
+        foreach (var track in frame.Active)
+        {
+            if (!CentroidTracker.IsPresence(track.Label) || track.Signature.Count == 0 || track.Age < RecogniseAfter) continue;
+            if (Live.RegularFor(track.TrackId) is not null || !_observing.Add(track.TrackId)) continue;
+            _ = RecogniseAsync(track);
+        }
+    }
+
+    private async Task RecogniseAsync(TrackState track)
+    {
+        try
+        {
+            var result = await api.ObserveRegularAsync(new ObserveRegularRequestDto { Class = track.Label, Signature = [.. track.Signature] });
+            if (result is null || !IsRunning) return;
+            Live.AssignRegular(track.TrackId, result.Regular);
+
+            if (result.IsNew && Nameable.Contains(track.Label))
+            {
+                var snapshot = _scene is null && _video is not null ? await js.TryInvokeAsync<string>("powatchPixels.snapshot", _video) : null;
+                Live.AddPrompt(new NamingPrompt(result.Regular, snapshot, time.GetUtcNow()));
+            }
+
+            Notify();
+        }
+        catch (HttpRequestException)
+        {
+            // Offline: try again when the track is next seen.
+            _observing.Remove(track.TrackId);
+        }
+    }
+
+    /// <summary>Saves a name from a prompt (or dismisses it when blank) and relabels live tracks.</summary>
+    public async Task NameAsync(string regularId, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Live.DismissPrompt(regularId);
+            Notify();
+            return;
+        }
+
+        if (await api.RenameRegularAsync(regularId, name) is { } renamed) Live.Rename(renamed);
         Notify();
     }
 

@@ -49,6 +49,32 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.ListMomentDto, cancellationToken) ?? [] : [];
     }
 
+    public async Task<IReadOnlyList<RegularDto>> ListRegularsAsync(CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync("api/regulars", Json.ListRegularDto, cancellationToken) ?? [];
+
+    public async Task<ObserveRegularResultDto?> ObserveRegularAsync(ObserveRegularRequestDto request, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync("api/regulars/observe", request, Json.ObserveRegularRequestDto, cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.ObserveRegularResultDto, cancellationToken) : null;
+    }
+
+    public async Task<RegularDto?> RenameRegularAsync(string regularId, string? name, CancellationToken cancellationToken = default)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Patch, $"api/regulars/{Uri.EscapeDataString(regularId)}")
+        {
+            Content = JsonContent.Create(new RenameRegularRequestDto { Name = name }, Json.RenameRegularRequestDto)
+        };
+        using var response = await httpClient.SendAsync(message, cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.RegularDto, cancellationToken) : null;
+    }
+
+    public async Task<RegularDto?> MergeRegularsAsync(string primaryId, string duplicateId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PostAsJsonAsync("api/regulars/merge",
+            new MergeRegularsRequestDto { PrimaryId = primaryId, DuplicateId = duplicateId }, Json.MergeRegularsRequestDto, cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.RegularDto, cancellationToken) : null;
+    }
+
     public Task<PresenceStatsDto?> GetPresenceAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
         GetStatsAsync("presence", query, Json.PresenceStatsDto, cancellationToken);
 
