@@ -63,16 +63,19 @@ Rules for every task:
   - Done as: dwell, visits, edges and a presence grid live in `Rollup` too (dwell as a quarter-octave
     histogram, so percentiles merge across any range). Sanitizer tests merged 9 → 2 to stay under the
     unit cap.
-- [ ] **B4** Family C calculators: hour×weekday, rhythm-score correlation, z-scores (|z| ≥ 2),
+- [x] **B4** Family C calculators: hour×weekday, rhythm-score correlation, z-scores (|z| ≥ 2),
   7/30-day trend slope, busy-hour forecast. Replaces `DriftMath`.
-  - Files: `PatternStats.cs`, `AnomalyMath.cs`, delete `DriftMath.cs`, tests.
-- [ ] **B5** Family D calculators: light curve, lights on/off steps, sunrise/sunset estimate, palette
+  - Files: `PatternStats.cs`, `AnomalyMath.cs`, tests. (`DriftMath` stays until E4 removes the old
+    drift panel that still uses it.)
+- [x] **B5** Family D calculators: light curve, lights on/off steps, sunrise/sunset estimate, palette
   merge, word frequencies, weirdest caption (Jaccard).
   - Files: `EnvironmentStats.cs`, `CaptionStats.cs`, tests.
-- [ ] **B6** Achievements (≥ 15 definitions) and records; evaluation is idempotent.
+- [x] **B6** Achievements (≥ 15 definitions) and records; evaluation is idempotent.
   - Files: `Domain/Models/Achievement.cs`, `Domain/Services/AchievementRules.cs`, `RecordRules.cs`,
     tests.
   - AC: the same input twice unlocks once. **CHECKPOINT**
+  - Done: 20 achievements, records that only move when beaten. Unit suite now sits at exactly
+    100/100, so later tasks first merge adjacent tests in suites being retired.
 
 ### C — Storage, ingest, queries
 - [ ] **C1** Contracts plus in-memory repos: Session, Tick, SceneEvent, Rollup, AllTime, Achievement.
