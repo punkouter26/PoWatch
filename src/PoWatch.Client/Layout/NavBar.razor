@@ -1,0 +1,19 @@
+<nav class="term-keys" aria-label="Main" data-test="app-navbar">
+    @foreach (var (name, href) in Sections)
+    {
+        <NavLink class="term-key" href="@href" Match="@(href == "" ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                 data-test="@($"nav-{name.ToLowerInvariant()}")">@name</NavLink>
+    }
+</nav>
+
+@code {
+    private static readonly (string Name, string Href)[] Sections =
+    [
+        ("LIVE", ""),
+        ("STATS", "stats"),
+        ("HISTORY", "history"),
+        ("REGULARS", "regulars"),
+        ("TROPHIES", "trophies"),
+        ("SYSTEM", "system"),
+    ];
+}

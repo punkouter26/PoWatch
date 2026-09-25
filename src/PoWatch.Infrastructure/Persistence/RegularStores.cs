@@ -64,27 +64,3 @@ public sealed class AzureRegularStore(AzureStorageClients clients, IOptions<Azur
         DwellSeconds = e.GetDouble("DwellSeconds") ?? 0
     };
 }
-
-public sealed class InMemoryRegularStore : IRegularStore
-{
-    private readonly ConcurrentDictionary<(string UserId, string Id), Regular> _regulars = new();
-
-    public Task<IReadOnlyList<Regular>> ListAsync(string userId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<Regular>>(_regulars.Where(kv => kv.Key.UserId == userId).Select(kv => kv.Value).ToList());
-
-    public Task<Regular?> GetAsync(string userId, string regularId, CancellationToken cancellationToken) =>
-        Task.FromResult(_regulars.GetValueOrDefault((userId, regularId)));
-
-    public Task UpsertAsync(Regular regular, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(regular);
-        _regulars[(regular.UserId, regular.Id)] = regular;
-        return Task.CompletedTask;
-    }
-
-    public Task DeleteAsync(string userId, string regularId, CancellationToken cancellationToken)
-    {
-        _regulars.TryRemove((userId, regularId), out _);
-        return Task.CompletedTask;
-    }
-}

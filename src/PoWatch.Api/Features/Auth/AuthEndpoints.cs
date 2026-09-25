@@ -9,7 +9,7 @@ using PoWatch.Shared.Models;
 namespace PoWatch.Api.Features.Auth;
 
 /// <summary>
-/// BFF auth surface (rule 4.4). Environment behaviour:
+/// BFF auth surface. Environment behaviour:
 /// Prod → Microsoft only. Dev → Microsoft + guest. Test → guest bypass.
 /// </summary>
 internal static class AuthEndpoints
@@ -38,15 +38,8 @@ internal static class AuthEndpoints
             IOptions<FeatureFlagsOptions> flags,
             IConfiguration config,
             IWebHostEnvironment env) => TypedResults.Ok(new AuthConfigDto(
-                // NET_RULE §4.4: Prod → Microsoft only. Dev → Microsoft + guest. Test → guest bypass.
-                // Production requires a real `AzureAd:ClientId`. In Dev we also light up the Microsoft
-                // button when the operator explicitly opts in via `FeatureFlags:DeveloperEnableMicrosoftLogin`
-                // so the UI can show the split-view (Microsoft + Guest) without needing real Azure secrets
-                // committed to appsettings.Development.json. The actual /auth/login/microsoft endpoint
-                // returns 404 unless a real ClientId is configured, which keeps dev sign-in flow honest.
-                MicrosoftEnabled:
-                    !string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]) ||
-                    (!env.IsProduction() && flags.Value.DeveloperEnableMicrosoftLogin),
+                // Microsoft needs a real AzureAd:ClientId; guest sign-in is Dev/Test only.
+                MicrosoftEnabled: !string.IsNullOrWhiteSpace(config["AzureAd:ClientId"]),
                 GuestEnabled: flags.Value.DeveloperBypassAuth && !env.IsProduction(),
                 Environment: env.EnvironmentName)))
         .WithName("AuthConfig")

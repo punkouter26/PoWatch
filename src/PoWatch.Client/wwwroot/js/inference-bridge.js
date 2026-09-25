@@ -1,97 +1,39 @@
+// Page side of the L2 caption model: owns the webcam stream and the preview element, captures frames
+// on the main thread (the worker cannot touch the DOM) and hands them to inference-worker.js.
 (() => {
+  const call = window.powatchWorkerRpc('/js/inference-worker.js?v=20260925-one-model');
+
   let activeStream = null;
   let activePreviewElement = null;
-
-  // Cached load state received from the worker — keeps getModelLoadState() synchronous.
-  let _cachedLoadState = 'idle';
-
-  // Frame-diff state (DOM access stays on the main thread)
   let _lastFramePixels = null;
 
-  // The model list is owned by the shared /model-registry.json (rule 1.5): the worker reads it for
-  // inference config and the C# UI reads it for the picker. The bridge no longer keeps its own copy.
-
-  // ---------------------------------------------------------------------------
-  // Web Worker message bus
-  // All heavy computation (model loading, token generation) runs in inference-worker.js
-  // off the main thread so the browser UI stays responsive.
-  // ---------------------------------------------------------------------------
-  let _worker = null;
-
-  // The caption model picked on Live, remembered per browser. It rides on every RUN_INFERENCE, so a
-  // fresh worker (after a reload or a crash) switches to it before its first caption.
-  const MODEL_KEY = 'powatch.vlm-model';
-  function savedModel() {
-    try { return localStorage.getItem(MODEL_KEY); } catch { return null; }
-  }
-
-  let _pendingMessages = new Map(); // msgId -> { resolve, reject }
-  let _msgId = 0;
-
-  function getWorker() {
-    if (!_worker) {
-      _worker = new Worker('/js/inference-worker.js?v=20260925-bitmap-frames', { type: 'module' });
-      _worker.onmessage = (e) => {
-        const { id, type, ...rest } = e.data;
-        // Unsolicited state broadcasts from the worker (e.g. during model loading)
-        if (type === 'STATE_UPDATE') {
-          _cachedLoadState = rest.loadState;
-          return;
-        }
-        const pending = _pendingMessages.get(id);
-        if (pending) {
-          _pendingMessages.delete(id);
-          pending.resolve({ type, ...rest });
-        }
-      };
-      _worker.onerror = () => {
-        for (const { reject } of _pendingMessages.values()) {
-          reject(new Error('Inference worker crashed'));
-        }
-        _pendingMessages.clear();
-        _worker = null; // allow transparent recreation on next request
-      };
+  async function ensureWebcamAccess() {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      return 'This browser has no camera access. Try another browser, or use Demo scene.';
     }
-    return _worker;
-  }
-
-  // timeoutMs = 0 means wait forever (RUN_INFERENCE/model loads can be slow). Quick status
-  // queries MUST pass a timeout: a worker that never responds otherwise hangs the awaiting
-  // Blazor OnInitializedAsync and the page never renders (System page bug, 2026-07-22).
-  function postToWorker(type, payload, timeoutMs = 0, transfer = []) {
-    return new Promise((resolve, reject) => {
-      const id = _msgId++;
-      let timer = null;
-      if (timeoutMs > 0) {
-        timer = setTimeout(() => {
-          if (_pendingMessages.delete(id)) {
-            reject(new Error(`Inference worker did not answer ${type} within ${timeoutMs}ms`));
-          }
-        }, timeoutMs);
-      }
-      _pendingMessages.set(id, {
-        resolve: (v) => { if (timer) clearTimeout(timer); resolve(v); },
-        reject: (e) => { if (timer) clearTimeout(timer); reject(e); },
+    try {
+      activeStream ??= await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
       });
-      getWorker().postMessage({ id, type, payload }, transfer);
-    });
+      return 'OK';
+    } catch (e) {
+      // Nothing falls back to a preview: say what went wrong and what to do about it.
+      const why = {
+        NotReadableError: 'The camera is in use by another app or tab. Close it (or restart Windows if nothing else is open) and press Start camera again.',
+        NotAllowedError: 'Camera permission was denied. Allow it in the address bar or in Windows camera privacy settings.',
+        NotFoundError: 'No camera found.',
+      }[e?.name] ?? `Camera error (${e?.name ?? 'unknown'}).`;
+      return `${why} Demo scene works without a camera.`;
+    }
   }
-
-  // ---------------------------------------------------------------------------
-  // DOM helpers — must stay on the main thread (Worker cannot access DOM)
-  // ---------------------------------------------------------------------------
 
   async function attachStreamToElement(videoElement) {
     if (!videoElement || !activeStream) return;
-
-    if (videoElement.srcObject !== activeStream) {
-      videoElement.srcObject = activeStream;
-    }
-
+    if (videoElement.srcObject !== activeStream) videoElement.srcObject = activeStream;
     videoElement.muted = true;
     videoElement.playsInline = true;
     activePreviewElement = videoElement;
-
     try {
       await videoElement.play();
     } catch {
@@ -99,56 +41,41 @@
     }
   }
 
-  let _diffCanvas = null;
   let _diffCtx = null;
 
-  // Returns fraction of pixels that changed significantly vs last frame (0–1).
-  // Reuses a cached canvas and samples with stride at 120×68 with willReadFrequently to keep cost <1ms.
+  // Fraction of pixels that changed significantly since the last caption (0–1), sampled at 120×68.
   function computeFrameDiff(videoElement) {
     if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) return 1;
     const w = 120;
     const h = 68;
-    if (!_diffCanvas) {
-      _diffCanvas = document.createElement('canvas');
-      _diffCanvas.width = w;
-      _diffCanvas.height = h;
-      _diffCtx = _diffCanvas.getContext('2d', { willReadFrequently: true });
+    if (!_diffCtx) {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      _diffCtx = canvas.getContext('2d', { willReadFrequently: true });
     }
-    _diffCtx?.drawImage(videoElement, 0, 0, w, h);
-    const imgData = _diffCtx?.getImageData(0, 0, w, h);
-    if (!imgData) return 1;
-    const pixels = imgData.data;
-    if (!_lastFramePixels || _lastFramePixels.length !== pixels.length) {
-      _lastFramePixels = new Uint8ClampedArray(pixels);
-      return 1;
-    }
+    _diffCtx.drawImage(videoElement, 0, 0, w, h);
+    const pixels = _diffCtx.getImageData(0, 0, w, h).data;
+    const previous = _lastFramePixels;
+    _lastFramePixels = new Uint8ClampedArray(pixels);
+    if (!previous || previous.length !== pixels.length) return 1;
+
     let changed = 0;
     let sampled = 0;
-    // Sample every 2nd pixel (stride of 8 in RGBA buffer) for 4x faster loop without aliasing
+    // Every 2nd pixel (stride of 8 in RGBA) keeps this under a millisecond.
     for (let i = 0; i < pixels.length; i += 8) {
       sampled++;
-      const dr = Math.abs(pixels[i]     - _lastFramePixels[i]);
-      const dg = Math.abs(pixels[i + 1] - _lastFramePixels[i + 1]);
-      const db = Math.abs(pixels[i + 2] - _lastFramePixels[i + 2]);
-      if (dr + dg + db > 28) changed++;
+      const d = Math.abs(pixels[i] - previous[i]) + Math.abs(pixels[i + 1] - previous[i + 1]) + Math.abs(pixels[i + 2] - previous[i + 2]);
+      if (d > 28) changed++;
     }
-    _lastFramePixels = new Uint8ClampedArray(pixels);
     return sampled > 0 ? changed / sampled : 0;
   }
 
-  // Longest edge sent to the model. The frame used to be captured at full webcam resolution
-  // (often 1280x720+), and SmolVLM splits a large image into many patches — a single frame was
-  // costing ~900 image tokens, which dominates inference time on the CPU/wasm backend. The model's
-  // processor downsamples anyway, so the extra pixels bought nothing but latency.
+  // Longest edge sent to the model: the processor downsamples anyway, so a full webcam frame only
+  // buys latency. The frame travels as a transferable ImageBitmap — no JPEG, no base64.
   const _MAX_CAPTURE_EDGE = 512;
 
-  // The frame goes to the worker as a transferable ImageBitmap, resized by the browser: no JPEG
-  // encode here, no base64 string copied across, no decode on the other side.
-  async function captureFrame(videoElement) {
-    if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
-      return null;
-    }
-
+  function captureFrame(videoElement) {
     const srcW = videoElement.videoWidth;
     const srcH = videoElement.videoHeight;
     const scale = Math.min(1, _MAX_CAPTURE_EDGE / Math.max(srcW, srcH));
@@ -159,242 +86,32 @@
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Model self-test fixture (System page)
-  // ---------------------------------------------------------------------------
-
-  // A fixed, synthetic room scene drawn on the main thread, where canvas lives. It is used instead
-  // of the webcam on purpose: every model then sees byte-identical input, so two runs are
-  // comparable, and the System page never has to raise a camera-permission prompt on a page that
-  // shows no preview. The literal colours here are a test fixture, not themed UI — they must stay
-  // constant across light and dark so the comparison holds.
-  const _TEST_FRAME_EDGE = 384;
-
-  function buildTestFrame() {
-    const canvas = document.createElement('canvas');
-    canvas.width = _TEST_FRAME_EDGE;
-    canvas.height = _TEST_FRAME_EDGE;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.fillStyle = '#d8d4cc';                       // wall
-    ctx.fillRect(0, 0, 384, 384);
-    ctx.fillStyle = '#8d7f6d';                       // floor
-    ctx.fillRect(0, 250, 384, 134);
-    ctx.fillStyle = '#bcd6e8';                       // window
-    ctx.fillRect(250, 40, 100, 90);
-    ctx.strokeStyle = '#5b5348';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(250, 40, 100, 90);
-    ctx.fillStyle = '#e9e6e0';                       // bed
-    ctx.fillRect(30, 200, 210, 90);
-    ctx.fillStyle = '#7a8ea0';
-    ctx.fillRect(30, 235, 210, 55);
-    ctx.fillStyle = '#c98b6a';                       // person: head
-    ctx.beginPath();
-    ctx.arc(75, 185, 26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#3f5c78';                       // person: torso on the bed
-    ctx.fillRect(95, 205, 120, 34);
-
-    return canvas;
-  }
-
-  function classifyMotion(diff) {
-    if (diff >= 0.18) return 'High';
-    if (diff >= 0.06) return 'Medium';
-    if (diff >= 0.015) return 'Low';
-    return 'Still';
-  }
-
-  // ---------------------------------------------------------------------------
-  // Public API exposed to Blazor via window.powatchInference
-  // ---------------------------------------------------------------------------
+  const unavailable = (status) => ({ isAvailable: false, status, activity: 'Unavailable', caption: '' });
 
   window.powatchInference = {
-    async isWebGpuAvailable() {
-      const res = await postToWorker('GET_DIAGNOSTICS', {}, 5000);
-      return res.data?.webGpuPresent ?? false;
-    },
-
-    // Fix: C# used to pass its CancellationToken across the JSInterop boundary, which made
-    // System.Text.Json walk into CancellationToken.WaitHandle.Handle (IntPtr) and throw
-    // SerializeTypeInstanceNotSupported. Now C# calls cancelInFlight() and the bridge keeps
-    // an AbortController scoped to the in-flight captureAndInfer call.
-    _abortController: null,
-    cancelInFlight() {
-      try { window.powatchInference._abortController?.abort(); }
-      catch { /* nothing to cancel */ }
-    },
-
-
-    async ensureWebcamAccess() {
-      if (!navigator?.mediaDevices?.getUserMedia) {
-        return { available: false, errorState: 'This browser has no camera access. Try another browser, or use Demo scene.' };
-      }
-      try {
-        if (!activeStream) {
-          activeStream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: 'user',
-            },
-          });
-        }
-        return { available: true, errorState: '' };
-      } catch (e) {
-        // Nothing falls back to a preview: say what went wrong and what to do about it.
-        const why = {
-          NotReadableError: 'The camera is in use by another app or tab. Close it (or restart Windows if nothing else is open) and press Start camera again.',
-          NotAllowedError: 'Camera permission was denied. Allow it in the address bar or in Windows camera privacy settings.',
-          NotFoundError: 'No camera found.',
-        }[e?.name] ?? `Camera error (${e?.name ?? 'unknown'}).`;
-        return { available: false, errorState: `${why} Demo scene works without a camera.` };
-      }
-    },
-
     async startPreview(videoElement) {
-      const webcam = await window.powatchInference.ensureWebcamAccess();
-      if (!webcam.available) return webcam.errorState;
-      await attachStreamToElement(videoElement);
-      return 'OK';
+      const status = await ensureWebcamAccess();
+      if (status === 'OK') await attachStreamToElement(videoElement);
+      return status;
     },
 
     async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96) {
-      // Abort any in-flight capture (defensive — C# also calls cancelInFlight before issuing a
-      // new one when stopping monitoring). One controller per call, not shared, so a new
-      // inference cycle isn't poisoned by a stale abort from a previous run.
-      if (window.powatchInference._abortController) {
-        try { window.powatchInference._abortController.abort(); } catch { /* */ }
-      }
-      const ctrl = new AbortController();
-      window.powatchInference._abortController = ctrl;
-
-      const webcam = await window.powatchInference.ensureWebcamAccess();
-      if (ctrl.signal.aborted) {
-        return { isAvailable: false, status: 'Cancelled', activity: 'Cancelled', confidenceLabel: 'Cancelled' };
-      }
-      if (!webcam.available) {
-        return {
-          isAvailable: false,
-          status: webcam.errorState,
-          subjectHint: null,
-          activity: 'Unavailable',
-          caption: '',
-          isSignificant: false,
-          significantReason: null,
-          confidenceScore: 0,
-          confidenceLabel: 'Unavailable',
-          motionScore: 0,
-          motionLevel: 'Unavailable',
-        };
-      }
-
+      const status = await ensureWebcamAccess();
+      if (status !== 'OK') return unavailable(status);
       await attachStreamToElement(videoElement);
 
-      // Frame-diff: skip inference if the scene hasn't changed enough (saves CPU)
-      const diff = computeFrameDiff(videoElement);
-      const motionScore = Math.round(diff * 100);
-      const motionLevel = classifyMotion(diff);
-      if (diff < 0.015) {
-        return {
-          isAvailable: false,
-          status: 'Frame unchanged: skipped',
-          subjectHint: null,
-          activity: 'No change',
-          caption: '',
-          isSignificant: false,
-          significantReason: null,
-          confidenceScore: 0,
-          confidenceLabel: 'Awaiting AI',
-          motionScore,
-          motionLevel,
-        };
-      }
+      if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) return unavailable('No frame captured');
+      // Skip the model when the scene has not changed enough since the last caption.
+      if (computeFrameDiff(videoElement) < 0.015) return unavailable('Frame unchanged: skipped');
 
-      // Capture frame on main thread (DOM), then hand off to the worker
       const frame = await captureFrame(videoElement);
-      if (ctrl.signal.aborted) {
-        frame?.close();
-        return { isAvailable: false, status: 'Cancelled', activity: 'Cancelled', confidenceLabel: 'Cancelled' };
-      }
-      const res = await postToWorker('RUN_INFERENCE', {
-        frame,
-        prompt,
-        maxNewTokens: maxInferenceTokens,
-        modelKey: savedModel(),
-      }, 0, frame ? [frame] : []);
-      return {
-        ...res.result,
-        motionScore,
-        motionLevel,
-      };
+      const res = await call({ type: 'RUN_INFERENCE', payload: { frame, prompt, maxNewTokens: maxInferenceTokens } }, [frame]);
+      return res.result;
     },
 
-    // Synchronous — returns cached value broadcast by the worker; never blocks.
-    getModelLoadState() {
-      return _cachedLoadState;
-    },
-
-    // Async — queries the worker for the full diagnostics snapshot.
     async getInferenceDiagnostics() {
-      const res = await postToWorker('GET_DIAGNOSTICS', {}, 5000);
-      // JS heap usage — Chrome-only (performance.memory is not in the spec).
-      // Returns MB used / total, e.g. "42 / 128 MB". Returns null elsewhere.
-      let jsHeapMb = null;
-      try {
-        const mem = performance?.memory;
-        if (mem?.usedJSHeapSize) {
-          const used  = Math.round(mem.usedJSHeapSize  / 1_048_576);
-          const total = Math.round(mem.jsHeapSizeLimit  / 1_048_576);
-          jsHeapMb = `${used} / ${total} MB`;
-        }
-      } catch { /* non-Chrome: silently ignore */ }
-      return {
-        ...res.data,
-        jsHeapMb,
-        streamActive: !!activeStream,
-        previewWidth: activePreviewElement?.videoWidth ?? 0,
-        previewHeight: activePreviewElement?.videoHeight ?? 0,
-      };
-    },
-
-    // Per-model self-test for the System page. No timeout is passed: a first-time load of the 2.2B
-    // model downloads well over a gigabyte, and a timeout here would report a slow-but-working
-    // laptop as a failure. The card disables its buttons for the duration instead.
-    // The prompt and token budget come from C# (CaptionParser), so the test measures the loop's real call.
-    async runModelTest(modelKey, prompt, maxNewTokens) {
-      const canvas = buildTestFrame();
-      if (!canvas) {
-        return { modelKey, ok: false, stage: 'fixture', error: 'Could not draw the test image in this browser' };
-      }
-      const testFrameDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      const frame = await createImageBitmap(canvas);
-      const res = await postToWorker('MODEL_TEST', { modelKey, frame, prompt, maxNewTokens }, 0, [frame]);
-      // The worker owns the model state and has just unloaded whatever it tested, so the cached
-      // state must follow it back to 'idle' — otherwise the Live Room reads a stale 'ready'.
-      _cachedLoadState = 'idle';
-      return { ...res.result, testFrameDataUrl };
-    },
-
-    setModel(modelKey) {
-      try { localStorage.setItem(MODEL_KEY, modelKey); } catch { /* private mode: this tab only */ }
-      _cachedLoadState = 'idle';
-      postToWorker('SET_MODEL', { modelKey });
-    },
-
-    /** The saved caption model key, or null for the registry default. */
-    getModel() {
-      return savedModel();
-    },
-
-    setPowerPreference(preference) {
-      const valid = ['default', 'high-performance', 'low-power'];
-      if (!valid.includes(preference)) return;
-      _cachedLoadState = 'idle';
-      postToWorker('SET_POWER_PREFERENCE', { preference });
+      // A status query must time out: a silent worker would otherwise hang the System page's render.
+      return (await call({ type: 'GET_DIAGNOSTICS' }, [], 5000)).result;
     },
 
     stopMonitor() {
@@ -403,62 +120,8 @@
         activePreviewElement.srcObject = null;
         activePreviewElement = null;
       }
-
-      if (activeStream) {
-        for (const track of activeStream.getTracks()) {
-          track.stop();
-        }
-        activeStream = null;
-      }
-    },
-
-    // Chrome's built-in language model (Prompt API). Only used when it is already on the device — this
-    // never starts a multi-gigabyte download on its own. Null means "not here", and the caller keeps
-    // the template text.
-    async rewriteOnDevice(system, prompt) {
-      try {
-        if (typeof LanguageModel === 'undefined' || (await LanguageModel.availability()) !== 'available') return null;
-        const session = await LanguageModel.create({ initialPrompts: [{ role: 'system', content: system }] });
-        try {
-          return (await session.prompt(prompt)).trim() || null;
-        } finally {
-          session.destroy();
-        }
-      } catch {
-        return null;
-      }
-    },
-
-    // ─── Standby / wake-on-motion ───────────────────────────────────────────────
-    // The probe samples the current preview frame at the same 160x90 used by the
-    // observation loop's own frame-diff, but does NOT spawn an inference cycle. The
-    // C# StandbyController decides what to do with the score; the JS side just
-    // reports the camera's view cheaply.
-
-    async probeMotion(videoElement) {
-      try {
-        const diff = computeFrameDiff(videoElement);
-        return {
-          ok: true,
-          diff,
-          score: Math.round(diff * 100),
-          level: classifyMotion(diff),
-        };
-      } catch (err) {
-        return { ok: false, error: String(err?.message ?? err) };
-      }
-    },
-
-    async unloadModel() {
-      // Asks the worker to release the model + GPU buffers. Safe to call when no model is
-      // loaded — unloadModel() in the worker is idempotent. The bridge intentionally does
-      // NOT stop the webcam here; the wake probe still needs the preview frames.
-      try {
-        await postToWorker('UNLOAD_MODEL', {}, 5000);
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: String(err?.message ?? err) };
-      }
+      for (const track of activeStream?.getTracks() ?? []) track.stop();
+      activeStream = null;
     },
   };
 })();

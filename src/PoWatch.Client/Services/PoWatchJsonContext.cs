@@ -5,14 +5,13 @@ namespace PoWatch.Client.Services;
 
 /// <summary>
 /// Source-generated JSON metadata for every type crossing the BFF boundary, so the WASM
-/// client serializes without reflection and passes the trim analyzer (rule 6.6).
+/// client serializes without reflection and passes the trim analyzer.
 /// Options mirror <see cref="System.Text.Json.JsonSerializerDefaults.Web"/> to match the API.
 /// </summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = true,
     NumberHandling = JsonNumberHandling.AllowReadingFromString)]
-[JsonSerializable(typeof(ModelRegistryEntry[]))]
 [JsonSerializable(typeof(DiagnosticsSnapshotDto))]
 [JsonSerializable(typeof(AuthStateDto))]
 [JsonSerializable(typeof(AuthConfigDto))]

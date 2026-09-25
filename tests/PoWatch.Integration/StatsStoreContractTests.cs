@@ -8,9 +8,7 @@ using PoWatch.Infrastructure.Persistence;
 namespace PoWatch.Integration;
 
 /// <summary>
-/// One behavioural contract for every stats store implementation. Each test runs the same script
-/// against the in-memory store and the Azure one, so the fallback can never quietly disagree with
-/// production about keys, ordering or replays.
+/// Behavioural contract for the Azure stats stores (against Azurite): keys, ordering and replays.
 /// </summary>
 public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory) : IClassFixture<AzuriteWebApplicationFactory>
 {
@@ -19,13 +17,11 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
 
     private IEnumerable<(string Name, Func<ISessionRepository> Sessions, Func<IIngestLedger> Ledger)> SessionStores()
     {
-        yield return ("in-memory", () => new InMemorySessionRepository(), () => new InMemoryIngestLedger());
         yield return ("azure", () => new AzureSessionRepository(AzureClients(), Options), () => new AzureIngestLedger(AzureClients(), Options));
     }
 
     private IEnumerable<(string Name, Func<ISensingLog> Log)> SensingLogs()
     {
-        yield return ("in-memory", () => new InMemorySensingLog());
         yield return ("azure", () => new AzureSensingLog(AzureClients(), Options));
     }
 
@@ -41,7 +37,6 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
 
     private IEnumerable<(string Name, Func<IRollupStore> Rollups, Func<IAchievementStore> Achievements)> StatsStores()
     {
-        yield return ("in-memory", () => new InMemoryRollupStore(), () => new InMemoryAchievementStore());
         yield return ("azure", () => new AzureRollupStore(AzureClients(), Options), () => new AzureAchievementStore(AzureClients(), Options));
     }
 

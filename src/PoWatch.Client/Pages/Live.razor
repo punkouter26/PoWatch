@@ -6,7 +6,6 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject StatsFeed Feed
-@inject ModelRegistryService Registry
 
 <PageTitle>PoWatch | Live</PageTitle>
 
@@ -52,19 +51,6 @@
                                     <label class="live-toggle">
                                         <input type="checkbox" @bind="Sensing.Captions" /> Captions (vision model)
                                     </label>
-                                    @if (_models.Length > 0)
-                                    {
-                                        @* Runs in this browser; the pick is remembered here (inference-bridge.js). *@
-                                        <label class="live-toggle">
-                                            Model
-                                            <select @bind="_model" @bind:after="PickModelAsync" disabled="@(!Sensing.Captions)" data-test="caption-model">
-                                                @foreach (var model in _models)
-                                                {
-                                                    <option value="@model.Key">@model.Label@(model == _models[0] ? " (default)" : string.Empty)</option>
-                                                }
-                                            </select>
-                                        </label>
-                                    }
                                 </div>
                                 @if (_error is not null)
                                 {
@@ -188,11 +174,7 @@
         <TerminalPanel Number="04" Title="Motion grid" Test="live-motion-grid">
             <Aside>16×9 · EDGES TODAY</Aside>
             <ChildContent>
-                @* The shader canvas covers the plain grid once WebGL2 is up (fx.js). *@
-                <div class="fx-heat-wrap">
-                    <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
-                    <canvas class="fx-heat" data-fx-heat aria-hidden="true"></canvas>
-                </div>
+                <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
                 <div class="live-edges">
                     @foreach (var edge in Edges)
                     {
@@ -217,8 +199,6 @@
     private PatternStatsDto? _patterns;
     private ObjectStatsDto? _objects;
     private CancellationTokenSource? _refresh;
-    private ModelRegistryEntry[] _models = [];
-    private string? _model;
     private DateTimeOffset _lastRender;
     private DateTimeOffset _lastPush;
 
@@ -252,7 +232,6 @@
             _self = DotNetObjectReference.Create(this);
             await JS.TryInvokeVoidAsync("powatchFeed.watchReturn", _self, 300);
             await DockFeedAsync();
-            await LoadModelsAsync();
         }
 
         // ?start=camera|demo (header Start, or a typed URL) works whether or not Live was already open.
@@ -260,25 +239,6 @@
         Navigation.NavigateTo("", replace: true);
         await StartAsync(demo: mode == "demo");
     }
-
-    /// <summary>Fills the caption-model picker: the saved pick, else the registry default.</summary>
-    private async Task LoadModelsAsync()
-    {
-        try
-        {
-            _models = await Registry.GetAsync();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or System.Text.Json.JsonException)
-        {
-            return; // No list, no picker: captions still run on the worker's default model.
-        }
-
-        var saved = await JS.TryInvokeAsync<string>("powatchInference.getModel");
-        _model = _models.Any(m => m.Key == saved) ? saved : _models[0].Key;
-        StateHasChanged();
-    }
-
-    private async Task PickModelAsync() => await JS.TryInvokeVoidAsync("powatchInference.setModel", _model);
 
     private async Task StartAsync(bool demo)
     {

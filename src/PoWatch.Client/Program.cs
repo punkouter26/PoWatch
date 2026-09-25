@@ -20,28 +20,16 @@ builder.Services.AddScoped(sp => new HttpClient(new CorrelationHandler(sessionId
         ? builder.HostEnvironment.BaseAddress
         : apiBaseUrl)
 });
-builder.Services.Configure<ClientFeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.AddScoped<PoWatchApiClient>();
 builder.Services.AddSingleton(TimeProvider.System);
-// One sensing session per browser tab; the Live page and the stats wall both read its state.
+// One sensing session per browser tab; every page reads its state.
 builder.Services.AddScoped<SensingSession>();
 builder.Services.AddScoped<StatsFeed>();
 builder.Services.AddRadzenComponents();
 
-// BFF auth: server cookie holds the session; client derives state from /auth/me (rule 4).
+// BFF auth: server cookie holds the session; client derives state from /auth/me.
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<BffAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<BffAuthenticationStateProvider>());
-
-// Inference service: mock for dev/testing, WebGPU for production
-var flags = builder.Configuration.GetSection("FeatureFlags").Get<ClientFeatureFlagsOptions>() ?? new ClientFeatureFlagsOptions();
-if (flags.UseMockAi)
-    builder.Services.AddScoped<IInferenceService, MockInferenceService>();
-else
-    builder.Services.AddScoped<IInferenceService, WebGpuInferenceService>();
-
-// The shared VLM list (wwwroot/model-registry.json), read by the Live page and the System
-// page's per-model self-test. Scoped so the fetch happens once per app load, not once per page.
-builder.Services.AddScoped<ModelRegistryService>();
 
 await builder.Build().RunAsync();

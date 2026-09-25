@@ -8,7 +8,6 @@ namespace PoWatch.Api.HealthChecks;
 
 // Pings Azure Table Storage service properties to verify the connection is reachable.
 // Supports both connection-string auth and Managed Identity (ServiceUri).
-// Returns Degraded (not Unhealthy) when storage is intentionally absent (in-memory mode).
 public sealed class AzureStorageHealthCheck(IOptions<AzureStorageOptions> storageOptions) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -29,7 +28,7 @@ public sealed class AzureStorageHealthCheck(IOptions<AzureStorageOptions> storag
         }
         else
         {
-            return HealthCheckResult.Degraded("Azure Storage is not configured; running in in-memory mode.");
+            return HealthCheckResult.Unhealthy("Azure Storage is not configured.");
         }
 
         try

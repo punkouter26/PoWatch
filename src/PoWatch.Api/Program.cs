@@ -59,7 +59,7 @@ builder.WebHost.ConfigureKestrel((ctx, opts) =>
 HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
     HostStartupLog.Stage.BuilderCreated, bootSw);
 
-// T010: Two-stage Serilog initialisation — reads config from appsettings after host is built
+// Two-stage Serilog initialisation — reads config from appsettings after host is built
 builder.Host.UseSerilog(TelemetrySetup.ConfigureSerilog);
 
 // Key Vault: add secrets as a config source before binding feature flags
@@ -72,7 +72,7 @@ if (tempFlags.EnableKeyVault && !string.IsNullOrWhiteSpace(rawKvUri) && Uri.TryC
         HostStartupLog.Stage.KeyVaultLoaded, bootSw);
 }
 
-// T013: Bind feature flags early so conditional registrations below can read them
+// Bind feature flags early so conditional registrations below can read them
 var featureFlags = builder.Configuration
     .GetSection("FeatureFlags")
     .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
@@ -80,7 +80,7 @@ var featureFlags = builder.Configuration
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
 
-// Audit #2: fail-fast options — the startup-critical settings are validated and ValidateOnStart()
+// Fail-fast options — the startup-critical settings are validated and ValidateOnStart()
 // forces evaluation during host build, so a bad table name, polling interval, or Azure OpenAI range
 // aborts boot with an actionable message instead of throwing lazily on first use.
 builder.Services.AddOptions<AzureStorageOptions>()
@@ -92,10 +92,10 @@ builder.Services.AddOptions<PoWatch.Application.Options.AzureOpenAiOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-// Audit #1: durable, shared Data Protection keyring so BFF auth cookies survive recycle/scale-out.
+// Durable, shared Data Protection keyring so BFF auth cookies survive recycle/scale-out.
 builder.AddPoWatchDataProtection();
 
-// T009 / audit #6: OpenAPI document at /openapi/v1.json, emitted at OpenAPI 3.1.
+// OpenAPI document at /openapi/v1.json, emitted at OpenAPI 3.1.
 builder.Services.AddOpenApi(options =>
     options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 
@@ -109,10 +109,10 @@ builder.Services.AddHybridCache(o =>
     };
 });
 
-// T010: OpenTelemetry tracing (passes config so Azure Monitor exporter can be gated on connection string)
+// OpenTelemetry tracing (passes config so Azure Monitor exporter can be gated on connection string)
 builder.Services.AddPoWatchTelemetry(builder.Configuration);
 
-// T009a: Health checks — Azure Storage ping + Key Vault ping (when enabled) + JSON endpoint at /health
+// Health checks — Azure Storage ping + Key Vault ping (when enabled) + JSON endpoint at /health
 var hcBuilder = builder.Services.AddHealthChecks()
     .AddCheck<AzureStorageHealthCheck>("azure-storage");
 if (featureFlags.EnableKeyVault)
@@ -145,10 +145,10 @@ builder.Services.AddSingleton<FluentValidation.IValidator<PoWatch.Shared.Models.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CurrentUserIdProvider>();
 
-// T012: Global ProblemDetails middleware
+// Global ProblemDetails middleware
 builder.Services.AddProblemDetails();
 
-// Auth (rule 4): BFF cookie session + Microsoft Entra OIDC (when configured) + dev/test guest bypass.
+// Auth: BFF cookie session + Microsoft Entra OIDC (when configured) + dev/test guest bypass.
 builder.AddPoWatchAuthentication(featureFlags);
 HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
     HostStartupLog.Stage.AuthWired, bootSw);
@@ -184,7 +184,7 @@ app.Use(async (ctx, next) =>
 });
 app.UseRouting();
 
-// T009: OpenAPI + Scalar API reference UI
+// OpenAPI + Scalar API reference UI
 app.MapOpenApi("/openapi/v1.json");
 app.MapScalarApiReference("/scalar/v1");
 
@@ -194,7 +194,7 @@ app.MapScalarApiReference("/scalar/v1");
 HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
     HostStartupLog.Stage.Listening, bootSw);
 
-// T012: Global exception handler — exposes detail only when ExposeDebugDetailsInUi is true
+// Global exception handler — exposes detail only when ExposeDebugDetailsInUi is true
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -229,7 +229,7 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-// T007: Only enforce HTTPS redirect in non-development environments.
+// Only enforce HTTPS redirect in non-development environments.
 // In dev the API binds only to HTTP; the middleware cannot resolve the HTTPS port and
 // emits a WRN on every request otherwise.
 if (!app.Environment.IsDevelopment())
@@ -252,7 +252,7 @@ app.Use(async (ctx, next) =>
     }
 });
 
-// T009a: JSON health endpoint — returns status of each registered check
+// JSON health endpoint — returns status of each registered check
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
@@ -317,7 +317,7 @@ app.MapGet("/diag/boot", (
     .WithSummary("Startup milestone reached and per-dependency readiness (no secrets).")
     .AllowAnonymous();
 
-// T005: Serve hosted Blazor WASM from same origin — no CORS needed (T006: CORS removed)
+// Serve hosted Blazor WASM from same origin — no CORS needed
 // .NET 10: MapStaticAssets() replaces both UseBlazorFrameworkFiles() and UseStaticFiles().
 // It uses the staticwebassets.endpoints.json manifest to resolve fingerprinted file names.
 // App wwwroot/js files are NOT fingerprinted by the framework, so force revalidation on
@@ -356,7 +356,7 @@ app.MapDevSeedFeature(app.Environment);
 // is what lets the portfolio dashboard poll them all and render one uptime grid.
 app.MapPoLiveness();
 
-// T005: Fall back to the Blazor WASM entry point for all unmatched requests. Anonymous: the SPA host page
+// Fall back to the Blazor WASM entry point for all unmatched requests. Anonymous: the SPA host page
 // must load for unauthenticated users so the client can render /login (the fallback authz policy would
 // otherwise 401 the host page itself and make the app unreachable).
 app.MapFallbackToFile("index.html").AllowAnonymous();

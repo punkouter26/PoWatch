@@ -10,9 +10,6 @@ public interface ISnapshotStore
 {
     public const int DailyCap = 200;
 
-    /// <summary>False when there is nowhere to keep images (in-memory mode); the client then sends moments without pictures.</summary>
-    bool IsAvailable { get; }
-
     /// <summary>A write-only link for one new snapshot, or null when today's cap is reached.</summary>
     Task<SnapshotUpload?> CreateUploadAsync(string userId, DateOnly localDay, CancellationToken cancellationToken);
 

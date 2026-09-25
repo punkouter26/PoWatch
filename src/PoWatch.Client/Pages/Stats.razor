@@ -26,6 +26,7 @@
     }
 
     <span class="term-stat-hint" data-test="stats-window">@WindowLabel</span>
+    <button class="term-button stats-fullscreen" onclick="document.documentElement.requestFullscreen?.()" data-test="stats-fullscreen">Full screen</button>
 </div>
 
 <RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Server" data-test="stats-tabs">

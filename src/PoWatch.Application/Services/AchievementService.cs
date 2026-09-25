@@ -1,5 +1,4 @@
 using System.Globalization;
-using Humanizer;
 using PoWatch.Application.Contracts;
 using PoWatch.Domain.Models;
 using PoWatch.Domain.Services;
@@ -9,8 +8,7 @@ namespace PoWatch.Application.Services;
 
 /// <summary>
 /// Stat family E: gathers what the achievement and record rules look at, unlocks what was earned
-/// and keeps personal bests. Runs after every newly counted batch and at session start, so it only
-/// needs a short trailing window of minute rollups rather than the whole day.
+/// and keeps personal bests. Runs after every newly counted batch and at session start.
 /// </summary>
 public sealed class AchievementService(
     IRollupStore rollups,
@@ -19,7 +17,6 @@ public sealed class AchievementService(
     TimeProvider time)
 {
     private const int SessionHistory = 1_000;
-    private static readonly TimeSpan RecentWindow = TimeSpan.FromHours(2);
 
     /// <summary>Unlocks newly earned achievements, updates records, and returns just the new unlocks.</summary>
     /// <param name="sessionId">The session that just started or sent data; its time zone defines "today".</param>
@@ -33,8 +30,6 @@ public sealed class AchievementService(
 
         var allTime = await rollups.GetAllTimeAsync(userId, cancellationToken);
         var todayHourly = await rollups.GetRangeAsync(userId, RollupGrain.Hour, todayStart, now.AddHours(1), cancellationToken);
-        var recentStart = RollupBuckets.StartUtc(RollupGrain.Minute, now - RecentWindow, zone);
-        var recent = await rollups.GetRangeAsync(userId, RollupGrain.Minute, recentStart, now.AddMinutes(1), cancellationToken);
 
         var context = new AchievementContext
         {
@@ -43,9 +38,6 @@ public sealed class AchievementService(
             SessionCount = history.Count,
             LongestSession = history.Count == 0 ? TimeSpan.Zero : history.Max(s => s.Duration(now)),
             DailyStreak = DailyStreak(history, today, now, zone),
-            CaptionCount = allTime.Captions,
-            RecentLightSwitches = EnvironmentStats.LightSwitches(recent).Count,
-            RecentLongestStill = PresenceStats.Summarize(recent, TimeSpan.FromMinutes(1)).LongestStillStreak,
             AllTime = allTime,
             Today = todayHourly.Aggregate(Rollup.Empty, Rollup.Merge),
             TodayHourly = todayHourly
@@ -60,11 +52,9 @@ public sealed class AchievementService(
         var beaten = RecordRules.Update(records,
         [
             new(RecordRules.LongestSession, context.LongestSession.TotalSeconds, now),
-            new(RecordRules.BusiestDayVisits, context.Today.Visits, now),
             new(RecordRules.PeakConcurrency, context.Today.PeakConcurrency, now),
-            new(RecordRules.DailyStreak, context.DailyStreak, now),
         ]);
-        // A zero is not a record; it would only fill the cabinet with "0 visits".
+        // A zero is not a record; it would only fill the cabinet with "0 at once".
         beaten = beaten.Where(r => r.Value > 0).ToList();
         if (beaten.Count > 0)
             await store.SaveRecordsAsync(userId, beaten, cancellationToken);
@@ -123,9 +113,7 @@ public sealed class AchievementService(
     private static string Display(string recordId, double value) => recordId switch
     {
         RecordRules.LongestSession => TemplateRecap.Duration(TimeSpan.FromSeconds(value)),
-        RecordRules.BusiestDayVisits => "visit".ToQuantity((long)value),
         RecordRules.PeakConcurrency => string.Create(CultureInfo.InvariantCulture, $"{value:0} at once"),
-        RecordRules.DailyStreak => "day".ToQuantity((long)value),
         _ => value.ToString("0.##", CultureInfo.InvariantCulture)
     };
 }

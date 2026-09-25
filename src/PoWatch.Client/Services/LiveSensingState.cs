@@ -14,7 +14,6 @@ public sealed class LiveSensingState
     private readonly Queue<DateTimeOffset> _detectorTimes = new();
     private readonly List<double> _motion = [];
     private readonly List<double> _luminance = [];
-    private readonly List<string> _events = [];
     private readonly float[] _heat = new float[144];
 
     public SessionDto? Session { get; set; }
@@ -53,9 +52,6 @@ public sealed class LiveSensingState
     public DateTimeOffset? LastCaptionUtc { get; private set; }
     public int Captions { get; private set; }
 
-    /// <summary>Newest first, for the ticker and the event wire.</summary>
-    public IReadOnlyList<string> RecentEvents => _events;
-
     public long BatchesSent { get; set; }
     public long RejectedBatches { get; set; }
     public int PendingBatches { get; set; }
@@ -91,10 +87,7 @@ public sealed class LiveSensingState
         {
             _classesSeen[entered.Label] = _classesSeen.GetValueOrDefault(entered.Label) + 1;
             if (CentroidTracker.IsPresence(entered.Label)) Visits++;
-            Log($"{entered.AtUtc.ToLocalTime():HH:mm:ss} + {entered.Label} {entered.TrackId} via {entered.Edge.ToUpperInvariant()}");
         }
-        foreach (var exited in frame.Exited)
-            Log($"{exited.AtUtc.ToLocalTime():HH:mm:ss} − {exited.Label} {exited.TrackId} after {exited.DwellSeconds:0}s");
     }
 
     private readonly Dictionary<string, RegularDto> _regularByTrack = new(StringComparer.Ordinal);
@@ -113,7 +106,6 @@ public sealed class LiveSensingState
     {
         _prompts.RemoveAll(p => p.Regular.Id == prompt.Regular.Id);
         _prompts.Add(prompt);
-        Log($"{prompt.SeenUtc.ToLocalTime():HH:mm:ss} + new {prompt.Regular.Class}: {prompt.Regular.DisplayName}");
     }
 
     public void DismissPrompt(string regularId) => _prompts.RemoveAll(p => p.Regular.Id == regularId);
@@ -136,7 +128,6 @@ public sealed class LiveSensingState
     {
         Moments++;
         if (withSnapshot) Snapshots++;
-        Log($"{atUtc.ToLocalTime():HH:mm:ss} * {highlight.Reason}{(withSnapshot ? " [snap]" : string.Empty)}");
     }
 
     public void RecordCaption(ParsedCaption caption, DateTimeOffset atUtc)
@@ -145,13 +136,6 @@ public sealed class LiveSensingState
         LastCaption = caption.Text;
         LastActivities = caption.Activities;
         LastCaptionUtc = atUtc;
-        Log($"{atUtc.ToLocalTime():HH:mm:ss} VLM {caption.Text}");
-    }
-
-    private void Log(string line)
-    {
-        _events.Insert(0, line);
-        if (_events.Count > 50) _events.RemoveAt(_events.Count - 1);
     }
 
     private static void Push(List<double> history, double value)

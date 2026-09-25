@@ -6,7 +6,7 @@ namespace PoWatch.E2EAPI;
 
 /// <summary>
 /// BFF auth flow (Test environment → guest bypass enabled, Microsoft disabled).
-/// Uses an HTTPS base address so the Secure session cookie (rule 4.2) is honoured.
+/// Uses an HTTPS base address so the Secure session cookie is honoured.
 /// </summary>
 public sealed class AuthFlowE2ETests(ApiE2EFactory factory) : IClassFixture<ApiE2EFactory>
 {

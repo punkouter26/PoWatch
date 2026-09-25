@@ -49,6 +49,6 @@ internal static class PoWatchPage
         Assertions.Expect(page.GetByTestId($"nav-{section.ToLowerInvariant()}"))
             .ToHaveClassAsync(new System.Text.RegularExpressions.Regex(@"\bactive\b"), new() { Timeout = timeoutMs });
 
-    /// <summary>Sound, announcer, theme and sign-out live in the header's settings menu.</summary>
+    /// <summary>Theme and sign-out live in the header's settings menu.</summary>
     public static Task OpenSettingsAsync(this IPage page) => page.GetByTestId("settings-menu").ClickAsync();
 }

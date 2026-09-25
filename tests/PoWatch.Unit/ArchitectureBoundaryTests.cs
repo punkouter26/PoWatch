@@ -6,7 +6,7 @@ using PoWatch.Shared.Models;
 namespace PoWatch.Unit;
 
 /// <summary>
-/// Architecture guard tests (audit #8). The Vertical Slice / layered boundaries are enforced by
+/// Architecture guard tests. The Vertical Slice / layered boundaries are enforced by
 /// convention only, so these fail the moment a project takes a dependency that inverts the intended
 /// module boundaries (e.g. Application reaching into Infrastructure, or Shared stopping being DTO-only).
 ///

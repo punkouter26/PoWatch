@@ -39,10 +39,4 @@ public sealed class AzureStorageOptions
     public string DataProtectionKeysContainer { get; init; } = "dataprotection-keys";
 
     public string[] DevCorsAllowedOrigins { get; init; } = [];
-
-    /// <summary>
-    /// When true, skips Azure Storage table/container initialization at startup.
-    /// Set this in Development when Azurite / Docker is unavailable.
-    /// </summary>
-    public bool SkipStorageInit { get; init; } = false;
 }

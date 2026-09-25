@@ -4,7 +4,6 @@ using Azure.Identity;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using OllamaSharp;
 using OpenAI;
 using PoWatch.Application.Options;
 
@@ -24,20 +23,10 @@ public static class RecapAi
         ArgumentNullException.ThrowIfNull(configuration);
         var ai = configuration.GetSection("AiProvider").Get<AiProviderOptions>() ?? new AiProviderOptions();
         var azure = configuration.GetSection("AzureOpenAi").Get<AzureOpenAiOptions>() ?? new AzureOpenAiOptions();
-        var compatible = configuration.GetSection("OpenAiCompatible").Get<OpenAiCompatibleOptions>() ?? new OpenAiCompatibleOptions();
 
-        IChatClient? client = ai.Provider switch
-        {
-            AiProviderType.Ollama when Uri.TryCreate(ai.OllamaEndpoint, UriKind.Absolute, out var ollama) =>
-                new OllamaApiClient(ollama, ai.OllamaModel),
-            AiProviderType.AzureOpenAi when Uri.TryCreate(azure.Endpoint, UriKind.Absolute, out var endpoint) =>
-                OpenAi(new Uri(endpoint, "openai/v1/"), azure.ApiKey, azure.DeploymentName),
-            AiProviderType.OpenAiCompatible when Uri.TryCreate(compatible.Endpoint, UriKind.Absolute, out var endpoint)
-                && !string.IsNullOrWhiteSpace(compatible.ApiKey) =>
-                OpenAi(endpoint, compatible.ApiKey, compatible.Model),
-            _ => null
-        };
-        if (client is null) return services;
+        if (ai.Provider != AiProviderType.AzureOpenAi || !Uri.TryCreate(azure.Endpoint, UriKind.Absolute, out var endpoint))
+            return services;
+        var client = OpenAi(new Uri(endpoint, "openai/v1/"), azure.ApiKey, azure.DeploymentName);
 
         // Resolves the host's IDistributedCache (Program.cs registers the in-memory one).
         services.AddChatClient(client).UseDistributedCache();

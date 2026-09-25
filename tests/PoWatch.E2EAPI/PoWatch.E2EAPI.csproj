@@ -6,7 +6,7 @@
     <TestCaseLimit>25</TestCaseLimit>
   </PropertyGroup>
 
-  <!-- §2.2 E2EAPI: pure API calls emulating client→server system functionality (real Azurite). -->
+  <!-- E2EAPI: pure API calls emulating client→server system functionality (real Azurite). -->
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />

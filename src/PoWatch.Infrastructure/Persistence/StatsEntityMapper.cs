@@ -6,6 +6,16 @@ using PoWatch.Domain.Models;
 
 namespace PoWatch.Infrastructure.Persistence;
 
+public static class SensingKeys
+{
+    /// <summary>Time-ordered and unique per session: two sessions can tick in the same instant.</summary>
+    public static string TickRowKey(Tick tick)
+    {
+        ArgumentNullException.ThrowIfNull(tick);
+        return $"{tick.StartUtc.UtcTicks:D19}-{tick.SessionId:N}";
+    }
+}
+
 /// <summary>
 /// Maps stat-cam models to and from Table Storage entities. Scalars become columns; grids are
 /// packed as float bytes (576 bytes for 16×9) and small maps as JSON strings.

@@ -6,7 +6,7 @@ namespace PoWatch.Client.Services;
 
 /// <summary>
 /// Derives auth state from the BFF's <c>/auth/me</c> endpoint. The WASM client never handles
-/// tokens — the session lives in the server's encrypted HttpOnly cookie (rule 4.2).
+/// tokens — the session lives in the server's encrypted HttpOnly cookie.
 /// </summary>
 internal sealed class BffAuthenticationStateProvider(HttpClient http) : AuthenticationStateProvider
 {

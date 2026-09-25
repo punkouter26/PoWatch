@@ -14,7 +14,7 @@ public sealed class StartupReadiness
     private volatile bool _storageReady = true;
     private volatile string _storageDetail = "Storage initialisation has not run yet.";
 
-    /// <summary>True when Storage is either configured-and-reachable or intentionally absent (in-memory).</summary>
+    /// <summary>True when Storage is either configured and reachable.</summary>
     public bool StorageReady => _storageReady;
 
     /// <summary>Human-readable detail describing the current storage readiness state.</summary>

@@ -1,5 +1,5 @@
-@* Feeds the scene effects (wwwroot/js/fx.js) a compact frame of live numbers, four times a second
-   while a session runs, plus one frame whenever it starts or stops. Renders nothing. *@
+@* Feeds the comet trails (wwwroot/js/fx.js) who is where, four times a second while a session runs,
+   plus one frame whenever it starts or stops. Renders nothing. *@
 @implements IDisposable
 @using System.Text.Json
 @using PoWatch.Shared.Services.Tracking
@@ -24,17 +24,10 @@
         var frame = new FxFramePayload
         {
             Running = Sensing.IsRunning,
-            Motion = live.Motion,
-            Luminance = live.Luminance,
-            Present = live.PeopleNow + live.AnimalsNow,
-            Heat = [.. live.Heat],
-            Palette = [.. live.Palette],
             Tracks = live.Tracks
                 .Where(t => CentroidTracker.IsPresence(t.Label))
                 .Select(t => new FxTrackPayload { Id = t.TrackId, Label = t.Label, X = (t.Box.X0 + t.Box.X1) / 2, Y = (t.Box.Y0 + t.Box.Y1) / 2 })
                 .ToList(),
-            Caption = live.LastCaption,
-            CaptionAt = live.LastCaptionUtc?.ToUnixTimeMilliseconds() ?? 0,
         };
         _ = JS.TryInvokeVoidAsync("powatchFx.update", JsonSerializer.Serialize(frame, PoWatchJsonContext.Default.FxFramePayload));
     }

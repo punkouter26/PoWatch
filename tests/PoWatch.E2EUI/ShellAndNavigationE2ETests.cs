@@ -9,14 +9,13 @@ namespace PoWatch.E2EUI;
 public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
 {
     [Fact]
-    public async Task The_terminal_shell_renders_header_keys_and_tape()
+    public async Task The_terminal_shell_renders_header_and_keys()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await Assertions.Expect(page.GetByTestId("term-header")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("ticker")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
         await Assertions.Expect(page.GetByTestId("settings-menu")).ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
@@ -45,12 +44,12 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task Number_keys_and_the_key_bar_both_navigate()
+    public async Task The_key_bar_navigates()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        await page.Keyboard.PressAsync("2");
+        await page.GetByTestId("nav-stats").ClickAsync();
         await page.ExpectSectionAsync("STATS");
 
         await page.GetByTestId("nav-regulars").ClickAsync();

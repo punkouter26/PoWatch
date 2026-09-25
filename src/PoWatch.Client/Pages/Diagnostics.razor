@@ -4,22 +4,19 @@
 @attribute [Authorize]
 @using System.Globalization
 @using PoWatch.Shared.Models
-@using Microsoft.Extensions.Options
 @using PoWatch.Client.Components.Stats
 @inject PoWatchApiClient ApiClient
 @inject IJSRuntime JS
-@inject IOptions<ClientFeatureFlagsOptions> ClientFlags
-@inject ModelRegistryService ModelRegistry
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 <PageTitle>PoWatch | System</PageTitle>
 
 @* Everything operational on one page, refreshed on one timer: connections (what /health reports),
-   the server runtime, the on-device inference engine, the pipeline counters, and the model self-test. *@
+   the server runtime, the on-device inference engine, and the pipeline counters. *@
 <div class="term-grid">
     <TerminalPanel Number="S1" Title="Connections" Class="term-span-2" Test="health-overall" Flush="true">
-        <Aside>@(_lastRefreshed is { } at ? $"UPDATED {at:HH:mm:ss} · EVERY {_interval.TotalSeconds:0} S" : "CHECKING…")</Aside>
+        <Aside>@(_lastRefreshed is { } at ? $"UPDATED {at:HH:mm:ss} · EVERY {RefreshInterval.TotalSeconds:0} S" : "CHECKING…")</Aside>
         <ChildContent>
             @if (_healthError is not null)
             {
@@ -117,88 +114,6 @@
 
 <PipelineTab Query="@_pipelineQuery" />
 
-@* Per-model self-test: which registry models will actually load and generate on THIS device. Each row
-   drives the real worker path (load → generate) against one fixed synthetic frame, so the numbers are
-   comparable between models and machines. *@
-<TerminalPanel Number="S4" Title="Model self-test" Class="sys-selftest">
-    <details data-test="diagnostics-advanced">
-        <summary>Test which vision models run on this device</summary>
-        <div data-test="model-selftest-card">
-            <div class="timelapse-actions">
-                <button class="term-button term-button--primary" @onclick="TestAllModelsAsync" disabled="@(_modelTestRunning || _modelTests.Count == 0)"
-                        data-test="model-selftest-run-all">Test every model</button>
-                <span class="term-stat-hint">
-                    @(_modelTestRunning
-                        ? $"Testing {_runningModelLabel} — a first run can take several minutes."
-                        : "A first run downloads the weights (slow, needs a network); later runs read the browser cache. Testing unloads the Live model.")
-                </span>
-            </div>
-
-            @if (_modelTests.Count == 0)
-            {
-                <p class="sys-line" data-test="model-selftest-registry-error">
-                    <span class="term-dot term-dot--bad"></span><b>MODEL LIST UNAVAILABLE</b>
-                    <span class="term-stat-hint">The model registry could not be read; see the browser console.</span>
-                </p>
-            }
-            else
-            {
-                <table class="term-table sys-models">
-                    <thead><tr><th>Model</th><th>Result</th><th>Runs on</th><th class="r">Download</th><th class="r">Load</th><th class="r">Inference</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (var row in _modelTests)
-                        {
-                            var result = row.Result;
-                            var state = row.Running ? "warn" : result is null ? "idle" : result.Ok ? "ok" : "bad";
-                            <tr data-test="model-selftest-row">
-                                <td><span class="term-dot term-dot--@state"></span> @row.Label<div class="term-stat-hint">@row.ModelId</div></td>
-                                <td>@(row.Running ? "TESTING…" : result is null ? "NOT TESTED" : result.Ok ? "RUNS HERE" : "FAILED")</td>
-                                <td>@(result is null ? "—" : DescribeBackend(result))</td>
-                                <td class="r">@(result is null ? "—" : FormatBytes(result.BytesFetched))</td>
-                                <td class="r">@(result is null ? "—" : FormatDuration(result.LoadMs))</td>
-                                <td class="r">@(result is null ? "—" : FormatDuration(result.InferenceMs))</td>
-                                <td class="r"><button class="term-button" @onclick="() => TestOneModelAsync(row.Key)" disabled="@_modelTestRunning">Test</button></td>
-                            </tr>
-                            @if (result is not null && (!string.IsNullOrWhiteSpace(result.Error) || !string.IsNullOrWhiteSpace(result.RawOutput)))
-                            {
-                                <tr>
-                                    <td colspan="7">
-                                        @if (!string.IsNullOrWhiteSpace(result.Error))
-                                        {
-                                            <p class="live-error">@result.Error</p>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(result.RawOutput))
-                                        {
-                                            <details class="sys-raw">
-                                                <summary>What the model said about the test image</summary>
-                                                <pre>@result.RawOutput</pre>
-                                            </details>
-                                        }
-                                        @if (result.Ok && !string.IsNullOrWhiteSpace(result.PipelineStatus) && result.PipelineStatus != "OK")
-                                        {
-                                            @* Engine pass, recording fail: the hardware is fine and the model is too small for
-                                               the observation loop's quality gates — a model choice, not a machine problem. *@
-                                            <p class="term-stat-hint">The engine works. This reply would not have been recorded: @result.PipelineStatus</p>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
-            }
-
-            @if (_lastTestFrameDataUrl is not null)
-            {
-                <figure class="away-exposure">
-                    <img src="@_lastTestFrameDataUrl" alt="Synthetic test scene: a person lying on a bed in a room with a window" />
-                    <figcaption>THE TEST IMAGE EVERY MODEL WAS SHOWN</figcaption>
-                </figure>
-            }
-        </div>
-    </details>
-</TerminalPanel>
-
 @code {
     private HealthReportDto? _health;
     private string? _healthError;
@@ -206,37 +121,17 @@
     private InferenceDiagnosticsDto? _inference;
     private StatsQuery _pipelineQuery = StatsQuery.For("today");
     private DateTime? _lastRefreshed;
-    private TimeSpan _interval;
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
     private readonly PollLoop _poll = new();
 
-    // ── Per-model self-test ──────────────────────────────────────────────────────────────────
-    // One row per registry model. The worker holds a single model at a time, so tests run strictly
-    // one after another and `_modelTestRunning` disables every button for the duration; two
-    // concurrent tests would fight over the same slot and report each other's numbers.
-    private sealed class ModelTestRow
-    {
-        public required string Key { get; init; }
-        public required string Label { get; init; }
-        public string? ModelId { get; set; }
-        public bool Running { get; set; }
-        public ModelSelfTestResult? Result { get; set; }
-    }
-
-    private List<ModelTestRow> _modelTests = [];
-    private bool _modelTestRunning;
-    private string _runningModelLabel = string.Empty;
-    private string? _lastTestFrameDataUrl;
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         // The old /health and /diagnostics addresses land here; settle on /system so the SYSTEM key lights up.
         if (!Navigation.Uri.Contains("/system", StringComparison.OrdinalIgnoreCase))
             Navigation.NavigateTo("system", replace: true);
 
-        _interval = TimeSpan.FromSeconds(Math.Max(1, ClientFlags.Value.DiagnosticsAutoRefreshIntervalSeconds));
-        await LoadModelTestRowsAsync();
         // One timer for the whole page; a health page showing stale numbers reads as broken.
-        _poll.Start(_interval, _ => LoadAsync(), InvokeAsync);
+        _poll.Start(RefreshInterval, _ => LoadAsync(), InvokeAsync);
     }
 
     public async ValueTask DisposeAsync() => await _poll.DisposeAsync();
@@ -286,11 +181,6 @@
 
     private async Task RefreshInferenceDiagnosticsAsync()
     {
-        // A model self-test can block the worker inside a multi-second ONNX session build, long enough
-        // for this query's 5 s bridge timeout to expire. Answering that with "WORKER NOT REACHABLE"
-        // would be a lie told while the operator is watching, so hold the last snapshot meanwhile.
-        if (_modelTestRunning) return;
-
         try
         {
             _inference = await JS.TryInvokeAsync<InferenceDiagnosticsDto>("powatchInference.getInferenceDiagnostics");
@@ -352,112 +242,6 @@
     // The DEV… prefix marks a development-environment credential — don't surface it on a kiosk.
     private static string FriendlyKeyLabel(string? raw) =>
         string.IsNullOrWhiteSpace(raw) ? "Platform" : raw.StartsWith("DEV", StringComparison.OrdinalIgnoreCase) ? "Dev key" : "Configured";
-
-    /// <summary>
-    /// One row per registry model. Shares <see cref="ModelRegistryService"/> with the Live picker so
-    /// the two screens can never disagree about which models exist.
-    /// </summary>
-    private async Task LoadModelTestRowsAsync()
-    {
-        try
-        {
-            var entries = await ModelRegistry.GetAsync();
-            _modelTests = entries.Select(e => new ModelTestRow { Key = e.Key, Label = e.Label, ModelId = e.Id }).ToList();
-        }
-        catch (Exception ex)
-        {
-            // The card renders its own "model list unavailable" state from the empty list; the cause
-            // goes to the console rather than a toast, which would fire on every visit.
-            Console.Error.WriteLine($"[PoWatch] Model self-test could not read the registry: {ex.GetType().Name}: {ex.Message}");
-            _modelTests = [];
-        }
-    }
-
-    private async Task TestOneModelAsync(string modelKey)
-    {
-        if (_modelTestRunning || _modelTests.FirstOrDefault(r => r.Key == modelKey) is not { } row) return;
-
-        _modelTestRunning = true;
-        _runningModelLabel = row.Label;
-        row.Running = true;
-        row.Result = null;
-        StateHasChanged();
-
-        try
-        {
-            var result = await InvokeModelTestAsync(modelKey);
-            row.Result = result;
-            row.ModelId = result?.ModelId ?? row.ModelId;
-            if (!string.IsNullOrWhiteSpace(result?.TestFrameDataUrl))
-                _lastTestFrameDataUrl = result.TestFrameDataUrl;
-        }
-        finally
-        {
-            row.Running = false;
-            _modelTestRunning = false;
-            _runningModelLabel = string.Empty;
-            StateHasChanged();
-        }
-    }
-
-    /// <summary>
-    /// Every model, in registry order, one at a time: the worker holds a single model, and running two
-    /// at once is the fastest way to exhaust a laptop's GPU memory and fail a model that would pass.
-    /// </summary>
-    private async Task TestAllModelsAsync()
-    {
-        foreach (var row in _modelTests.ToList())
-            await TestOneModelAsync(row.Key);
-    }
-
-    private async Task<ModelSelfTestResult?> InvokeModelTestAsync(string modelKey)
-    {
-        try
-        {
-            // CancellationToken.None opts out of JSInterop's default timeout: a first load of the 2.2B
-            // model pulls well over a gigabyte, and timing it out would report a slow-but-working
-            // machine as a failure — the exact wrong answer for a page that tells those two apart.
-            return await JS.InvokeAsync<ModelSelfTestResult>("powatchInference.runModelTest", CancellationToken.None, modelKey,
-                PoWatch.Shared.Services.Sensing.CaptionParser.Prompt(["person", "bed"]), PoWatch.Shared.Services.Sensing.CaptionParser.MaxNewTokens);
-        }
-        catch (JSException ex)
-        {
-            return new ModelSelfTestResult { ModelKey = modelKey, Stage = "bridge", Error = ex.Message };
-        }
-        catch (InvalidOperationException ex)
-        {
-            return new ModelSelfTestResult { ModelKey = modelKey, Stage = "bridge", Error = ex.Message };
-        }
-    }
-
-    /// <summary>Which backend carried the run, in the terms that decide whether it is usable.</summary>
-    private static string DescribeBackend(ModelSelfTestResult result)
-    {
-        if (string.IsNullOrWhiteSpace(result.Device))
-            return result.WebGpuPresent ? "Did not load (GPU available)" : "Did not load (no GPU)";
-
-        var backend = result.Device.Equals("webgpu", StringComparison.OrdinalIgnoreCase) ? "Graphics card" : "Processor (slower)";
-        var precision = string.IsNullOrWhiteSpace(result.Dtype) ? string.Empty : $" · {result.Dtype}";
-        var fallback = result.Fp16FallbackUsed ? " · reduced precision" : string.Empty;
-        return $"{backend}{precision}{fallback}";
-    }
-
-    /// <summary>Download size in 1024-based units, matching the browser's own network panel.</summary>
-    private static string FormatBytes(long bytes) => bytes switch
-    {
-        <= 0 => "—",
-        < 1024L * 1024L => $"{bytes / 1024d:N0} KB",
-        < 1024L * 1024L * 1024L => $"{bytes / (1024d * 1024d):N0} MB",
-        _ => $"{bytes / (1024d * 1024d * 1024d):N2} GB"
-    };
-
-    /// <summary>Milliseconds below ten seconds, seconds above — a five-digit millisecond count reads as noise.</summary>
-    private static string FormatDuration(int? milliseconds) => milliseconds switch
-    {
-        null => "—",
-        < 10_000 and var ms => $"{ms:N0} ms",
-        var ms => $"{ms / 1000d:N1} s"
-    };
 
     private sealed class InferenceDiagnosticsDto
     {

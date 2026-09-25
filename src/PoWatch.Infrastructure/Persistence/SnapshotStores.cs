@@ -15,8 +15,6 @@ public sealed class AzureSnapshotStore(AzureStorageClients clients, IOptions<Azu
 
     private readonly BlobContainerClient _container = clients.BlobService.GetBlobContainerClient(options.Value.SnapshotsContainer);
 
-    public bool IsAvailable => true;
-
     public async Task<SnapshotUpload?> CreateUploadAsync(string userId, DateOnly localDay, CancellationToken cancellationToken)
     {
         clients.EnsureDevelopmentBlobCorsConfigured();
@@ -49,16 +47,4 @@ public sealed class AzureSnapshotStore(AzureStorageClients clients, IOptions<Azu
         && path.StartsWith(Prefix(userId), StringComparison.Ordinal)
         && !path.Contains("..", StringComparison.Ordinal)
         && path.EndsWith(".jpg", StringComparison.Ordinal);
-}
-
-/// <summary>No storage configured: moments are kept without pictures.</summary>
-public sealed class InMemorySnapshotStore : ISnapshotStore
-{
-    public bool IsAvailable => false;
-
-    public Task<SnapshotUpload?> CreateUploadAsync(string userId, DateOnly localDay, CancellationToken cancellationToken) =>
-        Task.FromResult<SnapshotUpload?>(null);
-
-    public Task<Uri?> CreateReadUrlAsync(string userId, string path, CancellationToken cancellationToken) =>
-        Task.FromResult<Uri?>(null);
 }

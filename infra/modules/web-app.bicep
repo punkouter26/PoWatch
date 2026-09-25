@@ -41,10 +41,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AzureStorage__ServiceUri'
           value: tableStorageUri
         }
-        {
-          name: 'FeatureFlags__UseMockAi'
-          value: 'false'
-        }
       ]
     }
   }

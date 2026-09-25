@@ -25,7 +25,7 @@ public sealed class AchievementAndRecordTests
     [Fact]
     public void Achievements_unlock_once_from_what_the_stats_say()
     {
-        Assert.True(AchievementRules.All.Count >= 15);
+        Assert.Equal(8, AchievementRules.All.Count);
         Assert.Equal(AchievementRules.All.Count, AchievementRules.All.Select(a => a.Id).Distinct().Count());
 
         var nightOwlHour = Occupied(ThreeAmLocal, ("person", 1), ("cat", 1));
@@ -50,8 +50,7 @@ public sealed class AchievementAndRecordTests
         Assert.Contains("menagerie", ids);
         Assert.Contains("first-cat", ids);
         Assert.Contains("all-nighter", ids);
-        Assert.DoesNotContain("marathon", ids);
-        Assert.DoesNotContain("ten-k-frames", ids);
+        Assert.DoesNotContain("crowd", ids);
         Assert.All(unlocked, u => Assert.Equal(context.NowUtc, u.UnlockedAtUtc));
 
         // Evaluating again with the same stats unlocks nothing new.
@@ -68,12 +67,12 @@ public sealed class AchievementAndRecordTests
         var at = ThreeAmLocal;
         var records = new Dictionary<string, RecordEntry>();
 
-        var first = RecordRules.Update(records, [new("busiest-day-visits", 40, at), new("peak-concurrency", 3, at)]);
+        var first = RecordRules.Update(records, [new("longest-session", 40, at), new("peak-concurrency", 3, at)]);
         Assert.Equal(2, first.Count);
         foreach (var entry in first) records[entry.RecordId] = entry;
 
         // A lower or equal value is not a new record; a higher one is.
-        var second = RecordRules.Update(records, [new("busiest-day-visits", 40, at.AddDays(1)), new("peak-concurrency", 5, at.AddDays(1))]);
+        var second = RecordRules.Update(records, [new("longest-session", 40, at.AddDays(1)), new("peak-concurrency", 5, at.AddDays(1))]);
         var beaten = Assert.Single(second);
         Assert.Equal("peak-concurrency", beaten.RecordId);
         Assert.Equal(5, beaten.Value);

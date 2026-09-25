@@ -1,7 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
-using PoWatch.Application.Options;
 using PoWatch.Infrastructure.Persistence;
 using PoWatch.Infrastructure.Runtime;
 
@@ -17,14 +15,13 @@ public static class DependencyInjection
 
         services.AddSingleton<AzureStorageClients>();
 
-        // Stat-cam stores: Azure when storage is configured, in-memory otherwise.
-        AddStore<ISessionRepository, AzureSessionRepository, InMemorySessionRepository>(services);
-        AddStore<ISensingLog, AzureSensingLog, InMemorySensingLog>(services);
-        AddStore<IIngestLedger, AzureIngestLedger, InMemoryIngestLedger>(services);
-        AddStore<IRollupStore, AzureRollupStore, InMemoryRollupStore>(services);
-        AddStore<IAchievementStore, AzureAchievementStore, InMemoryAchievementStore>(services);
-        AddStore<ISnapshotStore, AzureSnapshotStore, InMemorySnapshotStore>(services);
-        AddStore<IRegularStore, AzureRegularStore, InMemoryRegularStore>(services);
+        services.AddSingleton<ISessionRepository, AzureSessionRepository>();
+        services.AddSingleton<ISensingLog, AzureSensingLog>();
+        services.AddSingleton<IIngestLedger, AzureIngestLedger>();
+        services.AddSingleton<IRollupStore, AzureRollupStore>();
+        services.AddSingleton<IAchievementStore, AzureAchievementStore>();
+        services.AddSingleton<ISnapshotStore, AzureSnapshotStore>();
+        services.AddSingleton<IRegularStore, AzureRegularStore>();
 
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
 
@@ -33,21 +30,4 @@ public static class DependencyInjection
 
         return services;
     }
-
-    private static void AddStore<TContract, TAzure, TInMemory>(IServiceCollection services)
-        where TContract : class
-        where TAzure : class, TContract
-        where TInMemory : class, TContract
-    {
-        services.AddSingleton<TAzure>();
-        services.AddSingleton<TInMemory>();
-        services.AddSingleton<TContract>(sp =>
-            UseAzureStorage(sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value)
-                ? sp.GetRequiredService<TAzure>()
-                : sp.GetRequiredService<TInMemory>());
-    }
-
-    private static bool UseAzureStorage(AzureStorageOptions options) =>
-        !string.IsNullOrWhiteSpace(options.ConnectionString)
-        || !string.IsNullOrWhiteSpace(options.ServiceUri);
 }

@@ -5,7 +5,7 @@ using PoWatch.Application.Options;
 namespace PoWatch.Api.Security;
 
 /// <summary>
-/// Kiosk-durable session keys (audit #1). The BFF auth cookie (<c>PoWatch.Auth</c>) is encrypted with
+/// Kiosk-durable session keys. The BFF auth cookie (<c>PoWatch.Auth</c>) is encrypted with
 /// ASP.NET Core Data Protection. By default the keyring is generated per-instance and held only in
 /// memory, so every App Service recycle, deploy, or scale-out event rotates the keys and silently
 /// invalidates every existing cookie — the always-on wall display drops to /login mid-session.
@@ -36,7 +36,7 @@ public static class DataProtectionSetup
             .SetApplicationName(ApplicationName);
 
         var container = storage.DataProtectionKeysContainer;
-        var storageBacked = !builder.Environment.IsDevelopment() && !storage.SkipStorageInit;
+        var storageBacked = !builder.Environment.IsDevelopment();
 
         if (storageBacked
             && !string.IsNullOrWhiteSpace(storage.ServiceUri)

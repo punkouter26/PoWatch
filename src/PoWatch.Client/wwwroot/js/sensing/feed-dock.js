@@ -1,7 +1,7 @@
 // Keeps the camera <video> alive across pages. The element lives in the layout (so navigating away
 // from Live never removes it — Chrome pauses a video the moment it leaves the document) and is
 // positioned over whichever "slot" the Live page offers. With no slot it is hidden but still playing,
-// so the sensing session keeps sampling while you look at Stats or the stats wall.
+// so the sensing session keeps sampling while you look at Stats.
 (function () {
   'use strict';
 

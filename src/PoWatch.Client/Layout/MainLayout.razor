@@ -6,19 +6,12 @@
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<div class="term-shell @(_wall ? "term-shell--wall" : string.Empty)">
-    @* The stats wall keeps this layout (and the camera below) but drops the chrome. *@
-    @if (!_wall)
-    {
-        <TerminalHeader ShowStart="@(_section != "LIVE")" />
-    }
+<div class="term-shell">
+    <TerminalHeader ShowStart="@(!_live)" />
 
     @* App.razor moves focus here after every navigation, so keyboard and screen-reader users land in the page. *@
     <main class="term-body" id="main-content" tabindex="-1">
-        @if (!_wall)
-        {
-            <AwayCard />
-        }
+        <AwayCard />
         @* Keyed on the path, not the full URI: a query change (?range=, ?start=) must not rebuild the page. *@
         <ErrorBoundary @key="new Uri(Nav.Uri).AbsolutePath">
             <ChildContent>
@@ -34,18 +27,9 @@
             </ErrorContent>
         </ErrorBoundary>
     </main>
-
-    <TickerTape />
 </div>
 
-@if (_wall)
-{
-    <a class="term-wall-exit" href="">Exit wall</a>
-}
-else
-{
-    <NamePrompts />
-}
+<NamePrompts />
 
 @* The camera feed lives here, not on the Live page, so it keeps playing (and the session keeps
    sampling) on every page; Live docks it over its camera panel. *@
@@ -55,41 +39,30 @@ else
 <RadzenChartTooltip />
 
 @code {
-    private string _section = "LIVE";
-    private bool _wall;
+    private bool _live = true;
     private ElementReference _feed;
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
-        SetSection(Nav.Uri);
+        _live = IsLive(Nav.Uri);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Number keys / Ctrl+number jump between sections.
         if (!firstRender) return;
         Sensing.Feed = _feed;
-        await JS.TryInvokeVoidAsync("powatchKeybindings.setup");
+        await JS.TryInvokeVoidAsync("powatchMenus.setup");
         await Sensing.ResendLeftoversAsync();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        SetSection(e.Location);
+        _live = IsLive(e.Location);
         InvokeAsync(StateHasChanged);
     }
 
-    private void SetSection(string uri)
-    {
-        _section = new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant() switch
-        {
-            "" or "/" => "LIVE",
-            "/display" => "WALL",
-            _ => "OTHER"
-        };
-        _wall = _section == "WALL";
-    }
+    private static bool IsLive(string uri) => new Uri(uri).AbsolutePath.TrimEnd('/').Length == 0;
 
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

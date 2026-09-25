@@ -1,4 +1,4 @@
-/* terminal.css — the "Terminal" look (SPEC §2a): dense, dark, numbers in mono.
+/* terminal.css — the "Terminal" look: dense, dark, numbers in mono.
    The app's only global stylesheet (page-scoped CSS aside). It also points Radzen's --rz-* variables
    at this palette, so every page and every Radzen control speaks the same language. */
 
@@ -137,12 +137,12 @@ main:focus { outline: none; }
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 
-/* The shell is exactly one viewport tall and only <main> scrolls: on a kiosk the header and the
-   tape must never be pushed out of view (the viewport-fit UI tests hold this contract). */
+/* The shell is exactly one viewport tall and only <main> scrolls: on a kiosk the header must
+   never be pushed out of view (the viewport-fit UI tests hold this contract). */
 .term-shell {
     height: 100dvh;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
     background: var(--term-bg);
 }
@@ -300,18 +300,8 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
     white-space: nowrap;
 }
 
-.term-key kbd {
-    font: 600 11px var(--term-mono);
-    padding: 1px 5px;
-    border-radius: 2px;
-    background: var(--term-panel-2);
-    border: 1px solid var(--term-line);
-    color: var(--term-dim);
-}
-
 .term-key:hover { color: var(--term-text); background: var(--term-panel-2); }
 .term-key.active { color: var(--term-accent-ink); background: var(--term-accent); }
-.term-key.active kbd { background: rgba(0, 0, 0, 0.18); color: var(--term-accent-ink); border-color: transparent; }
 .term-key:focus-visible { outline: 2px solid var(--term-cyan); outline-offset: 1px; }
 
 /* ── Body + ticker ─────────────────────────────────────────────────────── */
@@ -321,50 +311,6 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
     min-width: 0;
     min-height: 0;
     overflow: auto;
-}
-
-.term-ticker {
-    border-top: 1px solid var(--term-line);
-    background: var(--term-panel);
-    font: 11px var(--term-mono);
-    color: var(--term-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 26px;
-    padding: 0 10px;
-}
-
-.term-ticker-label {
-    background: var(--term-accent);
-    color: var(--term-accent-ink);
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 2px;
-    flex: none;
-}
-
-.term-ticker-lane {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.term-ticker-track {
-    display: inline-flex;
-    gap: 28px;
-    animation: term-ticker 60s linear infinite;
-}
-
-@keyframes term-ticker {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .term-ticker-track { animation: none; }
 }
 
 /* ── Panels and the grid ───────────────────────────────────────────────── */
@@ -512,7 +458,6 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
     /* All six sections stay visible: a full-width second row of equal keys, names only. */
     .term-keys { order: 1; flex-basis: 100%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); overflow: visible; }
     .term-key { justify-content: center; padding: 0; letter-spacing: 0; font-size: 11px; }
-    .term-key kbd { display: none; }
     .wide-only { display: none; }
     .term-brand-mark { display: none; }
     .term-body { padding: 8px; }
@@ -695,60 +640,6 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 .rz-tabview-panels { background: transparent; padding: var(--term-gap) 0 0; }
 .rz-tabview-nav li a { font-family: var(--term-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 
-/* ── Stats wall ────────────────────────────────────────────────────────── */
-
-.term-shell--wall { grid-template-rows: minmax(0, 1fr) auto; }
-.term-shell--wall .term-body { overflow: hidden; padding: 12px; }
-
-.wall {
-    height: 100%;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 1fr);
-    gap: 12px;
-}
-
-.wall-tile {
-    background: var(--term-panel);
-    border: 1px solid var(--term-line);
-    border-top: 2px solid var(--term-accent);
-    border-radius: var(--term-radius);
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-height: 0;
-    overflow: hidden;
-}
-
-.wall-span-2 { grid-column: span 2; }
-.wall-label { font: 700 12px var(--term-mono); letter-spacing: 0.1em; color: var(--term-muted); display: flex; gap: 8px; align-items: center; }
-.wall-big { font-size: clamp(36px, 5.5vw, 120px); font-weight: 600; line-height: 1; color: var(--term-text); }
-.wall-sub { font: 13px var(--term-mono); color: var(--term-muted); }
-.wall-clock .wall-big { color: var(--term-accent); }
-.wall-caption p { margin: 0; font-size: clamp(18px, 2vw, 40px); line-height: 1.3; color: var(--term-text); }
-.wall .term-heat { flex: none; }
-.wall .rz-chart { flex: 1; }
-
-/* A phone can't hold ten tiles in one screen: two columns that scroll, big numbers scaled down. */
-@media (max-width: 720px) {
-    .term-shell--wall .term-body { overflow: auto; }
-    .wall { height: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-auto-rows: minmax(150px, auto); }
-    .wall-big { font-size: clamp(32px, 11vw, 56px); }
-}
-
-.term-wall-exit {
-    position: fixed;
-    right: 12px;
-    bottom: 36px;
-    z-index: 10;
-    font: 11px var(--term-mono);
-    color: var(--term-dim);
-    opacity: 0.4;
-}
-
-.term-wall-exit:hover, .term-wall-exit:focus-visible { opacity: 1; color: var(--term-text); }
-
 /* ── While you were away ───────────────────────────────────────────────── */
 
 .away-card { margin-bottom: var(--term-gap); border-color: var(--term-accent); }
@@ -879,41 +770,19 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 
 /* ── Scene effects (fx.js) ────────────────────────────────────────────── */
 
-.term-icon-button--on { color: var(--term-accent); border-color: var(--term-accent); }
 
 .fx-trails { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none; }
 
-/* Shader canvases sit over the plain HTML grid, which stays underneath for WebGL-less browsers and
-   screen readers; fx.js adds .fx-on once a canvas draws. */
-.fx-heat-wrap { position: relative; }
-.fx-3d-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
-.fx-heat, .fx-3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.fx-heat { border-radius: 2px; }
-.fx-on > .term-heat { opacity: 0; }
-
-/* Teletype: each new caption types itself out, --chars steps at 30 ms (fx.js clicks in time). */
+/* Teletype: each new caption types itself out, --chars steps at 30 ms. */
 .fx-type { animation: fx-type calc(var(--chars, 40) * 30ms) steps(var(--chars, 40), end) both; }
 @keyframes fx-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
-
-/* An unusual stat (|z| ≥ 2) makes its panel glitch briefly every few seconds. */
-.term-panel:has(.term-z--flag), .wall-tile:has(.term-z--flag) { animation: fx-glitch 7s steps(1) infinite; }
-@keyframes fx-glitch {
-    0%, 5%, 100% { transform: none; text-shadow: none; clip-path: none; }
-    1% { transform: translateX(-2px); text-shadow: -2px 0 rgba(255, 0, 80, 0.7), 2px 0 rgba(0, 220, 255, 0.7); }
-    2% { transform: translateX(2px); clip-path: inset(10% 0 50% 0); text-shadow: 2px 0 rgba(255, 0, 80, 0.7), -2px 0 rgba(0, 220, 255, 0.7); }
-    3% { transform: translateX(-1px); clip-path: inset(55% 0 8% 0); }
-    4% { transform: none; clip-path: none; text-shadow: 1px 0 rgba(255, 0, 80, 0.5), -1px 0 rgba(0, 220, 255, 0.5); }
-}
-
-/* Section changes: panels morph from their old spot to the new one. */
-::view-transition-group(*) { animation-duration: 0.35s; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
 
 .away-exposure { margin: 12px 0 0; display: grid; gap: 6px; }
 .away-exposure img { width: min(100%, 640px); aspect-ratio: 16 / 9; border: 1px solid var(--term-line); border-radius: 2px; }
 .away-exposure figcaption { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font: 11px var(--term-mono); letter-spacing: 0.06em; color: var(--term-muted); }
 
 @media (prefers-reduced-motion: reduce) {
-    .fx-type, .term-panel:has(.term-z--flag), .wall-tile:has(.term-z--flag) { animation: none; }
+    .fx-type { animation: none; }
 }
 
 /* ── History, Regulars, Trophies, System ──────────────────────────────── */
@@ -924,12 +793,12 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 .stats-session { min-width: 260px; }
 
 .regular-merge { display: flex; gap: 6px; align-items: center; }
-.regular-merge select, .live-toggle select { min-height: 32px; max-width: 160px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-mono); }
+.regular-merge select { min-height: 32px; max-width: 160px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-mono); }
 .regular-merge .term-button { min-height: 32px; padding: 0 10px; }
 
 .trophy-records { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--term-line); }
 .trophy-locked { margin-top: 12px; }
-.trophy-locked > summary, .sys-selftest summary, .sys-raw > summary { cursor: pointer; font: 12px var(--term-mono); color: var(--term-muted); padding: 4px 0; }
+.trophy-locked > summary, .sys-raw > summary { cursor: pointer; font: 12px var(--term-mono); color: var(--term-muted); padding: 4px 0; }
 .trophy-grid--locked { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .trophy-grid--locked .trophy { padding: 6px 8px; gap: 2px; }
 
@@ -937,5 +806,3 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 .term-panel-body--flush > .sys-line { margin: 0; padding: 8px 10px; border-bottom: 1px solid var(--term-line); }
 .sys-raw { margin-top: 8px; }
 .sys-raw pre { margin: 4px 0 0; padding: 8px; max-height: 200px; overflow: auto; white-space: pre-wrap; font-size: 11px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: 2px; }
-.sys-selftest { margin-top: var(--term-gap); }
-.sys-models { margin-top: 8px; }

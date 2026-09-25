@@ -18,6 +18,6 @@ public sealed class RecapDto
     public List<RecapNumberDto> Numbers { get; init; } = [];
     public List<MomentDto> Moments { get; init; } = [];
 
-    /// <summary>template, the server model's provider name, or on-device — who wrote the paragraph.</summary>
+    /// <summary>template, or the server model's provider name — who wrote the paragraph.</summary>
     public string Source { get; init; } = "template";
 }

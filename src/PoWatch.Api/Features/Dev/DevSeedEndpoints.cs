@@ -1,4 +1,3 @@
-using Bogus;
 using Microsoft.Extensions.Caching.Hybrid;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
@@ -67,7 +66,7 @@ internal static class DevSeedEndpoints
     /// </summary>
     private static SeedPlan BuildHistory(int days, TimeZoneInfo zone, DateTimeOffset nowUtc)
     {
-        var faker = new Faker { Random = new Randomizer(42) };
+        var rng = new Random(42);
         var today = LocalDay.Of(nowUtc, zone);
         var buckets = new List<SeedBucket>();
         var allTime = Rollup.Empty;
@@ -83,7 +82,7 @@ internal static class DevSeedEndpoints
                 var hourStart = dayStart.AddHours(hour);
                 if (hourStart >= nowUtc) break;
 
-                var hourRollup = SyntheticHour(faker, hourStart, hour);
+                var hourRollup = SyntheticHour(rng, hourStart, hour);
                 day = Rollup.Merge(day, hourRollup);
                 if (d < HourlyDays) buckets.Add(new SeedBucket(RollupGrain.Hour, hourStart, hourRollup));
 
@@ -92,7 +91,7 @@ internal static class DevSeedEndpoints
                     for (var minute = 0; minute < 60 && hourStart.AddMinutes(minute) < nowUtc; minute++)
                     {
                         var minuteStart = hourStart.AddMinutes(minute);
-                        buckets.Add(new SeedBucket(RollupGrain.Minute, minuteStart, SyntheticSlice(faker, minuteStart, hour, 6)));
+                        buckets.Add(new SeedBucket(RollupGrain.Minute, minuteStart, SyntheticSlice(rng, minuteStart, hour, 6)));
                     }
                 }
             }
@@ -104,16 +103,18 @@ internal static class DevSeedEndpoints
         return new SeedPlan(buckets, allTime with { BucketStartUtc = DateTimeOffset.UnixEpoch });
     }
 
-    private static Rollup SyntheticHour(Faker faker, DateTimeOffset startUtc, int localHour) =>
-        SyntheticSlice(faker, startUtc, localHour, 360);
+    private static double Between(Random rng, double min, double max) => min + rng.NextDouble() * (max - min);
 
-    private static Rollup SyntheticSlice(Faker faker, DateTimeOffset startUtc, int localHour, int ticks)
+    private static Rollup SyntheticHour(Random rng, DateTimeOffset startUtc, int localHour) =>
+        SyntheticSlice(rng, startUtc, localHour, 360);
+
+    private static Rollup SyntheticSlice(Random rng, DateTimeOffset startUtc, int localHour, int ticks)
     {
         var busy = localHour is >= 8 and < 23;
-        var people = busy ? faker.Random.Int(0, 3) : faker.Random.Int(0, 1) * faker.Random.Int(0, 1);
-        var cat = faker.Random.Bool(0.2f) ? 1 : 0;
-        var motion = busy ? faker.Random.Double(0.02, 0.3) : faker.Random.Double(0, 0.02);
-        var grid = Enumerable.Range(0, SpatialGrid.Cells).Select(_ => faker.Random.Float(0, busy ? 0.4f : 0.05f)).ToArray();
+        var people = busy ? rng.Next(0, 4) : rng.Next(2) * rng.Next(2);
+        var cat = rng.NextDouble() < 0.2 ? 1 : 0;
+        var motion = busy ? Between(rng, 0.02, 0.3) : Between(rng, 0, 0.02);
+        var grid = Enumerable.Range(0, SpatialGrid.Cells).Select(_ => (float)Between(rng, 0, busy ? 0.4f : 0.05f)).ToArray();
         var classes = new Dictionary<string, ClassCount> { ["person"] = new(people, people), ["cup"] = new(1, 1) };
         if (cat > 0) classes["cat"] = new(1, 1);
 
@@ -125,8 +126,8 @@ internal static class DevSeedEndpoints
             DetectorSamples = 10,
             MotionMean = motion,
             MotionMax = Math.Min(1, motion * 2),
-            LuminanceMean = localHour is >= 7 and < 20 ? faker.Random.Double(0.5, 0.8) : faker.Random.Double(0.02, 0.2),
-            Palette = [faker.Random.Int(0, 0xFFFFFF)],
+            LuminanceMean = localHour is >= 7 and < 20 ? Between(rng, 0.5, 0.8) : Between(rng, 0.02, 0.2),
+            Palette = [rng.Next(0x1000000)],
             MotionGrid = grid,
             PresenceGrid = grid,
             Classes = classes
@@ -140,7 +141,7 @@ internal static class DevSeedEndpoints
             PixelSamples = ticks * 40L,
             DetectorSamples = ticks * 10L,
             OccupiedTicks = occupied ? ticks : 0,
-            Visits = busy ? faker.Random.Int(0, ticks / 60 + 1) : 0
+            Visits = busy ? rng.Next(ticks / 60 + 2) : 0
         };
     }
 }

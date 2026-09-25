@@ -106,32 +106,6 @@ public sealed class ViewportFitE2ETests
     }
 
     [Fact]
-    public async Task The_stats_wall_fills_the_screen_without_scrolling_and_refreshes()
-    {
-        foreach (var (width, height) in new[] { (1920, 1080), (1280, 720) })
-        {
-            if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
-            await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=30&tz=UTC");
-            await page.SetViewportSizeAsync(width, height);
-            await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/display");
-
-            // Seeded numbers appear within one refresh cycle (15 s) of the wall rendering.
-            await Assertions.Expect(page.GetByTestId("wall-occupancy")).Not.ToContainTextAsync("—", new() { Timeout = 30_000 });
-            await Assertions.Expect(page.GetByTestId("term-header")).Not.ToBeVisibleAsync();
-
-            var fits = await page.EvaluateAsync<bool>(@"() => {
-                const wall = document.querySelector('.wall').getBoundingClientRect();
-                const root = document.documentElement;
-                return root.scrollHeight <= root.clientHeight + 2 && root.scrollWidth <= root.clientWidth + 2
-                    && wall.bottom <= innerHeight + 1 && wall.right <= innerWidth + 1 && wall.width >= innerWidth - 40;
-            }");
-            Assert.True(fits, $"The stats wall scrolls or spills out of a {width}×{height} screen.");
-            await page.AssertNoBlazorErrorAsync();
-        }
-    }
-
-    [Fact]
     public async Task On_a_phone_every_section_key_is_visible_without_widening_the_page()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
@@ -163,10 +137,10 @@ public sealed class ViewportFitE2ETests
         await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
 
         // Leaving Live must not stop sensing: the camera element lives in the layout.
-        await page.Keyboard.PressAsync("2");
+        await page.GetByTestId("nav-stats").ClickAsync();
         await page.ExpectSectionAsync("STATS");
         await page.WaitForTimeoutAsync(2_000);
-        await page.Keyboard.PressAsync("1");
+        await page.GetByTestId("nav-live").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
         await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 5_000 });
 

@@ -5,7 +5,7 @@ namespace PoWatch.Client.Services;
 /// <summary>
 /// Safe wrappers around <see cref="IJSRuntime"/> that swallow the JSInterop exceptions
 /// thrown when an optional JS bridge (audio, blob upload, webcam-shell overlay, …) failed
-/// to load or evaluate. Audit #10: every uncaught JSException shows up to the user as the
+/// to load or evaluate. every uncaught JSException shows up to the user as the
 /// global "An unhandled error has occurred" banner, which is hostile on a kiosk. Bridges
 /// are enhancements, not requirements — the app must keep rendering when one is missing.
 /// </summary>

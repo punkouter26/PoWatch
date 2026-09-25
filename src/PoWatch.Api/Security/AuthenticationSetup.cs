@@ -9,7 +9,7 @@ using PoWatch.Application.Options;
 namespace PoWatch.Api.Security;
 
 /// <summary>
-/// BFF authentication wiring (rule 4): server-managed HttpOnly, SameSite=Strict encrypted cookie
+/// BFF authentication wiring: server-managed HttpOnly, SameSite=Strict encrypted cookie
 /// holding the session; interactive sign-in via Microsoft Entra OIDC on the /common endpoint.
 /// The Blazor WASM client never sees access tokens — they stay in the encrypted cookie server-side.
 /// OIDC is only wired when AzureAd:ClientId is configured, so local/test hosts boot without Azure.
@@ -107,7 +107,7 @@ public static class AuthenticationSetup
         // enabled, the FakeAuth scheme is added so the header/guest handler can satisfy the policy —
         // this keeps the integration suite green without weakening the Production surface.
         // The default policy backs every explicit .RequireAuthorization() call. In Dev/Test it also accepts
-        // the FakeAuth guest scheme so automated suites skip interactive login (rule 4.4 Test bypass).
+        // the FakeAuth guest scheme so automated suites skip interactive login.
         var defaultSchemes = flags.DeveloperBypassAuth
             ? new[] { CookieScheme, FakeAuthHandler.SchemeName }
             : new[] { CookieScheme };

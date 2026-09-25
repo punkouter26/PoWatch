@@ -36,10 +36,9 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         // A first session unlocks First Light, announced by a toast pushed over the stats hub.
         await Assertions.Expect(page.GetByTestId("trophy-toasts")).ToContainTextAsync("First Light", new() { Timeout = 10_000 });
 
-        // SPEC §15 #1: nonzero live counters within 15 s, with no camera, GPU or model.
+        // nonzero live counters within 15 s, with no camera, GPU or model.
         await Assertions.Expect(page.GetByTestId("metric-visits")).Not.ToHaveTextAsync("0", new() { Timeout = 15_000 });
         await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
-        await Assertions.Expect(page.GetByTestId("ticker")).ToContainTextAsync("person", new() { Timeout = 15_000 });
 
         await page.GetByTestId("header-stop").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
@@ -113,7 +112,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         // Bob is recognised by name on the live overlay, and listed on Regulars; the cat stays unnamed.
         await Assertions.Expect(page.GetByTestId("live-tracks")).ToContainTextAsync("Bob", new() { Timeout = 25_000 });
         await page.GetByTestId("header-stop").ClickAsync();
-        await page.Keyboard.PressAsync("4");
+        await page.GetByTestId("nav-regulars").ClickAsync();
         await Assertions.Expect(page.GetByTestId("regulars-table")).ToBeVisibleAsync();
         ILocator NameBox(string who) => page.Locator(".regular-name").Filter(new() { HasText = $"Name for {who}" }).Locator("input");
         await Assertions.Expect(NameBox("Bob")).ToHaveValueAsync("Bob");
@@ -184,25 +183,6 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Inference engine" }))
             .ToBeVisibleAsync();
-    }
-
-    [Fact]
-    public async Task The_system_page_offers_a_self_test_for_every_registered_model()
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/diagnostics", "SYSTEM");
-        await page.GetByTestId("diagnostics-advanced").Locator("summary").ClickAsync();
-
-        await Assertions.Expect(page.GetByTestId("model-selftest-card")).ToBeVisibleAsync();
-
-        // The card and the Live Room picker must offer the same models — they read one registry
-        // (rule 1.5), and a row missing here would mean a model nobody can check before selecting it.
-        var registered = await page.EvaluateAsync<int>(
-            "async () => (await (await fetch('/model-registry.json')).json()).length");
-
-        Assert.True(registered > 0, "model-registry.json returned no models.");
-        await Assertions.Expect(page.GetByTestId("model-selftest-row")).ToHaveCountAsync(registered);
     }
 
     [Fact]

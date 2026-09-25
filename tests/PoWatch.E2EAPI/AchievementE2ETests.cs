@@ -18,7 +18,7 @@ public sealed class AchievementE2ETests(ApiE2EFactory factory) : IClassFixture<A
 
         // Starting a session is enough for First Light.
         var afterStart = (await client.GetFromJsonAsync<TrophyCabinetDto>("/api/achievements"))!;
-        Assert.True(afterStart.Achievements.Count >= 15);
+        Assert.Equal(8, afterStart.Achievements.Count);
         Assert.True(afterStart.Achievements.Single(a => a.Id == "first-light").Unlocked);
         Assert.False(afterStart.Achievements.Single(a => a.Id == "first-cat").Unlocked);
 
@@ -36,8 +36,6 @@ public sealed class AchievementE2ETests(ApiE2EFactory factory) : IClassFixture<A
         var kitty = cabinet.Achievements.Single(a => a.Id == "first-cat");
         Assert.True(kitty.Unlocked);
         Assert.Contains(cabinet.Records, r => r is { Id: "peak-concurrency", Value: 3 });
-        Assert.Contains(cabinet.Records, r => r is { Id: "busiest-day-visits", Value: 1 });
-        Assert.Contains(cabinet.Records, r => r is { Id: "daily-streak", Value: 1, Display: "1 day" });
 
         // A later batch neither re-unlocks nor moves the first unlock time.
         (await client.PostAsJsonAsync($"/api/sessions/{session.Id}/batches",

@@ -38,22 +38,19 @@ camera ──► browser (all sensing on-device)                        server
 | B · Objects & regulars | classes seen, rarest, regulars leaderboard (recognised by look, never by face) | Stats → Objects, /regulars |
 | C · Patterns & anomalies | hour × weekday, rhythm score, "today vs usual" z-scores, trend, busy-hour forecast | Stats → Patterns |
 | D · Environment & captions | light curve, lights on/off, daylight estimate, palette, word cloud, weirdest caption, recaps | Stats → Environment, History |
-| E · Achievements & records | 20 achievements, 4 personal records, unlock toasts | /trophies |
+| E · Achievements & records | 8 achievements, 2 personal records, unlock toasts | /trophies |
 | F · Pipeline | frames per layer, FPS, latency, detector confidence, uptime, storage | /system |
 
 ## Pages
 
 `/` Live · `/stats` four tabs with a range picker · `/history` calendar → day (stats, recap + PDF,
-sessions, moments, captions, time-lapse) · `/regulars` name/rename/merge · `/trophies` · `/display`
-full-screen stats wall (settings menu → Stats wall) · `/system` (also `/health`) connections, runtime, inference, pipeline and model self-tests.
+sessions, moments, captions, time-lapse) · `/regulars` name/rename/merge · `/trophies` · `/system`
+(also `/health`) connections, runtime, inference and pipeline. Stats has a Full screen button for a
+second monitor or a TV.
 
-**Scene effects** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) come only from live numbers:
-a Web Audio drone (light → pitch, motion → filter, who's in frame → chord), arrival plucks, anomaly
-blips and teletype clicks; an announcer (speechSynthesis); a WebGL2 thermal shader in the Live motion
-grid; comet trails over the camera plus a long-exposure PNG on the session recap; panel morphs
-between sections (View Transitions); and a 3D occupancy terrain on the wall. Sound and announcer are
-off until toggled in the header; motion effects respect `prefers-reduced-motion`; the plain HTML
-grids stay underneath as the no-WebGL fallback.
+**Comet trails** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) follow people and animals over
+the camera and add up to a long-exposure PNG on the session recap; they respect
+`prefers-reduced-motion`.
 
 ## API surface
 
@@ -76,21 +73,20 @@ requires the BFF cookie (Entra ID, or guest sign-in in Dev/Test).
 Azure Table Storage (Azurite locally), partitioned by user: `PoWatchSessions`, `PoWatchTicks`,
 `PoWatchSceneEvents`, `PoWatchIngestLedger`, `PoWatchRollups`, `PoWatchRegulars`,
 `PoWatchAchievements`. Blob containers: `snapshots`, `dataprotection-keys`. Retention: keep
-everything. With no storage configured the API falls back to in-memory stores.
+everything. Storage is required: Azurite locally (docker compose) and in tests (Testcontainers).
 
 ## Recaps
 
 `TemplateRecap` writes the paragraph from the numbers (Humanizer). If `AiProvider:Provider` is
-`Ollama`, `AzureOpenAi` or `OpenAiCompatible` (e.g. Gemini), an `IChatClient` may rewrite the
+`AzureOpenAi`, an `IChatClient` may rewrite the
 paragraph only — never the numbers — and the template wins on timeout, error, or a reply that uses a
 number not in the facts (`RecapPrompt.KeepsToFacts`). Azure OpenAI signs in with the app's Entra
 identity when `AzureOpenAi:ApiKey` is empty (Development uses `gpt-5.4-nano` via the az CLI login;
 Production stays on Template until the web app's identity has *Cognitive Services OpenAI User* on
 `po-aiservices-shared`). Replies are cached by prompt, so reopening a day or its PDF costs nothing.
-With no server model, History asks Chrome's built-in model (Prompt API) when it is already on the
-device. QuestPDF renders the PDF; a host without its native engine answers an explained 503.
+QuestPDF renders the PDF; a host without its native engine answers an explained 503.
 
-**Captions.** The VLM prompt carries what the detector sees (`Visible: person x2, cat.`), an unchanged
+**Captions.** One on-device model, SmolVLM2 500M (WebGPU fp16 → fp32 → WASM q8). The prompt carries what the detector sees (`Visible: person x2, cat.`), an unchanged
 scene is re-captioned at most every 2 minutes, SmolVLM runs without image splitting, and frames reach
 the worker as transferred `ImageBitmap`s. A caption unlike the last 10 becomes a Notable moment. COOP
 `same-origin` + COEP `credentialless` make the page cross-origin isolated, so the WASM backend runs
@@ -102,8 +98,7 @@ multi-threaded.
 - Test caps (`SCRIPTS/check-test-caps.ps1`): 100 unit · 50 integration · 25 API E2E · 25 UI E2E.
 - `SCRIPTS/check-hygiene.ps1`: layout, naming, central package versions, shell assets, and no
   caregiver-era vocabulary.
-- `tests/PoWatch.Benchmarks` (BenchmarkDotNet, not a test suite): rollup merge, summaries, a 30-day
-  presence query. Run `dotnet run -c Release --project tests/PoWatch.Benchmarks` and pick a benchmark.
+- CI runs unit, integration and API E2E; UI E2E runs locally (`E2E_LOCAL=1`).
 
 ## Deploy
 

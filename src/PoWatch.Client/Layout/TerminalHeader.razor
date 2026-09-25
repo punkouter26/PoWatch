@@ -2,7 +2,6 @@
 @using System.Globalization
 @using System.Security.Claims
 @inject SensingSession Sensing
-@inject IInferenceService InferenceService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject HttpClient Http
@@ -14,17 +13,14 @@
         PoWatch <span class="term-brand-mark">TERM</span>
     </a>
 
-    <FunctionKeyBar />
+    <NavBar />
 
     <span class="term-status @(Sensing.IsRunning ? (Sensing.Live.Demo ? "term-status--demo" : "term-status--live") : string.Empty)"
           role="status" data-test="session-status"
-          title="@(Sample ? "Numbers come from a scripted demo scene or mock model, not a real camera" : null)">
+          title="@(Sensing.Live.Demo ? "Numbers come from a scripted demo scene, not a real camera" : null)">
         ● @(Sensing.IsRunning ? "OBSERVING" : "STANDBY")@if (Sensing.IsRunning)
         {
             <span class="term-status-detail"> · @(Sensing.Live.Demo ? "DEMO" : "CAMERA") · @Uptime@(Sensing.Live.Session is { } s ? $" · {DisplayText.SessionTag(s.Id)}" : string.Empty)</span>
-        }@if (Sample && !Sensing.Live.Demo)
-        {
-            <span> · SAMPLE</span>
         }
     </span>
 
@@ -38,24 +34,13 @@
     }
 
     <details class="term-menu">
-        <summary class="term-icon-button" aria-label="Settings" title="Sound, announcer, theme, sign out" data-test="settings-menu">
+        <summary class="term-icon-button" aria-label="Settings" title="Theme, sign out" data-test="settings-menu">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
         </summary>
         <div class="term-menu-panel">
-            <button class="term-menu-item" role="switch" aria-checked="@(_sound ? "true" : "false")" @onclick="ToggleSoundAsync"
-                    title="The room as a drone, chimes on arrivals" data-test="sound-toggle">
-                <span>Scene sound</span><b>@(_sound ? "ON" : "OFF")</b>
-            </button>
-            <button class="term-menu-item" role="switch" aria-checked="@(_announcer ? "true" : "false")" @onclick="ToggleAnnouncerAsync"
-                    title="Reads captions and arrivals aloud" data-test="announcer-toggle">
-                <span>Announcer</span><b>@(_announcer ? "ON" : "OFF")</b>
-            </button>
             <button class="term-menu-item" @onclick="ToggleThemeAsync" data-test="theme-toggle">
                 <span>Theme</span><b>@_theme.ToUpperInvariant()</b>
             </button>
-            <a class="term-menu-item" href="display" data-test="menu-wall" title="Full-screen stats for a second monitor or a TV">
-                <span>Stats wall</span><b>OPEN</b>
-            </a>
             <button class="term-menu-item" @onclick="SignOutAsync" disabled="@_signingOut" data-test="sign-out">
                 <span>Sign out</span><b class="term-menu-email">@_email</b>
             </button>
@@ -68,8 +53,6 @@
 @code {
     private Timer? _clock;
     private string _theme = "dark";
-    private bool _sound;
-    private bool _announcer;
     private string? _email;
     private bool _signingOut;
 
@@ -77,8 +60,6 @@
     [Parameter] public bool ShowStart { get; set; } = true;
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
-
-    private bool Sample => Sensing.Live.Demo || InferenceService is IMockable;
 
     private string Uptime => Sensing.Live.StartedUtc is { } started
         ? (DateTimeOffset.UtcNow - started).ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture)
@@ -102,15 +83,9 @@
     {
         if (!firstRender) return;
         var current = await JS.TryInvokeAsync<string>("powatchTheme.get");
-        _sound = await JS.TryInvokeAsync<bool>("powatchFx.pref", "sound");
-        _announcer = await JS.TryInvokeAsync<bool>("powatchFx.pref", "announcer");
         if (!string.IsNullOrEmpty(current)) _theme = current;
         StateHasChanged();
     }
-
-    private async Task ToggleSoundAsync() => _sound = await JS.TryInvokeAsync<bool>("powatchFx.set", "sound", !_sound);
-
-    private async Task ToggleAnnouncerAsync() => _announcer = await JS.TryInvokeAsync<bool>("powatchFx.set", "announcer", !_announcer);
 
     private void OnSensingChanged() => InvokeAsync(StateHasChanged);
 

@@ -1,6 +1,6 @@
 namespace PoWatch.Domain.Services;
 
-/// <summary>A value that might set a record, e.g. today's visit count for "busiest-day-visits".</summary>
+/// <summary>A value that might set a record, e.g. today's peak for "peak-concurrency".</summary>
 public sealed record RecordCandidate(string RecordId, double Value, DateTimeOffset AtUtc);
 
 public sealed record RecordEntry(string RecordId, double Value, DateTimeOffset SetAtUtc, double? PreviousValue);
@@ -9,17 +9,13 @@ public sealed record RecordEntry(string RecordId, double Value, DateTimeOffset S
 public static class RecordRules
 {
     public const string LongestSession = "longest-session";
-    public const string BusiestDayVisits = "busiest-day-visits";
     public const string PeakConcurrency = "peak-concurrency";
-    public const string DailyStreak = "daily-streak";
 
     /// <summary>Every record, in cabinet order, with its display title.</summary>
     public static readonly IReadOnlyList<(string Id, string Title)> All =
     [
         (LongestSession, "Longest session"),
-        (BusiestDayVisits, "Busiest day"),
         (PeakConcurrency, "Most at once"),
-        (DailyStreak, "Longest daily streak"),
     ];
 
     /// <summary>

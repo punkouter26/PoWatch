@@ -48,20 +48,11 @@ public sealed class VlmResultPayload
     public string Caption { get; init; } = string.Empty;
 }
 
-/// <summary>What the scene effects (wwwroot/js/fx.js) need from a live session, a few times a second.</summary>
+/// <summary>What the comet trails (wwwroot/js/fx.js) need from a live session, a few times a second.</summary>
 public sealed class FxFramePayload
 {
     public bool Running { get; init; }
-    public double Motion { get; init; }
-    public double Luminance { get; init; }
-    /// <summary>People and animals in frame now.</summary>
-    public int Present { get; init; }
-    public List<float> Heat { get; init; } = [];
-    public List<int> Palette { get; init; } = [];
     public List<FxTrackPayload> Tracks { get; init; } = [];
-    public string? Caption { get; init; }
-    /// <summary>When the caption arrived, in Unix milliseconds; 0 before the first one.</summary>
-    public long CaptionAt { get; init; }
 }
 
 /// <summary>A person or animal in frame: its track and the centre of its box, normalised to [0, 1].</summary>

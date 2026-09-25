@@ -9,9 +9,6 @@ namespace PoWatch.Infrastructure;
 /// <summary>
 /// One-shot hosted service that ensures all required Azure Storage tables and blob containers
 /// exist before the application begins serving requests.
-///
-/// Executes when either <see cref="AzureStorageOptions.ConnectionString"/> or
-/// <see cref="AzureStorageOptions.ServiceUri"/> is configured; no-ops silently when using in-memory storage.
 /// </summary>
 public sealed class AzureStorageInitializer(
     AzureStorageClients clients,
@@ -22,20 +19,6 @@ public sealed class AzureStorageInitializer(
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!IsAzureStorageConfigured(options.Value))
-        {
-            logger.LogDebug("Azure Storage not configured — using in-memory storage, skipping table initialization.");
-            readiness.MarkStorageReady("In-memory storage (Azure Storage not configured).");
-            return;
-        }
-
-        if (options.Value.SkipStorageInit)
-        {
-            logger.LogWarning("FeatureFlags:SkipStorageInit=true — skipping Azure Storage initialization. App will use in-memory fallbacks.");
-            readiness.MarkStorageReady("Storage initialisation skipped (SkipStorageInit=true).");
-            return;
-        }
-
         logger.LogInformation("Initializing Azure Storage tables and containers...");
 
         try
@@ -61,10 +44,8 @@ public sealed class AzureStorageInitializer(
         catch (Exception ex)
         {
             logger.LogCritical(ex,
-                "Azure Storage initialization failed. Storage is configured, so there is NO in-memory fallback — " +
-                "reads/writes will fail until the dependency recovers. " +
-                "Verify Azurite/Docker is running, or that the Managed Identity holds Storage Table/Blob Data " +
-                "Contributor, or set FeatureFlags:SkipStorageInit=true to intentionally skip. " +
+                "Azure Storage initialization failed; reads/writes will fail until the dependency recovers. " +
+                "Verify Azurite/Docker is running, or that the Managed Identity holds Storage Table/Blob Data Contributor. " +
                 "ServiceUri={ServiceUri} ErrorType={ErrorType} Detail={Detail}",
                 options.Value.ServiceUri,
                 ex.GetType().Name,
@@ -83,8 +64,4 @@ public sealed class AzureStorageInitializer(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-    private static bool IsAzureStorageConfigured(AzureStorageOptions options) =>
-        !string.IsNullOrWhiteSpace(options.ConnectionString)
-        || !string.IsNullOrWhiteSpace(options.ServiceUri);
 }

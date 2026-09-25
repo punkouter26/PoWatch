@@ -24,7 +24,7 @@ public sealed class StatsE2ETests(ApiE2EFactory factory) : IClassFixture<ApiE2EF
         var (all, allMs) = await TimedAsync<PresenceStatsDto>(client, "/api/stats/presence?range=all&tz=UTC");
         var (patterns, patternsMs) = await TimedAsync<PatternStatsDto>(client, "/api/stats/patterns?range=today&tz=UTC");
 
-        // SPEC §15 #4: Today ≤ 1.5 s, all-time over a year ≤ 2 s (first, uncached call).
+        // Today ≤ 1.5 s, all-time over a year ≤ 2 s (first, uncached call).
         Assert.True(todayMs <= 1_500, $"today took {todayMs} ms");
         Assert.True(allMs <= 2_000, $"all-time took {allMs} ms");
         Assert.True(patternsMs <= 2_000, $"patterns took {patternsMs} ms");

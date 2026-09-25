@@ -1,26 +1,13 @@
-using PoWatch.Shared;
-
 namespace PoWatch.Application.Options;
 
-public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
+public sealed class FeatureFlagsOptions
 {
-    // Server-only flags below. Shared flags live in SharedFeatureFlagsOptions.
+    /// <summary>When true, error responses carry exception detail. Never in production.</summary>
+    public bool ExposeDebugDetailsInUi { get; init; }
 
-    // NOTE: ExposeDebugDetailsInUi is in SharedFeatureFlagsOptions (shared with client).
-
-    // Production-safe default is false; enable only via appsettings.Development.json or an explicit override.
-    public bool DeveloperBypassAuth { get; init; } = false;
+    /// <summary>Guest sign-in (FakeAuth). Dev/Test only; refused in Production.</summary>
+    public bool DeveloperBypassAuth { get; init; }
 
     /// <summary>When true, the API loads Azure Key Vault configuration and registers the Key Vault health check.</summary>
-    public bool EnableKeyVault { get; init; } = false;
-
-    /// <summary>
-    /// When true (Dev/Test only — never honoured in Production even if set), the login page renders the
-    /// "Sign in with Microsoft" button. In Dev, this lets the operator see the split-view UI per
-    /// NET_RULE §4.4 without committing a real AzureAd:ClientId to source. The actual
-    /// /auth/login/microsoft endpoint still requires a configured ClientId and returns 404 otherwise,
-    /// so dev sign-in remains honest: clicking Microsoft without a real Azure AD app registration
-    /// surfaces a clear "Microsoft sign-in is not configured" message from the API.
-    /// </summary>
-    public bool DeveloperEnableMicrosoftLogin { get; init; } = false;
+    public bool EnableKeyVault { get; init; }
 }
