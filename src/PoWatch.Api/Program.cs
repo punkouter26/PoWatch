@@ -13,6 +13,7 @@ using PoWatch.Api.Features.Archives;
 using PoWatch.Api.Features.Diagnostics;
 using PoWatch.Api.Features.Identity;
 using PoWatch.Api.Features.Observer;
+using PoWatch.Api.Features.Sessions;
 using PoWatch.Api.Features.Auth;
 using PoWatch.Api.HealthChecks;
 using PoWatch.Api.Infrastructure.Kestrel;
@@ -338,6 +339,7 @@ app.MapObserverFeature();
 app.MapArchivesFeature();
 app.MapIdentityFeature();
 app.MapDiagnosticsFeature();
+app.MapSessionsFeature();
 // Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which
 // is what lets the portfolio dashboard poll them all and render one uptime grid.
 app.MapPoLiveness();

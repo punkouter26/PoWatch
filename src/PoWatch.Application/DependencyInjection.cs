@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoWatch.Application.Services;
 
 namespace PoWatch.Application;
@@ -21,7 +22,9 @@ public static class DependencyInjection
         // Observer
         services.AddScoped<ObservationService>();
 
-        // Risk
+        // Sessions
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<SessionService>();
 
         return services;
     }
