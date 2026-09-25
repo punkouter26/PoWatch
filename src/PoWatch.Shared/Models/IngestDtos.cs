@@ -1,0 +1,67 @@
+namespace PoWatch.Shared.Models;
+
+/// <summary>
+/// About ten seconds of folded sensing, posted to <c>/api/sessions/{id}/batches</c>. The batch key
+/// makes replays safe: a batch the server has already folded in is stored again but not re-counted.
+/// </summary>
+public sealed class IngestBatchDto
+{
+    public const int MaxTicks = 360;
+    public const int MaxEvents = 2_000;
+
+    public Guid BatchKey { get; init; }
+    public List<TickDto> Ticks { get; init; } = [];
+    public List<SceneEventDto> Events { get; init; } = [];
+}
+
+public sealed class TickDto
+{
+    public DateTimeOffset StartUtc { get; init; }
+    public double DurationSeconds { get; init; } = 10;
+    public int PixelSamples { get; init; }
+    public int DetectorSamples { get; init; }
+    public double MotionMean { get; init; }
+    public double MotionMax { get; init; }
+    public double LuminanceMean { get; init; }
+    public List<int> Palette { get; init; } = [];
+    public List<float> MotionGrid { get; init; } = [];
+    public List<float> PresenceGrid { get; init; } = [];
+    public Dictionary<string, ClassCountDto> Classes { get; init; } = [];
+    public List<string> ActiveTrackIds { get; init; } = [];
+}
+
+public sealed class ClassCountDto
+{
+    public int Max { get; init; }
+    public double Mean { get; init; }
+}
+
+public sealed class SceneEventDto
+{
+    public DateTimeOffset AtUtc { get; init; }
+
+    /// <summary>TrackEnter, TrackExit, LightsOn, LightsOff, Caption, Notable or AchievementCandidate.</summary>
+    public string Kind { get; init; } = string.Empty;
+
+    public string? TrackId { get; init; }
+    public string? Class { get; init; }
+
+    /// <summary>Top, Right, Bottom or Left for track enter/exit.</summary>
+    public string? Edge { get; init; }
+
+    public string? Text { get; init; }
+    public double? Score { get; init; }
+    public double? DwellSeconds { get; init; }
+}
+
+public sealed class IngestBatchResultDto
+{
+    public bool Accepted { get; init; }
+
+    /// <summary>True when the batch had already been counted; it was stored again but not re-counted.</summary>
+    public bool Replayed { get; init; }
+
+    public int Ticks { get; init; }
+    public int Events { get; init; }
+    public List<string> Errors { get; init; } = [];
+}

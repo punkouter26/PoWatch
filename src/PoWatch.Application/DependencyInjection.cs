@@ -25,6 +25,7 @@ public static class DependencyInjection
         // Sessions
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<SessionService>();
+        services.AddScoped<IngestService>();
 
         return services;
     }
