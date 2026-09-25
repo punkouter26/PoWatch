@@ -104,11 +104,16 @@ Rules for every task:
     before adding the session and stats tests (now 21/25).
 
 ### D — Client sensing
-- [ ] **D0 (spike, no commit unless adopted)** Background-tab behavior: worker timer +
+- [x] **D0 (spike, no commit unless adopted)** Background-tab behavior: worker timer +
   `requestVideoFrameCallback` + Wake Lock in Chrome/Edge. Findings are recorded in `tasks/plan.md`.
-- [ ] **D1** L0 pixel layer: `wwwroot/js/sensing/pixel-layer.js` (luminance, 5-color palette, 16×9
+  - Done as a design note (headless Chromium cannot reproduce hidden-tab throttling): worker clock
+    + Wake Lock + honest per-tick sample counts. Real-hardware check deferred to Phase 5.
+- [x] **D1** L0 pixel layer: `wwwroot/js/sensing/pixel-layer.js` (luminance, 5-color palette, 16×9
   grid, reusing `computeFrameDiff`), a bridge export, and a `PixelSample` DTO.
   - AC: the System page shows L0 Hz ≥ 4.
+  - Verified in headless Chromium with a fake camera: 19 samples in 5 s at a 250 ms interval
+    (4 Hz steady), 144-cell grid, 5-colour palette, motion 0.13 on the moving test pattern.
+    The System page readout comes with E5.
 - [ ] **D2** L1 detector: `wwwroot/js/sensing/detector-worker.js` (RF-DETR Nano, fallback
   RT-DETRv2) + `Shared/Services/Tracking/CentroidTracker.cs` (IoU match, 3 s gap merge, enter/exit edge)
   + tracker tests.

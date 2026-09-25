@@ -181,3 +181,20 @@ After A4, B3, B6, C3, C6, D5, E5, E9, F5 and G4:
     <RadzenChart><RadzenAreaSeries Data="@Energy" CategoryProperty="At" ValueProperty="Motion" /></RadzenChart>
     ```
     `stats.LongestEmpty.Humanize(2)` gives "3 hours, 12 minutes", and `frames.ToMetric()` gives "12.4k".
+
+### D0 findings — background tabs (design note, not measured)
+
+Could not be measured here: headless Chromium does not reproduce hidden-tab throttling. Decisions
+are based on documented Chromium behaviour:
+
+- `requestAnimationFrame` and `requestVideoFrameCallback` stop in a hidden tab, and main-thread
+  timers are throttled (down to once a minute after five minutes hidden).
+- Dedicated workers are not subject to that intensive throttling.
+- So the sampling clock lives in a small worker, which posts "sample now" to the page. The page grabs
+  the frame from the `<video>` element. The detector already runs in a worker.
+- The page requests a Screen Wake Lock while a session runs, so an unattended laptop does not
+  sleep the display.
+- Every tick carries its real sample counts, so throttled stretches show up as low-rate ticks or gaps
+  instead of fake zeros. The Pipeline panel shows the achieved Hz.
+- To verify on real hardware in Phase 5: start a session, hide the tab for 10 minutes, and compare
+  the pixel Hz before and after in the Pipeline panel.
