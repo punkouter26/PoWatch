@@ -39,9 +39,10 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
         return new AzureStorageClients(Options);
     }
 
-    private static IEnumerable<(string Name, Func<IRollupStore> Rollups, Func<IAchievementStore> Achievements)> StatsStores()
+    private IEnumerable<(string Name, Func<IRollupStore> Rollups, Func<IAchievementStore> Achievements)> StatsStores()
     {
         yield return ("in-memory", () => new InMemoryRollupStore(), () => new InMemoryAchievementStore());
+        yield return ("azure", () => new AzureRollupStore(AzureClients(), Options), () => new AzureAchievementStore(AzureClients(), Options));
     }
 
     private static string NewUser() => $"user-{Guid.NewGuid():N}";
@@ -127,12 +128,22 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
             grid[5] = 1;
             var tick = Rollup.FromTick(new Tick
             {
-                SessionId = Guid.NewGuid(), StartUtc = T0.AddSeconds(20), MotionMean = 0.3, MotionGrid = grid,
-                Palette = [0x102030], Classes = new Dictionary<string, ClassCount> { ["cat"] = new(1, 1) }
+                SessionId = Guid.NewGuid(),
+                StartUtc = T0.AddSeconds(20),
+                MotionMean = 0.3,
+                MotionGrid = grid,
+                Palette = [0x102030],
+                Classes = new Dictionary<string, ClassCount> { ["cat"] = new(1, 1) }
             });
             var visit = Rollup.FromEvent(new SceneEvent
             {
-                SessionId = Guid.NewGuid(), AtUtc = T0, Kind = SceneEventKind.TrackExit, TrackId = "T1", Class = "person", Edge = FrameEdge.Top, DwellSeconds = 42
+                SessionId = Guid.NewGuid(),
+                AtUtc = T0,
+                Kind = SceneEventKind.TrackExit,
+                TrackId = "T1",
+                Class = "person",
+                Edge = FrameEdge.Top,
+                DwellSeconds = 42
             });
 
             await rollups.MergeAsync(user, RollupGrain.Minute, T0, tick, CancellationToken.None);
@@ -154,6 +165,12 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
             Assert.Equal(1, (await rollups.GetAllTimeAsync(user, CancellationToken.None)).Ticks);
             Assert.Equal(0, (await rollups.GetAllTimeAsync(NewUser(), CancellationToken.None)).Ticks);
             Assert.True(range.Count == 1, name);
+
+            // Concurrent merges into one bucket all count: the ETag check re-merges on conflict.
+            var hot = T0.AddHours(1);
+            await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => rollups.MergeAsync(user, RollupGrain.Hour, hot, tick, CancellationToken.None)));
+            var hotBucket = Assert.Single(await rollups.GetRangeAsync(user, RollupGrain.Hour, hot, hot.AddHours(1), CancellationToken.None));
+            Assert.True(hotBucket.Ticks == 20, $"{name}: {hotBucket.Ticks} of 20 concurrent merges counted");
 
             var achievements = newAchievements();
             await achievements.UnlockAsync(user, [new("first-cat", T0)], CancellationToken.None);

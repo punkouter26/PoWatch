@@ -141,10 +141,9 @@ automatic deletion; storage size is surfaced as a stat (F).
 | `PoWatchTicks` | `{userId}\|{yyyyMMdd}` (local day) | `{utcTicks:D19}-{sessionId}` | 10 s tick, ≤ 8,640 per day per session; grids stored as float bytes |
 | `PoWatchSceneEvents` | `{userId}\|{yyyyMMdd}` (local day) | `{utcTicks:D19}-{stableId}` | enter/exit, captions, lights, notable; stable id makes replays idempotent |
 | `PoWatchIngestLedger` | `{userId}` | batch key | claimed once, so a replayed batch never merges into rollups twice |
-| `Rollups` | `{userId}\|{grain}` (`min`, `hour`, `day`) | `{bucketStart}` | mergeable aggregates: count/sum/sum²/min/max, class counts, 16×9 grid, palette |
-| `AllTime` | `{userId}` | `{metric}` | running totals and records |
+| `PoWatchRollups` | `{userId}\|{grain}` (`Minute`, `Hour`, `Day`, `AllTime`) | `{bucketStartUtcTicks:D19}` | mergeable aggregates; ETag read-merge-write with retry; all-time is the `AllTime` grain at the Unix epoch |
 | `Regulars` / `RegularRevisions` | `{userId}` | regularId / revision | from Subjects |
-| `Achievements` | `{userId}` | achievementId | unlock time, evidence |
+| `PoWatchAchievements` | `{userId}` | `a:{id}` unlocks · `r:{id}` records | first unlock time wins; records only move when beaten |
 | Blob `snapshots/` | `{userId}/{yyyyMMdd}/{eventId}.jpg` | — | highlight frames only |
 
 The **ingest path** validates the batch, upserts ticks and events idempotently (by batch key), and

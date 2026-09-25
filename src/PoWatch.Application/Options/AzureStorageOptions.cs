@@ -31,6 +31,12 @@ public sealed class AzureStorageOptions
     public string IngestLedgerTable { get; init; } = "PoWatchIngestLedger";
 
     [Required, MinLength(3)]
+    public string RollupsTable { get; init; } = "PoWatchRollups";
+
+    [Required, MinLength(3)]
+    public string AchievementsTable { get; init; } = "PoWatchAchievements";
+
+    [Required, MinLength(3)]
     public string SignificantImagesContainer { get; init; } = "significant-images";
 
     // Blob container holding the persisted Data Protection keyring (BFF cookie encryption keys).

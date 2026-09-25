@@ -78,14 +78,17 @@ Rules for every task:
     100/100, so later tasks first merge adjacent tests in suites being retired.
 
 ### C — Storage, ingest, queries
-- [ ] **C1** Contracts plus in-memory repos: Session, Tick, SceneEvent, Rollup, AllTime, Achievement.
+- [x] **C1** Contracts plus in-memory repos: Session, Tick, SceneEvent, Rollup, AllTime, Achievement.
   - Files: `Application/Contracts/*` (2 files grouping the interfaces),
     `Infrastructure/Persistence/InMemoryStatsStores.cs`, DI.
-- [ ] **C2** Azure repos for Sessions, Ticks, Events; initializer tables.
+- [x] **C2** Azure repos for Sessions, Ticks, Events; initializer tables.
   - AC: Azurite round trip; keys per SPEC §6.
   - V: `dotnet test tests/PoWatch.Integration --filter Repo`
-- [ ] **C3** Azure rollup + AllTime repo with ETag merge and retry.
+- [x] **C3** Azure rollup + AllTime repo with ETag merge and retry.
   - AC: a concurrent-merge integration test passes. **CHECKPOINT**
+  - Done: one `StatsStoreContractTests` script runs every store against in-memory and Azurite
+    (3 tests), including 20 concurrent merges into one bucket. An `IIngestLedger` claims each
+    batch key once so replays never double-count rollups.
 - [ ] **C4** `SessionService` + `/api/sessions` (start with tz, stop, list, get) + DTOs + JSON ctx.
   - AC: API E2E session lifecycle passes.
 - [ ] **C5** `IngestService` + `POST /api/sessions/{id}/batches` (FluentValidation; idempotency
