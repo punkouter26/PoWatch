@@ -169,9 +169,14 @@ Rules for every task:
   **CHECKPOINT**
 
 ### F — Regulars, recaps, achievements
-- [ ] **F1** Mechanical rename Subject → Regular, `/api/identity` → `/api/regulars` (no behavior
-  change; exempt from 5 files).
-- [ ] **F2** Track → regular matching (class + color signature + size) + co-occurrence stats.
+- [x] **F1** Regulars (changed from a mechanical rename): a new per-user `Regular` model, store,
+  `RegularsService` and `/api/regulars` (list, observe, rename, merge). The old global Subject path
+  stays until G1 retires the caregiver ingest.
+- [x] **F2** Track → regular matching (64-bin colour signature per box, averaged per track, cosine
+  ≥ 0.85 within a class; no biometrics) + **passive naming prompt** (user request 2026-09-25): a new
+  person, cat or dog gets a non-blocking "name them?" card that fades after 60 s, leaving them
+  "Person N". Exits carry the regular id, so visits and dwell roll up per regular (leaderboard in
+  Objects stats and on /regulars). Old People page removed. Co-occurrence stats deferred.
 - [ ] **F3** `RecapService` on M.E.AI (`IChatClient`: Azure OpenAI / Ollama) + `TemplateRecap`
   fallback + Humanizer + Verify snapshot. Replaces `HandoffCoachService`/`ReportService`.
 - [ ] **F4** `RecapReportRenderer` (QuestPDF) + session/day PDF endpoints.
