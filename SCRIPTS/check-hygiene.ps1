@@ -35,4 +35,19 @@ foreach ($match in [regex]::Matches($index, '(?:href|src)="((?:js|css|lib|media)
     $assetPath = Join-Path (Split-Path $indexPath -Parent) $match.Groups[1].Value
     if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) { throw "Missing shell asset: $assetPath" }
 }
-Write-Host 'Directory structure, naming, package versions, and shell assets passed.'
+# The app is a stats webcam, not a care monitor: no caregiver-era vocabulary in code, pages or tests.
+# Vendored libraries (wwwroot/lib) and build output are exempt; "shift" and "acknowledge" are only
+# banned in their caregiver sense, since both are ordinary words elsewhere (bit shifts, batch acks).
+$banned = '(?i)caregiver|clinical|handoff|nurse|patient|shift ?(window|clock|report)|mid-shift|acknowledg(e)?ment'
+$scanned = '.cs', '.razor', '.js', '.css', '.json', '.html', '.http'
+$hits = foreach ($root in 'src', 'tests') {
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot $root) -File -Recurse |
+        Where-Object { $_.Extension -in $scanned -and $_.FullName -notmatch '[\\/](bin|obj|lib)[\\/]' } |
+        Select-String -Pattern $banned
+}
+if ($hits) {
+    $hits | ForEach-Object { Write-Host "$([IO.Path]::GetRelativePath($repoRoot, $_.Path)):$($_.LineNumber): $($_.Line.Trim())" }
+    throw "Caregiver-era vocabulary found ($(@($hits).Count) lines)."
+}
+
+Write-Host 'Directory structure, naming, package versions, shell assets, and vocabulary passed.'
