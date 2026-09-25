@@ -143,6 +143,8 @@ builder.Services.AddRateLimiter(rl =>
 builder.Services.AddPoWatchApplication();
 builder.Services.AddPoWatchInfrastructure();
 builder.Services.AddSingleton<FluentValidation.IValidator<PoWatch.Shared.Models.IngestBatchDto>, IngestBatchValidator>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CurrentUserIdProvider>();
 
 // T012: Global ProblemDetails middleware
 builder.Services.AddProblemDetails();
@@ -346,6 +348,7 @@ app.MapDiagnosticsFeature();
 app.MapSessionsFeature();
 app.MapIngestFeature();
 app.MapStatsFeature();
+app.MapHub<StatsHub>(StatsHub.Path).RequireAuthorization();
 app.MapDevSeedFeature(app.Environment);
 // Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which
 // is what lets the portfolio dashboard poll them all and render one uptime grid.

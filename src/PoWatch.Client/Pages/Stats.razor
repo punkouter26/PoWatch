@@ -3,6 +3,8 @@
 @inject PoWatchApiClient Api
 @inject NavigationManager Navigation
 @inject SensingSession Sensing
+@inject StatsFeed Feed
+@implements IDisposable
 
 <PageTitle>PoWatch | Stats</PageTitle>
 
@@ -57,6 +59,7 @@
     private int _tab;
     private StatsQuery _query = StatsQuery.For("today");
     private List<SessionOption> _sessions = [];
+    private DateTimeOffset _lastPush;
 
     [SupplyParameterFromQuery(Name = "range")] public string? RangeParameter { get; set; }
 
@@ -76,7 +79,20 @@
             .Select(s => new SessionOption(s.Id, $"#{s.Id.ToString("N")[..4].ToUpperInvariant()} · {s.StartedUtc.ToLocalTime():ddd dd MMM HH:mm}{(s.IsRunning ? " · LIVE" : string.Empty)}"))
             .ToList();
         _sessionId = Sensing.Live.Session?.Id ?? _sessions.FirstOrDefault()?.Id ?? Guid.Empty;
+        Feed.Changed += OnStatsChanged;
+        await Feed.EnsureConnectedAsync();
     }
+
+    /// <summary>New data landed: reload the open tab, at most every 5 s.</summary>
+    private void OnStatsChanged(StatsChangedDto change)
+    {
+        if (DateTimeOffset.UtcNow - _lastPush < TimeSpan.FromSeconds(5)) return;
+        _lastPush = DateTimeOffset.UtcNow;
+        _query = _query with { Stamp = _query.Stamp + 1 };
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Feed.Changed -= OnStatsChanged;
 
     protected override void OnParametersSet()
     {

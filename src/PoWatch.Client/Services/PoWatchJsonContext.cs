@@ -52,5 +52,6 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(PatternStatsDto))]
 [JsonSerializable(typeof(EnvironmentStatsDto))]
 [JsonSerializable(typeof(PipelineStatsDto))]
+[JsonSerializable(typeof(StatsChangedDto))]
 [JsonSerializable(typeof(DetectionsPayload))]
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;

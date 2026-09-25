@@ -1,5 +1,14 @@
 namespace PoWatch.Shared.Models;
 
+/// <summary>Pushed over the stats hub when an ingest batch lands.</summary>
+public sealed class StatsChangedDto
+{
+    public DateTimeOffset AtUtc { get; init; }
+    public Guid SessionId { get; init; }
+    public int Ticks { get; init; }
+    public int Events { get; init; }
+}
+
 /// <summary>The window a stats response covers and the rollup grain it was read from.</summary>
 public sealed class StatsWindowDto
 {

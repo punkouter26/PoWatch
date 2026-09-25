@@ -39,6 +39,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.6" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.6" />
     <PackageVersion Include="Radzen.Blazor" Version="10.2.3" />
+    <!-- Live stats push; pinned to the same 10.0.9 line as the Microsoft.Extensions packages. -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.9" />
   </ItemGroup>
   <!-- Azure Storage -->
   <ItemGroup>

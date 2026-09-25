@@ -5,6 +5,7 @@
 @inject PoWatchApiClient Api
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject StatsFeed Feed
 
 <PageTitle>PoWatch | Live</PageTitle>
 
@@ -272,6 +273,8 @@
     protected override void OnInitialized()
     {
         Sensing.Changed += OnSensingChanged;
+        Feed.Changed += OnStatsChanged;
+        _ = Feed.EnsureConnectedAsync();
         _refresh = new CancellationTokenSource();
         _ = RefreshLoopAsync(_refresh.Token);
     }
@@ -325,10 +328,20 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private DateTimeOffset _lastPush;
+
+    private void OnStatsChanged(StatsChangedDto change)
+    {
+        if (DateTimeOffset.UtcNow - _lastPush < TimeSpan.FromSeconds(5)) return;
+        _lastPush = DateTimeOffset.UtcNow;
+        _ = RefreshStatsAsync();
+    }
+
     private async Task RefreshLoopAsync(CancellationToken ct)
     {
         await RefreshStatsAsync();
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(20));
+        // Push (StatsFeed) refreshes as data lands; this slow timer only covers a dropped hub.
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
         try
         {
             while (await timer.WaitForNextTickAsync(ct))
@@ -373,6 +386,7 @@
     public async ValueTask DisposeAsync()
     {
         Sensing.Changed -= OnSensingChanged;
+        Feed.Changed -= OnStatsChanged;
         await JS.TryInvokeVoidAsync("powatchFeed.undock");
         if (_refresh is not null)
         {

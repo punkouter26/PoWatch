@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Caching.Hybrid;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
@@ -19,6 +20,7 @@ internal static class IngestEndpoints
                 IValidator<IngestBatchDto> validator,
                 IngestService service,
                 HybridCache cache,
+                IHubContext<StatsHub> hub,
                 CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
@@ -37,7 +39,17 @@ internal static class IngestEndpoints
 
                 if (!outcome.SessionFound) return Results.NotFound();
                 if (!outcome.Accepted) return Results.BadRequest(Rejected(outcome.Errors));
-                if (!outcome.Replayed) await cache.RemoveByTagAsync(StatsEndpoints.CacheTag(userId), ct);
+                if (!outcome.Replayed)
+                {
+                    await cache.RemoveByTagAsync(StatsEndpoints.CacheTag(userId), ct);
+                    await hub.NotifyStatsChangedAsync(userId, new StatsChangedDto
+                    {
+                        AtUtc = DateTimeOffset.UtcNow,
+                        SessionId = id,
+                        Ticks = batch.Ticks.Count,
+                        Events = batch.Events.Count
+                    }, ct);
+                }
 
                 return Results.Ok(new IngestBatchResultDto
                 {
