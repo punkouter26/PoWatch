@@ -19,7 +19,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("command-line")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("ticker")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
-        await Assertions.Expect(page.GetByTestId("sign-out")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("settings-menu")).ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
     }
 
@@ -34,7 +34,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
             ("/regulars", "REGULARS"),
             ("/trophies", "TROPHIES"),
             ("/system", "SYSTEM"),
-            ("/health", "HEALTH"),
+            ("/health", "SYSTEM"),
         })
         {
             if (PlaywrightFixture.BaseUrl is null) return;
@@ -52,19 +52,19 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await page.Keyboard.PressAsync("2");
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("STATS");
+        await page.ExpectSectionAsync("STATS");
 
         await page.Keyboard.PressAsync("/");
         await page.Keyboard.TypeAsync("regulars");
         await page.Keyboard.PressAsync("Enter");
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("REGULARS");
+        await page.ExpectSectionAsync("REGULARS");
 
         await page.GetByTestId("command-line").FillAsync("nonsense");
         await page.GetByTestId("command-line").PressAsync("Enter");
         await Assertions.Expect(page.GetByTestId("command-hint")).ToContainTextAsync("Commands:");
 
         await page.GetByTestId("nav-live").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("LIVE");
+        await page.ExpectSectionAsync("LIVE");
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Page not found" }))
             .ToBeVisibleAsync(new() { Timeout = 30000 });
-        await Assertions.Expect(page.GetByRole(AriaRole.Link, new() { Name = "Live — start a session" }))
+        await Assertions.Expect(page.GetByRole(AriaRole.Link, new() { Name = "Back to Live" }))
             .ToBeVisibleAsync();
     }
 
@@ -88,6 +88,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         var before = await page.GetAttributeAsync("html", "data-theme");
+        await page.OpenSettingsAsync();
         await page.GetByTestId("theme-toggle").ClickAsync();
         await page.WaitForTimeoutAsync(400);
         var after = await page.GetAttributeAsync("html", "data-theme");

@@ -4,91 +4,21 @@
 
 <PageTitle>PoWatch | Page not found</PageTitle>
 
-<div class="sector-grid">
-	@* Fix #7: the previous 404 was a single dead-end button. Anyone who mistypes a URL
-	   (or bookmark an old path after a route moved) saw no hint what *does* exist.
-	   Add a quick-link rail listing the four real routes so a typo never becomes a kiosk blocker. *@
-	<RadzenCard class="panel">
-		<h1>Page not found</h1>
-		<p class="not-found-context">That address isn't part of PoWatch.</p>
-		@if (!string.IsNullOrWhiteSpace(RequestedPath))
-		{
-			<p class="not-found-path">Requested: <code>@RequestedPath</code></p>
-		}
-		<RadzenButton Text="Back to Live" ButtonStyle="ButtonStyle.Primary" Click="OnReturnClick" />
-	</RadzenCard>
-
-	<RadzenCard class="panel panel-glance">
-		<h2>Where you can go</h2>
-		<p class="panel-subtitle">Every page in PoWatch.</p>
-		<div class="not-found-route-grid">
-			<a class="not-found-route-tile" href="" aria-label="Live — start a session">
-				<span class="not-found-route-icon" aria-hidden="true">●</span>
-				<span class="not-found-route-name">Live</span>
-				<span class="not-found-route-desc">Start a session and watch the counters move.</span>
-			</a>
-			<a class="not-found-route-tile" href="stats" aria-label="Stats — every number, every range">
-				<span class="not-found-route-icon" aria-hidden="true">▦</span>
-				<span class="not-found-route-name">Stats</span>
-				<span class="not-found-route-desc">Presence, space, objects, patterns, environment, pipeline.</span>
-			</a>
-			<a class="not-found-route-tile" href="history" aria-label="History — flip back through your days">
-				<span class="not-found-route-icon" aria-hidden="true">◷</span>
-				<span class="not-found-route-name">History</span>
-				<span class="not-found-route-desc">Each day, its sessions and its moments.</span>
-			</a>
-			<a class="not-found-route-tile" href="regulars" aria-label="Regulars — who keeps turning up">
-				<span class="not-found-route-icon" aria-hidden="true">◉</span>
-				<span class="not-found-route-name">Regulars</span>
-				<span class="not-found-route-desc">Name, rename and merge the regulars.</span>
-			</a>
-			<a class="not-found-route-tile" href="trophies" aria-label="Trophies — achievements and records">
-				<span class="not-found-route-icon" aria-hidden="true">▲</span>
-				<span class="not-found-route-name">Trophies</span>
-				<span class="not-found-route-desc">Achievements and personal bests.</span>
-			</a>
-			<a class="not-found-route-tile" href="diagnostics" aria-label="System — runtime, storage and inference health">
-				<span class="not-found-route-icon" aria-hidden="true">⚙</span>
-				<span class="not-found-route-name">System</span>
-				<span class="not-found-route-desc">Runtime, storage &amp; inference health.</span>
-			</a>
-			@* Health was missing from this rail even though it is a real destination in the nav. *@
-			<a class="not-found-route-tile" href="health" aria-label="Connection health — every connection PoWatch depends on">
-				<span class="not-found-route-icon" aria-hidden="true">♥</span>
-				<span class="not-found-route-name">Connection health</span>
-				<span class="not-found-route-desc">Every connection PoWatch depends on.</span>
-			</a>
-		</div>
-	</RadzenCard>
-</div>
+@* The key bar above already lists every section, so this only says what went wrong and offers Live. *@
+<TerminalPanel Title="Page not found" Test="not-found">
+    <p>That address isn't part of PoWatch@(RequestedPath is null ? "." : ":") @if (RequestedPath is not null) { <code>@RequestedPath</code> }</p>
+    <p><a class="term-button term-button--primary" href="">Back to Live</a> <span class="term-stat-hint">or pick a section from the key bar above.</span></p>
+</TerminalPanel>
 
 @code {
-	// Fix #7: surface the bad URL so the operator knows what was rejected.
-	[Parameter]
-	[SupplyParameterFromQuery(Name = "path")]
-	public string? RequestedPath { get; set; }
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "path")]
+    public string? RequestedPath { get; set; }
 
-	protected override void OnInitialized()
-	{
-		// The Router's NotFoundPage doesn't pass the URL automatically. Read it from the
-		// current navigation so the breadcrumb is never empty.
-		if (string.IsNullOrWhiteSpace(RequestedPath))
-		{
-			try
-			{
-				var uri = new Uri(Navigation.Uri);
-				RequestedPath = uri.PathAndQuery == "/" ? null : uri.PathAndQuery;
-			}
-			catch
-			{
-				// NotFound is the page that handles errors — be tolerant of any
-				// URL-parsing edge case and fall back to the empty state.
-			}
-		}
-	}
-
-	private void OnReturnClick()
-	{
-		Navigation.NavigateTo("/");
-	}
+    protected override void OnInitialized()
+    {
+        // The Router's NotFoundPage doesn't pass the URL; read it from the current navigation.
+        if (!string.IsNullOrWhiteSpace(RequestedPath) || !Uri.TryCreate(Navigation.Uri, UriKind.Absolute, out var uri)) return;
+        RequestedPath = uri.PathAndQuery == "/" ? null : uri.PathAndQuery;
+    }
 }

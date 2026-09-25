@@ -59,7 +59,7 @@
             case "5" or "trophies": Navigation.NavigateTo("trophies"); break;
             case "6" or "system": Navigation.NavigateTo("system"); break;
             case "wall" or "display": Navigation.NavigateTo("display"); break;
-            case "health": Navigation.NavigateTo("health"); break;
+            case "health": Navigation.NavigateTo("system"); break;
             case "start": Navigation.NavigateTo("?start=camera"); break;
             case "demo": Navigation.NavigateTo("?start=demo"); break;
             case "stop":
@@ -67,7 +67,7 @@
                 else _hint = "No session is running.";
                 break;
             default:
-                _hint = "Commands: live · stats [session|today|7d|30d|all] · history · regulars · trophies · system · wall · health · start · demo · stop";
+                _hint = "Commands: live · stats [session|today|7d|30d|all] · history · regulars · trophies · system · wall · start · demo · stop";
                 break;
         }
     }

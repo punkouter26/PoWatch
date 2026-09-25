@@ -1,119 +1,70 @@
-/* ── Login surface polish (appended 2026-07-06) ────────────────────────────
-   Scoped to Login.razor per project convention (see app.css L3335). Uses the
-   same design tokens as the global sheet so login feels like part of the app.
-   ──────────────────────────────────────────────────────────────────────── */
+/* Sign-in card, on the same Terminal tokens as the rest of the app (terminal.css). */
 
 .login-shell {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100svh - var(--topbar-h) - 2rem);
-    padding: var(--space-8) var(--space-4);
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    padding: 16px;
+    box-sizing: border-box;
 }
 
 .login-card {
     width: 100%;
     max-width: 420px;
     box-sizing: border-box;
-    padding: var(--space-10) var(--space-8);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: var(--shadow-lg);
+    padding: 32px 28px;
+    background: var(--term-panel);
+    border: 1px solid var(--term-line);
+    border-top: 2px solid var(--term-accent);
+    border-radius: var(--term-radius);
     text-align: center;
 }
 
 .login-card h1 {
-    font-size: var(--text-2xl);
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    color: var(--text-primary);
-    margin: 0 0 var(--space-6);
+    font: 700 20px var(--term-font);
+    color: var(--term-text);
+    margin: 0 0 24px;
 }
 
 .login-status {
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-    margin: var(--space-4) 0 0;
+    color: var(--term-muted);
+    font: 13px var(--term-mono);
+    margin: 16px 0 0;
 }
 
 .login-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
+    gap: 8px;
     width: 100%;
-    /* No global box-sizing reset in this project — without this, width:100% + padding
-       overflows the card's right edge. */
     box-sizing: border-box;
     min-height: 48px;                      /* WCAG touch target */
-    padding: var(--space-3) var(--space-5);
-    border-radius: var(--radius-md);
-    font-size: var(--text-base);
-    font-weight: 600;
+    padding: 0 20px;
+    border-radius: var(--term-radius);
+    font: 600 14px var(--term-mono);
+    letter-spacing: 0.04em;
     text-decoration: none;
-    margin-bottom: var(--space-3);
-    transition: transform var(--motion-instant), border-color var(--motion-quick),
-                background var(--motion-quick), box-shadow var(--motion-quick);
+    cursor: pointer;
 }
 
-.login-btn:last-of-type { margin-bottom: 0; }
+.login-btn-icon { width: 1.4em; font-size: 1.1em; line-height: 1; }
 
-.login-btn-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.4em;
-    font-size: 1.1em;
-    line-height: 1;
-}
-
-.login-btn-text { flex: 0 0 auto; }
-
-/* Hint copy under each sign-in button (Idea #10 — onboarding clarity) */
+/* Hint copy under each sign-in button. */
 .login-btn-hint {
-    /* Positive top margin — the old negative value overlapped the hint onto the button border. */
-    margin: var(--space-2) 0 var(--space-4);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
+    margin: 8px 0 16px;
+    font: 11px var(--term-mono);
+    color: var(--term-dim);
     line-height: 1.4;
     text-align: left;
-    padding: 0 var(--space-2);
 }
 
-.login-btn-hint--muted { font-style: italic; opacity: 0.85; }
+.login-btn-hint--muted { font-style: italic; }
 
-.login-btn:focus-visible {
-    outline: 2px solid var(--neon-green);
-    outline-offset: 3px;
-}
+.login-btn:focus-visible { outline: 2px solid var(--term-cyan); outline-offset: 3px; }
 
-.login-btn:active {
-    transform: scale(0.98) translateZ(0);
-}
+.login-btn-ms { background: var(--term-accent); color: var(--term-accent-ink); border: 1px solid var(--term-accent); }
+.login-btn-ms:hover { filter: brightness(1.08); }
 
-/* Microsoft — primary brand action. Accent-filled so it reads in BOTH themes
-   (the old #2f2f2f slab was near-invisible on the light theme). */
-.login-btn-ms {
-    background: var(--color-accent);
-    color: #ffffff;
-    border: 1px solid transparent;
-}
-.login-btn-ms:hover {
-    background: var(--palette-violet-400);
-    box-shadow: var(--shadow-glow-purple);
-}
-
-/* Guest — secondary, quieter */
-.login-btn-guest {
-    background: transparent;
-    color: var(--text-primary);
-    border: 1px solid var(--glass-border);
-}
-.login-btn-guest:hover {
-    background: rgba(56, 255, 168, 0.06);
-    border-color: var(--neon-green-glow);
-    color: var(--neon-green);
-}
+.login-btn-guest { background: var(--term-panel-2); color: var(--term-text); border: 1px solid var(--term-line); }
+.login-btn-guest:hover { border-color: var(--term-muted); }

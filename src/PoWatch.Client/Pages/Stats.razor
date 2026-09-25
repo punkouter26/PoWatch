@@ -22,7 +22,7 @@
     @if (_range == "session" && _sessions.Count > 0)
     {
         <RadzenDropDown TValue="Guid" Data="@_sessions" TextProperty="@nameof(SessionOption.Label)" ValueProperty="@nameof(SessionOption.Id)"
-                        @bind-Value="_sessionId" Change="@(_ => Apply())" aria-label="Session" Style="min-width: 260px;" />
+                        @bind-Value="_sessionId" Change="@(_ => Apply())" aria-label="Session" class="stats-session" />
     }
 
     <span class="term-stat-hint" data-test="stats-window">@WindowLabel</span>
@@ -30,23 +30,19 @@
 
 <RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Client" data-test="stats-tabs">
     <Tabs>
-        <RadzenTabsItem Text="Presence & motion">
+        @* Pipeline numbers are operations, not the room: they live on System. *@
+        <RadzenTabsItem Text="Presence & space">
             <PresenceTab Query="@_query" />
-        </RadzenTabsItem>
-        <RadzenTabsItem Text="Space">
             <SpaceTab Query="@_query" />
         </RadzenTabsItem>
         <RadzenTabsItem Text="Objects">
             <ObjectsTab Query="@_query" />
         </RadzenTabsItem>
-        <RadzenTabsItem Text="Patterns & anomalies">
+        <RadzenTabsItem Text="Patterns">
             <PatternsTab Query="@_query" />
         </RadzenTabsItem>
-        <RadzenTabsItem Text="Environment & captions">
+        <RadzenTabsItem Text="Environment">
             <EnvironmentTab Query="@_query" />
-        </RadzenTabsItem>
-        <RadzenTabsItem Text="Pipeline">
-            <PipelineTab Query="@_query" />
         </RadzenTabsItem>
     </Tabs>
 </RadzenTabs>
@@ -76,7 +72,7 @@
     {
         var sessions = await Api.ListSessionsAsync(20);
         _sessions = sessions
-            .Select(s => new SessionOption(s.Id, $"#{s.Id.ToString("N")[..4].ToUpperInvariant()} · {s.StartedUtc.ToLocalTime():ddd dd MMM HH:mm}{(s.IsRunning ? " · LIVE" : string.Empty)}"))
+            .Select(s => new SessionOption(s.Id, $"{DisplayText.SessionTag(s.Id)} · {s.StartedUtc.ToLocalTime():ddd dd MMM HH:mm}{(s.IsRunning ? " · LIVE" : string.Empty)}"))
             .ToList();
         _sessionId = Sensing.Live.Session?.Id ?? _sessions.FirstOrDefault()?.Id ?? Guid.Empty;
         Feed.Changed += OnStatsChanged;

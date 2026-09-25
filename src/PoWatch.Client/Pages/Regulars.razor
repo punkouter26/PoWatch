@@ -5,84 +5,71 @@
 
 <PageTitle>PoWatch | Regulars</PageTitle>
 
-<div class="term-grid">
-    <TerminalPanel Number="R1" Title="Regulars" Class="term-span-4" Test="regulars-board" Flush="true">
-        <Aside>@_regulars.Count KNOWN · @_regulars.Count(r => r.IsNamed) NAMED</Aside>
-        <ChildContent>
-            @if (_regulars.Count == 0)
-            {
-                <p class="term-empty" style="padding: 10px;">Nobody yet. People, pets and things that keep turning up will appear here.</p>
-            }
-            else
-            {
-                <table class="term-table" data-test="regulars-table">
-                    <thead><tr><th>Name</th><th>Kind</th><th class="r">Visits</th><th class="r">Time in frame</th><th>First seen</th><th>Last seen</th></tr></thead>
-                    <tbody>
-                        @foreach (var regular in _regulars)
-                        {
-                            <tr data-test="regular-row">
-                                <td>
-                                    <form class="regular-name" @onsubmit="() => RenameAsync(regular)">
-                                        <label class="visually-hidden" for="rename-@regular.Id">Name for @regular.DisplayName</label>
-                                        <input id="rename-@regular.Id" @bind="_edits[regular.Id]" placeholder="@regular.DisplayName" maxlength="40" autocomplete="off" />
-                                        <button type="submit" class="term-button" aria-label="Save name for @regular.DisplayName">Save</button>
-                                    </form>
-                                </td>
-                                <td>@regular.Class</td>
-                                <td class="r">@regular.Visits</td>
-                                <td class="r">@Duration(regular.DwellSeconds)</td>
-                                <td>@regular.FirstSeenUtc.ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)</td>
-                                <td>@regular.LastSeenUtc.ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </ChildContent>
-    </TerminalPanel>
-
-    <TerminalPanel Number="R2" Title="Same one twice? Merge them" Class="term-span-2" Test="regulars-merge">
-        <p class="term-stat-hint" style="margin-top: 0;">Recognition goes by look, so a change of clothes can make someone new. Merge adds the duplicate's visits and time to the one you keep.</p>
-        <div class="stats-toolbar">
-            <RadzenDropDown TValue="string" Data="@_regulars" TextProperty="@nameof(RegularDto.DisplayName)" ValueProperty="@nameof(RegularDto.Id)"
-                            @bind-Value="_duplicateId" Placeholder="Duplicate" aria-label="Duplicate to merge" Style="min-width: 160px;" />
-            <span class="term-stat-hint">into</span>
-            <RadzenDropDown TValue="string" Data="@_regulars.Where(r => r.Id != _duplicateId)" TextProperty="@nameof(RegularDto.DisplayName)" ValueProperty="@nameof(RegularDto.Id)"
-                            @bind-Value="_primaryId" Placeholder="Keep" aria-label="Regular to keep" Style="min-width: 160px;" />
-            <button class="term-button" @onclick="MergeAsync" disabled="@(_duplicateId is null || _primaryId is null || _duplicateId == _primaryId)">Merge</button>
-        </div>
-        @if (_message is not null)
+@* One table: rename in place (Enter or leaving the box saves), today's visits alongside the totals,
+   and a per-row merge for the same one recognised twice. *@
+<TerminalPanel Number="R1" Title="Regulars" Test="regulars-board" Flush="true">
+    <Aside>@_regulars.Count KNOWN · @_regulars.Count(r => r.IsNamed) NAMED@(_message is null ? string.Empty : $" · {_message}")</Aside>
+    <ChildContent>
+        @if (_regulars.Count == 0)
         {
-            <p class="term-stat-hint" role="status">@_message</p>
-        }
-    </TerminalPanel>
-
-    <TerminalPanel Number="R3" Title="Today's visits" Class="term-span-2" Flush="true">
-        @if (_today is null || _today.Regulars.Count == 0)
-        {
-            <p class="term-empty" style="padding: 10px;">No finished visits by a regular today yet.</p>
+            <p class="term-empty">Nobody yet. People, pets and things that keep turning up will appear here.</p>
         }
         else
         {
-            <table class="term-table">
-                <thead><tr><th>Who</th><th class="r">Visits</th><th class="r">Time in frame</th></tr></thead>
+            <table class="term-table" data-test="regulars-table">
+                <thead>
+                    <tr>
+                        <th>Name</th><th>Kind</th><th class="r">Today</th><th class="r">Visits</th><th class="r">Time in frame</th><th>First seen</th><th>Last seen</th>
+                        <th title="Recognition goes by look, so a change of clothes can make someone new. Merging adds this one's visits and time to the one you pick.">Same as…</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    @foreach (var r in _today.Regulars)
+                    @foreach (var regular in _regulars)
                     {
-                        <tr><td>@r.DisplayName</td><td class="r">@r.Visits</td><td class="r">@Duration(r.DwellSeconds)</td></tr>
+                        var today = _today?.Regulars.FirstOrDefault(r => r.Id == regular.Id);
+                        <tr data-test="regular-row">
+                            <td>
+                                <div class="regular-name">
+                                    <label class="visually-hidden" for="rename-@regular.Id">Name for @regular.DisplayName</label>
+                                    <input id="rename-@regular.Id" @bind="_edits[regular.Id]" @bind:after="() => RenameAsync(regular)"
+                                           placeholder="@regular.DisplayName" maxlength="40" autocomplete="off" />
+                                </div>
+                            </td>
+                            <td>@regular.Class</td>
+                            <td class="r">@(today is null ? "—" : $"{today.Visits} · {DisplayText.Duration(today.DwellSeconds)}")</td>
+                            <td class="r">@regular.Visits</td>
+                            <td class="r">@DisplayText.Duration(regular.DwellSeconds)</td>
+                            <td>@regular.FirstSeenUtc.ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)</td>
+                            <td>@regular.LastSeenUtc.ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)</td>
+                            <td>
+                                <div class="regular-merge">
+                                    <label class="visually-hidden" for="merge-@regular.Id">Merge @regular.DisplayName into</label>
+                                    <select id="merge-@regular.Id" @bind="_mergeInto[regular.Id]">
+                                        <option value="">—</option>
+                                        @foreach (var other in _regulars.Where(r => r.Id != regular.Id && r.Class == regular.Class))
+                                        {
+                                            <option value="@other.Id">@other.DisplayName</option>
+                                        }
+                                    </select>
+                                    @if (!string.IsNullOrEmpty(_mergeInto.GetValueOrDefault(regular.Id)))
+                                    {
+                                        <button class="term-button" @onclick="() => MergeAsync(regular)">Merge</button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
                     }
                 </tbody>
             </table>
         }
-    </TerminalPanel>
-</div>
+    </ChildContent>
+</TerminalPanel>
 
 @code {
     private List<RegularDto> _regulars = [];
     private readonly Dictionary<string, string?> _edits = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string?> _mergeInto = new(StringComparer.Ordinal);
     private ObjectStatsDto? _today;
-    private string? _duplicateId;
-    private string? _primaryId;
     private string? _message;
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -90,32 +77,33 @@
     private async Task LoadAsync()
     {
         _regulars = [.. await Api.ListRegularsAsync()];
-        foreach (var regular in _regulars) _edits[regular.Id] = regular.IsNamed ? regular.DisplayName : null;
+        _edits.Clear();
+        _mergeInto.Clear();
+        foreach (var regular in _regulars)
+        {
+            _edits[regular.Id] = regular.IsNamed ? regular.DisplayName : null;
+            _mergeInto[regular.Id] = null;
+        }
         _today = await Api.GetObjectsAsync(StatsQuery.For("today"));
     }
 
     private async Task RenameAsync(RegularDto regular)
     {
-        if (await Api.RenameRegularAsync(regular.Id, _edits.GetValueOrDefault(regular.Id)) is { } renamed)
+        var name = string.IsNullOrWhiteSpace(_edits.GetValueOrDefault(regular.Id)) ? null : _edits[regular.Id]!.Trim();
+        if (name == (regular.IsNamed ? regular.DisplayName : null)) return;
+        if (await Api.RenameRegularAsync(regular.Id, name) is { } renamed)
         {
             Sensing.Live.Rename(renamed);
-            _message = $"Saved “{renamed.DisplayName}”.";
+            _message = $"SAVED “{renamed.DisplayName}”";
             await LoadAsync();
         }
     }
 
-    private async Task MergeAsync()
+    private async Task MergeAsync(RegularDto duplicate)
     {
-        if (_duplicateId is null || _primaryId is null) return;
-        var merged = await Api.MergeRegularsAsync(_primaryId, _duplicateId);
-        _message = merged is null ? "Could not merge those two." : $"Merged into {merged.DisplayName}.";
-        (_duplicateId, _primaryId) = (null, null);
+        if (_mergeInto.GetValueOrDefault(duplicate.Id) is not { Length: > 0 } primaryId) return;
+        var merged = await Api.MergeRegularsAsync(primaryId, duplicate.Id);
+        _message = merged is null ? "COULD NOT MERGE THOSE TWO" : $"MERGED INTO {merged.DisplayName}";
         await LoadAsync();
-    }
-
-    private static string Duration(double seconds)
-    {
-        var span = TimeSpan.FromSeconds(seconds);
-        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes:00}m" : $"{span.Minutes}m {span.Seconds:00}s";
     }
 }

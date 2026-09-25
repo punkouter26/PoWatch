@@ -1,97 +1,107 @@
 @* "While you were away": the headline numbers for a session so far, its best moments with their
-   snapshots, and what was seen. Shown when a session stops, or when you come back to the tab. *@
+   snapshots, and what was seen. Mounted once in the layout and shown whenever SensingSession.Recap is
+   set — when any Stop control ends a session, or when Live notices you came back to the tab. *@
+@implements IDisposable
 @using System.Globalization
 @inject PoWatchApiClient Api
+@inject SensingSession Sensing
 
-<section class="term-panel away-card" data-test="away-card" aria-labelledby="away-title">
-    <header class="term-panel-head">
-        <span class="term-panel-no">★</span>
-        <h2 id="away-title" style="font: inherit; margin: 0;">@Title</h2>
-        <span class="term-panel-meta">SESSION #@Session.Id.ToString("N")[..4].ToUpperInvariant() · @Duration(Session.DurationSeconds)</span>
-        <a class="term-button" href="@PoWatchApiClient.SessionRecapPdfUrl(Session.Id)" download="PoWatch-session-@(Session.Id.ToString("N")[..4]).pdf" data-test="away-pdf">PDF ↓</a>
-        <button class="term-icon-button" @onclick="OnClose" aria-label="Dismiss" data-test="away-close">✕</button>
-    </header>
-    <div class="term-panel-body">
-        @if (_presence is null)
-        {
-            <p class="term-empty">Adding it up…</p>
-        }
-        else
-        {
-            <div class="term-stats">
-                <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" Test="away-visits" />
-                <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0%", CultureInfo.InvariantCulture)" />
-                <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
-                <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
-                <StatCell Label="Seen" Value="@(_objects?.Classes.Count.ToString(CultureInfo.InvariantCulture) ?? "0")" Hint="@string.Join(", ", _objects?.Classes.Take(4).Select(c => c.Name) ?? [])" />
-                <StatCell Label="Moments" Value="@_moments.Count.ToString(CultureInfo.InvariantCulture)" />
-            </div>
-
-            @if (Exposure is not null)
+@if (_shown is { } recap)
+{
+    var tag = DisplayText.SessionTag(recap.Session.Id);
+    <section class="term-panel away-card" data-test="away-card" aria-labelledby="away-title">
+        <header class="term-panel-head">
+            <span class="term-panel-no">★</span>
+            <h2 id="away-title">@(recap.AwayFor is { } away ? $"While you were away · {DisplayText.Duration(away.TotalSeconds)}" : "Session recap")</h2>
+            <span class="term-panel-meta">SESSION @tag · @DisplayText.Duration(recap.Session.DurationSeconds)</span>
+            <a class="term-button" href="@PoWatchApiClient.SessionRecapPdfUrl(recap.Session.Id)" download="PoWatch-session-@(tag[1..]).pdf" data-test="away-pdf">PDF ↓</a>
+            <button class="term-icon-button" @onclick="Close" aria-label="Dismiss" data-test="away-close">✕</button>
+        </header>
+        <div class="term-panel-body">
+            @if (_presence is null)
             {
-                <figure class="away-exposure" data-test="away-exposure">
-                    <img src="@Exposure" alt="Long exposure: every path walked through the frame this session" />
-                    <figcaption>
-                        LONG EXPOSURE · every path this session
-                        <a class="term-button" href="@Exposure" download="PoWatch-exposure-@(Session.Id.ToString("N")[..4]).png">PNG ↓</a>
-                    </figcaption>
-                </figure>
+                <p class="term-empty">Adding it up…</p>
             }
-
-            @if (_moments.Count > 0)
+            else
             {
-                <ol class="away-moments">
-                    @foreach (var moment in _moments.Take(3))
-                    {
-                        <li>
-                            @if (moment.ImageUrl is { } url)
-                            {
-                                <img src="@url" alt="Snapshot: @moment.Text" loading="lazy" />
-                            }
-                            else
-                            {
-                                <div class="away-noimage" aria-hidden="true">no picture</div>
-                            }
-                            <span class="num">@moment.AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)</span>
-                            <span>@moment.Text</span>
-                        </li>
-                    }
-                </ol>
+                <div class="term-stats">
+                    <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" Test="away-visits" />
+                    <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0%", CultureInfo.InvariantCulture)" Hint="of the session" />
+                    <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
+                    <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
+                    <StatCell Label="Seen" Value="@(_objects?.Classes.Count.ToString(CultureInfo.InvariantCulture) ?? "0")" Hint="@string.Join(", ", _objects?.Classes.Take(4).Select(c => c.Name) ?? [])" />
+                    <StatCell Label="Moments" Value="@_moments.Count.ToString(CultureInfo.InvariantCulture)" />
+                </div>
+
+                @if (recap.Exposure is { } exposure)
+                {
+                    <figure class="away-exposure" data-test="away-exposure">
+                        <img src="@exposure" alt="Long exposure: every path walked through the frame this session" />
+                        <figcaption>
+                            LONG EXPOSURE · every path this session
+                            <a class="term-button" href="@exposure" download="PoWatch-exposure-@(tag[1..]).png">PNG ↓</a>
+                        </figcaption>
+                    </figure>
+                }
+
+                @if (_moments.Count > 0)
+                {
+                    <ol class="away-moments">
+                        @foreach (var moment in _moments.Take(3))
+                        {
+                            <li>
+                                @if (moment.ImageUrl is { } url)
+                                {
+                                    <img src="@url" alt="Snapshot: @moment.Text" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="away-noimage" aria-hidden="true">no picture</div>
+                                }
+                                <span class="num">@moment.AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)</span>
+                                <span>@moment.Text</span>
+                            </li>
+                        }
+                    </ol>
+                }
             }
-        }
-    </div>
-</section>
+        </div>
+    </section>
+}
 
 @code {
+    private SessionRecap? _shown;
     private PresenceStatsDto? _presence;
     private ObjectStatsDto? _objects;
     private IReadOnlyList<MomentDto> _moments = [];
 
-    [Parameter, EditorRequired] public SessionDto Session { get; set; } = default!;
+    protected override void OnInitialized() => Sensing.Changed += OnChanged;
 
-    /// <summary>How long the tab was away; null when the card follows a stopped session.</summary>
-    [Parameter] public TimeSpan? AwayFor { get; set; }
-
-    /// <summary>The session's paths as a long-exposure PNG data URL (fx.js); null when nobody moved.</summary>
-    [Parameter] public string? Exposure { get; set; }
-
-    [Parameter] public EventCallback OnClose { get; set; }
-
-    private string Title => AwayFor is { } away ? $"While you were away · {Duration(away.TotalSeconds)}" : "Session recap";
-
-    protected override async Task OnParametersSetAsync()
+    // Sensing fires several times a second; only a new (or dismissed) recap needs a render.
+    private void OnChanged()
     {
-        var query = StatsQuery.For("session", Session.Id);
+        if (!ReferenceEquals(Sensing.Recap, _shown)) InvokeAsync(ShowAsync);
+    }
+
+    private async Task ShowAsync()
+    {
+        if (ReferenceEquals(Sensing.Recap, _shown)) return;
+        _shown = Sensing.Recap;
+        (_presence, _objects, _moments) = (null, null, []);
+        StateHasChanged();
+        if (_shown is not { } recap) return;
+
+        var query = StatsQuery.For("session", recap.Session.Id);
         var presence = Api.GetPresenceAsync(query);
         var objects = Api.GetObjectsAsync(query);
-        var moments = Api.GetMomentsAsync(Session.Id);
+        var moments = Api.GetMomentsAsync(recap.Session.Id);
         await Task.WhenAll(presence, objects, moments);
+        if (!ReferenceEquals(recap, _shown)) return;
         (_presence, _objects, _moments) = (presence.Result, objects.Result, moments.Result);
+        StateHasChanged();
     }
 
-    private static string Duration(double seconds)
-    {
-        var span = TimeSpan.FromSeconds(seconds);
-        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes:00}m" : $"{span.Minutes}m {span.Seconds:00}s";
-    }
+    private void Close() => Sensing.Recap = null;
+
+    public void Dispose() => Sensing.Changed -= OnChanged;
 }

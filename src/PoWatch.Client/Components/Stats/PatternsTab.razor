@@ -12,7 +12,7 @@ else
             <ChildContent>
                 @if (Data.Anomalies.Count == 0)
                 {
-                    <p class="term-empty" style="padding: 10px;">Nothing observed today yet.</p>
+                    <p class="term-empty">Nothing observed today yet.</p>
                 }
                 else
                 {
@@ -26,7 +26,7 @@ else
                         </tbody>
                     </table>
                 }
-                <p class="term-stat-hint" style="padding: 0 10px 10px;">
+                <p class="term-stat-hint">
                     Occupancy trend @Number(Data.OccupancyTrendPerDay * 100, "+0.00;-0.00")pp/day ·
                     next busy hour @(Data.NextBusyHour is { } h ? $"{h:00}:00" : "—")
                 </p>
@@ -47,14 +47,6 @@ else
                       Label="Occupancy by weekday and hour" CellTitle="@((i, v) => $"{Days[i / 24]} {i % 24:00}:00 · {v:P0}")" />
             <div class="stats-axis"><span>rows: Sun → Sat</span><span>columns: 00:00 → 23:00</span></div>
         </TerminalPanel>
-
-        <TerminalPanel Number="C4" Title="Calendar (365 days)" Class="term-span-2">
-            <Aside>@Data.Calendar.Count DAYS RECORDED</Aside>
-            <ChildContent>
-                <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
-                          CellTitle="@((i, v) => _calendarDates.TryGetValue(i, out var d) ? $"{d:ddd dd MMM yyyy} · {v:P0}" : "no data")" />
-            </ChildContent>
-        </TerminalPanel>
     </div>
 }
 
@@ -64,8 +56,6 @@ else
     private static readonly string[] Days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     private List<Hour> _curve = [];
-    private List<double> _calendarCells = [];
-    private Dictionary<int, DateOnly> _calendarDates = [];
 
     protected override async Task<PatternStatsDto?> LoadAsync(StatsQuery query)
     {
@@ -75,21 +65,6 @@ else
         _curve = Enumerable.Range(0, 24)
             .Select(h => new Hour($"{h:00}", data.TodayProfile.ElementAtOrDefault(h), data.UsualProfile.ElementAtOrDefault(h)))
             .ToList();
-
-        // GitHub-style: 53 week columns, rows Sunday→Saturday; row-major for HeatGrid.
-        var today = DateOnly.FromDateTime(DateTime.Now);
-        var start = today.AddDays(-(52 * 7) - (int)today.DayOfWeek);
-        var cells = new double[53 * 7];
-        _calendarDates = [];
-        foreach (var day in data.Calendar)
-        {
-            var offset = day.Date.DayNumber - start.DayNumber;
-            if (offset < 0 || offset >= cells.Length) continue;
-            var index = ((int)day.Date.DayOfWeek * 53) + (offset / 7);
-            cells[index] = Math.Max(day.Occupancy, 0.0001);
-            _calendarDates[index] = day.Date;
-        }
-        _calendarCells = [.. cells];
         return data;
     }
 }

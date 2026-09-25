@@ -37,11 +37,18 @@ internal static class PoWatchPage
         return page;
     }
 
-    /// <summary>Navigate within the booted app and wait for the page heading to settle.</summary>
-    public static async Task GoToAsync(this IPage page, string route, string expectedTitle)
+    /// <summary>Navigate within the booted app and wait for its section key to light up.</summary>
+    public static async Task GoToAsync(this IPage page, string route, string expectedSection)
     {
         await page.GotoAsync($"{PlaywrightFixture.BaseUrl}{route}");
-        await Assertions.Expect(page.GetByTestId("page-hud-title"))
-            .ToHaveTextAsync(expectedTitle, new() { Timeout = BootTimeoutMs });
+        await page.ExpectSectionAsync(expectedSection, BootTimeoutMs);
     }
+
+    /// <summary>The active key in the header names the section (there is no separate page title).</summary>
+    public static Task ExpectSectionAsync(this IPage page, string section, int timeoutMs = 5_000) =>
+        Assertions.Expect(page.GetByTestId($"nav-{section.ToLowerInvariant()}"))
+            .ToHaveClassAsync(new System.Text.RegularExpressions.Regex(@"\bactive\b"), new() { Timeout = timeoutMs });
+
+    /// <summary>Sound, announcer, theme and sign-out live in the header's settings menu.</summary>
+    public static Task OpenSettingsAsync(this IPage page) => page.GetByTestId("settings-menu").ClickAsync();
 }

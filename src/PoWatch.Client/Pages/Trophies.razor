@@ -6,59 +6,67 @@
 
 <PageTitle>PoWatch | Trophies</PageTitle>
 
-<div class="term-grid">
-    <TerminalPanel Number="E1" Title="Trophy cabinet" Class="term-span-4" Test="trophy-cabinet">
-        <Aside>@Unlocked / @(_cabinet?.Achievements.Count ?? 0) UNLOCKED</Aside>
-        <ChildContent>
-            @if (_cabinet is null)
-            {
-                <p class="term-empty">Loading…</p>
-            }
-            else
+@* One panel: personal records as a strip, then what you have unlocked, with the locked ones folded away. *@
+<TerminalPanel Number="E1" Title="Trophy cabinet" Test="trophy-cabinet">
+    <Aside>@Unlocked.Count / @(_cabinet?.Achievements.Count ?? 0) UNLOCKED</Aside>
+    <ChildContent>
+        @if (_cabinet is null)
+        {
+            <p class="term-empty">Loading…</p>
+        }
+        else
+        {
+            <div class="term-stats trophy-records" data-test="trophy-records">
+                @if (_cabinet.Records.Count == 0)
+                {
+                    <p class="term-empty">No records yet. Run a session and they start counting.</p>
+                }
+                @foreach (var r in _cabinet.Records)
+                {
+                    <StatCell Label="@r.Title" Value="@r.Display" Hint="@r.SetAtUtc.ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)" Test="record-row" />
+                }
+            </div>
+
+            @if (Unlocked.Count > 0)
             {
                 <ul class="trophy-grid">
-                    @foreach (var a in _cabinet.Achievements)
+                    @foreach (var a in Unlocked)
                     {
-                        <li class="trophy @(a.Unlocked ? "trophy--unlocked" : "trophy--locked")" data-test="trophy" data-unlocked="@(a.Unlocked ? "true" : "false")">
-                            <span class="trophy-mark" aria-hidden="true">@(a.Unlocked ? "▲" : "△")</span>
+                        <li class="trophy trophy--unlocked" data-test="trophy" data-unlocked="true">
+                            <span class="trophy-mark" aria-hidden="true">▲</span>
                             <b>@a.Title</b>
                             <span>@a.Description</span>
-                            <span class="trophy-when">@(a.UnlockedAtUtc is { } at ? at.ToLocalTime().ToString("dd MMM yyyy · HH:mm", CultureInfo.CurrentCulture) : "LOCKED")</span>
+                            <span class="trophy-when">@a.UnlockedAtUtc?.ToLocalTime().ToString("dd MMM yyyy · HH:mm", CultureInfo.CurrentCulture)</span>
                         </li>
                     }
                 </ul>
             }
-        </ChildContent>
-    </TerminalPanel>
 
-    <TerminalPanel Number="E2" Title="Personal records" Class="term-span-2" Test="trophy-records" Flush="true">
-        @if (_cabinet is null || _cabinet.Records.Count == 0)
-        {
-            <p class="term-empty" style="padding: 10px;">No records yet. Run a session and they start counting.</p>
+            @if (Locked.Count > 0)
+            {
+                <details class="trophy-locked">
+                    <summary>@Locked.Count still locked</summary>
+                    <ul class="trophy-grid trophy-grid--locked">
+                        @foreach (var a in Locked)
+                        {
+                            <li class="trophy trophy--locked" data-test="trophy" data-unlocked="false">
+                                <b>△ @a.Title</b>
+                                <span>@a.Description</span>
+                            </li>
+                        }
+                    </ul>
+                </details>
+            }
         }
-        else
-        {
-            <table class="term-table">
-                <thead><tr><th>Record</th><th class="r">Best</th><th>Set</th></tr></thead>
-                <tbody>
-                    @foreach (var r in _cabinet.Records)
-                    {
-                        <tr data-test="record-row">
-                            <td>@r.Title</td>
-                            <td class="r">@r.Display</td>
-                            <td>@r.SetAtUtc.ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-    </TerminalPanel>
-</div>
+    </ChildContent>
+</TerminalPanel>
 
 @code {
     private TrophyCabinetDto? _cabinet;
 
-    private int Unlocked => _cabinet?.Achievements.Count(a => a.Unlocked) ?? 0;
+    private List<AchievementDto> Unlocked => _cabinet?.Achievements.Where(a => a.Unlocked).OrderByDescending(a => a.UnlockedAtUtc).ToList() ?? [];
+
+    private List<AchievementDto> Locked => _cabinet?.Achievements.Where(a => !a.Unlocked).ToList() ?? [];
 
     protected override async Task OnInitializedAsync()
     {

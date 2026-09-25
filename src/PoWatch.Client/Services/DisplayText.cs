@@ -14,4 +14,16 @@ public static class DisplayText
         if (local.Date == today.AddDays(-1)) return $"Yesterday {local:HH:mm}";
         return local.ToString("MMM d, HH:mm", CultureInfo.CurrentCulture);
     }
+
+    /// <summary>"1h 02m", "4m 05s" or "12s" — one way to print a length of time on every page.</summary>
+    public static string Duration(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes:00}m"
+            : span.TotalMinutes >= 1 ? $"{span.Minutes}m {span.Seconds:00}s"
+            : $"{span.Seconds}s";
+    }
+
+    /// <summary>The short session tag shown everywhere: "#AB12".</summary>
+    public static string SessionTag(Guid id) => $"#{id.ToString("N")[..4].ToUpperInvariant()}";
 }

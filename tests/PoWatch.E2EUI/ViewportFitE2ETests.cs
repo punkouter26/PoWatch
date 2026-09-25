@@ -106,25 +106,6 @@ public sealed class ViewportFitE2ETests
     }
 
     [Fact]
-    public async Task Health_body_fits_within_viewport()
-    {
-        foreach (var scenario in PhoneAndDesktopViewports())
-        {
-            int width = (int)scenario[0];
-            int height = (int)scenario[1];
-            if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
-            await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/health", "HEALTH");
-            await page.WaitForTimeoutAsync(500);
-
-            await AssertBodyFitsViewportAsync(page);
-            await page.AssertNoBlazorErrorAsync();
-
-        }
-    }
-
-    [Fact]
     public async Task The_stats_wall_fills_the_screen_without_scrolling_and_refreshes()
     {
         foreach (var (width, height) in new[] { (1920, 1080), (1280, 720) })
@@ -165,7 +146,7 @@ public sealed class ViewportFitE2ETests
 
         await page.GetByTestId("nav-system").ScrollIntoViewIfNeededAsync();
         await page.GetByTestId("nav-system").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("SYSTEM");
+        await page.ExpectSectionAsync("SYSTEM");
         await page.AssertNoBlazorErrorAsync();
     }
 
@@ -184,13 +165,13 @@ public sealed class ViewportFitE2ETests
 
         // Leaving Live must not stop sensing: the camera element lives in the layout.
         await page.Keyboard.PressAsync("2");
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("STATS");
+        await page.ExpectSectionAsync("STATS");
         await page.WaitForTimeoutAsync(2_000);
         await page.Keyboard.PressAsync("1");
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
         await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 5_000 });
 
-        await page.GetByTestId("stop-session").ClickAsync();
+        await page.GetByTestId("header-stop").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
         await page.AssertNoBlazorErrorAsync();
     }

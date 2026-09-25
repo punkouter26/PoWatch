@@ -15,7 +15,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-census", "live-pipeline", "live-motion-grid", "live-light", "live-pattern", "live-wire" })
+        foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-motion-grid", "live-light" })
             await Assertions.Expect(page.GetByTestId(panel)).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("start-camera")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("start-demo")).ToBeVisibleAsync();
@@ -41,7 +41,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
         await Assertions.Expect(page.GetByTestId("ticker")).ToContainTextAsync("person", new() { Timeout = 15_000 });
 
-        await page.GetByTestId("stop-session").ClickAsync();
+        await page.GetByTestId("header-stop").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
 
         // Stopping shows the recap: the session's own numbers and its moments.
@@ -72,18 +72,20 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 
         foreach (var (tab, content) in new[]
         {
-            ("Space", "stats-space"),
             ("Objects", "stats-objects"),
-            ("Patterns & anomalies", "stats-patterns"),
-            ("Environment & captions", "stats-environment"),
-            ("Pipeline", "stats-pipeline"),
+            ("Patterns", "stats-patterns"),
+            ("Environment", "stats-environment"),
         })
         {
             await page.GetByRole(AriaRole.Tab, new() { Name = tab }).ClickAsync();
             await Assertions.Expect(page.GetByTestId(content)).ToBeVisibleAsync(new() { Timeout = 30_000 });
         }
 
-        await Assertions.Expect(page.GetByTestId("stats-all-frames")).Not.ToContainTextAsync("—");
+        // Presence and space share a tab; pipeline counters moved to System.
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Presence & space" }).ClickAsync();
+        await Assertions.Expect(page.GetByTestId("stats-space")).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await page.GoToAsync("/system", "SYSTEM");
+        await Assertions.Expect(page.GetByTestId("stats-all-frames")).Not.ToContainTextAsync("—", new() { Timeout = 30_000 });
         await page.AssertNoBlazorErrorAsync();
     }
 
@@ -91,7 +93,8 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task New_people_can_be_named_from_a_passive_prompt_or_left_unnamed()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        // A fresh user: storage persists (Azurite), so a reused guest already knows the walker and the cat.
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"names-{Guid.NewGuid():N}");
 
         await page.GetByTestId("start-demo").ClickAsync();
 
@@ -109,7 +112,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 
         // Bob is recognised by name on the live overlay, and listed on Regulars; the cat stays unnamed.
         await Assertions.Expect(page.GetByTestId("live-tracks")).ToContainTextAsync("Bob", new() { Timeout = 25_000 });
-        await page.GetByTestId("stop-session").ClickAsync();
+        await page.GetByTestId("header-stop").ClickAsync();
         await page.Keyboard.PressAsync("4");
         await Assertions.Expect(page.GetByTestId("regulars-table")).ToBeVisibleAsync();
         ILocator NameBox(string who) => page.Locator(".regular-name").Filter(new() { HasText = $"Name for {who}" }).Locator("input");
@@ -203,11 +206,12 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task The_health_page_lists_every_connection_with_a_verdict()
+    public async Task The_system_page_lists_every_connection_with_a_verdict()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/health", "HEALTH");
+        // The old /health address still works; it is the System page now.
+        await page.GoToAsync("/health", "SYSTEM");
 
         await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = 30000 });
         // Wait for the list itself: "Checking…" also renders health-overall, so counting straight
@@ -222,6 +226,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
+        await page.OpenSettingsAsync();
         await page.GetByTestId("sign-out").ClickAsync();
 
         await Assertions.Expect(page.GetByTestId("login-shell")).ToBeVisibleAsync(new() { Timeout = 60000 });

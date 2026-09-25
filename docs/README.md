@@ -35,18 +35,18 @@ camera ──► browser (all sensing on-device)                        server
 
 | Family | What | Where |
 |---|---|---|
-| A · Presence & space | occupancy, visits, dwell percentiles, peak at once, empty/still streaks, busiest minute, heatmaps, entry/exit edges | Stats → Presence, Space |
+| A · Presence & space | occupancy, visits, dwell percentiles, peak at once, empty/still streaks, busiest minute, heatmaps, entry/exit edges | Stats → Presence & space |
 | B · Objects & regulars | classes seen, rarest, regulars leaderboard (recognised by look, never by face) | Stats → Objects, /regulars |
 | C · Patterns & anomalies | hour × weekday, rhythm score, "today vs usual" z-scores, trend, busy-hour forecast | Stats → Patterns |
 | D · Environment & captions | light curve, lights on/off, daylight estimate, palette, word cloud, weirdest caption, recaps | Stats → Environment, History |
 | E · Achievements & records | 20 achievements, 4 personal records, unlock toasts | /trophies |
-| F · Pipeline | frames per layer, FPS, latency, detector confidence, uptime, storage | Stats → Pipeline, /system |
+| F · Pipeline | frames per layer, FPS, latency, detector confidence, uptime, storage | /system |
 
 ## Pages
 
-`/` Live · `/stats` six tabs with a range picker · `/history` calendar → day (stats, recap + PDF,
+`/` Live · `/stats` four tabs with a range picker · `/history` calendar → day (stats, recap + PDF,
 sessions, moments, captions, time-lapse) · `/regulars` name/rename/merge · `/trophies` · `/display`
-full-screen stats wall · `/system` model readiness and self-tests · `/health` connections.
+full-screen stats wall · `/system` (also `/health`) connections, runtime, inference, pipeline and model self-tests.
 
 **Scene effects** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) come only from live numbers:
 a Web Audio drone (light → pitch, motion → filter, who's in frame → chord), arrival plucks, anomaly

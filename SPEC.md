@@ -50,15 +50,21 @@ board "1 · Terminal"). A dense Bloomberg-style grid of numbered panels, F-key n
 
 ```
 MainLayout → TerminalShell
-├─ TerminalHeader      brand · session # · source · uptime · status · MOCK/SAMPLE chip · clock · Start/Stop
-├─ FunctionKeyBar      F1 LIVE · F2 STATS · F3 HISTORY · F4 REGULARS · F5 TROPHIES · F6 SYSTEM (F-key shortcuts)
+├─ TerminalHeader      one row: brand · FunctionKeyBar · status chip · Start/Stop · settings menu
+│  ├─ FunctionKeyBar   1 LIVE · 2 STATS · 3 HISTORY · 4 REGULARS · 5 TROPHIES · 6 SYSTEM (number-key shortcuts);
+│  │                   the active key names the section, so there is no separate page title
+│  ├─ status chip      ● OBSERVING · CAMERA|DEMO · uptime · session # (· SAMPLE with a mock model)
+│  ├─ settings menu    scene sound · announcer · theme · sign out
 │  └─ CommandLine      PWCH> quick commands ("stats 7d", "regular bob", "start")
+├─ AwayCard            session recap after any Stop, or "while you were away"
 ├─ @Body
 └─ TickerTape          latest events
-F1 Live "/" → TerminalGrid 4×3 (single column on phones):
-  01 Camera · 02 Key metrics · 03 Regulars · 04 Census · 05 Pipeline · 06 Motion grid + edges
-  07 Light + palette · 08 Hour×weekday pattern · 09 Caption wire
-F2 Stats: range picker + tabs, same panels larger · F3 History · F4 Regulars · F5 Trophies · F6 System
+1 Live "/" → TerminalGrid (single column on phones):
+  01 Camera · 02 Key metrics (incl. light + colours) · 03 In frame (tracks + census) · 04 Motion grid + edges
+2 Stats: range picker + tabs Presence & space · Objects · Patterns · Environment
+3 History: clickable year calendar → the day (stats + recap), sessions, moments, captions, time-lapse
+4 Regulars: one table (rename in place, today, merge per row) · 5 Trophies: records + cabinet
+6 System (/system, /health): connections, server, inference, pipeline counters, model self-test
 /display: TerminalGrid full screen, no chrome, auto-refresh
 Shared: TerminalPanel, StatCell, Sparkline, ZChip, HeatGrid, SampleDataChip
 ```
@@ -293,7 +299,7 @@ audio analysis · native mobile apps · any safety or alerting use case.
 | Condition | UI | Server |
 |---|---|---|
 | Storage unavailable | Banner: "Stats are paused. Sensing continues locally." | 503 + readiness down |
-| Ingest 4xx (validation) | Pipeline tab counter increments | Problem details, logged |
+| Ingest 4xx (validation) | System pipeline counter increments | Problem details, logged |
 | Model download fails | System page error + retry, detector-only fallback | — |
 | AI recap provider down | Template recap, labelled as such | fallback logged |
 | Auth expired | Redirect to login, keep the local queue | 401 |
@@ -303,7 +309,7 @@ audio analysis · native mobile apps · any safety or alerting use case.
 1. With **mock inference**, a fresh clone runs `setup.ps1` → `dotnet run` → sign in as guest → Start →
    and sees nonzero live counters within 15 s, with no Azure credentials or AI keys.
 2. On the reference desktop (WebGPU), L0 sustains ≥ 4 Hz and L1 ≥ 0.8 Hz while L2 captions at least
-   every 60 s. This is measured on the Pipeline tab over a 10 min session.
+   every 60 s. This is measured on System (pipeline panels) over a 10 min session.
 3. A 2 h session keeps the tab's JS heap under 1 GB (DevTools memory snapshot at 0 h and 2 h).
 4. `/stats` Today with 8,640 ticks loads in ≤ 1.5 s. All-time with 365 synthetic days loads in ≤ 2.0 s
    (API E2E timing test).

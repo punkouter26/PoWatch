@@ -32,11 +32,7 @@ public abstract class StatsTabBase<T> : ComponentBase where T : class
 
     protected static string Number(double value, string format = "0.##") => value.ToString(format, CultureInfo.InvariantCulture);
 
-    protected static string Duration(double seconds)
-    {
-        var span = TimeSpan.FromSeconds(seconds);
-        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes:00}m" : span.TotalMinutes >= 1 ? $"{span.Minutes}m {span.Seconds:00}s" : $"{span.Seconds}s";
-    }
+    protected static string Duration(double seconds) => DisplayText.Duration(seconds);
 
     protected static string Local(DateTimeOffset? instant, string format = "ddd HH:mm") =>
         instant?.ToLocalTime().ToString(format, CultureInfo.CurrentCulture) ?? "—";

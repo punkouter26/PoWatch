@@ -1,6 +1,6 @@
 /* terminal.css — the "Terminal" look (SPEC §2a): dense, dark, numbers in mono.
-   Loaded LAST so its tokens win. It also re-points the older --color-* tokens and Radzen's --rz-*
-   variables at this palette, so every page and every Radzen control speaks the same language. */
+   The app's only global stylesheet (page-scoped CSS aside). It also points Radzen's --rz-* variables
+   at this palette, so every page and every Radzen control speaks the same language. */
 
 @font-face {
     font-family: 'JetBrains Mono';
@@ -34,18 +34,6 @@
     --term-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
     --term-gap: 10px;
     --term-radius: 4px;
-
-    /* Older tokens used by pages not yet rebuilt. */
-    --color-surface-0: var(--term-bg);
-    --color-surface-1: var(--term-panel);
-    --color-surface-2: var(--term-panel-2);
-    --color-surface-3: var(--term-line);
-    --color-text-primary: var(--term-text);
-    --color-text-muted: var(--term-muted);
-    --color-text-label: var(--term-muted);
-    --color-border-subtle: var(--term-line);
-    --color-accent: var(--term-accent);
-    --font-mono: var(--term-mono);
 
     /* Radzen. */
     --rz-primary: var(--term-amber);
@@ -102,10 +90,40 @@
 }
 
 html, body {
+    margin: 0;
     background: var(--term-bg);
     color: var(--term-text);
     font-family: var(--term-font);
 }
+
+a { color: var(--term-text); }
+pre, code { font-family: var(--term-mono); }
+:focus-visible { outline: 2px solid var(--term-cyan); outline-offset: 2px; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--term-line); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--term-dim); }
+
+/* Boot spinner and Blazor's unhandled-error bar (index.html). */
+.loading-progress { display: block; width: 8rem; height: 8rem; margin: 20vh auto 1rem; }
+.loading-progress circle { fill: none; stroke: var(--term-line); stroke-width: 0.6rem; transform-origin: 50% 50%; transform: rotate(-90deg); }
+.loading-progress circle:last-child { stroke: var(--term-accent); stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%; transition: stroke-dasharray 0.05s ease-in-out; }
+.loading-progress-text { text-align: center; font: 600 12px var(--term-mono); color: var(--term-muted); }
+.loading-progress-text::after { content: var(--blazor-load-percentage-text, "Loading"); }
+#blazor-error-ui { display: none; position: fixed; left: 0; bottom: 0; width: 100%; z-index: 1000; padding: 0.8rem; background: #2f0014; color: #fff; }
+#blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: 0.75rem; top: 0.5rem; }
+.auth-checking { padding: 16px; font: 12px var(--term-mono); color: var(--term-muted); }
+.po-error-panel { padding: 16px; }
+
+/* Radzen popups and inputs (the theme variables above cover the rest). */
+.rz-dropdown-panel, .rz-multiselect-panel { background: var(--term-panel) !important; border: 1px solid var(--term-line) !important; }
+.rz-dropdown-panel li { color: var(--term-text) !important; }
+.rz-dropdown-panel li:hover { background: var(--term-panel-2) !important; }
+.rz-dropdown-panel li.rz-state-highlight { background: var(--term-accent) !important; color: var(--term-accent-ink) !important; }
+.rz-dropdown, .rz-textbox { background: var(--term-bg) !important; color: var(--term-text) !important; border: 1px solid var(--term-line) !important; }
+.rz-dropdown.rz-state-focused, .rz-textbox:focus { border-color: var(--term-accent) !important; }
+.rz-button:disabled, .rz-button.rz-state-disabled { opacity: 0.55; }
 
 .num, .mono {
     font-family: var(--term-mono);
@@ -119,22 +137,25 @@ html, body {
 .term-shell {
     height: 100dvh;
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     background: var(--term-bg);
 }
 
+/* One row: brand · section keys + command line · status · Start/Stop · settings. */
 .term-header {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 6px 14px;
+    gap: 10px;
+    padding: 4px 12px;
     border-bottom: 1px solid var(--term-line);
     background: var(--term-panel);
     font-size: 13px;
-    flex-wrap: wrap;
 }
 
 .term-brand {
+    flex: none;
     font-weight: 700;
     letter-spacing: 0.02em;
     font-size: 16px;
@@ -154,48 +175,21 @@ html, body {
     border-radius: 2px;
 }
 
-.term-meta {
-    display: flex;
-    gap: 14px;
-    color: var(--term-muted);
-    font-family: var(--term-mono);
-    font-size: 12px;
-    flex-wrap: wrap;
-}
-
-.term-meta b {
-    color: var(--term-text);
-    font-weight: 600;
-}
-
 .term-status {
+    flex: none;
     font-family: var(--term-mono);
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 2px;
     border: 1px solid var(--term-line);
     color: var(--term-muted);
+    white-space: nowrap;
 }
 
 .term-status--live { border-color: var(--term-green); color: var(--term-green); }
 .term-status--demo { border-color: var(--term-cyan); color: var(--term-cyan); }
 
-.term-chip {
-    font-family: var(--term-mono);
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 2px;
-    background: rgba(56, 189, 248, 0.14);
-    color: var(--term-cyan);
-    letter-spacing: 0.08em;
-}
-
 .term-spacer { flex: 1; }
-
-.term-clock {
-    font-family: var(--term-mono);
-    color: var(--term-text);
-}
 
 .term-button {
     min-height: 36px;
@@ -209,11 +203,13 @@ html, body {
     cursor: pointer;
 }
 
+a.term-button { display: inline-flex; align-items: center; text-decoration: none; box-sizing: border-box; }
 .term-button:hover { border-color: var(--term-muted); }
 .term-button:focus-visible { outline: 2px solid var(--term-cyan); outline-offset: 2px; }
 .term-button--primary { background: var(--term-accent); border-color: var(--term-accent); color: var(--term-accent-ink); }
 .term-button--danger { border-color: var(--term-red); color: var(--term-red); }
 .term-button[disabled] { opacity: 0.5; cursor: not-allowed; }
+.term-header .term-button { flex: none; min-height: 32px; }
 
 .term-icon-button {
     min-width: 36px;
@@ -225,29 +221,71 @@ html, body {
     background: transparent;
     color: var(--term-muted);
     cursor: pointer;
+    box-sizing: border-box;
 }
 
 .term-icon-button:hover { color: var(--term-text); border-color: var(--term-line); }
 .term-icon-button:focus-visible { outline: 2px solid var(--term-cyan); outline-offset: 2px; }
 
-/* ── Key bar + command line ────────────────────────────────────────────── */
+/* Settings: a native <details> dropdown (keyboard-bindings.js closes it on an outside click). */
+.term-menu { position: relative; flex: none; }
+.term-menu > summary { list-style: none; }
+.term-menu > summary::-webkit-details-marker { display: none; }
+.term-menu[open] > summary { color: var(--term-accent); border-color: var(--term-accent); }
+
+.term-menu-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 40;
+    min-width: 240px;
+    display: grid;
+    padding: 4px;
+    background: var(--term-panel);
+    border: 1px solid var(--term-line);
+    border-radius: var(--term-radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.term-menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--term-text);
+    font: 12px var(--term-mono);
+    text-align: left;
+    cursor: pointer;
+}
+
+.term-menu-item:hover { background: var(--term-panel-2); }
+.term-menu-item b { font-weight: 600; color: var(--term-muted); }
+.term-menu-item[aria-checked="true"] b { color: var(--term-accent); }
+.term-menu-email { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Key bar + command line (inside the header row) ────────────────────── */
 
 .term-keys {
+    flex: 1;
+    min-width: 0;
     display: flex;
-    align-items: stretch;
+    align-items: center;
     gap: 2px;
-    padding: 4px 14px;
-    border-bottom: 1px solid var(--term-line);
-    background: var(--term-bg);
     overflow-x: auto;
+    scrollbar-width: none;
 }
 
 .term-key {
     display: flex;
     align-items: center;
     gap: 6px;
-    min-height: 34px;
-    padding: 0 12px;
+    min-height: 32px;
+    padding: 0 10px;
     border-radius: var(--term-radius);
     color: var(--term-muted);
     text-decoration: none;
@@ -265,7 +303,7 @@ html, body {
     color: var(--term-dim);
 }
 
-.term-key:hover { color: var(--term-text); background: var(--term-panel); }
+.term-key:hover { color: var(--term-text); background: var(--term-panel-2); }
 .term-key.active { color: var(--term-accent-ink); background: var(--term-accent); }
 .term-key.active kbd { background: rgba(0, 0, 0, 0.18); color: var(--term-accent-ink); border-color: transparent; }
 .term-key:focus-visible { outline: 2px solid var(--term-cyan); outline-offset: 1px; }
@@ -275,7 +313,9 @@ html, body {
     align-items: center;
     gap: 6px;
     margin-left: auto;
-    min-width: 260px;
+    padding-left: 8px;
+    flex: 0 1 240px;
+    min-width: 150px;
     font-family: var(--term-mono);
     font-size: 12px;
     color: var(--term-accent);
@@ -285,7 +325,8 @@ html, body {
 
 .term-cmd input {
     flex: 1;
-    min-height: 32px;
+    min-width: 0;
+    min-height: 30px;
     background: transparent;
     border: 1px solid var(--term-line);
     border-radius: var(--term-radius);
@@ -296,11 +337,19 @@ html, body {
 
 .term-cmd input:focus-visible { outline: none; border-color: var(--term-accent); }
 
+/* The command hint floats under the header so it never shifts the page. */
 .term-cmd-hint {
-    padding: 4px 14px;
+    position: absolute;
+    top: 100%;
+    right: 12px;
+    z-index: 35;
+    max-width: min(640px, calc(100vw - 24px));
+    padding: 6px 10px;
     font: 11px var(--term-mono);
     color: var(--term-muted);
-    border-bottom: 1px solid var(--term-line);
+    background: var(--term-panel);
+    border: 1px solid var(--term-line);
+    border-radius: var(--term-radius);
 }
 
 /* ── Body + ticker ─────────────────────────────────────────────────────── */
@@ -394,6 +443,10 @@ html, body {
 .term-panel-head .term-panel-meta { margin-left: auto; color: var(--term-dim); font-weight: 400; letter-spacing: 0.02em; text-transform: none; }
 .term-panel-body { padding: 10px; flex: 1; min-height: 0; overflow: auto; }
 .term-panel-body--flush { padding: 0; }
+.term-panel-head h2 { font: inherit; margin: 0; }
+.term-panel-body--flush > .term-empty { padding: 10px; }
+.term-panel-body--flush > .term-stat-hint { display: block; padding: 0 10px 10px; }
+.term-grid + .term-grid, .term-grid + .term-panel { margin-top: var(--term-gap); }
 
 .term-empty {
     color: var(--term-dim);
@@ -468,6 +521,17 @@ html, body {
 
 .term-swatches { display: flex; height: 18px; border-radius: 2px; overflow: hidden; }
 .term-swatches > span { flex: 1; }
+.term-swatches--tall { height: 60px; }
+
+.term-heat--pick .term-heat-cell { cursor: pointer; }
+.term-heat--pick .term-heat-cell:hover { outline: 1px solid var(--term-muted); z-index: 1; }
+.term-heat-cell--selected { outline: 2px solid var(--term-cyan); z-index: 2; }
+
+/* Status dots: ok · warn · bad · idle. */
+.term-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--term-dim); vertical-align: middle; }
+.term-dot--ok { background: var(--term-green); }
+.term-dot--warn { background: var(--term-amber); }
+.term-dot--bad { background: var(--term-red); }
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
@@ -479,9 +543,9 @@ html, body {
     .term-grid { grid-template-columns: minmax(0, 1fr); }
     .term-span-2 { grid-column: span 1; }
     .term-row-span-2 { grid-row: span 1; }
-    .term-cmd { min-width: 180px; }
-    .term-header { gap: 8px; padding: 6px 10px; }
-    .term-meta { display: none; }
+    .term-cmd, .term-status-detail { display: none; }
+    .term-header { gap: 6px; padding: 4px 8px; }
+    .term-brand-mark { display: none; }
     .term-body { padding: 8px; }
 }
 
@@ -602,16 +666,10 @@ html, body {
 
 .live-edges b { color: var(--term-text); font-weight: 600; }
 
-.live-wire {
-    list-style: none;
-    margin: 0;
-    padding: 6px 10px;
-    columns: 2 360px;
-    font: 12px var(--term-mono);
-    color: var(--term-muted);
-}
-
-.live-wire li { padding: 2px 0; break-inside: avoid; }
+.live-swatches { height: 8px; margin-top: 3px; }
+.live-trend { width: 34%; }
+.live-who { list-style: none; margin: 0; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 12px var(--term-mono); color: var(--term-muted); border-bottom: 1px solid var(--term-line); }
+.live-who b { color: var(--term-text); font-weight: 600; }
 
 .term-span-4 { grid-column: 1 / -1; }
 
@@ -757,7 +815,6 @@ html, body {
 
 .regular-name { display: flex; gap: 6px; align-items: center; }
 .regular-name input { min-height: 32px; width: 180px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-mono); padding: 0 6px; }
-.regular-name .term-button { min-height: 32px; padding: 0 10px; }
 
 /* ── Trophies ─────────────────────────────────────────────────────────── */
 
@@ -868,3 +925,27 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
     .fx-type, .term-panel:has(.term-z--flag), .wall-tile:has(.term-z--flag) { animation: none; }
 }
+
+/* ── History, Regulars, Trophies, System ──────────────────────────────── */
+
+.history-day { font: 600 13px var(--term-mono); color: var(--term-text); min-width: 16ch; text-align: center; }
+.history-recap { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--term-line); }
+.history-chart { height: 220px; }
+.stats-session { min-width: 260px; }
+
+.regular-merge { display: flex; gap: 6px; align-items: center; }
+.regular-merge select { min-height: 32px; max-width: 160px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-mono); }
+.regular-merge .term-button { min-height: 32px; padding: 0 10px; }
+
+.trophy-records { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--term-line); }
+.trophy-locked { margin-top: 12px; }
+.trophy-locked > summary, .sys-selftest summary, .sys-raw > summary { cursor: pointer; font: 12px var(--term-mono); color: var(--term-muted); padding: 4px 0; }
+.trophy-grid--locked { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.trophy-grid--locked .trophy { padding: 6px 8px; gap: 2px; }
+
+.sys-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; font: 12px var(--term-mono); }
+.term-panel-body--flush > .sys-line { margin: 0; padding: 8px 10px; border-bottom: 1px solid var(--term-line); }
+.sys-raw { margin-top: 8px; }
+.sys-raw pre { margin: 4px 0 0; padding: 8px; max-height: 200px; overflow: auto; white-space: pre-wrap; font-size: 11px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: 2px; }
+.sys-selftest { margin-top: var(--term-gap); }
+.sys-models { margin-top: 8px; }

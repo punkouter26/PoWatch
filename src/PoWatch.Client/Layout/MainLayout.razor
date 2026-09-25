@@ -10,11 +10,14 @@
     @* The stats wall keeps this layout (and the camera below) but drops the chrome. *@
     @if (!_wall)
     {
-        <TerminalHeader Title="@_title" />
-        <FunctionKeyBar />
+        <TerminalHeader ShowStart="@(_section != "LIVE")" />
     }
 
     <main class="term-body" id="main-content">
+        @if (!_wall)
+        {
+            <AwayCard />
+        }
         <ErrorBoundary @key="Nav.Uri">
             <ChildContent>
                 @Body
@@ -22,7 +25,7 @@
             <ErrorContent>
                 @* Without a boundary a single component exception tears down the whole render tree
                    and leaves a blank page with no way back. *@
-                <div class="po-error-panel term-panel" role="alert" style="padding: 16px;">
+                <div class="po-error-panel term-panel" role="alert">
                     <h2>Something went wrong</h2>
                     <p>This page hit an unexpected error. Reload the page to try again.</p>
                 </div>
@@ -53,15 +56,14 @@ else
 <RadzenContextMenu />
 
 @code {
-    private string _title = "LIVE";
+    private string _section = "LIVE";
     private bool _wall;
     private ElementReference _feed;
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
-        _title = TitleFor(Nav.Uri);
-        _wall = _title == "WALL";
+        SetSection(Nav.Uri);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -75,23 +77,20 @@ else
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        _title = TitleFor(e.Location);
-        _wall = _title == "WALL";
+        SetSection(e.Location);
         InvokeAsync(StateHasChanged);
     }
 
-    private static string TitleFor(string uri) => new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant() switch
+    private void SetSection(string uri)
     {
-        "" or "/" => "LIVE",
-        "/stats" => "STATS",
-        "/history" => "HISTORY",
-        "/regulars" => "REGULARS",
-        "/trophies" => "TROPHIES",
-        "/system" or "/diagnostics" => "SYSTEM",
-        "/health" => "HEALTH",
-        "/display" => "WALL",
-        _ => "POWATCH"
-    };
+        _section = new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant() switch
+        {
+            "" or "/" => "LIVE",
+            "/display" => "WALL",
+            _ => "OTHER"
+        };
+        _wall = _section == "WALL";
+    }
 
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

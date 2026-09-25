@@ -5,66 +5,69 @@
 
 <PageTitle>PoWatch | History</PageTitle>
 
+@* Pick a day by clicking the year, or step with ◀ ▶ and the arrow keys. *@
 <div class="stats-toolbar" data-test="history-toolbar" @onkeydown="OnKeyDown" tabindex="-1">
     <button class="term-button" @onclick="() => MoveAsync(-1)" aria-label="Previous day" title="Previous day (←)">◀</button>
-    <RadzenDatePicker TValue="DateTime?" Value="@_day.ToDateTime(TimeOnly.MinValue)" DateFormat="ddd dd MMM yyyy" Max="@DateTime.Today"
-                      Change="@(async v => { if (v is { } d) await GoAsync(DateOnly.FromDateTime(d)); })" aria-label="Pick a day" />
+    <span class="history-day" data-test="history-day">@_day.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture)</span>
     <button class="term-button" @onclick="() => MoveAsync(1)" disabled="@(_day >= Today)" aria-label="Next day" title="Next day (→)">▶</button>
     <button class="term-button" @onclick="() => GoAsync(Today)" disabled="@(_day == Today)" aria-label="Go to today">Today</button>
-    <span class="term-stat-hint" data-test="history-day">@_day.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture)</span>
 </div>
 
 <div class="term-grid">
     <TerminalPanel Number="H1" Title="The year" Class="term-span-4" Test="history-calendar">
-        <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS RECORDED · SELECTED @_day.ToString("dd MMM", CultureInfo.CurrentCulture)</Aside>
+        <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS RECORDED · CLICK A DAY TO OPEN IT</Aside>
         <ChildContent>
             <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
-                      CellTitle="@((i, v) => _calendarDates.TryGetValue(i, out var d) ? $"{d:ddd dd MMM} · {v:P0}" : "no data")" />
+                      Selected="@CellFor(_day)" OnCellClick="@(i => DayFor(i) is { } d ? GoAsync(d) : Task.CompletedTask)"
+                      CellTitle="@((i, v) => DayFor(i) is { } d ? $"{d:ddd dd MMM} · {(v > 0 ? v.ToString("P0", CultureInfo.CurrentCulture) : "no data")}" : string.Empty)" />
         </ChildContent>
     </TerminalPanel>
 
     <TerminalPanel Number="H2" Title="The day" Class="term-span-4" Test="history-day-stats">
-        @if (_presence is null || _presence.SecondsObserved == 0)
-        {
-            <p class="term-empty" data-test="history-empty">Nothing was observed on this day.</p>
-        }
-        else
-        {
-            <div class="term-stats">
-                <StatCell Label="Observed" Value="@Duration(_presence.SecondsObserved)" />
-                <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0.0%", CultureInfo.InvariantCulture)" Test="history-occupancy" />
-                <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" />
-                <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
-                <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
-                <StatCell Label="Longest empty" Value="@Duration(_presence.LongestEmptySeconds)" />
-            </div>
-        }
+        <Aside>
+            @if (_recap is not null && _presence is { SecondsObserved: > 0 })
+            {
+                <a href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">RECAP PDF ↓</a>
+            }
+        </Aside>
+        <ChildContent>
+            @if (_presence is null || _presence.SecondsObserved == 0)
+            {
+                <p class="term-empty" data-test="history-empty">Nothing was observed on this day.</p>
+            }
+            else
+            {
+                <div class="term-stats">
+                    <StatCell Label="Observed" Value="@DisplayText.Duration(_presence.SecondsObserved)" />
+                    <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0.0%", CultureInfo.InvariantCulture)" Test="history-occupancy" />
+                    <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" />
+                    <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
+                    <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
+                    <StatCell Label="Longest empty" Value="@DisplayText.Duration(_presence.LongestEmptySeconds)" />
+                </div>
+
+                @if (_recap is not null)
+                {
+                    <div class="history-recap" data-test="history-recap">
+                        <p class="recap-summary">@_recap.Summary</p>
+                        @if (_recap.Highlights.Count > 0)
+                        {
+                            <ul class="recap-highlights">
+                                @foreach (var highlight in _recap.Highlights)
+                                {
+                                    <li>@highlight</li>
+                                }
+                            </ul>
+                        }
+                        <span class="term-stat-hint">WRITTEN BY @_recap.Source.ToUpperInvariant()</span>
+                    </div>
+                }
+            }
+        </ChildContent>
     </TerminalPanel>
 
-    @if (_recap is not null && _presence is { SecondsObserved: > 0 })
-    {
-        <TerminalPanel Number="H2+" Title="Recap" Class="term-span-4" Test="history-recap">
-            <Aside>
-                WRITTEN BY @_recap.Source.ToUpperInvariant() ·
-                <a href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">PDF ↓</a>
-            </Aside>
-            <ChildContent>
-                <p class="recap-summary">@_recap.Summary</p>
-                @if (_recap.Highlights.Count > 0)
-                {
-                    <ul class="recap-highlights">
-                        @foreach (var highlight in _recap.Highlights)
-                        {
-                            <li>@highlight</li>
-                        }
-                    </ul>
-                }
-            </ChildContent>
-        </TerminalPanel>
-    }
-
     <TerminalPanel Number="H3" Title="Motion across the day" Class="term-span-2">
-        <RadzenChart Style="height: 220px;" aria-label="Motion across the day">
+        <RadzenChart class="history-chart" aria-label="Motion across the day">
             <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
             <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
             <RadzenValueAxis Min="0" />
@@ -77,7 +80,7 @@
         <ChildContent>
             @if (_sessions.Count == 0)
             {
-                <p class="term-empty" style="padding: 10px;">No sessions ran on this day.</p>
+                <p class="term-empty">No sessions ran on this day.</p>
             }
             else
             {
@@ -87,10 +90,10 @@
                         @foreach (var s in _sessions)
                         {
                             <tr>
-                                <td>#@s.Id.ToString("N")[..4].ToUpperInvariant()</td>
+                                <td>@DisplayText.SessionTag(s.Id)</td>
                                 <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
                                 <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
-                                <td class="r">@Duration(s.DurationSeconds)</td>
+                                <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
                                 <td class="r"><a href="stats?range=session" title="Open the Stats page for sessions">stats</a></td>
                             </tr>
                         }
@@ -146,7 +149,7 @@
         </ChildContent>
     </TerminalPanel>
 
-    <TerminalPanel Number="H7" Title="Time-lapse" Class="term-span-2" Test="history-timelapse">
+    <TerminalPanel Number="H7" Title="Time-lapse" Class="term-span-4" Test="history-timelapse">
         <Aside>@_frames FRAMES · THIS DEVICE</Aside>
         <ChildContent>
             @if (_frames == 0)
@@ -162,7 +165,7 @@
                     {
                         <a class="term-button" href="@url" download="powatch-@(DayKey).webm" data-test="timelapse-save">Save video</a>
                     }
-                    <span class="term-stat-hint">@Duration((double)_frames / TimelapseFps) at @TimelapseFps fps</span>
+                    <span class="term-stat-hint">@DisplayText.Duration((double)_frames / TimelapseFps) at @TimelapseFps fps</span>
                 </div>
             }
         </ChildContent>
@@ -174,6 +177,9 @@
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
+    /// <summary>The Sunday the 53-week calendar starts on; cell index = weekday × 53 + week.</summary>
+    private static DateOnly CalendarStart => Today.AddDays(-(52 * 7) - (int)Today.DayOfWeek);
+
     private DateOnly _day = Today;
     private PresenceStatsDto? _presence;
     private RecapDto? _recap;
@@ -183,7 +189,6 @@
     private List<SessionDto> _sessions = [];
     private List<MomentDto> _moments = [];
     private List<double> _calendarCells = [];
-    private Dictionary<int, DateOnly> _calendarDates = [];
 
     private const int TimelapseFps = 24;
     private ElementReference _timelapse;
@@ -212,6 +217,18 @@
     {
         if (e.Key == "ArrowLeft") await MoveAsync(-1);
         else if (e.Key == "ArrowRight") await MoveAsync(1);
+    }
+
+    private static DateOnly? DayFor(int index)
+    {
+        var day = CalendarStart.AddDays(((index % 53) * 7) + (index / 53));
+        return day > Today ? null : day;
+    }
+
+    private static int CellFor(DateOnly day)
+    {
+        var offset = day.DayNumber - CalendarStart.DayNumber;
+        return offset < 0 || offset >= 53 * 7 ? -1 : ((int)day.DayOfWeek * 53) + (offset / 7);
     }
 
     private async Task LoadDayAsync()
@@ -257,23 +274,11 @@
 
     private void BuildCalendar()
     {
-        var start = Today.AddDays(-(52 * 7) - (int)Today.DayOfWeek);
         var cells = new double[53 * 7];
-        _calendarDates = [];
         foreach (var day in _patterns?.Calendar ?? [])
         {
-            var offset = day.Date.DayNumber - start.DayNumber;
-            if (offset < 0 || offset >= cells.Length) continue;
-            var index = ((int)day.Date.DayOfWeek * 53) + (offset / 7);
-            cells[index] = Math.Max(day.Occupancy, 0.0001);
-            _calendarDates[index] = day.Date;
+            if (CellFor(day.Date) is var index and >= 0) cells[index] = Math.Max(day.Occupancy, 0.0001);
         }
         _calendarCells = [.. cells];
-    }
-
-    private static string Duration(double seconds)
-    {
-        var span = TimeSpan.FromSeconds(seconds);
-        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes:00}m" : $"{span.Minutes}m {span.Seconds:00}s";
     }
 }

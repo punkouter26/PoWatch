@@ -31,11 +31,11 @@ things live. Synced with the code at the end of task G4.
 | C10 | Highlight snapshots + moments | A, B | `SensingSession`, `js/blob-upload.js` | `HighlightRules`, `MomentDto` | `Features/Snapshots` | `RecapService.MomentsAsync` | — | `AzureSnapshotStore` |
 | C11 | Recaps + PDF (session / day) | D | History recap panel, `AwayCard` PDF link | `RecapDto` | `Features/Recaps`, `RecapReportRenderer` | `RecapService`, `TemplateRecap` | — | `RecapAi` (Ollama / Azure OpenAI) |
 | C12 | Achievements & records | E | `/trophies`, `TrophyToasts` | `AchievementDtos` | `Features/Achievements` | `AchievementService` | `AchievementRules`, `RecordRules` | `AzureAchievementStore` |
-| C13 | Pipeline telemetry | F | `/system`, Stats → Pipeline | `PipelineStatsDto` | `Features/Diagnostics`, `Features/Stats` | `StatsQueryService` | — | `LocalDiagnosticsProvider` |
+| C13 | Pipeline telemetry | F | `/system` | `PipelineStatsDto` | `Features/Diagnostics`, `Features/Stats` | `StatsQueryService` | — | `LocalDiagnosticsProvider` |
 | C14 | Stats wall | all | `/display` (MainLayout wall mode) | reuses stats DTOs | reuses Stats | — | — | — |
 | C15 | Live push | all | `StatsFeed` | `StatsChangedDto`, `AchievementsUnlockedDto` | `StatsHub` | — | — | — |
 | C16 | Auth (BFF cookie, Entra ID / guest) | — | `BffAuthenticationStateProvider` | `AuthDtos` | `Features/Auth`, `Security/*` | — | — | Data Protection |
-| C17 | Health & operations | — | `/health` | `HealthDtos` | health checks, `/diag` | — | — | `StartupReadiness` |
+| C17 | Health & operations | — | `/system` (also `/health`) | `HealthDtos` | health checks, `/diag` | — | — | `StartupReadiness` |
 | C18 | Time-lapse (on-device only) | — | History, `js/timelapse.js` | — | — | — | — | — |
 
 ## Subsystem disposition (caregiver → stat cam) — done

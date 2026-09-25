@@ -8,7 +8,7 @@
 else
 {
     <div class="term-grid" data-test="stats-pipeline">
-        <TerminalPanel Number="F1" Title="This range" Class="term-span-2">
+        <TerminalPanel Number="F1" Title="Today" Class="term-span-2">
             <div class="term-stats">
                 <StatCell Label="Pixel samples" Value="@Data.PixelSamples.ToString("N0")" Hint="@($"{Number(Data.PixelHz, "0.0")} Hz achieved")" />
                 <StatCell Label="Detector frames" Value="@Data.DetectorSamples.ToString("N0")" Hint="@($"{Number(Data.DetectorHz, "0.00")} Hz achieved")" />
@@ -28,6 +28,7 @@ else
 
         <TerminalPanel Number="F3" Title="This browser" Class="term-span-4">
             <div class="term-stats">
+                <StatCell Label="Pixel layer" Value="@Number(Sensing.Live.PixelHz, "0.0")" Unit="Hz" Hint="@($"{Sensing.Live.PixelSamples:N0} frames this session")" />
                 <StatCell Label="Detector" Value="@(Sensing.Live.DetectorModel?.Split('/').Last() ?? "—")" Hint="@(Sensing.Live.DetectorDevice ?? "not loaded")" />
                 <StatCell Label="Detector latency" Value="@Number(Sensing.Live.DetectorLatencyMs, "0")" Unit="ms" />
                 <StatCell Label="Batches sent" Value="@Sensing.Live.BatchesSent.ToString()" Hint="@($"{Sensing.Live.PendingBatches} queued · {Sensing.Live.RejectedBatches} refused")" />

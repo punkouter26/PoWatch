@@ -236,7 +236,7 @@
 
     async ensureWebcamAccess() {
       if (!navigator?.mediaDevices?.getUserMedia) {
-        return { available: false, errorState: 'Webcam unavailable in this browser. Fallback preview active.' };
+        return { available: false, errorState: 'This browser has no camera access. Try another browser, or use Demo scene.' };
       }
       try {
         if (!activeStream) {
@@ -251,12 +251,13 @@
         }
         return { available: true, errorState: '' };
       } catch (e) {
+        // Nothing falls back to a preview: say what went wrong and what to do about it.
         const why = {
-          NotReadableError: 'Webcam busy (another app is using it).',
-          NotAllowedError: 'Webcam permission denied.',
-          NotFoundError: 'No webcam found.',
-        }[e?.name] ?? `Webcam error (${e?.name ?? 'unknown'}).`;
-        return { available: false, errorState: `${why} Fallback preview active.` };
+          NotReadableError: 'The camera is in use by another app or tab. Close it (or restart Windows if nothing else is open) and press Start camera again.',
+          NotAllowedError: 'Camera permission was denied. Allow it in the address bar or in Windows camera privacy settings.',
+          NotFoundError: 'No camera found.',
+        }[e?.name] ?? `Camera error (${e?.name ?? 'unknown'}).`;
+        return { available: false, errorState: `${why} Demo scene works without a camera.` };
       }
     },
 

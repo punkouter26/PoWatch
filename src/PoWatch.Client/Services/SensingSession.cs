@@ -47,6 +47,16 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     public bool IsRunning => _cts is not null;
 
+    /// <summary>Whether a camera session also runs the vision model for captions.</summary>
+    public bool Captions { get; set; } = true;
+
+    /// <summary>The recap card to show (AwayCard): set when a session stops or the tab comes back; null once dismissed.</summary>
+    public SessionRecap? Recap
+    {
+        get;
+        set { field = value; Notify(); }
+    }
+
     /// <summary>Raised whenever <see cref="Live"/> changes; handlers should marshal to the renderer.</summary>
     public event Action? Changed;
 
@@ -90,9 +100,18 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         return null;
     }
 
+    /// <summary>Starts a camera (or demo) session with the <see cref="Captions"/> setting in the local time zone.</summary>
+    public Task<string?> StartAsync(bool demo) => StartAsync(demo ? null : Feed, demo, Captions, TimeZoneInfo.Local.Id);
+
+    /// <summary>The session's long-exposure print so far (fx.js), or null when nobody has moved.</summary>
+    public Task<string?> ExposureAsync() => js.TryInvokeAsync<string>("powatchFx.exposure", Live.Demo ? null : Feed);
+
+    /// <summary>Stops the session and leaves its recap in <see cref="Recap"/>, whichever control stopped it.</summary>
     public async Task StopAsync()
     {
         if (_cts is null) return;
+        // Taken before stopping, while the camera still has a frame to print the paths over.
+        var exposure = await ExposureAsync();
         await _cts.CancelAsync();
         _cts.Dispose();
         _cts = null;
@@ -104,7 +123,10 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         await KeepAsync(_batcher.Flush(final: true));
         await SendPendingAsync(CancellationToken.None);
         if (Live.Session is { } session)
+        {
             Live.Session = await api.StopSessionAsync(session.Id) ?? session;
+            Recap = new SessionRecap(Live.Session, null, exposure);
+        }
 
         _self?.Dispose();
         _self = null;

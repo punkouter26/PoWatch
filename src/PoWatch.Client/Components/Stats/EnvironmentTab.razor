@@ -25,7 +25,7 @@ else
             }
             else
             {
-                <div class="term-swatches" style="height: 60px;" aria-label="The range's dominant colours">
+                <div class="term-swatches term-swatches--tall" aria-label="The range's dominant colours">
                     @foreach (var color in Data.Palette)
                     {
                         <span style="background: #@color.Rgb.ToString("x6", System.Globalization.CultureInfo.InvariantCulture); flex: @Number(color.Share * 100, "0.#");"
