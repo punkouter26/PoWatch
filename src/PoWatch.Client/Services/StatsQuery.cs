@@ -1,0 +1,8 @@
+namespace PoWatch.Client.Services;
+
+/// <summary>Which window of stats to ask for: session, today, 7d, 30d or all, in the browser's time zone.</summary>
+public sealed record StatsQuery(string Range, string TimeZoneId, Guid? SessionId = null)
+{
+    /// <summary>In Blazor WebAssembly the local zone is the browser's IANA zone.</summary>
+    public static StatsQuery For(string range, Guid? sessionId = null) => new(range, TimeZoneInfo.Local.Id, sessionId);
+}

@@ -1,0 +1,383 @@
+@page "/"
+@implements IAsyncDisposable
+@using System.Globalization
+@inject SensingSession Sensing
+@inject PoWatchApiClient Api
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>PoWatch | Live</PageTitle>
+
+<div class="term-grid live-grid">
+    <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2" Test="live-camera" Flush="true">
+        <Meta>
+            @(Sensing.IsRunning ? $"{L.PixelHz:0.0} FPS · {L.Tracks.Count} TRACKS" : "STANDBY")
+        </Meta>
+        <ChildContent>
+            @* The camera element itself lives in the layout and is docked over this slot. *@
+            <div class="live-feed" @ref="_slot">
+
+                @if (_showHeat && Sensing.IsRunning)
+                {
+                    <div class="live-heat" aria-hidden="true">
+                        @foreach (var v in L.Heat)
+                        {
+                            <span style="opacity: @Pct(Math.Min(1, v * 3))"></span>
+                        }
+                    </div>
+                }
+
+                @foreach (var track in L.Tracks)
+                {
+                    <div class="live-box @(track.Label == "person" ? "live-box--person" : string.Empty)"
+                         style="left: @Pct(track.Box.X0 * 100)%; top: @Pct(track.Box.Y0 * 100)%; width: @Pct((track.Box.X1 - track.Box.X0) * 100)%; height: @Pct((track.Box.Y1 - track.Box.Y0) * 100)%;">
+                        <span>@track.Label @track.Box.Score.ToString("0.00", CultureInfo.InvariantCulture) · #@track.TrackId</span>
+                    </div>
+                }
+
+                @if (!Sensing.IsRunning)
+                {
+                    <div class="live-standby" data-test="live-standby">
+                        <p>Point a camera at anything, press Start, walk away.</p>
+                        <div class="live-actions">
+                            <button class="term-button term-button--primary" @onclick="StartCameraAsync" disabled="@_starting" data-test="start-camera">Start camera</button>
+                            <button class="term-button" @onclick="StartDemoAsync" disabled="@_starting" data-test="start-demo">Demo scene</button>
+                            <label class="live-toggle">
+                                <input type="checkbox" @bind="_enableVlm" /> Captions (vision model)
+                            </label>
+                        </div>
+                        @if (_error is not null)
+                        {
+                            <p class="live-error" role="alert" data-test="live-error">@_error</p>
+                        }
+                    </div>
+                }
+                else if (Sensing.Live.Demo)
+                {
+                    <div class="live-demo-note" aria-hidden="true">DEMO SCENE · SYNTHETIC</div>
+                }
+            </div>
+            <div class="live-caption" data-test="live-caption">
+                <span class="live-caption-tag">VLM @(L.LastCaptionUtc?.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture) ?? "--:--:--")</span>
+                <span>@(L.LastCaption ?? (Sensing.IsRunning ? "Waiting for the first caption…" : "—"))</span>
+                @if (Sensing.IsRunning)
+                {
+                    <span class="term-spacer"></span>
+                    <label class="live-toggle"><input type="checkbox" @bind="_showHeat" /> Motion heat</label>
+                    <button class="term-button term-button--danger" @onclick="StopAsync" data-test="stop-session">Stop</button>
+                }
+            </div>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="02" Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
+        <Meta>TODAY vs USUAL</Meta>
+        <ChildContent>
+            <table class="term-table">
+                <thead><tr><th>Metric</th><th class="r">Now</th><th class="r">Chg</th><th style="width: 34%">Trend</th></tr></thead>
+                <tbody>
+                    <tr data-test="metric-occupancy">
+                        <td>OCCUPANCY TODAY</td>
+                        <td class="r">@Percent(_today?.Occupancy)</td>
+                        <td class="r"><ZChip Z="@Anomaly("occupancy")" /></td>
+                        <td><Sparkline Values="@(_today?.Series.Select(p => p.Occupancy).TakeLast(120).ToList() ?? [])" Max="1" Label="Occupancy today" /></td>
+                    </tr>
+                    <tr>
+                        <td>VISITS / HR TODAY</td>
+                        <td class="r">@(_today is null ? "—" : _today.VisitsPerHour.ToString("0.0", CultureInfo.InvariantCulture))</td>
+                        <td class="r"><ZChip Z="@Anomaly("visits/hour")" /></td>
+                        <td><Sparkline Values="@(_today?.Series.Select(p => (double)p.Visits).TakeLast(120).ToList() ?? [])" Cyan="true" Label="Visits today" /></td>
+                    </tr>
+                    <tr>
+                        <td>MOTION NOW</td>
+                        <td class="r" data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</td>
+                        <td class="r"><ZChip Z="@Anomaly("motion")" /></td>
+                        <td><Sparkline Values="@L.MotionHistory" Label="Motion, last minute" /></td>
+                    </tr>
+                    <tr>
+                        <td>LIGHT NOW</td>
+                        <td class="r">@L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</td>
+                        <td class="r"></td>
+                        <td><Sparkline Values="@L.LuminanceHistory" Max="1" Cyan="true" Label="Light, last minute" /></td>
+                    </tr>
+                    <tr>
+                        <td>PEOPLE · ANIMALS NOW</td>
+                        <td class="r" data-test="metric-people">@L.PeopleNow · @L.AnimalsNow</td>
+                        <td class="r"></td>
+                        <td class="term-stat-hint">peak @L.PeakConcurrency this session</td>
+                    </tr>
+                    <tr>
+                        <td>VISITS THIS SESSION</td>
+                        <td class="r" data-test="metric-visits">@L.Visits</td>
+                        <td class="r"></td>
+                        <td class="term-stat-hint">@L.Captions captions</td>
+                    </tr>
+                </tbody>
+            </table>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="03" Title="Active tracks" Test="live-tracks" Flush="true">
+        <Meta>@L.Tracks.Count LIVE</Meta>
+        <ChildContent>
+            @if (L.Tracks.Count == 0)
+            {
+                <p class="term-empty" style="padding: 10px;">Nothing tracked right now.</p>
+            }
+            else
+            {
+                <table class="term-table">
+                    <thead><tr><th>ID</th><th>Class</th><th class="r">Dwell</th></tr></thead>
+                    <tbody>
+                        @foreach (var track in L.Tracks.Take(8))
+                        {
+                            <tr><td>#@track.TrackId</td><td>@track.Label</td><td class="r">@Duration(DateTimeOffset.UtcNow - track.FirstSeenUtc)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="04" Title="Census" Test="live-census" Flush="true">
+        <Meta>@CensusRows.Count CLASSES</Meta>
+        <ChildContent>
+            @if (CensusRows.Count == 0)
+            {
+                <p class="term-empty" style="padding: 10px;">No objects seen yet.</p>
+            }
+            else
+            {
+                <table class="term-table">
+                    <thead><tr><th>Class</th><th class="r">Now</th><th class="r">Peak</th><th class="r">Share</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in CensusRows.Take(8))
+                        {
+                            <tr><td>@row.Name</td><td class="r">@L.ClassesNow.GetValueOrDefault(row.Name)</td><td class="r">@row.Peak</td><td class="r">@Percent(row.Share)</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="05" Title="Pipeline" Test="live-pipeline">
+        <Meta>@(L.DetectorDevice?.ToUpperInvariant() ?? "—")</Meta>
+        <ChildContent>
+            <div class="term-stats">
+                <StatCell Label="Pixel layer" Value="@L.PixelHz.ToString("0.0", CultureInfo.InvariantCulture)" Unit="Hz" Test="stat-pixel-hz" />
+                <StatCell Label="Detector" Value="@L.DetectorHz.ToString("0.0", CultureInfo.InvariantCulture)" Unit="Hz" Hint="@($"{L.DetectorLatencyMs:0} ms / frame")" />
+                <StatCell Label="Frames" Value="@L.PixelSamples.ToString("N0", CultureInfo.InvariantCulture)" Hint="@ShortModel" />
+                <StatCell Label="Batches" Value="@L.BatchesSent.ToString(CultureInfo.InvariantCulture)" Hint="@($"{L.PendingBatches} queued · {L.LostTicks} lost")" />
+            </div>
+            @if (L.LastError is not null)
+            {
+                <p class="live-error" role="status">@L.LastError</p>
+            }
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="06" Title="Motion grid" Test="live-motion-grid">
+        <Meta>16×9 · EDGES TODAY</Meta>
+        <ChildContent>
+            <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+            <div class="live-edges">
+                @foreach (var edge in Edges)
+                {
+                    <span>@edge <b>@(_space?.Entries.GetValueOrDefault(edge) ?? 0)↓ @(_space?.Exits.GetValueOrDefault(edge) ?? 0)↑</b></span>
+                }
+            </div>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="07" Title="Light · palette" Test="live-light">
+        <Meta>LUMA @L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</Meta>
+        <ChildContent>
+            <Sparkline Values="@(_today?.Series.Select(p => p.Luminance).TakeLast(240).ToList() ?? [])" Max="1" Cyan="true" Label="Light today" />
+            <div class="term-stat-label" style="margin: 8px 0 4px;">Now</div>
+            <div class="term-swatches" aria-label="Colours in frame now">
+                @foreach (var color in L.Palette)
+                {
+                    <span style="background: #@color.ToString("x6", CultureInfo.InvariantCulture)"></span>
+                }
+            </div>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="08" Title="Occupancy 28d" Test="live-pattern">
+        <Meta>@(_patterns?.NextBusyHour is { } h ? $"NEXT BUSY {h:00}:00" : "HOUR × WEEKDAY")</Meta>
+        <ChildContent>
+            <HeatGrid Values="@PatternCells" Columns="24" Rows="7" Label="Occupancy by weekday and hour, last 28 days"
+                      CellTitle="@((i, v) => $"{Days[i / 24]} {i % 24:00}:00 · {v:P0}")" />
+            <div class="term-stat-hint" style="margin-top: 6px;">
+                Rhythm today: @(_patterns?.RhythmScore is { } r ? r.ToString("0.00", CultureInfo.InvariantCulture) : "n/a")
+            </div>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="09" Title="Caption wire" Class="term-span-4" Test="live-wire" Flush="true">
+        <ChildContent>
+            @if (Wire.Count == 0)
+            {
+                <p class="term-empty" style="padding: 10px;">Captions and comings-and-goings appear here.</p>
+            }
+            else
+            {
+                <ol class="live-wire">
+                    @foreach (var line in Wire)
+                    {
+                        <li>@line</li>
+                    }
+                </ol>
+            }
+        </ChildContent>
+    </TerminalPanel>
+</div>
+
+@code {
+    private static readonly string[] Days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    private static readonly string[] Edges = ["Left", "Top", "Right", "Bottom"];
+
+    private ElementReference _slot;
+    private bool _starting;
+    private bool _enableVlm = true;
+    private bool _showHeat = true;
+    private string? _error;
+    private PresenceStatsDto? _today;
+    private SpaceStatsDto? _space;
+    private PatternStatsDto? _patterns;
+    private ObjectStatsDto? _objects;
+    private CancellationTokenSource? _refresh;
+    private DateTimeOffset _lastRender;
+
+    [SupplyParameterFromQuery(Name = "start")] public string? StartMode { get; set; }
+
+    private LiveSensingState L => Sensing.Live;
+
+    private string ShortModel => L.DetectorModel?.Split('/').Last() ?? "detector idle";
+
+    private IReadOnlyList<string> Wire => L.RecentEvents.Take(14).ToList();
+
+    private IReadOnlyList<double> PatternCells => _patterns?.HourByWeekday.SelectMany(d => d).ToList() ?? [];
+
+    private IReadOnlyList<ClassStatDto> CensusRows =>
+        L.ClassesSeen.Keys.Concat(_objects?.Classes.Select(c => c.Name) ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(name => _objects?.Classes.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
+                ?? new ClassStatDto { Name = name, Peak = L.ClassesNow.GetValueOrDefault(name) })
+            .OrderByDescending(c => L.ClassesNow.GetValueOrDefault(c.Name))
+            .ThenByDescending(c => c.TicksPresent)
+            .ToList();
+
+    protected override void OnInitialized()
+    {
+        Sensing.Changed += OnSensingChanged;
+        _refresh = new CancellationTokenSource();
+        _ = RefreshLoopAsync(_refresh.Token);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await DockFeedAsync();
+        if (Sensing.IsRunning || StartMode is null) return;
+        Navigation.NavigateTo("", replace: true);
+        if (StartMode == "demo") await StartDemoAsync();
+        else await StartCameraAsync();
+    }
+
+    private Task StartCameraAsync() => StartAsync(demo: false);
+
+    private Task StartDemoAsync() => StartAsync(demo: true);
+
+    private async Task StartAsync(bool demo)
+    {
+        _starting = true;
+        _error = null;
+        try
+        {
+            _error = await Sensing.StartAsync(demo ? null : Sensing.Feed, demo, _enableVlm, TimeZoneInfo.Local.Id);
+            await DockFeedAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The server could not be reached, so no session was started.";
+        }
+        finally
+        {
+            _starting = false;
+        }
+    }
+
+    private async Task StopAsync()
+    {
+        await Sensing.StopAsync();
+        await DockFeedAsync();
+        await RefreshStatsAsync();
+    }
+
+    private void OnSensingChanged()
+    {
+        // Sensing fires several times a second; four renders a second is plenty for the eye.
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastRender < TimeSpan.FromMilliseconds(250)) return;
+        _lastRender = now;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshLoopAsync(CancellationToken ct)
+    {
+        await RefreshStatsAsync();
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(20));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+                await RefreshStatsAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // Page closed.
+        }
+    }
+
+    private async Task RefreshStatsAsync()
+    {
+        var today = StatsQuery.For("today");
+        var presence = Api.GetPresenceAsync(today);
+        var space = Api.GetSpaceAsync(today);
+        var patterns = Api.GetPatternsAsync(today);
+        var objects = Api.GetObjectsAsync(today);
+        await Task.WhenAll(presence, space, patterns, objects);
+        (_today, _space, _patterns, _objects) = (presence.Result, space.Result, patterns.Result, objects.Result);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Shows the camera over the slot while a camera session runs; hides it otherwise.</summary>
+    private async Task DockFeedAsync()
+    {
+        if (Sensing.Feed is { } feed && Sensing.IsRunning && !Sensing.Live.Demo)
+            await JS.TryInvokeVoidAsync("powatchFeed.dock", feed, _slot);
+        else
+            await JS.TryInvokeVoidAsync("powatchFeed.undock");
+    }
+
+    private double? Anomaly(string metric) => _patterns?.Anomalies.FirstOrDefault(a => a.Metric == metric)?.Z;
+
+    private static string Percent(double? value) => value is { } v ? v.ToString("0.0%", CultureInfo.InvariantCulture) : "—";
+
+    private static string Pct(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static string Duration(TimeSpan span) =>
+        span.TotalHours >= 1 ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture) : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+
+    public async ValueTask DisposeAsync()
+    {
+        Sensing.Changed -= OnSensingChanged;
+        await JS.TryInvokeVoidAsync("powatchFeed.undock");
+        if (_refresh is not null)
+        {
+            await _refresh.CancelAsync();
+            _refresh.Dispose();
+        }
+    }
+}

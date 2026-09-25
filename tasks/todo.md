@@ -147,8 +147,12 @@ Rules for every task:
     (`TerminalPanel`, `StatCell`, `Sparkline`, `ZChip`, `HeatGrid`). Number keys and Ctrl+1–6
     navigate (F-keys and Ctrl+R stay with the browser). The shell is one viewport tall and only
     `<main>` scrolls. Old routes keep aliases until their pages are rebuilt. Dev HTTP port is now 80.
-- [ ] **E2** Live page rewrite: overlay canvas (boxes + motion heat), live counters and sparklines,
+- [x] **E2** Live page rewrite: overlay canvas (boxes + motion heat), live counters and sparklines,
   Start/Stop session, Wake Lock.
+  - Done: nine-panel Terminal Live page on `SensingSession`. The camera `<video>` lives in the
+    layout and is docked over the Live panel (`feed-dock.js`), so sessions keep sampling on other
+    pages. Old Live page and its exclusive components/helpers removed (7 unit tests went with them).
+    UI tests: demo session fills counters < 15 s (SPEC §15 #1); fake-camera session survives navigation.
 - [ ] **E3** `/stats` shell + range picker + Presence & Motion + Space tabs.
 - [ ] **E4** Objects & Regulars + Patterns & Anomalies tabs (removes `DriftDetailPanel`).
 - [ ] **E5** Environment & Captions + Pipeline tabs. **CHECKPOINT**

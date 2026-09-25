@@ -4,35 +4,42 @@ using System.Text.Json.Nodes;
 namespace PoWatch.E2EUI;
 
 /// <summary>
-/// What each page actually shows: the controls a caregiver uses, and the consistency rules that
-/// broke silently before — one person under two names, a heading that contradicts the nav,
-/// a destructive action given top billing.
+/// What each page actually shows: the controls people use, and the consistency rules that broke
+/// silently before — one person under two names, a heading that contradicts the nav.
 /// </summary>
 [Collection(nameof(PlaywrightCollection))]
 public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 {
     [Fact]
-    public async Task The_live_room_leads_with_room_state_and_one_obvious_action()
+    public async Task The_live_page_shows_every_panel_and_both_ways_to_start()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        await Assertions.Expect(page.GetByTestId("room-status-hero")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("hero-start")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("hero-handoff")).ToBeVisibleAsync();
+        foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-census", "live-pipeline", "live-motion-grid", "live-light", "live-pattern", "live-wire" })
+            await Assertions.Expect(page.GetByTestId(panel)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("start-camera")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("start-demo")).ToBeVisibleAsync();
+        await page.AssertNoBlazorErrorAsync();
     }
 
     [Fact]
-    public async Task Observer_settings_open_in_a_drawer_and_close_again()
+    public async Task A_demo_session_fills_the_counters_within_15_seconds_and_stops_cleanly()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        await page.GetByTestId("observer-settings-gear").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("observer-settings-drawer")).ToBeVisibleAsync();
+        await page.GetByTestId("start-demo").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "Close settings" }).ClickAsync();
-        await Assertions.Expect(page.GetByTestId("observer-settings-drawer")).Not.ToBeVisibleAsync();
+        // SPEC §15 #1: nonzero live counters within 15 s, with no camera, GPU or model.
+        await Assertions.Expect(page.GetByTestId("metric-visits")).Not.ToHaveTextAsync("0", new() { Timeout = 15_000 });
+        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
+        await Assertions.Expect(page.GetByTestId("ticker")).ToContainTextAsync("person", new() { Timeout = 15_000 });
+
+        await page.GetByTestId("stop-session").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
+        await page.AssertNoBlazorErrorAsync();
     }
 
     [Fact]
@@ -91,7 +98,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await page.UnrouteAsync(archiveRoute);
 
         await page.GetByTestId("nav-live").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("hero-start")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("start-demo")).ToBeVisibleAsync();
         await page.GetByTestId("nav-history").ClickAsync();
 
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Previous day" })).ToBeVisibleAsync();

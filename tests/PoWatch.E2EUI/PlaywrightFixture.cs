@@ -23,7 +23,9 @@ public sealed class PlaywrightFixture : IAsyncLifetime, IAsyncDisposable
     private LocalUiApplicationFactory? _localFactory;
 
     // Local dev cert is untrusted by Chromium — ignore for E2E runs.
-    private static readonly string[] LaunchArgs = ["--ignore-certificate-errors"];
+    // The fake media flags give every page a synthetic moving camera with permission pre-granted,
+    // so camera sessions run headless.
+    private static readonly string[] LaunchArgs = ["--ignore-certificate-errors", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"];
 
     private IPlaywright? _playwright;
     private IBrowser? _browser;

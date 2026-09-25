@@ -32,6 +32,9 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     public LiveSensingState Live { get; private set; } = new();
 
+    /// <summary>The layout's always-mounted camera element (see MainLayout and feed-dock.js).</summary>
+    public ElementReference? Feed { get; set; }
+
     public bool IsRunning => _cts is not null;
 
     /// <summary>Raised whenever <see cref="Live"/> changes; handlers should marshal to the renderer.</summary>

@@ -6,9 +6,8 @@ namespace PoWatch.E2EUI;
 /// Locks in the viewport-fit rules that the design system says every screen must obey:
 /// <list type="bullet">
 ///   <item><description>Pages with internal scrolling (Live Room, Archives) don't extend the body past the viewport.</description></item>
-///   <item><description>The topbar collapses to a hamburger drawer on narrow viewports (≤720px).</description></item>
-///   <item><description>The settings drawer is reachable via the gear icon on every viewport.</description></item>
-///   <item><description>The Daily Activity strip is rendered (compact mode on phones, full strip on desktops).</description></item>
+///   <item><description>On narrow viewports the key bar scrolls instead of widening the page.</description></item>
+///   <item><description>A camera session keeps sampling when you leave the Live page.</description></item>
 /// </list>
 /// These rules used to live only as a docstring in the design tokens. The audit pass moved them
 /// into CI: a regression that re-introduces a layout that exceeds the viewport on a360×640 phone
@@ -181,38 +180,28 @@ public sealed class ViewportFitE2ETests
     }
 
     [Fact]
-    public async Task Live_Room_settings_drawer_closes_on_Escape()
+    public async Task A_camera_session_samples_the_fake_camera_and_survives_navigation()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
         await page.SetViewportSizeAsync(1440, 900);
 
-        await page.GetByTestId("observer-settings-gear").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("observer-settings-drawer")).ToBeVisibleAsync();
+        // Chromium's fake camera (see PlaywrightFixture); captions off so no vision model downloads.
+        await page.GetByLabel("Captions (vision model)").UncheckAsync();
+        await page.GetByTestId("start-camera").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING", new() { Timeout = 15_000 });
+        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
 
-        await page.Keyboard.PressAsync("Escape");
-        await page.WaitForTimeoutAsync(200);
-        await Assertions.Expect(page.GetByTestId("observer-settings-drawer")).Not.ToBeVisibleAsync();
+        // Leaving Live must not stop sensing: the camera element lives in the layout.
+        await page.Keyboard.PressAsync("2");
+        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("STATS");
+        await page.WaitForTimeoutAsync(2_000);
+        await page.Keyboard.PressAsync("1");
+        await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
+        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 5_000 });
 
-        await page.AssertNoBlazorErrorAsync();
-    }
-
-    [Fact]
-    public async Task Live_Room_heatmap_uses_compact_layout_on_a_phone()
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
-        await page.SetViewportSizeAsync(360, 640);
-        await page.WaitForTimeoutAsync(500);
-
-        // Compact mode renders a summary row instead of 24 cells (idea #3 / idea #5).
-        var compactSummary = page.Locator(".heatmap-compact-summary");
-        await Assertions.Expect(compactSummary).ToBeVisibleAsync();
-
-        // Full grid mode would render 24 cells — none should be present.
-        var fullStripCells = await page.Locator(".data-strip-cell").CountAsync();
-        Assert.Equal(0, fullStripCells);
-
+        await page.GetByTestId("stop-session").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
         await page.AssertNoBlazorErrorAsync();
     }
 

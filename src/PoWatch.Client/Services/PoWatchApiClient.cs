@@ -36,6 +36,40 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(Json.IngestBatchResultDto, cancellationToken);
     }
 
+    public Task<PresenceStatsDto?> GetPresenceAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
+        GetStatsAsync("presence", query, Json.PresenceStatsDto, cancellationToken);
+
+    public Task<SpaceStatsDto?> GetSpaceAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
+        GetStatsAsync("space", query, Json.SpaceStatsDto, cancellationToken);
+
+    public Task<ObjectStatsDto?> GetObjectsAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
+        GetStatsAsync("objects", query, Json.ObjectStatsDto, cancellationToken);
+
+    public Task<PatternStatsDto?> GetPatternsAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
+        GetStatsAsync("patterns", query, Json.PatternStatsDto, cancellationToken);
+
+    public Task<EnvironmentStatsDto?> GetEnvironmentAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
+        GetStatsAsync("environment", query, Json.EnvironmentStatsDto, cancellationToken);
+
+    public Task<PipelineStatsDto?> GetPipelineAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
+        GetStatsAsync("pipeline", query, Json.PipelineStatsDto, cancellationToken);
+
+    /// <summary>Stats are nice-to-have on every page: a failed read returns null rather than throwing.</summary>
+    private async Task<T?> GetStatsAsync<T>(string family, StatsQuery query, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, CancellationToken cancellationToken)
+    {
+        var url = $"api/stats/{family}?range={Uri.EscapeDataString(query.Range)}&tz={Uri.EscapeDataString(query.TimeZoneId)}"
+            + (query.SessionId is { } id ? $"&sessionId={id}" : string.Empty);
+        try
+        {
+            using var response = await httpClient.GetAsync(url, cancellationToken);
+            return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(type, cancellationToken) : default;
+        }
+        catch (HttpRequestException)
+        {
+            return default;
+        }
+    }
+
     public async Task<ObserverRuntimeStateDto?> GetObserverStateAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("api/observer/state", Json.ObserverRuntimeStateDto, cancellationToken);
 
