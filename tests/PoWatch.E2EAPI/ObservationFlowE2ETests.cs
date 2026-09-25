@@ -12,16 +12,6 @@ public sealed class ObservationFlowE2ETests(ApiE2EFactory factory) : IClassFixtu
     private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
-    public async Task Health_and_diag_endpoints_are_live()
-    {
-        var health = await _client.GetAsync("/health");
-        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
-
-        var diag = await _client.GetAsync("/diag");
-        Assert.Equal(HttpStatusCode.OK, diag.StatusCode);
-    }
-
-    [Fact]
     public async Task Ingest_then_read_state_reflects_a_persisted_observation()
     {
         var request = new IngestObservationRequestDto

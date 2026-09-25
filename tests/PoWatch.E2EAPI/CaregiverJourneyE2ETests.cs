@@ -96,88 +96,6 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task The_live_status_board_lists_everyone_seen()
-    {
-        var hint = $"live-{Guid.NewGuid():N}";
-        await IngestAsync(hint, "Person seated using laptop");
-
-        var live = await _client.GetFromJsonAsync<List<SubjectLiveStatusDto>>("/api/identity/subjects/live-status");
-
-        Assert.NotNull(live);
-        Assert.NotEmpty(live!);
-        Assert.All(live!, s => Assert.False(string.IsNullOrWhiteSpace(s.SubjectId)));
-    }
-
-    [Fact]
-    public async Task Live_status_never_returns_a_raw_storage_id_as_a_missing_display_name()
-    {
-        await IngestAsync($"name-{Guid.NewGuid():N}", "Person seated using laptop");
-
-        var live = await _client.GetFromJsonAsync<List<SubjectLiveStatusDto>>("/api/identity/subjects/live-status");
-
-        Assert.All(live!, s => Assert.False(string.IsNullOrWhiteSpace(s.DisplayName)));
-    }
-
-    [Fact]
-    public async Task Ending_a_shift_produces_a_downloadable_handoff_report()
-    {
-        await IngestAsync($"shift-{Guid.NewGuid():N}", "Person is eating a meal");
-
-        var response = await _client.GetAsync($"/api/archives/{Today:yyyy-MM-dd}/handoff-report?shiftWindow=FullDay");
-
-        if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-        {
-            // QuestPDF ships no win-arm64 native binary, so the PDF engine cannot start on an ARM64
-            // Windows host. That must still be an EXPLAINED failure, never a bare 500 — assert the
-            // problem detail actually tells the operator what happened and that their data is safe.
-            var problem = await response.Content.ReadAsStringAsync();
-            Assert.Contains("PDF engine", problem, StringComparison.OrdinalIgnoreCase);
-            return;
-        }
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var bytes = await response.Content.ReadAsByteArrayAsync();
-        Assert.NotEmpty(bytes);
-        // A PDF always starts with %PDF.
-        Assert.Equal("%PDF"u8.ToArray(), bytes.Take(4).ToArray());
-    }
-
-    [Fact]
-    public async Task A_handoff_brief_can_be_generated_for_the_day()
-    {
-        await IngestAsync($"brief-{Guid.NewGuid():N}", "A person entering the room");
-
-        var response = await _client.PostAsJsonAsync(
-            $"/api/archives/{Today:yyyy-MM-dd}/handoff-brief",
-            new GenerateHandoffBriefRequestDto
-            {
-                ShiftWindow = "FullDay",
-                Audience = "NurseToNurse",
-                IncludeUnresolvedAlerts = true,
-                IncludeHighlights = true
-            });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var brief = await response.Content.ReadFromJsonAsync<HandoffBriefDto>();
-        Assert.NotNull(brief);
-        Assert.False(string.IsNullOrWhiteSpace(brief!.Summary));
-    }
-
-    [Fact]
-    public async Task A_handoff_brief_never_names_a_raw_storage_id()
-    {
-        await IngestAsync($"briefname-{Guid.NewGuid():N}", "Person is eating a meal");
-
-        var brief = await (await _client.PostAsJsonAsync(
-            $"/api/archives/{Today:yyyy-MM-dd}/handoff-brief",
-            new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" }))
-            .Content.ReadFromJsonAsync<HandoffBriefDto>();
-
-        Assert.NotNull(brief);
-        Assert.DoesNotContain("Subject-", brief!.Summary, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task An_evidence_upload_url_can_be_requested_for_a_flagged_event()
     {
         var ingest = await IngestAsync($"evidence-{Guid.NewGuid():N}", "Person has fallen in the hallway");
@@ -189,17 +107,6 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
 
         Assert.NotNull(sas);
         Assert.False(string.IsNullOrWhiteSpace(sas!.SasUrl));
-    }
-
-    [Fact]
-    public async Task Notable_events_are_counted_on_the_live_board()
-    {
-        var hint = $"notable-{Guid.NewGuid():N}";
-        var ingest = await IngestAsync(hint, "Person has fallen beside the chair");
-
-        var status = await GetLiveStatusAsync(ingest.SubjectId);
-        Assert.NotNull(status);
-        Assert.True(status!.NotableTodayCount > 0);
     }
 
     [Fact]
@@ -241,24 +148,6 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task Diagnostics_reports_a_reachable_storage_connection()
-    {
-        var snapshot = await _client.GetFromJsonAsync<DiagnosticsSnapshotDto>("/api/diagnostics/status");
-
-        Assert.NotNull(snapshot);
-        Assert.False(string.IsNullOrWhiteSpace(snapshot!.StorageConnectionStatus));
-    }
-
-    [Fact]
-    public async Task The_boot_report_names_the_last_startup_milestone()
-    {
-        var response = await _client.GetAsync("/diag/boot");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.False(string.IsNullOrWhiteSpace(await response.Content.ReadAsStringAsync()));
-    }
-
-    [Fact]
     public async Task An_anonymous_caller_cannot_read_observations()
     {
         // The API host is default-deny; only /health, /diag and /auth opt out.
@@ -273,29 +162,86 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task The_health_probe_answers_json_for_a_machine_client()
+    public async Task The_live_board_lists_everyone_by_name_with_notable_counts()
     {
+        await IngestAsync($"live-{Guid.NewGuid():N}", "Person seated using laptop");
+        var notable = await IngestAsync($"notable-{Guid.NewGuid():N}", "Person has fallen beside the chair");
+
+        var live = await _client.GetFromJsonAsync<List<SubjectLiveStatusDto>>("/api/identity/subjects/live-status");
+
+        Assert.NotNull(live);
+        Assert.NotEmpty(live!);
+        Assert.All(live!, s => Assert.False(string.IsNullOrWhiteSpace(s.SubjectId)));
+        // Never a raw storage id standing in for a missing display name.
+        Assert.All(live!, s => Assert.False(string.IsNullOrWhiteSpace(s.DisplayName)));
+        Assert.True(live!.Single(s => s.SubjectId == notable.SubjectId).NotableTodayCount > 0);
+    }
+
+    [Fact]
+    public async Task A_day_produces_a_downloadable_report_and_a_brief_without_raw_ids()
+    {
+        await IngestAsync($"shift-{Guid.NewGuid():N}", "Person is eating a meal");
+        await IngestAsync($"brief-{Guid.NewGuid():N}", "A person entering the room");
+
+        var response = await _client.GetAsync($"/api/archives/{Today:yyyy-MM-dd}/handoff-report?shiftWindow=FullDay");
+        if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
+        {
+            // QuestPDF ships no win-arm64 native binary, so the PDF engine cannot start on an ARM64
+            // Windows host. That must still be an EXPLAINED failure, never a bare 500.
+            Assert.Contains("PDF engine", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            // A PDF always starts with %PDF.
+            Assert.Equal("%PDF"u8.ToArray(), bytes.Take(4).ToArray());
+        }
+
+        var briefResponse = await _client.PostAsJsonAsync(
+            $"/api/archives/{Today:yyyy-MM-dd}/handoff-brief",
+            new GenerateHandoffBriefRequestDto
+            {
+                ShiftWindow = "FullDay",
+                Audience = "NurseToNurse",
+                IncludeUnresolvedAlerts = true,
+                IncludeHighlights = true
+            });
+
+        Assert.Equal(HttpStatusCode.OK, briefResponse.StatusCode);
+        var brief = await briefResponse.Content.ReadFromJsonAsync<HandoffBriefDto>();
+        Assert.NotNull(brief);
+        Assert.False(string.IsNullOrWhiteSpace(brief!.Summary));
+        Assert.DoesNotContain("Subject-", brief.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Operations_endpoints_report_health_boot_and_storage()
+    {
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/diag")).StatusCode);
+
         var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Accept.ParseAdd("application/json");
+        var health = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+        Assert.Contains("status", await health.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
 
-        var response = await _client.SendAsync(request);
+        var boot = await _client.GetAsync("/diag/boot");
+        Assert.Equal(HttpStatusCode.OK, boot.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(await boot.Content.ReadAsStringAsync()));
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("status", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        var snapshot = await _client.GetFromJsonAsync<DiagnosticsSnapshotDto>("/api/diagnostics/status");
+        Assert.NotNull(snapshot);
+        Assert.False(string.IsNullOrWhiteSpace(snapshot!.StorageConnectionStatus));
     }
 
     [Fact]
-    public async Task Sign_in_configuration_is_readable_without_a_session()
+    public async Task Sign_in_config_is_public_and_the_guest_bypass_establishes_a_session()
     {
         var config = await _client.GetFromJsonAsync<AuthConfigDto>("/auth/config");
-
         Assert.NotNull(config);
         Assert.False(string.IsNullOrWhiteSpace(config!.Environment));
-    }
 
-    [Fact]
-    public async Task The_guest_bypass_establishes_a_session_in_the_test_environment()
-    {
         // HTTPS base address: the BFF session cookie is Secure, so it is dropped over plain http.
         using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
         {
@@ -310,12 +256,6 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
         var me = await client.GetFromJsonAsync<AuthStateDto>("/auth/me");
         Assert.NotNull(me);
         Assert.True(me!.IsAuthenticated);
-    }
-
-    private async Task<SubjectLiveStatusDto?> GetLiveStatusAsync(string subjectId)
-    {
-        var live = await _client.GetFromJsonAsync<List<SubjectLiveStatusDto>>("/api/identity/subjects/live-status");
-        return live?.FirstOrDefault(s => s.SubjectId == subjectId);
     }
 
     private Task<IngestObservationResultDto> IngestAsync(string hint, string activity) =>
