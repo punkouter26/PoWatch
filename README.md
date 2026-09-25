@@ -1,8 +1,18 @@
 # PoWatch
 
-PoWatch is a mobile-first room observation system for caregivers who need a calm, same-origin web app that can watch for meaningful activity, preserve daily context, and support shift handoff without exposing browser-held tokens. The app runs as a hosted Blazor WebAssembly client served by `PoWatch.Api`; the API owns authentication, storage, telemetry, diagnostics, and vertical feature endpoints.
+PoWatch is a fun, stat-heavy webcam observer. Point a camera at anything, press Start, walk away, and
+come back to a nerdy statistical picture of what happened: presence, motion, space, objects, recurring
+"regulars", time patterns, anomalies, environment, captions, achievements, and pipeline telemetry. The
+app runs as a hosted Blazor WebAssembly client served by `PoWatch.Api`; the API owns authentication,
+storage, telemetry, diagnostics, and vertical feature endpoints.
 
-Users start in the Observer Hub, select a local vision model, and run a browser-side inference loop against the device camera. Inferred observations are posted through the BFF boundary to server-validated Minimal API slices, written to Azure Table Storage or Azurite locally, and shown back through live timelines, subject identity management, archives, handoff reports, and diagnostics.
+The browser runs the sensing locally (pixel metrics, an object detector, and a small vision-language
+model) against the device camera. Frames never leave the device except chosen highlight snapshots.
+Compact 10-second ticks are posted through the BFF boundary, stored in Azure Table Storage (Azurite
+locally), and rolled up into minute/hour/day/all-time stats.
+
+> The app is mid-pivot from its earlier caregiver-monitor form. `SPEC.md` describes the target state;
+> `tasks/todo.md` tracks progress.
 
 The project targets .NET 10 from `global.json` and uses central package management. The client and shared DTO assembly are trim-analyzer clean, using source-generated JSON metadata instead of reflection-heavy serialization. Authentication is BFF-style: Microsoft Entra ID or dev/test guest sign-in creates an encrypted HttpOnly cookie, while the WASM client only asks `/auth/me` for state.
 
@@ -36,9 +46,11 @@ between Bicep and CI in `infra/deployment.json`.
 
 ## Documentation
 
-`AGENT.md` is the operating manual for this repo — compiler contract, vertical-slice boundaries,
-BFF auth, telemetry, the inference worker's quality gates, and the list of things that have broken
-production before. It is binding for autonomous agents and human contributors alike. This `README.md`
-stays at the level of "what is this app and how do I run it".
+- `AGENTS.md` — rules for any agent (or human) working in this repo.
+- `SPEC.md` — objective, journeys, stat catalog, stack, boundaries, success criteria.
+- `CAPABILITY-MAP.md` — which project owns which capability, and what each old subsystem became.
+- `tasks/plan.md` and `tasks/todo.md` — architecture decisions, risks, and the task checklist.
+
+This `README.md` stays at the level of "what is this app and how do I run it".
 
 [Cleanup decisions and validation](docs/cleanup.md) document the reduced feature surface.
