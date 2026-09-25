@@ -67,7 +67,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/archives", "History");
+            await page.GoToAsync("/archives", "HISTORY");
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);
@@ -86,7 +86,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/identity", "People");
+            await page.GoToAsync("/identity", "REGULARS");
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);
@@ -105,7 +105,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/diagnostics", "System");
+            await page.GoToAsync("/diagnostics", "SYSTEM");
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);
@@ -124,7 +124,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/health", "Health");
+            await page.GoToAsync("/health", "HEALTH");
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);
@@ -162,23 +162,21 @@ public sealed class ViewportFitE2ETests
     }
 
     [Fact]
-    public async Task Mobile_nav_drawer_opens_and_closes_on_a_phone()
+    public async Task On_a_phone_the_key_bar_scrolls_instead_of_widening_the_page()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
         await page.SetViewportSizeAsync(360, 640);
         await page.WaitForTimeoutAsync(500);
 
-        // The hamburger should be the only navigation affordance on a phone (idea #7).
-        await Assertions.Expect(page.GetByTestId("navbar-toggler")).ToBeVisibleAsync();
+        // Every section stays reachable from the key bar, and the page itself never scrolls sideways.
+        await Assertions.Expect(page.GetByTestId("nav-system")).ToBeAttachedAsync();
+        var pageOverflow = await page.EvaluateAsync<bool>("() => document.documentElement.scrollWidth > window.innerWidth + 1");
+        Assert.False(pageOverflow, "The page scrolls horizontally on a 360 px phone.");
 
-        await page.GetByTestId("navbar-toggler").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("navbar-drawer")).ToBeVisibleAsync();
-
-        // Escape closes the drawer (same accessibility treatment as the observer settings drawer).
-        await page.Keyboard.PressAsync("Escape");
-        await Assertions.Expect(page.GetByTestId("navbar-drawer")).Not.ToBeVisibleAsync();
-
+        await page.GetByTestId("nav-system").ScrollIntoViewIfNeededAsync();
+        await page.GetByTestId("nav-system").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("SYSTEM");
         await page.AssertNoBlazorErrorAsync();
     }
 

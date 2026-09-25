@@ -1,0 +1,34 @@
+@* A grid heatmap (16×9 frame grid, 7×24 weekday-by-hour, …). Values are scaled to the largest. *@
+<div class="term-heat" role="img" aria-label="@Label"
+     style="grid-template-columns: repeat(@Columns, minmax(0, 1fr));">
+    @for (var i = 0; i < Columns * Rows; i++)
+    {
+        var value = i < Values.Count ? Values[i] : 0;
+        <div class="term-heat-cell" title="@Title(i, value)">
+            @if (value > 0)
+            {
+                <span style="opacity: @Opacity(value)"></span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private double _max = 1;
+
+    [Parameter, EditorRequired] public IReadOnlyList<double> Values { get; set; } = [];
+    [Parameter] public int Columns { get; set; } = 16;
+    [Parameter] public int Rows { get; set; } = 9;
+    [Parameter] public string Label { get; set; } = "Heatmap";
+
+    /// <summary>Tooltip per cell index and value; defaults to the value alone.</summary>
+    [Parameter] public Func<int, double, string>? CellTitle { get; set; }
+
+    protected override void OnParametersSet() => _max = Values.Count == 0 ? 1 : Math.Max(Values.Max(), 1e-9);
+
+    private string Opacity(double value) =>
+        (0.12 + (0.88 * Math.Clamp(value / _max, 0, 1))).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string Title(int index, double value) =>
+        CellTitle?.Invoke(index, value) ?? value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+}

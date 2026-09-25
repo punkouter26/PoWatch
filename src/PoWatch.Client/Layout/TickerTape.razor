@@ -1,0 +1,31 @@
+@implements IDisposable
+@inject SensingSession Sensing
+
+<footer class="term-ticker" aria-label="Recent events" data-test="ticker">
+    <span class="term-ticker-label">PWCH TAPE</span>
+    @if (Sensing.Live.RecentEvents.Count == 0)
+    {
+        <span>@(Sensing.IsRunning ? "Watching… events appear here as they happen." : "Standby — start a session to fill the tape.")</span>
+    }
+    else
+    {
+        @* Rendered twice so the scroll loops without a gap. *@
+        <span class="term-ticker-track" aria-hidden="true">
+            @foreach (var line in Lines.Concat(Lines))
+            {
+                <span>@line</span>
+            }
+        </span>
+        <span class="visually-hidden">@Lines.FirstOrDefault()</span>
+    }
+</footer>
+
+@code {
+    private IEnumerable<string> Lines => Sensing.Live.RecentEvents.Take(12);
+
+    protected override void OnInitialized() => Sensing.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Sensing.Changed -= OnChanged;
+}

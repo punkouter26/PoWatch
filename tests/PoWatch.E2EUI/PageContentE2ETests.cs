@@ -40,7 +40,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/identity", "People");
+        await page.GoToAsync("/identity", "REGULARS");
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Everyone at a glance" }))
             .ToBeVisibleAsync();
@@ -53,7 +53,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/identity", "People");
+        await page.GoToAsync("/identity", "REGULARS");
 
         // Let the grid populate first, so this asserts filtering rather than an empty database.
         await page.WaitForTimeoutAsync(2500);
@@ -86,13 +86,13 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
             chapter["highlights"] = new JsonArray();
             await route.FulfillAsync(new() { Response = response, Body = chapter.ToJsonString() });
         });
-        await page.GetByTestId("nav-link-archives").ClickAsync();
+        await page.GetByTestId("nav-history").ClickAsync();
         await Assertions.Expect(page.Locator(".po-error-panel")).ToBeVisibleAsync(new() { Timeout = 30000 });
         await page.UnrouteAsync(archiveRoute);
 
-        await page.GetByTestId("nav-link-observer-hub").ClickAsync();
+        await page.GetByTestId("nav-live").ClickAsync();
         await Assertions.Expect(page.GetByTestId("hero-start")).ToBeVisibleAsync();
-        await page.GetByTestId("nav-link-archives").ClickAsync();
+        await page.GetByTestId("nav-history").ClickAsync();
 
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Previous day" })).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Go to today" })).ToBeVisibleAsync();
@@ -117,7 +117,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/diagnostics", "System");
+        await page.GoToAsync("/diagnostics", "SYSTEM");
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Inference engine" }))
             .ToBeVisibleAsync();
@@ -128,7 +128,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/diagnostics", "System");
+        await page.GoToAsync("/diagnostics", "SYSTEM");
         await page.GetByTestId("diagnostics-advanced").Locator("summary").ClickAsync();
 
         await Assertions.Expect(page.GetByTestId("model-selftest-card")).ToBeVisibleAsync();
@@ -147,7 +147,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/health", "Health");
+        await page.GoToAsync("/health", "HEALTH");
 
         await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = 30000 });
         // Wait for the list itself: "Checking…" also renders health-overall, so counting straight
@@ -162,7 +162,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        await page.GetByTestId("navbar-sign-out").ClickAsync();
+        await page.GetByTestId("sign-out").ClickAsync();
 
         await Assertions.Expect(page.GetByTestId("login-shell")).ToBeVisibleAsync(new() { Timeout = 60000 });
     }

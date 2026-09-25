@@ -1,0 +1,35 @@
+@* A tiny inline SVG trend line. Cheap enough to put one in every table row, which a chart control is not. *@
+<svg class="term-spark @(Cyan ? "term-spark--cyan" : string.Empty)" viewBox="0 0 100 28" preserveAspectRatio="none"
+     role="img" aria-label="@Label">
+    @if (_points.Length > 0)
+    {
+        <polyline points="@_points" />
+    }
+</svg>
+
+@code {
+    private string _points = string.Empty;
+
+    [Parameter, EditorRequired] public IReadOnlyList<double> Values { get; set; } = [];
+
+    /// <summary>Fixed top of the scale; the series maximum when null.</summary>
+    [Parameter] public double? Max { get; set; }
+
+    [Parameter] public bool Cyan { get; set; }
+    [Parameter] public string Label { get; set; } = "Trend";
+
+    protected override void OnParametersSet()
+    {
+        if (Values.Count < 2)
+        {
+            _points = string.Empty;
+            return;
+        }
+
+        var max = Max ?? Values.Max();
+        if (max <= 0) max = 1;
+        var step = 100.0 / (Values.Count - 1);
+        _points = string.Join(' ', Values.Select((v, i) =>
+            FormattableString.Invariant($"{i * step:0.##},{27 - (Math.Clamp(v / max, 0, 1) * 26):0.##}")));
+    }
+}

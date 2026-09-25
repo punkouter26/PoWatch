@@ -1,0 +1,18 @@
+@* How far today sits from your usual, in standard deviations. Flagged at |z| ≥ 2. *@
+<span class="@CssClass" title="@Tooltip">@Text</span>
+
+@code {
+    [Parameter] public double? Z { get; set; }
+
+    private string Text => Z is { } z ? z.ToString("+0.0;-0.0", System.Globalization.CultureInfo.InvariantCulture) + "σ" : "n/a";
+
+    private string Tooltip => Z is { } z
+        ? $"{(Math.Abs(z) >= 2 ? "Unusual: " : string.Empty)}{Text} from your usual"
+        : "Not enough history yet";
+
+    private string CssClass => Z switch
+    {
+        null => "term-z",
+        { } z => $"term-z {(z >= 0.5 ? "term-z--up" : z <= -0.5 ? "term-z--down" : string.Empty)} {(Math.Abs(z) >= 2 ? "term-z--flag" : string.Empty)}"
+    };
+}

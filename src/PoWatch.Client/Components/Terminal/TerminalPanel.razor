@@ -1,0 +1,31 @@
+@* A numbered Terminal panel: accent bar, "01 · TITLE", optional right-aligned meta, then content. *@
+<section class="term-panel @Class" data-test="@Test" aria-labelledby="@_headingId">
+    <header class="term-panel-head">
+        @if (!string.IsNullOrEmpty(Number))
+        {
+            <span class="term-panel-no">@Number</span>
+        }
+        <h2 id="@_headingId" style="font: inherit; margin: 0;">@Title</h2>
+        @if (Meta is not null)
+        {
+            <span class="term-panel-meta">@Meta</span>
+        }
+    </header>
+    <div class="term-panel-body @(Flush ? "term-panel-body--flush" : string.Empty)">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    private readonly string _headingId = $"panel-{Guid.NewGuid():N}";
+
+    [Parameter] public string? Number { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? Meta { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Test { get; set; }
+
+    /// <summary>No inner padding — for tables and camera feeds that run edge to edge.</summary>
+    [Parameter] public bool Flush { get; set; }
+}

@@ -9,28 +9,32 @@ namespace PoWatch.E2EUI;
 public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
 {
     [Fact]
-    public async Task The_shell_renders_with_branding_navigation_and_session_controls()
+    public async Task The_terminal_shell_renders_header_keys_command_line_and_tape()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
+        await Assertions.Expect(page.GetByTestId("term-header")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("navbar-brand")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("page-hud")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("navbar-sign-out")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("command-line")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("ticker")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
+        await Assertions.Expect(page.GetByTestId("sign-out")).ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
     }
 
     [Fact]
-    public async Task Every_route_renders_with_the_heading_the_nav_promises()
+    public async Task Every_route_renders_with_its_section_title()
     {
         foreach (var (route, heading) in new (string route, string heading)[]
         {
-            ("/", "Live Room"),
-            ("/archives", "History"),
-            ("/identity", "People"),
-            ("/diagnostics", "System"),
-            ("/health", "Health"),
+            ("/", "LIVE"),
+            ("/stats", "STATS"),
+            ("/history", "HISTORY"),
+            ("/regulars", "REGULARS"),
+            ("/trophies", "TROPHIES"),
+            ("/system", "SYSTEM"),
+            ("/health", "HEALTH"),
         })
         {
             if (PlaywrightFixture.BaseUrl is null) return;
@@ -38,24 +42,29 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
 
             await page.GoToAsync(route, heading);
             await page.AssertNoBlazorErrorAsync();
-
         }
     }
 
     [Fact]
-    public async Task The_three_primary_nav_links_move_between_pages()
+    public async Task Number_keys_the_key_bar_and_the_command_line_all_navigate()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        await page.GetByTestId("nav-link-archives").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("History");
+        await page.Keyboard.PressAsync("2");
+        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("STATS");
 
-        await page.GetByTestId("nav-link-identity").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("People");
+        await page.Keyboard.PressAsync("/");
+        await page.Keyboard.TypeAsync("regulars");
+        await page.Keyboard.PressAsync("Enter");
+        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("REGULARS");
 
-        await page.GetByTestId("nav-link-observer-hub").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("Live Room");
+        await page.GetByTestId("command-line").FillAsync("nonsense");
+        await page.GetByTestId("command-line").PressAsync("Enter");
+        await Assertions.Expect(page.GetByTestId("command-hint")).ToContainTextAsync("Commands:");
+
+        await page.GetByTestId("nav-live").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("page-hud-title")).ToHaveTextAsync("LIVE");
     }
 
     [Fact]

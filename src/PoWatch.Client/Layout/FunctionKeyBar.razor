@@ -1,0 +1,74 @@
+@inject NavigationManager Navigation
+@inject SensingSession Sensing
+
+<nav class="term-keys" aria-label="Main" data-test="app-navbar">
+    @foreach (var key in Keys)
+    {
+        <NavLink class="term-key" href="@key.Href" Match="@(key.Href == "" ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                 data-test="@($"nav-{key.Name.ToLowerInvariant()}")">
+            <kbd>@key.Number</kbd>@key.Name
+        </NavLink>
+    }
+
+    <form class="term-cmd" @onsubmit="RunAsync" role="search" aria-label="Command line">
+        <label for="term-cmd-input">PWCH&gt;</label>
+        <input id="term-cmd-input" data-command-line data-test="command-line" autocomplete="off" spellcheck="false"
+               placeholder="stats 7d · regulars · start · help" @bind="_command" @bind:event="oninput" />
+    </form>
+</nav>
+
+@if (_hint is not null)
+{
+    <div class="term-cmd-hint" role="status" data-test="command-hint">@_hint</div>
+}
+
+@code {
+    private string _command = string.Empty;
+    private string? _hint;
+
+    private sealed record Key(string Number, string Name, string Href);
+
+    /// <summary>The six sections. Number keys and Ctrl+number jump to them (keyboard-bindings.js).</summary>
+    private static readonly Key[] Keys =
+    [
+        new("1", "LIVE", ""),
+        new("2", "STATS", "stats"),
+        new("3", "HISTORY", "history"),
+        new("4", "REGULARS", "regulars"),
+        new("5", "TROPHIES", "trophies"),
+        new("6", "SYSTEM", "system"),
+    ];
+
+    private static readonly string[] Ranges = ["session", "today", "7d", "30d", "all"];
+
+    private async Task RunAsync()
+    {
+        var words = _command.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        _command = string.Empty;
+        _hint = null;
+        if (words.Length == 0) return;
+
+        switch (words[0])
+        {
+            case "1" or "live": Navigation.NavigateTo(""); break;
+            case "2" or "stats":
+                Navigation.NavigateTo(words.Length > 1 && Ranges.Contains(words[1]) ? $"stats?range={words[1]}" : "stats");
+                break;
+            case "3" or "history": Navigation.NavigateTo("history"); break;
+            case "4" or "regulars" or "regular": Navigation.NavigateTo("regulars"); break;
+            case "5" or "trophies": Navigation.NavigateTo("trophies"); break;
+            case "6" or "system": Navigation.NavigateTo("system"); break;
+            case "wall" or "display": Navigation.NavigateTo("display"); break;
+            case "health": Navigation.NavigateTo("health"); break;
+            case "start": Navigation.NavigateTo("?start=camera"); break;
+            case "demo": Navigation.NavigateTo("?start=demo"); break;
+            case "stop":
+                if (Sensing.IsRunning) await Sensing.StopAsync();
+                else _hint = "No session is running.";
+                break;
+            default:
+                _hint = "Commands: live · stats [session|today|7d|30d|all] · history · regulars · trophies · system · wall · health · start · demo · stop";
+                break;
+        }
+    }
+}

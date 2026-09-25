@@ -1,122 +1,71 @@
 @inherits LayoutComponentBase
 @implements IDisposable
-@using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<div class="page">
-    <header class="app-header">
-        <NavMenu />
-    </header>
+<div class="term-shell">
+    <TerminalHeader Title="@_title" />
+    <FunctionKeyBar />
 
-    <main>
-        <div class="page-hud" data-test="page-hud">
-            <div class="page-hud-title">
-                <strong data-test="page-hud-title">@_pageTitle</strong>
-                <span class="page-hud-subtitle">@_pageSubtitle</span>
-            </div>
-            @* Chrome kept minimal (consolidation #10): no clock (the OS shows one) and no status
-               chip (the Live Room hero owns monitoring state; System owns engine state). *@
-        </div>
-
-        @if (_navigating)
-        {
-            <div class="nav-loading-bar" role="progressbar" aria-label="Page loading"></div>
-        }
-
-        <article class="content app-shell" id="main-content">
+    <main class="term-body" id="main-content">
         <ErrorBoundary @key="Nav.Uri">
-        <ChildContent>
-            @Body
-        </ChildContent>
-        <ErrorContent>
-            @* Without a boundary a single component exception tears down the whole render tree
-               and leaves a blank page with no way back. *@
-            <div class="po-error-panel" role="alert">
-                <h2>Something went wrong</h2>
-                <p>This page hit an unexpected error. Reload the page to try again.</p>
-            </div>
-        </ErrorContent>
-    </ErrorBoundary>
-        </article>
+            <ChildContent>
+                @Body
+            </ChildContent>
+            <ErrorContent>
+                @* Without a boundary a single component exception tears down the whole render tree
+                   and leaves a blank page with no way back. *@
+                <div class="po-error-panel term-panel" role="alert" style="padding: 16px;">
+                    <h2>Something went wrong</h2>
+                    <p>This page hit an unexpected error. Reload the page to try again.</p>
+                </div>
+            </ErrorContent>
+        </ErrorBoundary>
     </main>
+
+    <TickerTape />
 </div>
 
 <RadzenNotification />
-
-@* RadzenDialog host — required for DialogService.Confirm/OpenAsync to render anything. Without
-   it, the clear-data confirm, the System-page reset confirm, and the handoff dialog were all
-   silent no-ops (added 2026-07-22). *@
 <RadzenDialog />
-@* Advanced Radzen hosts (audit #10): enable app-wide tooltips and contextual menus.
-   TooltipService gives touch-usable tooltips that native title="" cannot. *@
 <RadzenTooltip />
 <RadzenContextMenu />
 
 @code {
-    private bool _navigating = false;
-    private string _pageTitle = "Live Room";
-    private string _pageSubtitle = "Local-only ambient monitoring";
+    private string _title = "LIVE";
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
-        UpdatePageTitle(Nav.Uri);
+        _title = TitleFor(Nav.Uri);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            // Global keyboard shortcuts (Ctrl+1..4 to navigate, Ctrl+K for the command
-            // palette, "/" to focus the page filter). Handled entirely in JS — no
-            // DotNetObjectReference, because the C# callback it used to hold was empty.
-            try { await JS.InvokeVoidAsync("powatchKeybindings.setup"); }
-            catch { /* private mode or polyfill missing */ }
-        }
+        // Number keys / Ctrl+number jump between sections; "/" focuses the command line.
+        if (firstRender) await JS.TryInvokeVoidAsync("powatchKeybindings.setup");
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        // The heading must change WITH the route, not 350 ms after it. It used to be updated
-        // inside a fire-and-forget Task.Delay continuation, so the HUD kept announcing the
-        // previous page during the transition and two quick navigations could race and leave
-        // the wrong title on screen.
-        UpdatePageTitle(e.Location);
-        _navigating = true;
+        _title = TitleFor(e.Location);
         InvokeAsync(StateHasChanged);
-
-        // The progress bar is purely cosmetic; only its teardown is deferred.
-        _ = HideNavigationBarAsync();
     }
 
-    private async Task HideNavigationBarAsync()
+    private static string TitleFor(string uri) => new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant() switch
     {
-        await Task.Delay(350);
-        _navigating = false;
-        await InvokeAsync(StateHasChanged);
-    }
+        "" or "/" => "LIVE",
+        "/stats" => "STATS",
+        "/history" or "/archives" => "HISTORY",
+        "/regulars" or "/identity" => "REGULARS",
+        "/trophies" => "TROPHIES",
+        "/system" or "/diagnostics" => "SYSTEM",
+        "/health" => "HEALTH",
+        "/display" => "WALL",
+        _ => "POWATCH"
+    };
 
-    private void UpdatePageTitle(string uri)
-    {
-        var path = new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
-        (_pageTitle, _pageSubtitle) = path switch
-        {
-            "" or "/" => ("Live Room", "Watching the room, quietly"),
-            "/archives" => ("History", "Each day's story and the moments that mattered"),
-            "/identity" => ("People", "Everyone seen — name, rename, and merge"),
-            "/diagnostics" => ("System", "Runtime, storage & inference health"),
-            "/health" => ("Health", "Every connection PoWatch depends on"),
-            "/display" => ("Display", "Ambient kiosk view"),
-            "/login" => ("Sign in", "Sign in to PoWatch"),
-            _ => ("PoWatch", "Calm, local-only room monitoring")
-        };
-    }
-
-    public void Dispose()
-    {
-        Nav.LocationChanged -= OnLocationChanged;
-    }
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }
