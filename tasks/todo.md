@@ -162,7 +162,7 @@ Rules for every task:
     mean. Dark theme is now the default. Reviewed by screenshot; all 24 UI tests pass.
     `DriftDetailPanel` stays until the Regulars page is rebuilt (F1/F2).
 - [x] **E6** SignalR `StatsHub` + client subscription (trim-clean build first, then feature).
-- [ ] **E7** `/display` stats wall (no scroll at 1920×1080 and 1280×720, ≤ 5 s refresh).
+- [x] **E7** `/display` stats wall (no scroll at 1920×1080 and 1280×720, ≤ 5 s refresh).
 - [ ] **E8** "While you were away" card + highlight snapshots (`SnapshotService`, highlight rules,
   200/day cap, reuse of `blob-upload.js`).
 - [ ] **E9** `/history`: calendar heatmap → day → sessions (replaces the Archives page).

@@ -1,125 +1,151 @@
-@* Ambient kiosk display. Designed for the always-on wall-display case AGENT.md describes:
-   24 h sliding cookie, no blanking mid-shift. The page omits nav, theme toggle, sign-out, and
-   every interactive affordance so it reads as a one-off artefact rather than a portal into the
-   app. There is exactly one moving thing: an ambient colour that drifts toward warmer hues
-   as the day's activity increases, derived from the heatmap's most recent bucket counts. *@
-
+@* The stats wall: full screen, no chrome, no scrolling, for a second monitor or a TV. It shares the
+   main layout (which drops its header and key bar here) so a camera session started on Live keeps
+   running underneath. Refreshes on every stats push and at least every 5 s. *@
 @page "/display"
-@attribute [AllowAnonymous]
-@layout PoWatch.Client.Layout.EmptyLayout
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Authorization
-@using PoWatch.Shared.Models
-@inject PoWatch.Client.Services.PoWatchApiClient ApiClient
-@inject IJSRuntime JS
 @implements IAsyncDisposable
+@using System.Globalization
+@inject PoWatchApiClient Api
+@inject SensingSession Sensing
+@inject StatsFeed Feed
 
-<div class="display-page @ActivityClass" data-test="display-page" aria-label="Ambient PoWatch display">
-    <header class="display-header">
-        <h1 class="display-title">Today</h1>
-        <span class="display-clock">@ClockText</span>
-    </header>
+<PageTitle>PoWatch | Wall</PageTitle>
 
-    @if (loading)
-    {
-        <div class="display-loading" aria-hidden="true"></div>
-    }
-    else if (chapter is null)
-    {
-        <p class="display-empty">PoWatch is asleep.</p>
-    }
-    else
-    {
-        <article class="display-narrative" data-test="display-narrative">
-            @chapter.ClinicalNarrative
-        </article>
+<div class="wall" data-test="display-page">
+    <section class="wall-tile wall-clock">
+        <div class="wall-label">POWATCH · @(Sensing.IsRunning ? (Sensing.Live.Demo ? "DEMO" : "OBSERVING") : "WALL")</div>
+        <div class="wall-big num">@_now.ToString("HH:mm", CultureInfo.CurrentCulture)</div>
+        <div class="wall-sub">@_now.ToString("dddd d MMMM", CultureInfo.CurrentCulture)</div>
+    </section>
 
-        @if (chapter.Timeline.Count > 0)
-        {
-            <footer class="display-meta" aria-hidden="true">
-                @chapter.FirstEventUtc?.ToLocalTime().ToString("HH:mm")
-                –@chapter.LastEventUtc?.ToLocalTime().ToString("HH:mm")
-            </footer>
-        }
-    }
+    <section class="wall-tile" data-test="wall-occupancy">
+        <div class="wall-label">OCCUPANCY TODAY <ZChip Z="@Anomaly("occupancy")" /></div>
+        <div class="wall-big num">@(_today is null ? "—" : _today.Occupancy.ToString("0%", CultureInfo.InvariantCulture))</div>
+        <Sparkline Values="@(_today?.Series.Select(p => p.Occupancy).ToList() ?? [])" Max="1" Label="Occupancy today" />
+    </section>
+
+    <section class="wall-tile">
+        <div class="wall-label">VISITS TODAY <ZChip Z="@Anomaly("visits/hour")" /></div>
+        <div class="wall-big num">@(_today?.Visits.ToString(CultureInfo.InvariantCulture) ?? "—")</div>
+        <div class="wall-sub">@(_today is null ? string.Empty : $"{_today.VisitsPerHour:0.0} / hour · peak {_today.PeakConcurrency} at once")</div>
+    </section>
+
+    <section class="wall-tile">
+        <div class="wall-label">IN FRAME NOW</div>
+        <div class="wall-big num">@(Sensing.IsRunning ? $"{Sensing.Live.PeopleNow}·{Sensing.Live.AnimalsNow}" : "—")</div>
+        <div class="wall-sub">@(Sensing.IsRunning ? "people · animals" : "no session in this browser")</div>
+    </section>
+
+    <section class="wall-tile wall-span-2">
+        <div class="wall-label">MOTION TODAY</div>
+        <RadzenChart Style="height: 100%; min-height: 0;" aria-label="Motion today">
+            <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
+            <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
+            <RadzenValueAxis Min="0" />
+            <RadzenLegend Visible="false" />
+        </RadzenChart>
+    </section>
+
+    <section class="wall-tile">
+        <div class="wall-label">WHERE · TODAY</div>
+        <HeatGrid Values="@(_space?.MotionHeat ?? [])" Label="Motion across the frame today" />
+    </section>
+
+    <section class="wall-tile">
+        <div class="wall-label">28 DAYS · HOUR × WEEKDAY</div>
+        <HeatGrid Values="@(_patterns?.HourByWeekday.SelectMany(d => d).ToList() ?? [])" Columns="24" Rows="7" Label="Occupancy by weekday and hour" />
+    </section>
+
+    <section class="wall-tile wall-span-2 wall-caption">
+        <div class="wall-label">LATEST CAPTION</div>
+        <p data-test="wall-caption">@(Sensing.Live.LastCaption ?? _environment?.WeirdestCaption ?? "Waiting for the vision model…")</p>
+    </section>
+
+    <section class="wall-tile">
+        <div class="wall-label">CENSUS · TODAY</div>
+        <table class="term-table">
+            @foreach (var c in _objects?.Classes.Take(5) ?? [])
+            {
+                <tr><td>@c.Name</td><td class="r">@c.Share.ToString("0%", CultureInfo.InvariantCulture)</td></tr>
+            }
+        </table>
+    </section>
+
+    <section class="wall-tile">
+        <div class="wall-label">ALL TIME</div>
+        <div class="wall-big num" style="font-size: clamp(24px, 3vw, 56px);">@(_pipeline?.AllTimeFrames.ToString("N0", CultureInfo.InvariantCulture) ?? "—")</div>
+        <div class="wall-sub">frames · @(_pipeline?.AllTimeHours.ToString("0.0", CultureInfo.InvariantCulture) ?? "—") h watched · @(_pipeline?.Sessions ?? 0) sessions</div>
+    </section>
 </div>
 
 @code {
-    private DailyChapterDto? chapter;
-    private bool loading = true;
-    private DateTime NowLocal = DateTime.Now;
-    private System.Timers.Timer? clockTimer;
-    private System.Timers.Timer? pollTimer;
-    private const int PollIntervalSeconds = 60;
+    public sealed record Point(DateTime At, double Value);
 
-    private string ClockText => NowLocal.ToString("HH:mm");
+    private DateTimeOffset _now = DateTimeOffset.Now;
+    private PresenceStatsDto? _today;
+    private SpaceStatsDto? _space;
+    private PatternStatsDto? _patterns;
+    private ObjectStatsDto? _objects;
+    private EnvironmentStatsDto? _environment;
+    private PipelineStatsDto? _pipeline;
+    private List<Point> _motion = [];
+    private CancellationTokenSource? _cts;
 
-    /// <summary>The ambient colour tracks today's activity intensity so the wall display
-    /// telegraphs "busy day" at a glance. Thresholds are deliberately coarse: this is not a
-    /// measurement, it is a mood light.</summary>
-    private string ActivityClass
+    protected override void OnInitialized()
     {
-        get
-        {
-            if (chapter is null) return "display--idle";
-            return chapter.TotalEvents switch
-            {
-                0 => "display--idle",
-                <= 5 => "display--calm",
-                <= 20 => "display--steady",
-                <= 60 => "display--busy",
-                _ => "display--loud"
-            };
-        }
+        _cts = new CancellationTokenSource();
+        Feed.Changed += OnPush;
+        Sensing.Changed += OnSensing;
+        _ = Feed.EnsureConnectedAsync();
+        _ = LoopAsync(_cts.Token);
     }
 
-    protected override async Task OnInitializedAsync()
+    private async Task LoopAsync(CancellationToken ct)
     {
-        await LoadAsync();
-        StartTimers();
-    }
-
-    private async Task LoadAsync()
-    {
+        await RefreshAsync();
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
         try
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
-            chapter = await ApiClient.GetChapterAsync(today, NarrativeMode.Prose);
+            while (await timer.WaitForNextTickAsync(ct))
+                await RefreshAsync();
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // The display must never error visibly — it is an unattended artefact. If the
-            // network is down, the last successful chapter (or the empty state) keeps showing.
-        }
-        finally
-        {
-            loading = false;
+            // Wall closed.
         }
     }
 
-    private void StartTimers()
+    private async Task RefreshAsync()
     {
-        clockTimer = new System.Timers.Timer(1000) { AutoReset = true };
-        clockTimer.Elapsed += (_, _) =>
-        {
-            NowLocal = DateTime.Now;
-            InvokeAsync(StateHasChanged);
-        };
-        clockTimer.Start();
+        var today = StatsQuery.For("today");
+        var presence = Api.GetPresenceAsync(today);
+        var space = Api.GetSpaceAsync(today);
+        var patterns = Api.GetPatternsAsync(today);
+        var objects = Api.GetObjectsAsync(today);
+        var environment = Api.GetEnvironmentAsync(today);
+        var pipeline = Api.GetPipelineAsync(StatsQuery.For("all"));
+        await Task.WhenAll(presence, space, patterns, objects, environment, pipeline);
 
-        pollTimer = new System.Timers.Timer(PollIntervalSeconds * 1000) { AutoReset = true };
-        pollTimer.Elapsed += async (_, _) =>
-        {
-            await LoadAsync();
-            await InvokeAsync(StateHasChanged);
-        };
-        pollTimer.Start();
+        (_today, _space, _patterns, _objects, _environment, _pipeline) =
+            (presence.Result, space.Result, patterns.Result, objects.Result, environment.Result, pipeline.Result);
+        _motion = _today?.Series.Select(p => new Point(p.AtUtc.LocalDateTime, p.Motion)).ToList() ?? [];
+        _now = DateTimeOffset.Now;
+        await InvokeAsync(StateHasChanged);
     }
+
+    private void OnPush(StatsChangedDto change) => _ = RefreshAsync();
+
+    private void OnSensing() => InvokeAsync(StateHasChanged);
+
+    private double? Anomaly(string metric) => _patterns?.Anomalies.FirstOrDefault(a => a.Metric == metric)?.Z;
 
     public async ValueTask DisposeAsync()
     {
-        if (clockTimer is not null) { clockTimer.Stop(); clockTimer.Dispose(); clockTimer = null; }
-        if (pollTimer is not null) { pollTimer.Stop(); pollTimer.Dispose(); pollTimer = null; }
-        await ValueTask.CompletedTask;
+        Feed.Changed -= OnPush;
+        Sensing.Changed -= OnSensing;
+        if (_cts is not null)
+        {
+            await _cts.CancelAsync();
+            _cts.Dispose();
+        }
     }
 }

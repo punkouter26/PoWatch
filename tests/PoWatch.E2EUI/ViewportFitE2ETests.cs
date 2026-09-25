@@ -30,14 +30,6 @@ public sealed class ViewportFitE2ETests
         yield return new object[] { 1440, 900 };
     }
 
-    public static IEnumerable<object[]> DesktopOnlyViewports()
-    {
-        // Some pages (Display) are deliberately full-screen on desktops; their layout contract
-        // only matters for the kiosk case.
-        yield return new object[] { 1440, 900 };
-        yield return new object[] { 1920, 1080 };
-    }
-
     [Fact]
     public async Task Live_Room_body_fits_within_viewport()
     {
@@ -133,30 +125,28 @@ public sealed class ViewportFitE2ETests
     }
 
     [Fact]
-    public async Task Display_fills_the_viewport()
+    public async Task The_stats_wall_fills_the_screen_without_scrolling_and_refreshes()
     {
-        foreach (var scenario in DesktopOnlyViewports())
+        foreach (var (width, height) in new[] { (1920, 1080), (1280, 720) })
         {
-            int width = (int)scenario[0];
-            int height = (int)scenario[1];
             if (PlaywrightFixture.BaseUrl is null) return;
-            // /display is anonymous — no auth required.
-            var page = await _fixture.Browser.NewPageAsync(new()
-            {
-                IgnoreHTTPSErrors = true,
-                ViewportSize = new() { Width = width, Height = height }
-            });
+            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=30&tz=UTC");
+            await page.SetViewportSizeAsync(width, height);
             await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/display");
-            await page.WaitForTimeoutAsync(1000);
 
-            // Display page deliberately extends to fill the viewport (position: fixed; inset: 0).
-            var displayBox = await page.Locator(".display-page").BoundingBoxAsync();
-            Assert.NotNull(displayBox);
-            Assert.True(
-                displayBox!.Width >= width - 1 && displayBox.Height >= height - 1,
-                $"Display page should fill the viewport on a kiosk; got {displayBox.Width}x{displayBox.Height} at {width}x{height}.");
+            // Seeded numbers appear within one refresh cycle (5 s) of the wall rendering.
+            await Assertions.Expect(page.GetByTestId("wall-occupancy")).Not.ToContainTextAsync("—", new() { Timeout = 30_000 });
+            await Assertions.Expect(page.GetByTestId("term-header")).Not.ToBeVisibleAsync();
+
+            var fits = await page.EvaluateAsync<bool>(@"() => {
+                const wall = document.querySelector('.wall').getBoundingClientRect();
+                const root = document.documentElement;
+                return root.scrollHeight <= root.clientHeight + 2 && root.scrollWidth <= root.clientWidth + 2
+                    && wall.bottom <= innerHeight + 1 && wall.right <= innerWidth + 1 && wall.width >= innerWidth - 40;
+            }");
+            Assert.True(fits, $"The stats wall scrolls or spills out of a {width}×{height} screen.");
             await page.AssertNoBlazorErrorAsync();
-
         }
     }
 

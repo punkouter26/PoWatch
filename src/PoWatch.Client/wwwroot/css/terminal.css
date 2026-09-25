@@ -665,3 +665,50 @@ html, body {
 .rz-tabview { background: transparent; }
 .rz-tabview-panels { background: transparent; padding: var(--term-gap) 0 0; }
 .rz-tabview-nav li a { font-family: var(--term-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* ── Stats wall ────────────────────────────────────────────────────────── */
+
+.term-shell--wall { grid-template-rows: minmax(0, 1fr) auto; }
+.term-shell--wall .term-body { overflow: hidden; padding: 12px; }
+
+.wall {
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 12px;
+}
+
+.wall-tile {
+    background: var(--term-panel);
+    border: 1px solid var(--term-line);
+    border-top: 2px solid var(--term-accent);
+    border-radius: var(--term-radius);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.wall-span-2 { grid-column: span 2; }
+.wall-label { font: 700 12px var(--term-mono); letter-spacing: 0.1em; color: var(--term-muted); display: flex; gap: 8px; align-items: center; }
+.wall-big { font-size: clamp(36px, 5.5vw, 120px); font-weight: 600; line-height: 1; color: var(--term-text); }
+.wall-sub { font: 13px var(--term-mono); color: var(--term-muted); }
+.wall-clock .wall-big { color: var(--term-accent); }
+.wall-caption p { margin: 0; font-size: clamp(18px, 2vw, 40px); line-height: 1.3; color: var(--term-text); }
+.wall .term-heat { flex: none; }
+.wall .rz-chart { flex: 1; }
+
+.term-wall-exit {
+    position: fixed;
+    right: 12px;
+    bottom: 36px;
+    z-index: 10;
+    font: 11px var(--term-mono);
+    color: var(--term-dim);
+    opacity: 0.4;
+}
+
+.term-wall-exit:hover, .term-wall-exit:focus-visible { opacity: 1; color: var(--term-text); }

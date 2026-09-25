@@ -6,9 +6,13 @@
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<div class="term-shell">
-    <TerminalHeader Title="@_title" />
-    <FunctionKeyBar />
+<div class="term-shell @(_wall ? "term-shell--wall" : string.Empty)">
+    @* The stats wall keeps this layout (and the camera below) but drops the chrome. *@
+    @if (!_wall)
+    {
+        <TerminalHeader Title="@_title" />
+        <FunctionKeyBar />
+    }
 
     <main class="term-body" id="main-content">
         <ErrorBoundary @key="Nav.Uri">
@@ -29,6 +33,11 @@
     <TickerTape />
 </div>
 
+@if (_wall)
+{
+    <a class="term-wall-exit" href="">Exit wall</a>
+}
+
 @* The camera feed lives here, not on the Live page, so it keeps playing (and the session keeps
    sampling) on every page; Live docks it over its camera panel. *@
 <video @ref="_feed" class="term-feed" autoplay muted playsinline aria-label="Live camera feed"></video>
@@ -40,12 +49,14 @@
 
 @code {
     private string _title = "LIVE";
+    private bool _wall;
     private ElementReference _feed;
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
         _title = TitleFor(Nav.Uri);
+        _wall = _title == "WALL";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -59,6 +70,7 @@
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         _title = TitleFor(e.Location);
+        _wall = _title == "WALL";
         InvokeAsync(StateHasChanged);
     }
 
