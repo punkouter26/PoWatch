@@ -77,10 +77,10 @@ public static class DependencyInjection
                 ? sp.GetRequiredService<AzureSubjectRevisionEventRepository>()
                 : sp.GetRequiredService<InMemorySubjectRevisionEventRepository>());
 
-        // Stat-cam stores. In-memory until the Azure implementations land (C2/C3).
-        services.AddSingleton<ISessionRepository, InMemorySessionRepository>();
-        services.AddSingleton<ISensingLog, InMemorySensingLog>();
-        services.AddSingleton<IIngestLedger, InMemoryIngestLedger>();
+        // Stat-cam stores: Azure when storage is configured, in-memory otherwise.
+        AddStore<ISessionRepository, AzureSessionRepository, InMemorySessionRepository>(services);
+        AddStore<ISensingLog, AzureSensingLog, InMemorySensingLog>(services);
+        AddStore<IIngestLedger, AzureIngestLedger, InMemoryIngestLedger>(services);
         services.AddSingleton<IRollupStore, InMemoryRollupStore>();
         services.AddSingleton<IAchievementStore, InMemoryAchievementStore>();
 
@@ -98,6 +98,19 @@ public static class DependencyInjection
         services.AddHostedService<AzureStorageInitializer>();
 
         return services;
+    }
+
+    private static void AddStore<TContract, TAzure, TInMemory>(IServiceCollection services)
+        where TContract : class
+        where TAzure : class, TContract
+        where TInMemory : class, TContract
+    {
+        services.AddSingleton<TAzure>();
+        services.AddSingleton<TInMemory>();
+        services.AddSingleton<TContract>(sp =>
+            UseAzureStorage(sp.GetRequiredService<IOptions<AzureStorageOptions>>().Value)
+                ? sp.GetRequiredService<TAzure>()
+                : sp.GetRequiredService<TInMemory>());
     }
 
     private static bool UseAzureStorage(AzureStorageOptions options) =>

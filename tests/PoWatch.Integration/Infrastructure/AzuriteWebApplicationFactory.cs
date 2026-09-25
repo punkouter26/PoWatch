@@ -15,6 +15,9 @@ public sealed class AzuriteWebApplicationFactory : WebApplicationFactory<Program
     private readonly AzuriteContainer _azurite = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:latest")
         .Build();
 
+    /// <summary>The running Azurite container's connection string, for tests that build stores directly.</summary>
+    public string StorageConnectionString => _azurite.GetConnectionString();
+
     async Task IAsyncLifetime.InitializeAsync() => await _azurite.StartAsync();
 
     async Task IAsyncLifetime.DisposeAsync()

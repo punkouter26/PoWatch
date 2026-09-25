@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
+using PoWatch.Application.Options;
 using PoWatch.Domain.Models;
 using PoWatch.Domain.Services;
 using PoWatch.Infrastructure.Persistence;
@@ -10,19 +12,31 @@ namespace PoWatch.Integration;
 /// against the in-memory store and the Azure one, so the fallback can never quietly disagree with
 /// production about keys, ordering or replays.
 /// </summary>
-public sealed class StatsStoreContractTests
+public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory) : IClassFixture<AzuriteWebApplicationFactory>
 {
     private static readonly DateTimeOffset T0 = new(2026, 9, 24, 14, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly Day = new(2026, 9, 24);
 
-    private static IEnumerable<(string Name, Func<ISessionRepository> Sessions, Func<IIngestLedger> Ledger)> SessionStores()
+    private IEnumerable<(string Name, Func<ISessionRepository> Sessions, Func<IIngestLedger> Ledger)> SessionStores()
     {
         yield return ("in-memory", () => new InMemorySessionRepository(), () => new InMemoryIngestLedger());
+        yield return ("azure", () => new AzureSessionRepository(AzureClients(), Options), () => new AzureIngestLedger(AzureClients(), Options));
     }
 
-    private static IEnumerable<(string Name, Func<ISensingLog> Log)> SensingLogs()
+    private IEnumerable<(string Name, Func<ISensingLog> Log)> SensingLogs()
     {
         yield return ("in-memory", () => new InMemorySensingLog());
+        yield return ("azure", () => new AzureSensingLog(AzureClients(), Options));
+    }
+
+    private IOptions<AzureStorageOptions> Options =>
+        Microsoft.Extensions.Options.Options.Create(new AzureStorageOptions { ConnectionString = factory.StorageConnectionString });
+
+    /// <summary>Booting the host runs the storage initializer, which creates every table.</summary>
+    private AzureStorageClients AzureClients()
+    {
+        _ = factory.Services;
+        return new AzureStorageClients(Options);
     }
 
     private static IEnumerable<(string Name, Func<IRollupStore> Rollups, Func<IAchievementStore> Achievements)> StatsStores()

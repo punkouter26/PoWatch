@@ -137,9 +137,10 @@ automatic deletion; storage size is surfaced as a stat (F).
 
 | Table | PartitionKey | RowKey | Notes |
 |---|---|---|---|
-| `Sessions` | `{userId}` | inverted start ticks | start/end, models, frames, summary |
-| `Ticks` | `{userId}\|{yyyyMMdd}` | `{utcTicks:D19}` | 10 s tick, ≤ 8,640 per day |
-| `SceneEvents` | `{userId}\|{yyyyMMdd}` | `{utcTicks:D19}-{guid}` | enter/exit, captions, lights, notable |
+| `PoWatchSessions` | `{userId}` | session id | start/end, time zone; listed newest-first in memory (one user's sessions are few) |
+| `PoWatchTicks` | `{userId}\|{yyyyMMdd}` (local day) | `{utcTicks:D19}-{sessionId}` | 10 s tick, ≤ 8,640 per day per session; grids stored as float bytes |
+| `PoWatchSceneEvents` | `{userId}\|{yyyyMMdd}` (local day) | `{utcTicks:D19}-{stableId}` | enter/exit, captions, lights, notable; stable id makes replays idempotent |
+| `PoWatchIngestLedger` | `{userId}` | batch key | claimed once, so a replayed batch never merges into rollups twice |
 | `Rollups` | `{userId}\|{grain}` (`min`, `hour`, `day`) | `{bucketStart}` | mergeable aggregates: count/sum/sum²/min/max, class counts, 16×9 grid, palette |
 | `AllTime` | `{userId}` | `{metric}` | running totals and records |
 | `Regulars` / `RegularRevisions` | `{userId}` | regularId / revision | from Subjects |
