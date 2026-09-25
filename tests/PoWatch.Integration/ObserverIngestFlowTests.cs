@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Integration;
 
@@ -55,9 +56,10 @@ public sealed class ObserverIngestFlowTests : IClassFixture<AzuriteWebApplicatio
         Assert.True(secondResponse.SkippedAsRedundant);
 
         // Both events should appear in the timeline (Fix #7: always persist)
-        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}");
+        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local):yyyy-MM-dd}");
 
         Assert.NotNull(chapter);
         // Both "Desk Work" events for Kim are now persisted
         Assert.Equal(2, chapter.Timeline.Count(x => x.SubjectDisplayName == "Kim" && x.Activity == "Desk Work"));
-    }}
+    }
+}

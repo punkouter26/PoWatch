@@ -1,5 +1,6 @@
 using PoWatch.Application.Contracts;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 using PoWatch.Shared.Models;
 
 namespace PoWatch.Application.Services;
@@ -87,13 +88,7 @@ public static class ShiftClock
     }
 
     /// <summary>The local calendar day currently in progress.</summary>
-    public static DateOnly Today() => DateOnly.FromDateTime(DateTime.Now);
+    public static DateOnly Today() => LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local);
 
-    /// <summary>
-    /// Interprets an unspecified-kind local wall-clock time as an instant. During a DST spring-forward
-    /// gap the offset either side of the gap is used, which keeps windows contiguous rather than
-    /// throwing on an hour that never existed locally.
-    /// </summary>
-    private static DateTimeOffset ToUtc(DateTime localWallClock) =>
-        new DateTimeOffset(localWallClock, TimeZoneInfo.Local.GetUtcOffset(localWallClock)).ToUniversalTime();
+    private static DateTimeOffset ToUtc(DateTime localWallClock) => LocalDay.ToUtc(localWallClock, TimeZoneInfo.Local);
 }

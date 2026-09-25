@@ -10,37 +10,42 @@ Rules for every task:
 - `V:` is the verification command.
 
 ### A — Prune caregiver features
-- [ ] **A0** Housekeeping.
+- [x] **A0** Housekeeping.
   - Install ponytail.
   - Commit the `AGENT.md`/`AUDIT.md`/`CLAUDE.md` deletions and the new docs.
   - Point README at `AGENTS.md` and `SPEC.md`.
   - Files: README.md, docs/README.md.
   - AC: README has no reference to `AGENT.md`. V: `git status` is clean.
-- [ ] **A1** Remove urgent alerts and threshold rules.
+- [x] **A1** Remove urgent alerts and threshold rules.
   - Delete `AlertThresholdEvaluator`, `AlertThresholdOptions`, `AlertThresholdRule`,
     `ThresholdAlertBanner`, `RoomAlertOverlay` and their tests.
   - Edit `ObservationService.cs`, `Application/DependencyInjection.cs`, `Program.cs`,
     `appsettings.json`, `ObserverDtos.cs`.
-  - AC: no `ThresholdAlert` or `AlertLevel` symbols remain; the Live page runs.
+  - AC: no `ThresholdAlert` symbols remain; the Live page runs. (`AlertLevel` went with the urgent
+    overlay in A2.)
   - V: `dotnet test tests/PoWatch.Unit --filter Observation`
-- [ ] **A2** Remove acknowledgment.
+- [x] **A2** Remove acknowledgment.
   - Delete `IAcknowledgementRegistry`, `InMemoryAcknowledgementRegistry`, `LiveDashboardDtos` (ack
     parts).
   - Edit `ObserverEndpoints.cs`, `IdentityService.cs`, `PoWatchApiClient.cs`, `PoWatchJsonContext.cs`,
     `ObserverHub.State.razor.cs`.
   - AC: `/api/observer/acknowledge` returns 404.
   - V: `dotnet test tests/PoWatch.Integration --filter EndpointContract`
-- [ ] **A3** Remove the clinical parser, outliers and audio cues.
+- [x] **A3** Remove the clinical parser, outliers and audio cues.
   - Delete `ClinicalTagParser`, `audio-bridge.js` and their tests.
   - Edit `ObservationService.cs`, `ObserverHub.Monitoring.razor.cs`, `ObserverHub.razor.cs`,
     `index.html`, `inference-bridge.js` (`speakBedsideCue`).
-  - AC: no `Clinical`/`powatchAudio` references in the client JS/Razor.
+  - AC: no `powatchAudio` references in the client. The `Clinical*` field names on the old ingest DTO
+    stay until G1 retires that path.
   - V: unit tests + `check-hygiene.ps1`
-- [ ] **A4** Replace `ShiftClock` with `LocalDay` (tz-aware helper in Domain).
+- [x] **A4** Replace `ShiftClock` with `LocalDay` (tz-aware helper in Domain).
   - Files: `ShiftClock.cs` → `Domain/Services/LocalDay.cs`, `ArchivesService.cs`, `IdentityService.cs`,
     `ReportService.cs`, `ShiftWindowTests.cs` → `LocalDayTests.cs`.
   - AC: a midnight-crossing test passes.
   - V: `--filter LocalDay` · **CHECKPOINT**
+  - Done as: pure `Domain/Services/LocalDay` (tz + `TimeProvider`); `ShiftClock` delegates to it and
+    keeps only the shift windows until F3 retires handoff. Tests now compute "today" as a local day,
+    and drift reads local-day windows (these failed every evening before).
 
 ### B — Domain core (pure, TDD)
 - [ ] **B1** Models `Session`, `Tick`, `SceneEvent` (+ kinds), with invariants.

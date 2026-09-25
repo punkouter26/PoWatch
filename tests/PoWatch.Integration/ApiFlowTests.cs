@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Integration;
 
@@ -36,7 +37,7 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
         Assert.NotNull(uploadAccess);
         Assert.Equal(ingestResult.ImageReference, uploadAccess.BlobPath);
 
-        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}");
+        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local):yyyy-MM-dd}");
 
         Assert.NotNull(chapter);
         Assert.NotEmpty(chapter.Timeline);
@@ -79,7 +80,7 @@ public sealed class ApiFlowTests : IClassFixture<AzuriteWebApplicationFactory>
         Assert.DoesNotContain(subjects, s => s.SubjectId == "Subject-4");
         Assert.Contains(subjects, s => s.SubjectId == "maya" && s.DisplayName == "Maya");
 
-        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}");
+        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local):yyyy-MM-dd}");
         Assert.NotNull(chapter);
         Assert.Contains(chapter.Timeline, s => s.SubjectId == "maya" && s.SubjectDisplayName == "Maya");
     }

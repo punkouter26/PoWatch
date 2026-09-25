@@ -5,6 +5,7 @@ using PoWatch.Application.Options;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Unit;
 
@@ -40,7 +41,7 @@ public sealed class HandoffCoachServiceTests
             var service = BuildService(captured);
 
             await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "InvalidAudience" },
                 CancellationToken.None);
 
@@ -53,7 +54,7 @@ public sealed class HandoffCoachServiceTests
             var service = BuildService(captured, handoffOptions: new HandoffCoachOptions { MaxPromptSignificantEvents = 20, MaxPromptOutlierEvents = 10, AllowFamilySafeSummary = false });
 
             await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "FamilySafe" },
                 CancellationToken.None);
 
@@ -72,7 +73,7 @@ public sealed class HandoffCoachServiceTests
             var service = BuildService(captured, handoffOptions: new HandoffCoachOptions { MaxPromptSignificantEvents = 20, MaxPromptOutlierEvents = 10, AllowFamilySafeSummary = true });
 
             await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "FamilySafe" },
                 CancellationToken.None);
 
@@ -87,7 +88,7 @@ public sealed class HandoffCoachServiceTests
                 var service = BuildService(captured);
 
                 await service.GenerateBriefAsync(
-                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                     new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = audience },
                     CancellationToken.None);
 
@@ -109,7 +110,7 @@ public sealed class HandoffCoachServiceTests
             var service = BuildService(captured);
 
             await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "UnknownShift", Audience = "NurseToNurse" },
                 CancellationToken.None);
 
@@ -130,7 +131,7 @@ public sealed class HandoffCoachServiceTests
             var service = BuildService(new StubSummarizer(stubContent));
 
             var dto = await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
                 CancellationToken.None);
 
@@ -163,7 +164,7 @@ public sealed class HandoffCoachServiceTests
             var service = BuildService(new StubSummarizer(stubContent));
 
             var dto = await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "Supervisor" },
                 CancellationToken.None);
 
@@ -178,7 +179,7 @@ public sealed class HandoffCoachServiceTests
                 todayDriftEvents: DriftEvents("alice", 5, 10));
 
             await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
                 CancellationToken.None);
 
@@ -201,7 +202,7 @@ public sealed class HandoffCoachServiceTests
                 todayDriftEvents: DriftEvents("bob", 5, 10));
 
             await service.GenerateBriefAsync(
-                DateOnly.FromDateTime(DateTime.UtcNow),
+                LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
                 new GenerateHandoffBriefRequestDto { ShiftWindow = "FullDay", Audience = "NurseToNurse" },
                 CancellationToken.None);
 

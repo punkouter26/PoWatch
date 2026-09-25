@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Shared.Models;
 using PoWatch.Domain.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Integration;
 
@@ -64,7 +65,7 @@ public sealed class IdentityRevisionistTests : IClassFixture<AzuriteWebApplicati
 
         Assert.Equal(HttpStatusCode.OK, mergeResponse.StatusCode);
 
-        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}");
+        var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local):yyyy-MM-dd}");
         Assert.NotNull(chapter);
         Assert.All(chapter.Timeline, item => Assert.Equal("Maya", item.SubjectDisplayName));
 

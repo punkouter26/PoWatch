@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.E2EAPI;
 
@@ -13,7 +14,7 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private static DateOnly Today => LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local);
 
     [Fact]
     public async Task An_unnamed_person_can_be_named_and_their_history_follows_the_new_name()

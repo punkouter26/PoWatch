@@ -6,6 +6,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
 using PoWatch.Infrastructure.Runtime;
 using PoWatch.Shared.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Unit;
 
@@ -117,7 +118,7 @@ public sealed class MultiProviderHandoffSummarizerTests
         DriftStatus = [],
         Report = new ShiftHandoffReportDto
         {
-            Date = DateOnly.FromDateTime(DateTime.UtcNow),
+            Date = LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local),
             ShiftWindow = ShiftWindow.FullDay,
             WindowStartUtc = DateTimeOffset.UtcNow.AddHours(-8),
             WindowEndUtc = DateTimeOffset.UtcNow,

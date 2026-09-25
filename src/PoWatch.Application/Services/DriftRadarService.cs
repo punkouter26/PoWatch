@@ -26,7 +26,7 @@ public sealed class DriftRadarService(
             return [];
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = ShiftClock.Today();
         var historyFrom = today.AddDays(-options.Value.BaselineDays);
         var historyTo = today.AddDays(-1);
 
@@ -35,13 +35,17 @@ public sealed class DriftRadarService(
 
         // Single bulk load across the history window, then group in-memory.
         // Replaces the previous N per-subject queries (N+1 pattern against Azure Table Storage).
-        var allHistoricalEvents = await observationRepository.GetByDateRangeAsync(historyFrom, historyTo, cancellationToken);
+        // Both reads go through local-day windows: the repository partitions by UTC date, so a raw
+        // partition read would shift "today" by the UTC offset.
+        var (historyStartUtc, _) = ShiftClock.WindowFor(historyFrom, ShiftWindow.FullDay);
+        var (_, historyEndUtc) = ShiftClock.WindowFor(historyTo, ShiftWindow.FullDay);
+        var allHistoricalEvents = await ShiftClock.LoadWindowAsync(observationRepository, historyStartUtc, historyEndUtc, cancellationToken);
         var historicalBySubject = allHistoricalEvents
             .GroupBy(e => e.SubjectId.Value, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<ObservationEvent>)g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         // Get today's events once (needed for all subjects)
-        var todayEvents = await observationRepository.GetByDateAsync(today, cancellationToken);
+        var todayEvents = await ShiftClock.LoadLocalDayAsync(observationRepository, today, cancellationToken);
 
         foreach (var profile in profiles)
         {

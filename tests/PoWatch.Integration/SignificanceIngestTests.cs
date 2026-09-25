@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using PoWatch.Domain.Models;
 using PoWatch.Shared.Models;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Integration;
 
@@ -60,7 +61,7 @@ public sealed class SignificanceIngestTests(AzuriteWebApplicationFactory factory
         await IngestAsync("Person is eating a meal", "<S>Person is eating a meal.<E>");
         await IngestAsync("Person seated using laptop", "<S>Person seated using laptop.<E>");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local);
         var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{today:yyyy-MM-dd}");
 
         Assert.NotNull(chapter);
@@ -73,7 +74,7 @@ public sealed class SignificanceIngestTests(AzuriteWebApplicationFactory factory
     {
         await IngestAsync("Person seated using laptop", "<S>Person seated using laptop.<E>");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local);
         var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{today:yyyy-MM-dd}");
 
         Assert.NotNull(chapter);
@@ -149,7 +150,7 @@ public sealed class SignificanceIngestTests(AzuriteWebApplicationFactory factory
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = LocalDay.Today(TimeProvider.System, TimeZoneInfo.Local);
         var chapter = await _client.GetFromJsonAsync<DailyChapter>($"/api/archives/{today:yyyy-MM-dd}");
 
         // Backdating would have filed it under a 5-year-old partition, so today's chapter would miss it.
