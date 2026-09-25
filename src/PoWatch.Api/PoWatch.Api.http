@@ -1,4 +1,4 @@
-@PoWatch.Api_HostAddress = http://localhost:7000
+@PoWatch.Api_HostAddress = http://localhost:80
 
 ### ─── Health ────────────────────────────────────────────────────────────────
 
@@ -7,99 +7,41 @@ Accept: application/json
 
 ###
 
-### ─── Observer ───────────────────────────────────────────────────────────────
+### ─── Sessions & ingest ─────────────────────────────────────────────────────
+# Dev: FakeAuth accepts any X-Fake-User.
 
-# Get live observer runtime state and feature flags
-GET {{PoWatch.Api_HostAddress}}/api/observer/state
-Accept: application/json
-
-###
-
-# Ingest a known-subject observation (significant)
-POST {{PoWatch.Api_HostAddress}}/api/observer/ingest
+POST {{PoWatch.Api_HostAddress}}/api/sessions
+X-Fake-User: dev
 Content-Type: application/json
 
-{
-  "observedAtUtc": "2026-04-15T10:00:00Z",
-  "subjectHint": "Kim",
-  "activity": "Desk Work",
-  "clinicalPayload": "<S>Known subject Kim resumed desk work after brief absence.<E>",
-  "isSignificant": true,
-  "significantReason": "Return from absence"
-}
+{ "timeZoneId": "UTC" }
 
 ###
 
-# Ingest an anonymous observation (insignificant)
-POST {{PoWatch.Api_HostAddress}}/api/observer/ingest
-Content-Type: application/json
-
-{
-  "observedAtUtc": "2026-04-15T10:05:00Z",
-  "subjectHint": null,
-  "activity": "Walking",
-  "clinicalPayload": "<S>Unidentified subject moving through frame.<E>",
-  "isSignificant": false,
-  "significantReason": null
-}
+GET {{PoWatch.Api_HostAddress}}/api/sessions
+X-Fake-User: dev
 
 ###
 
-### ─── Archives ───────────────────────────────────────────────────────────────
+### ─── Stats, recaps, trophies ───────────────────────────────────────────────
 
-# Get today's daily chapter (narrative + timeline + highlights)
-GET {{PoWatch.Api_HostAddress}}/api/archives/2026-04-15
-Accept: application/json
-
-###
-
-# Get a historical chapter
-GET {{PoWatch.Api_HostAddress}}/api/archives/2026-04-01
-Accept: application/json
+GET {{PoWatch.Api_HostAddress}}/api/stats/presence?range=today
+X-Fake-User: dev
 
 ###
 
-### ─── Blobs ──────────────────────────────────────────────────────────────────
-
-# Request a time-limited upload SAS URL for a subject on a date
-GET {{PoWatch.Api_HostAddress}}/api/blobs/sas?subjectId=kim&date=20260415
-Accept: application/json
+GET {{PoWatch.Api_HostAddress}}/api/recaps/day/2026-09-25?tz=UTC
+X-Fake-User: dev
 
 ###
 
-# Request a time-limited read SAS URL by blob path
-GET {{PoWatch.Api_HostAddress}}/api/blobs/sas?blobPath=significant-images/20260415/kim/screenshot.jpg
-Accept: application/json
+GET {{PoWatch.Api_HostAddress}}/api/achievements
+X-Fake-User: dev
 
 ###
 
-### ─── Identity ───────────────────────────────────────────────────────────────
-
-# List all known and temporary subject identities
-GET {{PoWatch.Api_HostAddress}}/api/identity/subjects
-Accept: application/json
-
-###
-
-# Rename a temporary subject
-PATCH {{PoWatch.Api_HostAddress}}/api/identity/subjects/Subject-3
-Content-Type: application/json
-
-{
-  "newName": "Kim"
-}
-
-###
-
-# Merge two subject identities into one canonical history
-POST {{PoWatch.Api_HostAddress}}/api/identity/merge
-Content-Type: application/json
-
-{
-  "primarySubjectId": "kim",
-  "secondarySubjectId": "Subject-7",
-  "newDisplayName": "Kim"
-}
+GET {{PoWatch.Api_HostAddress}}/api/regulars
+X-Fake-User: dev
 
 ###
 

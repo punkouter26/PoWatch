@@ -7,7 +7,6 @@
 @inject IJSRuntime JS
 @inject IOptions<ClientFeatureFlagsOptions> ClientFlags
 @inject NotificationService NotificationService
-@inject DialogService DialogService
 @inject PoWatch.Client.Services.ModelRegistryService ModelRegistry
 @implements IAsyncDisposable
 
@@ -112,12 +111,12 @@
                     <span class="status-dot status-idle"></span>
                     <span class="status-label status-idle">WORKER NOT REACHABLE</span>
                 </div>
-                <div class="status-sub">The on-device inference worker hasn't reported in yet. Open the Live Room and press Start watching — the model loads on first use and will appear here.</div>
+                <div class="status-sub">The on-device inference worker hasn't reported in yet. Open Live and start a session — the model loads on first use and will appear here.</div>
             </div>
         }
     </RadzenCard>
 
-    @* Per-model self-test. The Health card above reports on whatever model the Live Room happens
+    @* Per-model self-test. The Health card above reports on whatever model the Live page happens
        to have loaded; this one answers the question that comes before that — which of the registry
        models will actually load and generate on THIS device. Each row drives the real worker path
        (load → generate) against one fixed synthetic frame, so the numbers are comparable between
@@ -142,7 +141,7 @@
             }
             else
             {
-                <span class="model-test-hint">A first run downloads the model weights, so it is slow and needs a network connection. Later runs read the browser cache. Testing unloads whatever model the Live Room had open.</span>
+                <span class="model-test-hint">A first run downloads the model weights, so it is slow and needs a network connection. Later runs read the browser cache. Testing unloads whatever model the Live page had open.</span>
             }
         </div>
 
@@ -226,55 +225,15 @@
     </div>
     </details>
 
-    @* Gated on the SERVER's developer-mode signal, matching the Live Room's "Clear data" button.
-   This used to read the client-only ExposeDebugDetailsInUi flag, which the WASM app never
-   picks up (it does not load the Development appsettings) — so the same destructive action
-   had two different gates and this one effectively never appeared. The card also lived
-   outside the page's .sector-grid, so on the rare occasion it did render it fell out of the
-   page layout; it is inside the grid now. *@
-    @if (observerState?.DeveloperModeEnabled == true)
-    {
-        <RadzenCard class="panel panel--danger">
-        <header class="panel-header">
-            <h2>Danger Zone</h2>
-            <p>Irreversible operations. Guarded by the <code>AllowDataReset</code> server feature flag.</p>
-        </header>
-
-        <div class="danger-zone-actions">
-            <RadzenButton Text="Clear All Data" ButtonStyle="ButtonStyle.Danger"
-                          Click="ResetAllDataAsync" Disabled="resetBusy" />
-            @if (resetBusy)
-            {
-                <span class="reset-status">Resetting&#8230;</span>
-            }
-            @if (resetResult is not null)
-            {
-                @if (resetResult.Success)
-                {
-                    <span class="reset-status reset-status--ok">
-                        Done &#8212; @resetResult.ObservationsDeleted observations, @resetResult.SubjectsDeleted subjects, @resetResult.BlobsDeleted blobs deleted in @resetResult.Duration.TotalSeconds.ToString("0.0")s
-                    </span>
-                }
-                else
-                {
-                    <span class="reset-status reset-status--err">Failed: @resetResult.ErrorMessage</span>
-                }
-            }
-        </div>
-        </RadzenCard>
-    }
 </div>
 
 @code {
     private DiagnosticsSnapshotDto? snapshot;
-    private ObserverRuntimeStateDto? observerState;
     private InferenceDiagnosticsDto? inferenceDiag;
     private bool autoRefresh = true;
     private DateTime? lastRefreshed;
     private int _autoRefreshIntervalSeconds;
     private readonly PoWatch.Client.Services.PollLoop _poll = new();
-    private bool resetBusy;
-    private StorageResetResultDto? resetResult;
 
     // ── Per-model self-test ──────────────────────────────────────────────────────────────────
     // One row per registry model. The worker holds a single model at a time, so tests run strictly
@@ -326,9 +285,6 @@
         try
         {
             snapshot = await ApiClient.GetDiagnosticsAsync();
-            // DeveloperModeEnabled lives on the observer runtime state, and it is what gates
-            // the Danger Zone below (same signal the Live Room's "Clear data" button uses).
-            try { observerState = await ApiClient.GetObserverStateAsync(); } catch { observerState = null; }
             if (snapshot is null)
                 NotificationService.Notify(NotificationSeverity.Warning, "Diagnostics", "Unavailable in current environment.", duration: 4000);
             // Paint the snapshot immediately — the inference query below can take seconds to
@@ -391,40 +347,6 @@
         // The DEV... prefix indicates a development-environment credential — don't surface that on a kiosk.
         if (raw.StartsWith("DEV", StringComparison.OrdinalIgnoreCase)) return "Development credential";
         return "Configured";
-    }
-
-    private async Task ResetAllDataAsync()
-    {
-        var confirmed = await DialogService.Confirm(
-            "This will permanently delete ALL observations, subjects, and blobs from storage. This cannot be undone.",
-            "Confirm Clear All Data",
-            new ConfirmOptions { OkButtonText = "Clear Everything", CancelButtonText = "Cancel", CloseDialogOnOverlayClick = true });
-
-        if (confirmed != true)
-            return;
-
-        resetBusy = true;
-        resetResult = null;
-
-        try
-        {
-            resetResult = await ApiClient.ClearAllDataAsync();
-            if (resetResult?.Success == true)
-                NotificationService.Notify(NotificationSeverity.Success, "Reset Complete",
-                    $"{resetResult.ObservationsDeleted} observations, {resetResult.SubjectsDeleted} subjects, {resetResult.BlobsDeleted} blobs deleted.",
-                    duration: 8000);
-            else
-                NotificationService.Notify(NotificationSeverity.Error, "Reset Failed",
-                    resetResult?.ErrorMessage ?? "Unknown error", duration: 6000);
-        }
-        catch (Exception ex)
-        {
-            NotificationService.Notify(NotificationSeverity.Error, "Reset Failed", ex.Message, duration: 6000);
-        }
-        finally
-        {
-            resetBusy = false;
-        }
     }
 
     /// <summary>

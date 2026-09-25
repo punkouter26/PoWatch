@@ -7,7 +7,7 @@ namespace PoWatch.Client.Services;
 /// Reads <c>wwwroot/model-registry.json</c> — the single source of truth for the VLM list (rule 1.5),
 /// shared verbatim with <c>inference-worker.js</c>.
 /// <para>
-/// Two pages need the list: the Live Room's model picker and the System page's per-model self-test.
+/// Two pages need the list: the Live page's model loader and the System page's per-model self-test.
 /// They fetch it through here rather than each carrying its own loader, so the trim-safe
 /// source-generated deserialization and the fetch-once cache stay in one place. Callers keep their
 /// own failure copy: the picker falls back to a single option so it never renders blank, while the

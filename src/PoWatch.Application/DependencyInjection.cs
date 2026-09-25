@@ -8,18 +8,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPoWatchApplication(this IServiceCollection services)
     {
-        // Analytics
-        services.AddScoped<DriftRadarService>();
-
-        // Archives
-        services.AddScoped<ArchivesService>();
-
-        // Identity
-        services.AddScoped<IdentityService>();
-
-        // Observer
-        services.AddScoped<ObservationService>();
-
         // Sessions
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<SessionService>();

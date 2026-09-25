@@ -32,7 +32,7 @@ public sealed class ArchitectureBoundaryTests
     {
         foreach (string forbidden in new string[] { Domain, Application, Infrastructure, Api })
         {
-            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SubjectProfileDto).Assembly));
+            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SessionDto).Assembly));
         }
     }
 
@@ -42,7 +42,7 @@ public sealed class ArchitectureBoundaryTests
     {
         foreach (string forbidden in new string[] { Application, Infrastructure, Api })
         {
-            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SubjectProfile).Assembly));
+            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(Session).Assembly));
         }
     }
 
@@ -53,7 +53,7 @@ public sealed class ArchitectureBoundaryTests
     {
         foreach (string forbidden in new string[] { Infrastructure, Api })
         {
-            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(IdentityService).Assembly));
+            Assert.DoesNotContain(forbidden, ReferencedPoWatchAssemblies(typeof(SessionService).Assembly));
         }
     }
 

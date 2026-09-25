@@ -11,17 +11,8 @@ public sealed class FeatureFlagsOptions : SharedFeatureFlagsOptions
     // Production-safe default is false; enable only via appsettings.Development.json or an explicit override.
     public bool DeveloperBypassAuth { get; init; } = false;
 
-    /// <summary>When true, server-side telemetry sanitization removes prompt leakage and degenerate AI output.</summary>
-    public bool EnableTelemetrySanitizer { get; init; } = true;
-
     /// <summary>When true, the API loads Azure Key Vault configuration and registers the Key Vault health check.</summary>
     public bool EnableKeyVault { get; init; } = false;
-
-    // NOTE: the old BaselineEnabled flag ("nightly drift baseline service") is removed — no such
-    // background service exists; drift is computed on demand by DriftRadarService per request.
-
-    /// <summary>When true, the POST /api/diagnostics/reset endpoint is active. NEVER enable in production.</summary>
-    public bool AllowDataReset { get; init; } = false;
 
     /// <summary>
     /// When true (Dev/Test only — never honoured in Production even if set), the login page renders the

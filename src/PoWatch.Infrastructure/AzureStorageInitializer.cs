@@ -8,8 +8,7 @@ namespace PoWatch.Infrastructure;
 
 /// <summary>
 /// One-shot hosted service that ensures all required Azure Storage tables and blob containers
-/// exist before the application begins serving requests, and seeds the in-memory slug registry
-/// from persisted subjects so that rename collision detection works correctly from the first call.
+/// exist before the application begins serving requests.
 ///
 /// Executes when either <see cref="AzureStorageOptions.ConnectionString"/> or
 /// <see cref="AzureStorageOptions.ServiceUri"/> is configured; no-ops silently when using in-memory storage.
@@ -17,7 +16,6 @@ namespace PoWatch.Infrastructure;
 public sealed class AzureStorageInitializer(
     AzureStorageClients clients,
     IOptions<AzureStorageOptions> options,
-    AzureSubjectRepository subjectRepository,
     IHostEnvironment environment,
     StartupReadiness readiness,
     ILogger<AzureStorageInitializer> logger) : IHostedService
@@ -44,21 +42,8 @@ public sealed class AzureStorageInitializer(
         {
             var tableService = clients.TableService;
 
-            await tableService.GetTableClient(options.Value.ObservationsTable)
-                .CreateIfNotExistsAsync(cancellationToken);
-
-            await tableService.GetTableClient(options.Value.SubjectsTable)
-                .CreateIfNotExistsAsync(cancellationToken);
-
-            await tableService.GetTableClient(options.Value.SubjectRevisionsTable)
-                .CreateIfNotExistsAsync(cancellationToken);
-
             foreach (var table in new[] { options.Value.SessionsTable, options.Value.TicksTable, options.Value.SceneEventsTable, options.Value.IngestLedgerTable, options.Value.RollupsTable, options.Value.AchievementsTable, options.Value.RegularsTable })
                 await tableService.GetTableClient(table).CreateIfNotExistsAsync(cancellationToken);
-
-            await clients.BlobService
-                .GetBlobContainerClient(options.Value.SignificantImagesContainer)
-                .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
             await clients.BlobService
                 .GetBlobContainerClient(options.Value.SnapshotsContainer)
@@ -70,19 +55,8 @@ public sealed class AzureStorageInitializer(
                 .GetBlobContainerClient(options.Value.DataProtectionKeysContainer)
                 .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
-            // Seed the in-memory slug registry from all persisted subjects so that
-            // SubjectIdSlugger.ResolveCanonicalSubjectId can detect collisions after a restart.
-            var subjects = await subjectRepository.GetAllAsync(cancellationToken);
-            foreach (var subject in subjects)
-                SubjectIdSlugger.RegisterSlug(subject.SubjectId, subject.SubjectId);
-
-            logger.LogInformation(
-                "Azure Storage initialization complete. TablesCreated=[{Observations},{Subjects}] SlugsSeed={SlugCount}",
-                options.Value.ObservationsTable,
-                options.Value.SubjectsTable,
-                subjects.Count);
-
-            readiness.MarkStorageReady($"Azure Storage reachable; {subjects.Count} subject slug(s) seeded.");
+            logger.LogInformation("Azure Storage initialization complete.");
+            readiness.MarkStorageReady("Azure Storage reachable; tables and containers ready.");
         }
         catch (Exception ex)
         {

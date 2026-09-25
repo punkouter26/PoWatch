@@ -1,6 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Options;
@@ -11,70 +9,37 @@ namespace PoWatch.Unit;
 
 public sealed class InfrastructureDependencyInjectionTests
 {
-    [Fact]
-    public void AddPoWatchInfrastructure_UsesAzureRepositories_ForDevelopmentStorage_And_AddPoWatchInfrastructure_UsesAzureRepositories_ForServiceUriConfiguration()
+    private static ServiceProvider Build(AzureStorageOptions options)
     {
-        // AddPoWatchInfrastructure_UsesAzureRepositories_ForDevelopmentStorage
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(options));
+        services.AddPoWatchInfrastructure();
+        return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public void Configured_storage_resolves_the_azure_stores_by_connection_string_or_service_uri()
+    {
+        foreach (var options in new[]
         {
-            var services = new ServiceCollection();
-            services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
-            services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
-            services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
-            services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
-            {
-                ConnectionString = "UseDevelopmentStorage=true"
-            }));
-
-            services.AddPoWatchInfrastructure();
-
-            using var serviceProvider = services.BuildServiceProvider();
-
-            var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
-            var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
-
-            Assert.IsType<AzureObservationRepository>(observationRepository);
-            Assert.IsType<AzureSubjectRepository>(subjectRepository);
-
-        }
-        // AddPoWatchInfrastructure_UsesAzureRepositories_ForServiceUriConfiguration
+            new AzureStorageOptions { ConnectionString = "UseDevelopmentStorage=true" },
+            new AzureStorageOptions { ServiceUri = "https://powatchsa.table.core.windows.net/" }
+        })
         {
-            var services = new ServiceCollection();
-            services.AddSingleton<ILogger<AzureObservationRepository>>(NullLogger<AzureObservationRepository>.Instance);
-            services.AddSingleton<ILogger<AzureSubjectRepository>>(NullLogger<AzureSubjectRepository>.Instance);
-            services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
-            services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions
-            {
-                ServiceUri = "https://powatchsa.table.core.windows.net/"
-            }));
+            using var provider = Build(options);
 
-            services.AddPoWatchInfrastructure();
-
-            using var serviceProvider = services.BuildServiceProvider();
-
-            var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
-            var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
-
-            Assert.IsType<AzureObservationRepository>(observationRepository);
-            Assert.IsType<AzureSubjectRepository>(subjectRepository);
-
+            Assert.IsType<AzureSessionRepository>(provider.GetRequiredService<ISessionRepository>());
+            Assert.IsType<AzureRollupStore>(provider.GetRequiredService<IRollupStore>());
         }
     }
 
     [Fact]
-    public void AddPoWatchInfrastructure_UsesInMemoryRepositories_WhenStorageIsNotConfigured()
+    public void Unconfigured_storage_falls_back_to_the_in_memory_stores()
     {
-        var services = new ServiceCollection();
-        services.AddSingleton<ILogger<InMemoryObservationRepository>>(NullLogger<InMemoryObservationRepository>.Instance);
-        services.AddSingleton<IOptions<AzureStorageOptions>>(Options.Create(new AzureStorageOptions()));
+        using var provider = Build(new AzureStorageOptions());
 
-        services.AddPoWatchInfrastructure();
-
-        using var serviceProvider = services.BuildServiceProvider();
-
-        var observationRepository = serviceProvider.GetRequiredService<IObservationRepository>();
-        var subjectRepository = serviceProvider.GetRequiredService<ISubjectRepository>();
-
-        Assert.IsType<InMemoryObservationRepository>(observationRepository);
-        Assert.IsType<InMemorySubjectRepository>(subjectRepository);
+        Assert.IsType<InMemorySessionRepository>(provider.GetRequiredService<ISessionRepository>());
+        Assert.IsType<InMemoryRollupStore>(provider.GetRequiredService<IRollupStore>());
     }
 }

@@ -194,8 +194,13 @@ Rules for every task:
     Life and Disco read a trailing 2 h minute window, so each check stays cheap.
 
 ### G — Cleanup and verification prep
-- [ ] **G1** Retire the old `/api/observer/ingest`, `ObservationService`, archives/handoff endpoints and
+- [x] **G1** Retire the old `/api/observer/ingest`, `ObservationService`, archives/handoff endpoints and
   the old table names. The initializer only creates the new tables.
+  - Done as: Observer, Archives and Identity slices gone, along with their services (incl. Drift and
+    ShiftClock), subject/observation repositories, idempotency middleware, sanitizer, old DTOs and
+    Domain models, dead flags/config, the System page's data-reset "danger zone", the `/archives`
+    and `/identity` aliases, and 3 unused JS files. Unknown `/api/*` routes now 404 instead of
+    serving the SPA page. Tests after the prune: Unit 34, Integration 15, API 13, UI 23.
 - [ ] **G2** `check-hygiene.ps1`: banned-words check (caregiver, clinical, handoff, shift, nurse,
   patient, acknowledge).
 - [ ] **G3** `tests/PoWatch.Benchmarks` (BenchmarkDotNet, excluded from the cap script) for rollup

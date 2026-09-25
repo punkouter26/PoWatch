@@ -5,7 +5,7 @@ namespace PoWatch.E2EUI;
 /// <summary>
 /// Locks in the viewport-fit rules that the design system says every screen must obey:
 /// <list type="bullet">
-///   <item><description>Pages with internal scrolling (Live Room, Archives) don't extend the body past the viewport.</description></item>
+///   <item><description>Pages with internal scrolling (Live, History) don't extend the body past the viewport.</description></item>
 ///   <item><description>On narrow viewports the key bar scrolls instead of widening the page.</description></item>
 ///   <item><description>A camera session keeps sampling when you leave the Live page.</description></item>
 /// </list>
@@ -58,7 +58,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/archives", "HISTORY");
+            await page.GoToAsync("/history", "HISTORY");
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);
@@ -198,7 +198,7 @@ public sealed class ViewportFitE2ETests
     private static async Task AssertBodyFitsViewportAsync(IPage page)
     {
         var size = await page.EvaluateAsync<int[]>("() => [document.documentElement.clientWidth, document.documentElement.clientHeight, document.documentElement.scrollHeight]");
-        // Some pages legitimately scroll a panel internally (Live Room timeline, Archives evidence
+        // Some pages legitimately scroll a panel internally (Live panels, History day
         // grid). What we forbid is the *body* scrolling — that means a panel grew taller than
         // its container and pushed the chrome out of view. Allow a 2 px tolerance for sub-pixel
         // rounding between browsers.

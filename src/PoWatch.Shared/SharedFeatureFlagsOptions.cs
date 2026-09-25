@@ -7,17 +7,7 @@ namespace PoWatch.Shared;
 /// </summary>
 public abstract class SharedFeatureFlagsOptions
 {
-    public bool ObservationLoopEnabled { get; init; } = true;
-    public bool SaveSignificantImages { get; init; } = true;
     public bool UseMockAi { get; init; } = false;
-    /// <summary>The one poll-interval setting — read by BOTH the server and the Blazor client.</summary>
-    public int PollingIntervalSeconds { get; init; } = 10;
-    public bool DriftRadarEnabled { get; init; } = true;
-    /// <summary>
-    /// Minimum number of observations before the TEMP badge is shown on Live Dashboard cards.
-    /// Set to 0 (default) to always show TEMP for unknown subjects.
-    /// </summary>
-    public int TempBadgeMinObservations { get; init; } = 0;
-    /// <summary>When true, debug-only sections (e.g. Danger Zone on Diagnostics) are visible in the UI.</summary>
+    /// <summary>When true, error responses carry exception detail. Never in production.</summary>
     public bool ExposeDebugDetailsInUi { get; init; } = false;
 }

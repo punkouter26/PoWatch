@@ -4,7 +4,7 @@ namespace PoWatch.Client;
 
 /// <summary>
 /// Client-side feature flags read from wwwroot/appsettings.json.
-/// Shared flags (PollingIntervalSeconds, UseMockAi, etc.) are inherited from
+/// Shared flags (UseMockAi, ExposeDebugDetailsInUi) are inherited from
 /// <see cref="SharedFeatureFlagsOptions"/> in PoWatch.Shared.
 /// </summary>
 public sealed class ClientFeatureFlagsOptions : SharedFeatureFlagsOptions
@@ -12,7 +12,4 @@ public sealed class ClientFeatureFlagsOptions : SharedFeatureFlagsOptions
     // Client-only flags below. Shared flags live in SharedFeatureFlagsOptions.
 
     public int DiagnosticsAutoRefreshIntervalSeconds { get; init; } = 10;
-
-    /// <summary>Max tokens generated per live inference cycle (lower is faster, higher is more detailed).</summary>
-    public int MaxInferenceTokens { get; init; } = 32;
 }

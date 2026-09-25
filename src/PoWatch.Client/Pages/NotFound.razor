@@ -15,27 +15,37 @@
 		{
 			<p class="not-found-path">Requested: <code>@RequestedPath</code></p>
 		}
-		<RadzenButton Text="Return to the Live Room" ButtonStyle="ButtonStyle.Primary" Click="OnReturnClick" />
+		<RadzenButton Text="Back to Live" ButtonStyle="ButtonStyle.Primary" Click="OnReturnClick" />
 	</RadzenCard>
 
 	<RadzenCard class="panel panel-glance">
 		<h2>Where you can go</h2>
 		<p class="panel-subtitle">Every page in PoWatch.</p>
 		<div class="not-found-route-grid">
-			<a class="not-found-route-tile" href="" aria-label="Live Room — start watching the room">
-				<span class="not-found-route-icon" aria-hidden="true">📹</span>
-				<span class="not-found-route-name">Live Room</span>
-				<span class="not-found-route-desc">Start watching the room.</span>
+			<a class="not-found-route-tile" href="" aria-label="Live — start a session">
+				<span class="not-found-route-icon" aria-hidden="true">●</span>
+				<span class="not-found-route-name">Live</span>
+				<span class="not-found-route-desc">Start a session and watch the counters move.</span>
 			</a>
-			<a class="not-found-route-tile" href="archives" aria-label="History — each day's story">
-				<span class="not-found-route-icon" aria-hidden="true">📅</span>
+			<a class="not-found-route-tile" href="stats" aria-label="Stats — every number, every range">
+				<span class="not-found-route-icon" aria-hidden="true">▦</span>
+				<span class="not-found-route-name">Stats</span>
+				<span class="not-found-route-desc">Presence, space, objects, patterns, environment, pipeline.</span>
+			</a>
+			<a class="not-found-route-tile" href="history" aria-label="History — flip back through your days">
+				<span class="not-found-route-icon" aria-hidden="true">◷</span>
 				<span class="not-found-route-name">History</span>
-				<span class="not-found-route-desc">Each day's story and the moments that mattered.</span>
+				<span class="not-found-route-desc">Each day, its sessions and its moments.</span>
 			</a>
-			<a class="not-found-route-tile" href="identity" aria-label="People — everyone seen">
-				<span class="not-found-route-icon" aria-hidden="true">👤</span>
-				<span class="not-found-route-name">People</span>
-				<span class="not-found-route-desc">Everyone seen — name, rename, and merge.</span>
+			<a class="not-found-route-tile" href="regulars" aria-label="Regulars — who keeps turning up">
+				<span class="not-found-route-icon" aria-hidden="true">◉</span>
+				<span class="not-found-route-name">Regulars</span>
+				<span class="not-found-route-desc">Name, rename and merge the regulars.</span>
+			</a>
+			<a class="not-found-route-tile" href="trophies" aria-label="Trophies — achievements and records">
+				<span class="not-found-route-icon" aria-hidden="true">▲</span>
+				<span class="not-found-route-name">Trophies</span>
+				<span class="not-found-route-desc">Achievements and personal bests.</span>
 			</a>
 			<a class="not-found-route-tile" href="diagnostics" aria-label="System — runtime, storage and inference health">
 				<span class="not-found-route-icon" aria-hidden="true">⚙</span>

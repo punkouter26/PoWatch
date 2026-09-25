@@ -9,10 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using PoWatch.Api.Features.Archives;
 using PoWatch.Api.Features.Diagnostics;
-using PoWatch.Api.Features.Identity;
-using PoWatch.Api.Features.Observer;
 using PoWatch.Api.Features.Sessions;
 using PoWatch.Api.Features.Ingest;
 using PoWatch.Api.Features.Snapshots;
@@ -81,7 +78,6 @@ var featureFlags = builder.Configuration
     .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
 
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
-builder.Services.Configure<PoWatch.Application.Options.DriftRadarOptions>(builder.Configuration.GetSection("DriftRadar"));
 builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
 
 // Audit #2: fail-fast options — the startup-critical settings are validated and ValidateOnStart()
@@ -89,10 +85,6 @@ builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builde
 // aborts boot with an actionable message instead of throwing lazily on first use.
 builder.Services.AddOptions<AzureStorageOptions>()
     .Bind(builder.Configuration.GetSection("AzureStorage"))
-    .ValidateDataAnnotations()
-    .ValidateOnStart();
-builder.Services.AddOptions<ObserverOptions>()
-    .Bind(builder.Configuration.GetSection("ObserverOptions"))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 builder.Services.AddOptions<PoWatch.Application.Options.AzureOpenAiOptions>()
@@ -107,7 +99,7 @@ builder.AddPoWatchDataProtection();
 builder.Services.AddOpenApi(options =>
     options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 
-// HybridCache for hot, frequently-polled read paths (live dashboard / drift status).
+// HybridCache for stats queries, tagged per user and evicted when a batch lands.
 builder.Services.AddHybridCache(o =>
 {
     o.DefaultEntryOptions = new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions
@@ -244,10 +236,6 @@ if (!app.Environment.IsDevelopment())
 app.UseRateLimiter();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
-// Idempotency middleware sits after auth so unauthenticated retries don't poison the cache,
-// and before the rest of the pipeline so it can buffer the response body for replay.
-app.UseMiddleware<IdempotencyMiddleware>();
-
 // Auth middleware — always active (BFF cookie session + OIDC/guest schemes)
 app.UseAuthentication();
 app.UseAuthorization();
@@ -346,9 +334,6 @@ app.MapStaticAssets().AllowAnonymous();
 
 // --- API routes ---
 app.MapAuthEndpoints();
-app.MapObserverFeature();
-app.MapArchivesFeature();
-app.MapIdentityFeature();
 app.MapDiagnosticsFeature();
 app.MapSessionsFeature();
 app.MapIngestFeature();
@@ -367,6 +352,9 @@ app.MapPoLiveness();
 // must load for unauthenticated users so the client can render /login (the fallback authz policy would
 // otherwise 401 the host page itself and make the app unreachable).
 app.MapFallbackToFile("index.html").AllowAnonymous();
+
+// An unknown API route is a 404, not the SPA host page with a 200 (the more specific pattern wins).
+app.MapFallback("/api/{**rest}", () => Results.NotFound()).AllowAnonymous();
 
 await app.RunAsync();
 

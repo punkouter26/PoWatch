@@ -77,7 +77,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Page not found" }))
             .ToBeVisibleAsync(new() { Timeout = 30000 });
-        await Assertions.Expect(page.GetByRole(AriaRole.Link, new() { Name = "Live Room — start watching the room" }))
+        await Assertions.Expect(page.GetByRole(AriaRole.Link, new() { Name = "Live — start a session" }))
             .ToBeVisibleAsync();
     }
 

@@ -81,7 +81,6 @@ internal sealed class LocalUiApplicationFactory(string connectionString) : WebAp
             ["AzureStorage:ServiceUri"] = "",
             ["FeatureFlags:DeveloperBypassAuth"] = "true",
             ["FeatureFlags:EnableKeyVault"] = "false",
-            ["FeatureFlags:AllowDataReset"] = "false",
             ["AiProvider:Provider"] = "Template",
             ["ApplicationInsights:ConnectionString"] = ""
         }));
