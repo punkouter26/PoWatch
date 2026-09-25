@@ -69,7 +69,22 @@ public sealed record Rollup
     /// <summary>Summed motion per <see cref="SpatialGrid"/> cell; empty until a tick with a grid arrives.</summary>
     public ReadOnlyMemory<float> Grid { get; init; } = ReadOnlyMemory<float>.Empty;
 
+    /// <summary>Summed presence sightings per <see cref="SpatialGrid"/> cell — where people and animals hang out.</summary>
+    public ReadOnlyMemory<float> PresenceGrid { get; init; } = ReadOnlyMemory<float>.Empty;
+
     public IReadOnlyDictionary<string, ClassTotals> Classes { get; init; } = new Dictionary<string, ClassTotals>();
+
+    /// <summary>People and animals that entered the frame.</summary>
+    public long Visits { get; init; }
+
+    /// <summary>Dwell times keyed by <see cref="DwellBin"/> — a quarter-octave log scale, so percentiles merge.</summary>
+    public IReadOnlyDictionary<int, long> DwellHistogram { get; init; } = new Dictionary<int, long>();
+
+    public double DwellMaxSeconds { get; init; }
+
+    public IReadOnlyDictionary<FrameEdge, long> Entries { get; init; } = new Dictionary<FrameEdge, long>();
+
+    public IReadOnlyDictionary<FrameEdge, long> Exits { get; init; } = new Dictionary<FrameEdge, long>();
 
     /// <summary>Colour histogram keyed by 12-bit 0xRGB bins.</summary>
     public IReadOnlyDictionary<int, long> Palette { get; init; } = new Dictionary<int, long>();
@@ -97,6 +112,7 @@ public sealed record Rollup
             MotionPeak = RunningStat.Of(tick.MotionMax),
             Luminance = RunningStat.Of(tick.LuminanceMean),
             Grid = tick.MotionGrid.Count == SpatialGrid.Cells ? tick.MotionGrid.ToArray() : ReadOnlyMemory<float>.Empty,
+            PresenceGrid = tick.PresenceGrid.Count == SpatialGrid.Cells ? tick.PresenceGrid.ToArray() : ReadOnlyMemory<float>.Empty,
             Classes = tick.Classes
                 .Where(kv => kv.Value.Max > 0)
                 .ToDictionary(kv => kv.Key, kv => new ClassTotals(1, kv.Value.Max, kv.Value.Mean), StringComparer.Ordinal),
@@ -105,6 +121,44 @@ public sealed record Rollup
                 .ToDictionary(g => g.Key, g => (long)g.Count())
         };
     }
+
+    /// <summary>
+    /// Folds a scene event into a rollup: people and animals entering count as visits, exits carry
+    /// their dwell time, and both record which edge of the frame they used. Other events carry no
+    /// counters and fold in as <see cref="Empty"/> apart from their timestamp.
+    /// </summary>
+    public static Rollup FromEvent(SceneEvent sceneEvent)
+    {
+        ArgumentNullException.ThrowIfNull(sceneEvent);
+        var rollup = new Rollup { BucketStartUtc = sceneEvent.AtUtc };
+
+        if (sceneEvent.Class is null || !EntityClasses.IsPresence(sceneEvent.Class))
+            return rollup;
+
+        return sceneEvent.Kind switch
+        {
+            SceneEventKind.TrackEnter => rollup with
+            {
+                Visits = 1,
+                Entries = new Dictionary<FrameEdge, long> { [sceneEvent.Edge] = 1 }
+            },
+            SceneEventKind.TrackExit => rollup with
+            {
+                Exits = new Dictionary<FrameEdge, long> { [sceneEvent.Edge] = 1 },
+                DwellHistogram = sceneEvent.DwellSeconds is { } dwell
+                    ? new Dictionary<int, long> { [DwellBin(dwell)] = 1 }
+                    : new Dictionary<int, long>(),
+                DwellMaxSeconds = sceneEvent.DwellSeconds ?? 0
+            },
+            _ => rollup
+        };
+    }
+
+    /// <summary>Quarter-octave bin for a dwell time: four bins per doubling, about 19% wide.</summary>
+    public static int DwellBin(double seconds) => (int)Math.Floor(4 * Math.Log2(Math.Max(1, seconds)));
+
+    /// <summary>The geometric centre of a <see cref="DwellBin"/>, in seconds.</summary>
+    public static double DwellBinCentre(int bin) => Math.Pow(2, (bin + 0.5) / 4);
 
     public static Rollup Merge(Rollup a, Rollup b)
     {
@@ -124,8 +178,14 @@ public sealed record Rollup
             MotionPeak = a.MotionPeak.Merge(b.MotionPeak),
             Luminance = a.Luminance.Merge(b.Luminance),
             Grid = MergeGrids(a.Grid, b.Grid),
+            PresenceGrid = MergeGrids(a.PresenceGrid, b.PresenceGrid),
             Classes = MergeMaps(a.Classes, b.Classes, (x, y) => x.Merge(y)),
-            Palette = MergeMaps(a.Palette, b.Palette, (x, y) => x + y)
+            Palette = MergeMaps(a.Palette, b.Palette, (x, y) => x + y),
+            Visits = a.Visits + b.Visits,
+            DwellHistogram = MergeMaps(a.DwellHistogram, b.DwellHistogram, (x, y) => x + y),
+            DwellMaxSeconds = Math.Max(a.DwellMaxSeconds, b.DwellMaxSeconds),
+            Entries = MergeMaps(a.Entries, b.Entries, (x, y) => x + y),
+            Exits = MergeMaps(a.Exits, b.Exits, (x, y) => x + y)
         };
     }
 

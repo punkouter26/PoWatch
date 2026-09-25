@@ -48,18 +48,21 @@ Rules for every task:
     and drift reads local-day windows (these failed every evening before).
 
 ### B — Domain core (pure, TDD)
-- [ ] **B1** Models `Session`, `Tick`, `SceneEvent` (+ kinds), with invariants.
+- [x] **B1** Models `Session`, `Tick`, `SceneEvent` (+ kinds), with invariants.
   - Files: `Domain/Models/{Session,Tick,SceneEvent}.cs`, unit test.
   - AC: invalid ticks (negative counts, future > 5 min) are rejected.
-- [ ] **B2** `Rollup` with Merge and grains, using Tensors.
+- [x] **B2** `Rollup` with Merge and grains, using Tensors.
   - Files: `Domain/Models/Rollup.cs`, `Domain/Services/RollupMath.cs`, `RollupTests.cs` (CsCheck
     associativity + identity), props.
   - AC: property test passes over 10k samples.
-- [ ] **B3** Stats family A calculators: occupancy, dwell p50/p90/max, visits/h, peak concurrency,
+- [x] **B3** Stats family A calculators: occupancy, dwell p50/p90/max, visits/h, peak concurrency,
   empty streak, busiest minute, stillness streak, entry/exit edges.
   - Files: `Domain/Services/PresenceStats.cs`, `SpaceStats.cs`, 2 test files.
   - AC: hand-computed fixtures match.
   - **CHECKPOINT**
+  - Done as: dwell, visits, edges and a presence grid live in `Rollup` too (dwell as a quarter-octave
+    histogram, so percentiles merge across any range). Sanitizer tests merged 9 → 2 to stay under the
+    unit cap.
 - [ ] **B4** Family C calculators: hour×weekday, rhythm-score correlation, z-scores (|z| ≥ 2),
   7/30-day trend slope, busy-hour forecast. Replaces `DriftMath`.
   - Files: `PatternStats.cs`, `AnomalyMath.cs`, delete `DriftMath.cs`, tests.

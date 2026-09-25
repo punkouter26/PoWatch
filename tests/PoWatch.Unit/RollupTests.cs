@@ -28,6 +28,7 @@ public sealed class RollupTests
             LuminanceMean = luminance,
             Palette = [color],
             MotionGrid = grid,
+            PresenceGrid = grid,
             Classes = new Dictionary<string, ClassCount>
             {
                 ["person"] = new(people, people),
@@ -35,8 +36,26 @@ public sealed class RollupTests
             }
         };
 
+    private static readonly Gen<SceneEvent> GenEvent =
+        from kind in Gen.OneOfConst(SceneEventKind.TrackEnter, SceneEventKind.TrackExit, SceneEventKind.Caption)
+        from edge in Gen.Enum<FrameEdge>()
+        from dwell in Gen.Double[0, 5_000]
+        from offset in Gen.Int[0, 100_000]
+        select new SceneEvent
+        {
+            SessionId = Guid.NewGuid(),
+            AtUtc = T0.AddSeconds(offset * 10),
+            Kind = kind,
+            TrackId = "T1",
+            Class = "person",
+            Edge = edge,
+            Text = "caption",
+            DwellSeconds = dwell
+        };
+
     private static readonly Gen<Rollup> GenRollup =
-        GenTick.Array[1, 4].Select(ticks => ticks.Select(Rollup.FromTick).Aggregate(Rollup.Merge));
+        Gen.Select(GenTick.Array[1, 4], GenEvent.Array[0, 3]).Select(t =>
+            t.Item1.Select(Rollup.FromTick).Concat(t.Item2.Select(Rollup.FromEvent)).Aggregate(Rollup.Merge));
 
     [Fact]
     public void Merging_is_associative_and_commutative_with_empty_as_identity()
@@ -120,7 +139,16 @@ public sealed class RollupTests
             && x.Classes.Count == y.Classes.Count
             && x.Classes.All(kv => y.Classes.TryGetValue(kv.Key, out var o)
                 && o.TicksPresent == kv.Value.TicksPresent && o.PeakCount == kv.Value.PeakCount && Close(o.MeanSum, kv.Value.MeanSum))
-            && x.Palette.Count == y.Palette.Count
-            && x.Palette.All(kv => y.Palette.TryGetValue(kv.Key, out var o) && o == kv.Value);
+            && SameCounts(x.Palette, y.Palette)
+            && x.Visits == y.Visits && Close(x.DwellMaxSeconds, y.DwellMaxSeconds)
+            && SameCounts(x.DwellHistogram, y.DwellHistogram)
+            && SameCounts(x.Entries, y.Entries) && SameCounts(x.Exits, y.Exits)
+            && x.PresenceGrid.Length == y.PresenceGrid.Length;
+    }
+
+    private static bool SameCounts<TKey>(IReadOnlyDictionary<TKey, long> x, IReadOnlyDictionary<TKey, long> y)
+        where TKey : notnull
+    {
+        return x.Count == y.Count && x.All(kv => y.TryGetValue(kv.Key, out var o) && o == kv.Value);
     }
 }

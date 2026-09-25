@@ -41,6 +41,9 @@ public sealed record Tick
     /// <summary>Motion per cell of the <see cref="SpatialGrid"/>, in [0, 1]; empty when not sampled.</summary>
     public IReadOnlyList<float> MotionGrid { get; init; } = [];
 
+    /// <summary>How often a person or animal was centred in each <see cref="SpatialGrid"/> cell; empty when not sampled.</summary>
+    public IReadOnlyList<float> PresenceGrid { get; init; } = [];
+
     public IReadOnlyDictionary<string, ClassCount> Classes { get; init; } = new Dictionary<string, ClassCount>();
 
     public IReadOnlyList<string> ActiveTrackIds { get; init; } = [];
@@ -69,6 +72,8 @@ public sealed record Tick
             errors.Add($"{nameof(Palette)} holds at most five 0xRRGGBB colours.");
         if (MotionGrid.Count is not (0 or SpatialGrid.Cells) || MotionGrid.Any(v => v is < 0 or > 1 || float.IsNaN(v)))
             errors.Add($"{nameof(MotionGrid)} must be empty or {SpatialGrid.Cells} values in [0, 1].");
+        if (PresenceGrid.Count is not (0 or SpatialGrid.Cells) || PresenceGrid.Any(v => v < 0 || float.IsNaN(v)))
+            errors.Add($"{nameof(PresenceGrid)} must be empty or {SpatialGrid.Cells} non-negative values.");
 
         foreach (var (name, count) in Classes)
         {
