@@ -45,11 +45,20 @@ public sealed class TickBatcher(TimeProvider time, int maxPending = TickBatcher.
 
         _events.AddRange(frame.Entered.Select(e => new SceneEventDto
         {
-            AtUtc = e.AtUtc, Kind = "TrackEnter", TrackId = e.TrackId, Class = e.Label, Edge = e.Edge
+            AtUtc = e.AtUtc,
+            Kind = "TrackEnter",
+            TrackId = e.TrackId,
+            Class = e.Label,
+            Edge = e.Edge
         }));
         _events.AddRange(frame.Exited.Select(e => new SceneEventDto
         {
-            AtUtc = e.AtUtc, Kind = "TrackExit", TrackId = e.TrackId, Class = e.Label, Edge = e.Edge, DwellSeconds = e.DwellSeconds
+            AtUtc = e.AtUtc,
+            Kind = "TrackExit",
+            TrackId = e.TrackId,
+            Class = e.Label,
+            Edge = e.Edge,
+            DwellSeconds = e.DwellSeconds
         }));
     }
 
