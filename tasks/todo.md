@@ -123,10 +123,13 @@ Rules for every task:
     when boxes land outside the frame. WASM latency is about 1.5 s per frame on this CPU; the bridge
     skips frames while busy. The ≥ 0.8 Hz WebGPU target needs a real GPU (Phase 5).
   - Unit room: shift-window 4 → 2 and old significance 6 → 2 tests merged, all assertions kept.
-- [ ] **D3** `Shared/Services/Sensing/TickBatcher.cs` (10 s fold, 1 h replay queue, batch keys) +
+- [x] **D3** `Shared/Services/Sensing/TickBatcher.cs` (10 s fold, 1 h replay queue, batch keys) +
   FakeTimeProvider tests + an ApiClient method.
-- [ ] **D4** L2 VLM: a structured JSON prompt, `Shared/Services/Sensing/CaptionParser.cs` (tolerant
+- [x] **D4** L2 VLM: a structured JSON prompt, `Shared/Services/Sensing/CaptionParser.cs` (tolerant
   JSON), and **wire in `AdaptiveCadence`** (replacing the fixed delay).
+  - Done as: the prompt asks for one plain sentence (small VLMs are unreliable at strict JSON);
+    `CaptionParser` takes JSON when offered, otherwise keyword taxonomy. `VlmScheduler` maps
+    smoothed pixel motion through `AdaptiveCadence`; the live sensing loop (E2) uses it.
 - [ ] **D5** `SyntheticSampleSource` (seeded, trim-safe) behind `MockInferenceService` / Demo mode.
   - AC: a fresh clone with no camera shows nonzero counters within 15 s. **CHECKPOINT**
 

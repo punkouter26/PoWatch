@@ -69,7 +69,7 @@ Frames never leave the browser except as chosen **highlight snapshots** (§6).
 |---|---|---|
 | **L0 Pixel** | every animation frame, capped at 5 Hz | motion fraction (frame diff), mean luminance, 5-color palette, 16×9 motion grid |
 | **L1 Detector** | ~1 Hz (adaptive 0.2–2 Hz) | `[{class, confidence, bbox}]`, which a centroid/IoU tracker turns into `trackId`, enter/exit edge, dwell |
-| **L2 VLM** | adaptive 10–120 s (existing `AdaptiveCadence`) | caption + structured JSON `{activities[], scene, weather?, mood?, notable?}` |
+| **L2 VLM** | adaptive 5–30 s (`VlmScheduler` → `AdaptiveCadence`, driven by smoothed pixel motion) | one plain caption sentence → `CaptionParser`: activities and weather from a keyword taxonomy (JSON is accepted when a larger model volunteers it; small models are unreliable at strict JSON) |
 
 The client folds the samples into **10-second ticks**. A tick holds: motion mean/max, luminance mean,
 palette, the motion-grid delta, per-class counts (max and mean), active track IDs, and FPS/latency per
