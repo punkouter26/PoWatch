@@ -143,40 +143,6 @@ public partial class ObserverHub
         RefreshStandbyStatus();
     }
 
-    private async Task InjectOutlierAsync()
-    {
-        thinking = true;
-
-        var result = await ApiClient.IngestObservationAsync(new IngestObservationRequestDto
-        {
-            SubjectHint = null,
-            Activity = "Unknown movement",
-            ClinicalPayload = "malformed payload",
-            IsSignificant = true,
-            SignificantReason = "Clinical outlier"
-        });
-
-        thinking = false;
-
-        if (result is not null && !result.Dropped)
-        {
-            await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Clinical outlier");
-
-            ShowUrgentAlert(result, "Unknown movement", null);
-            await PlayCueAsync("alert");
-        }
-
-        if (result is not null && !muted)
-        {
-            await AnnounceAsync(result.SubjectDisplayName, true);
-        }
-
-        await RefreshTimelineAsync();
-        RebuildHeatmap();
-        _standby.RecordMotion();
-        RefreshStandbyStatus();
-    }
-
     // Lightweight, oscillator-synthesized interaction cue (audit #8). Best-effort: audio must never
     // break the monitoring flow, and it only works after a user gesture has unlocked the AudioContext.
     private async Task PlayCueAsync(string kind)

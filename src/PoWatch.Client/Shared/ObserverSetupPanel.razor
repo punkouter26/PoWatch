@@ -48,7 +48,6 @@
             {
                 <div class="dev-tools-actions">
                     <RadzenButton ButtonStyle="ButtonStyle.Success" Text="Inject Significant Event" Click="OnInjectEvent" />
-                    <RadzenButton ButtonStyle="ButtonStyle.Secondary" Text="Inject Clinical Outlier" Click="OnInjectOutlier" />
                     @* Moved off the Live Room panel: deleting everything is not a daily-use action. *@
                 </div>
             }
@@ -71,7 +70,6 @@
     [Parameter] public EventCallback<ChangeEventArgs> OnGpuPreferenceChanged { get; set; }
     [Parameter] public EventCallback<ChangeEventArgs> OnPollingChanged { get; set; }
     [Parameter] public EventCallback OnInjectEvent { get; set; }
-    [Parameter] public EventCallback OnInjectOutlier { get; set; }
 
     private bool _devExpanded;
     private bool _advExpanded = true;   // the drawer is already the disclosure — do not nest a collapsed one inside it

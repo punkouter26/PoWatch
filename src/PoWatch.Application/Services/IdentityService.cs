@@ -9,7 +9,6 @@ namespace PoWatch.Application.Services;
 public sealed class IdentityService(
     ISubjectRepository subjectRepository,
     IObservationRepository observationRepository,
-    IAcknowledgementRegistry acknowledgementRegistry,
     ISubjectRevisionEventRepository revisionEventRepository,
     ILogger<IdentityService> logger)
 {
@@ -275,7 +274,7 @@ public sealed class IdentityService(
 
     /// <summary>
     /// Returns a live status snapshot for every known subject, including their last 10 events
-    /// and count of unacknowledged significant events from today.
+    /// and count of notable events from today.
     /// </summary>
     public async Task<IReadOnlyList<SubjectLiveStatusDto>> GetLiveDashboardStatusAsync(CancellationToken cancellationToken)
     {
@@ -283,7 +282,7 @@ public sealed class IdentityService(
 
         var profiles = await subjectRepository.GetAllAsync(cancellationToken);
         // The caregiver's LOCAL calendar day via ShiftClock — not the UTC partition key. Reading
-        // today's UTC partition shifted "unacknowledged from today" by the UTC offset, dropping the
+        // today's UTC partition shifted "notable today" by the UTC offset, dropping the
         // local evening and pulling in the small hours that belong to yesterday.
         var today = ShiftClock.Today();
         var todayEvents = await ShiftClock.LoadLocalDayAsync(observationRepository, today, cancellationToken);
@@ -309,7 +308,7 @@ public sealed class IdentityService(
                 LastSeenUtc = profile.LastSeenUtc,
                 LastActivity = profile.LastActivity ?? string.Empty,
                 LastActivityIsOutlier = profile.LastActivityIsOutlier,
-                UnacknowledgedSignificantCount = subjectEvents.Count(e => e.IsSignificant && !acknowledgementRegistry.IsAcknowledged(e.Id)),
+                NotableTodayCount = subjectEvents.Count(e => e.IsSignificant),
                 RecentEvents = recentEvents
             });
         }

@@ -36,34 +36,6 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task Critical_alert_acknowledgment_updates_the_server_and_closes_the_alert()
-    {
-        if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-
-        await Assertions.Expect(page.GetByTestId("live-clear-data")).Not.ToBeVisibleAsync();
-        await page.GetByTestId("observer-settings-gear").ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Developer Tools" }).ClickAsync();
-        var response = await page.RunAndWaitForResponseAsync(
-            () => page.GetByRole(AriaRole.Button, new() { Name = "Inject Clinical Outlier" }).ClickAsync(),
-            r => r.Url.EndsWith("/api/observer/ingest", StringComparison.Ordinal));
-        var ingest = (await response.JsonAsync())!.Value;
-        Assert.True(ingest.GetProperty("isOutlier").GetBoolean());
-        await Assertions.Expect(page.GetByTestId("alert-acknowledge")).ToBeVisibleAsync();
-        var acknowledgment = await page.RunAndWaitForResponseAsync(
-            () => page.GetByTestId("alert-acknowledge").ClickAsync(),
-            r => r.Url.EndsWith("/api/observer/acknowledge", StringComparison.Ordinal));
-        Assert.True(acknowledgment.Ok);
-        Assert.Equal(1, (await acknowledgment.JsonAsync())!.Value.GetProperty("acknowledgedCount").GetInt32());
-        await Assertions.Expect(page.GetByTestId("alert-acknowledge")).Not.ToBeVisibleAsync();
-        var statusResponse = await page.APIRequest.GetAsync($"{PlaywrightFixture.BaseUrl}/api/identity/subjects/live-status");
-        var statuses = (await statusResponse.JsonAsync())!.Value;
-        var subject = statuses.EnumerateArray().Single(s =>
-            s.GetProperty("subjectId").GetString() == ingest.GetProperty("subjectId").GetString());
-        Assert.Equal(0, subject.GetProperty("unacknowledgedSignificantCount").GetInt32());
-    }
-
-    [Fact]
     public async Task The_people_page_shows_the_glance_grid_and_the_full_list()
     {
         if (PlaywrightFixture.BaseUrl is null) return;

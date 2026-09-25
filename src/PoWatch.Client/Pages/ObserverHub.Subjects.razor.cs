@@ -19,7 +19,7 @@ public partial class ObserverHub
     private static string GetSubjectCardClass(SubjectLiveStatusDto subject)
     {
         if (subject.LastActivityIsOutlier) return "subject-card--outlier";
-        if (subject.UnacknowledgedSignificantCount > 0) return "subject-card--alert";
+        if (subject.NotableTodayCount > 0) return "subject-card--alert";
         return string.Empty;
     }
 

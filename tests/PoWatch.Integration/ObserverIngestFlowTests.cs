@@ -60,17 +60,4 @@ public sealed class ObserverIngestFlowTests : IClassFixture<AzuriteWebApplicatio
         Assert.NotNull(chapter);
         // Both "Desk Work" events for Kim are now persisted
         Assert.Equal(2, chapter.Timeline.Count(x => x.SubjectDisplayName == "Kim" && x.Activity == "Desk Work"));
-    }
-
-    [Fact]
-    public async Task AcknowledgeEndpoint_ReturnsSuccess()
-    {
-        var response = await _client.PostAsJsonAsync("/api/observer/acknowledge", new
-        {
-            EventIds = new[] { Guid.NewGuid().ToString("N") },
-            AcknowledgedBy = "nurse-smith"
-        });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-}
+    }}

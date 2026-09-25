@@ -67,36 +67,6 @@ internal static class ObserverEndpoints
         // timeline/subject re-fetches, so the stream was a dead transport polling Table Storage
         // every 3s per hypothetical subscriber.
 
-        // Acknowledgment endpoint for significant events
-        group.MapPost("/acknowledge", async (
-            AcknowledgeEventsRequestDto request,
-            IAcknowledgementRegistry acknowledgementRegistry,
-            HybridCache cache,
-            ILogger<Program> logger,
-            CancellationToken ct) =>
-        {
-            // Transport gives us strings; adopt them as event ids here and drop anything malformed.
-            var parsed = request.EventIds
-                .Select(ObservationEventId.Parse)
-                .Where(id => !id.IsEmpty)
-                .ToList();
-
-            acknowledgementRegistry.Acknowledge(parsed, request.AcknowledgedBy);
-
-            // The live-status board is cached for ~10 s under a single key. Without this eviction,
-            // acknowledging an alert left its badge on screen until the entry expired — the operator
-            // pressed the button and nothing appeared to happen, so they pressed it again.
-            await cache.RemoveAsync(IdentityCacheKeys.LiveStatus, ct);
-
-            logger.LogInformation(
-                "Events acknowledged. EventIds={Count} AcknowledgedBy={AcknowledgedBy}",
-                parsed.Count,
-                request.AcknowledgedBy);
-
-            return TypedResults.Ok(new AcknowledgeEventsResultDto(parsed.Count, DateTimeOffset.UtcNow));
-        })
-        .WithName("ObserverAcknowledge")
-        .WithSummary("Acknowledge one or more significant events to mark them as reviewed.");
 
         return app;
     }

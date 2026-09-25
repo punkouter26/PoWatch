@@ -13,17 +13,6 @@
 
 <PageTitle>PoWatch | Live Room</PageTitle>
 
-<RoomAlertOverlay Visible="@_alertOverlayVisible"
-                  SubjectName="@_alertOverlaySubject"
-                  Reason="@_alertOverlayReason"
-                  ActivityLabel="@_alertOverlayActivity"
-                  TimeLabel="@_alertOverlayTime"
-                  ImageDataUrl="@_alertOverlayImage"
-                  Acknowledging="_acknowledgingAlert"
-                  AcknowledgmentError="@_acknowledgmentError"
-                  OnAcknowledge="AcknowledgeAlertOverlay"
-                  OnViewSubject="ViewAlertSubject" />
-
 @* One inline strip for pipeline-health warnings. *@
 @if (_pipelineHealthLatched)
 {
@@ -250,9 +239,9 @@
                              title="@PoWatch.Client.Services.DisplayText.SubjectName(subject.DisplayName, subject.IsKnownIdentity) — @PoWatch.Client.Services.DisplayText.Activity(subject.LastActivity) — last seen @subject.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")">
                             <div class="subject-card-header">
                                 <span class="subject-card-name">@PoWatch.Client.Services.DisplayText.SubjectName(subject.DisplayName, subject.IsKnownIdentity)</span>
-                                @if (subject.UnacknowledgedSignificantCount > 0)
+                                @if (subject.NotableTodayCount > 0)
                                 {
-                                    <span class="subject-card-badge subject-card-badge--alert">@subject.UnacknowledgedSignificantCount</span>
+                                    <span class="subject-card-badge subject-card-badge--alert">@subject.NotableTodayCount</span>
                                 }
                                 @if (subject.LastActivityIsOutlier)
                                 {
@@ -309,8 +298,7 @@
                                 OnModelChanged="OnModelSwitched"
                                 OnGpuPreferenceChanged="OnGpuPreferenceChangedAsync"
                                 OnPollingChanged="OnPollingIntervalChangedAsync"
-                                OnInjectEvent="InjectEventAsync"
-                                OnInjectOutlier="InjectOutlierAsync" />
+                                OnInjectEvent="InjectEventAsync" />
         }
     </aside>
 }

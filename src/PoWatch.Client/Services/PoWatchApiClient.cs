@@ -7,14 +7,6 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
 {
     private static readonly PoWatchJsonContext Json = PoWatchJsonContext.Default;
 
-    public async Task<AcknowledgeEventsResultDto?> AcknowledgeEventsAsync(IReadOnlyList<string> eventIds)
-    {
-        var request = new AcknowledgeEventsRequestDto { EventIds = eventIds, AcknowledgedBy = "Caregiver" };
-        using var response = await httpClient.PostAsJsonAsync("api/observer/acknowledge", request, Json.AcknowledgeEventsRequestDto);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.AcknowledgeEventsResultDto);
-    }
-
     public async Task<ObserverRuntimeStateDto?> GetObserverStateAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("api/observer/state", Json.ObserverRuntimeStateDto, cancellationToken);
 

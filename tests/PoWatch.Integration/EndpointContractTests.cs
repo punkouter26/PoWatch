@@ -162,14 +162,11 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
     }
 
     [Fact]
-    public async Task Acknowledging_an_unknown_event_does_not_fail_the_request()
+    public async Task The_retired_acknowledge_endpoint_is_gone()
     {
-        var response = await _client.PostAsJsonAsync("/api/observer/acknowledge", new AcknowledgeEventsRequestDto
-        {
-            EventIds = [Guid.NewGuid().ToString("N")],
-            AcknowledgedBy = "integration-test"
-        });
+        // A POST-only route still answers GET with 405; 404 proves the route itself is gone.
+        var response = await _client.GetAsync("/api/observer/acknowledge");
 
-        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

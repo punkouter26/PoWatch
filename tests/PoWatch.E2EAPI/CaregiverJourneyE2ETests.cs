@@ -191,25 +191,14 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task Events_can_be_acknowledged_and_stop_counting_as_unresolved()
+    public async Task Notable_events_are_counted_on_the_live_board()
     {
-        var hint = $"ack-{Guid.NewGuid():N}";
+        var hint = $"notable-{Guid.NewGuid():N}";
         var ingest = await IngestAsync(hint, "Person has fallen beside the chair");
 
-        var before = await GetLiveStatusAsync(ingest.SubjectId);
-        Assert.NotNull(before);
-        Assert.True(before!.UnacknowledgedSignificantCount > 0);
-
-        var ack = await _client.PostAsJsonAsync("/api/observer/acknowledge", new AcknowledgeEventsRequestDto
-        {
-            EventIds = [ingest.EventId!],
-            AcknowledgedBy = "e2e"
-        });
-        Assert.True(ack.IsSuccessStatusCode);
-
-        var after = await GetLiveStatusAsync(ingest.SubjectId);
-        Assert.NotNull(after);
-        Assert.True(after!.UnacknowledgedSignificantCount < before.UnacknowledgedSignificantCount);
+        var status = await GetLiveStatusAsync(ingest.SubjectId);
+        Assert.NotNull(status);
+        Assert.True(status!.NotableTodayCount > 0);
     }
 
     [Fact]

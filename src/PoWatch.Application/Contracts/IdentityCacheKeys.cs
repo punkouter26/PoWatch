@@ -1,9 +1,8 @@
 namespace PoWatch.Application.Contracts;
 
 /// <summary>
-/// Cache keys for identity reads. Two API slices need this — Identity populates the entry, Observer
-/// evicts it when an alert is acknowledged — and slices must not reference each other (AGENT.md §2),
-/// so the shared constant lives here in Application rather than inside either slice.
+/// Cache keys for identity reads. Kept in Application so any slice that needs to evict the entry can
+/// do so without referencing another slice.
 /// </summary>
 public static class IdentityCacheKeys
 {

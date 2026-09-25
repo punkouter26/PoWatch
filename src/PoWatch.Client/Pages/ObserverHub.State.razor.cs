@@ -6,18 +6,6 @@ using PoWatch.Shared.Models;
 
 namespace PoWatch.Client.Pages;
 
-/// <summary>
-/// Current alert level for the observer session. Replaces the previous raw "Urgent"/"Watch"/"Normal"
-/// strings that were set in one file and switch-matched in another (a typo silently fell through to
-/// the "good" style). The compiler now enforces every case.
-/// </summary>
-public enum AlertLevel
-{
-    Normal,
-    Watch,
-    Urgent
-}
-
 public partial class ObserverHub
 {
     [Inject] private IOptions<ClientFeatureFlagsOptions> FeatureFlags { get; set; } = default!;
@@ -49,8 +37,7 @@ public partial class ObserverHub
     private DateTimeOffset? lastSyncAtUtc;
     private string lastSyncStatus = "Standby";
     private string lastInferenceStatus = "Idle";
-    private AlertLevel lastAlertLevel = AlertLevel.Normal;
-    private string lastAlertReason = "No alerts detected";
+    private bool lastWasNotable;
     private string lastDetectedSubject = "No person detected";
     private double lastConfidencePercent;
     private string lastConfidenceLabel = "Awaiting AI";
@@ -122,13 +109,12 @@ public partial class ObserverHub
     private string PersonDetectedLabel => lastDetectedSubject;
 
     // ── Calm-state model (UX Win #1 / #6): the single caregiver-facing answer to "is the room OK?".
-    // Idle = not watching · Calm = watching, nothing notable · Watch = a notable moment · Alert = urgent.
-    internal enum RoomStatus { Idle, Calm, Watch, Alert }
+    // Idle = not watching · Calm = watching, nothing notable · Watch = a notable moment.
+    internal enum RoomStatus { Idle, Calm, Watch }
 
     private RoomStatus CurrentRoomStatus =>
         !monitoring ? RoomStatus.Idle
-        : lastAlertLevel == AlertLevel.Urgent ? RoomStatus.Alert
-        : lastAlertLevel == AlertLevel.Watch ? RoomStatus.Watch
+        : lastWasNotable ? RoomStatus.Watch
         : RoomStatus.Calm;
 
     private string RoomStatusKey => CurrentRoomStatus.ToString().ToLowerInvariant();
@@ -138,7 +124,6 @@ public partial class ObserverHub
         RoomStatus.Idle => "Ready to watch",
         RoomStatus.Calm => "All calm",
         RoomStatus.Watch => "One notable moment",
-        RoomStatus.Alert => "Needs attention",
         _ => "—"
     };
 
@@ -153,7 +138,6 @@ public partial class ObserverHub
             ? $"Watching quietly · {PersonDetectedLabel}"
             : $"Watching quietly · {PersonDetectedLabel} · {lastSyncStatus}",
         RoomStatus.Watch => $"{LatestActivityLabel} · {LatestTimestampLabel}",
-        RoomStatus.Alert => string.IsNullOrWhiteSpace(lastAlertReason) ? "Something unusual just happened." : lastAlertReason,
         _ => string.Empty
     };
 
@@ -168,73 +152,6 @@ public partial class ObserverHub
     private string ConfidenceTrustLabel => lastConfidencePercent > 0
         ? $"{ConfidenceWord(lastConfidencePercent)} · {lastConfidencePercent:0}%"
         : lastConfidenceLabel;
-
-    // ── Full-screen alert takeover (Win #4): captured when an outlier fires so the overlay can
-    // show the frame, the plain-language reason, and a single Acknowledge action.
-    private bool _alertOverlayVisible;
-    private string _alertOverlaySubject = string.Empty;
-    private string _alertOverlaySubjectId = string.Empty;
-    private string _alertOverlayReason = string.Empty;
-    private string _alertOverlayActivity = string.Empty;
-    private string _alertOverlayTime = string.Empty;
-    private string? _alertOverlayImage;
-    private readonly HashSet<string> _pendingAlertEventIds = [];
-    private bool _acknowledgingAlert;
-    private string? _acknowledgmentError;
-
-    private async Task AcknowledgeAlertOverlay()
-    {
-        if (_acknowledgingAlert) return;
-        _acknowledgingAlert = true;
-        _acknowledgmentError = null;
-        var eventIds = _pendingAlertEventIds.ToArray();
-        try
-        {
-            var result = await ApiClient.AcknowledgeEventsAsync(eventIds);
-            if (result?.AcknowledgedCount != eventIds.Length)
-                throw new InvalidOperationException("The server did not acknowledge every event.");
-            _pendingAlertEventIds.ExceptWith(eventIds);
-            _alertOverlayVisible = _pendingAlertEventIds.Count > 0;
-            if (!_alertOverlayVisible)
-            {
-                lastAlertLevel = AlertLevel.Normal;
-                lastAlertReason = "Acknowledged — watching again";
-            }
-            await LoadSubjectsAsync();
-            await PlayCueAsync("ack");
-        }
-        catch (Exception)
-        {
-            _acknowledgmentError = "Could not save acknowledgment. Check the connection and try again.";
-        }
-        finally
-        {
-            _acknowledgingAlert = false;
-        }
-    }
-
-    private void ShowUrgentAlert(IngestObservationResultDto result, string activity, string? imageDataUrl)
-    {
-        if (result.Dropped || result.SkippedAsRedundant) return;
-        if (!string.IsNullOrWhiteSpace(result.EventId)) _pendingAlertEventIds.Add(result.EventId);
-        lastAlertLevel = AlertLevel.Urgent;
-        lastAlertReason = result.Detail;
-        _alertOverlaySubject = DisplayText.SubjectName(result.SubjectDisplayName, false);
-        _alertOverlaySubjectId = result.SubjectId;
-        _alertOverlayReason = string.IsNullOrWhiteSpace(result.Detail) ? "Unusual activity detected in the room." : result.Detail;
-        _alertOverlayActivity = activity;
-        _alertOverlayTime = DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-        _alertOverlayImage = imageDataUrl;
-        _settingsOpen = false;
-        _alertOverlayVisible = true;
-    }
-
-    private void ViewAlertSubject()
-    {
-        _alertOverlayVisible = false;
-        if (!string.IsNullOrWhiteSpace(_alertOverlaySubjectId))
-            Navigation.NavigateTo($"/identity?focus={Uri.EscapeDataString(_alertOverlaySubjectId)}");
-    }
 
     // Auto-detect the current shift window from local time so "End shift" is genuinely one tap (Win #5).
     private static string DetectCurrentShift()

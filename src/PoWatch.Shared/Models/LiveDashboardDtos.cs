@@ -9,6 +9,6 @@ public sealed class SubjectLiveStatusDto
     public DateTimeOffset LastSeenUtc { get; init; }
     public string LastActivity { get; init; } = string.Empty;
     public bool LastActivityIsOutlier { get; init; }
-    public int UnacknowledgedSignificantCount { get; init; }
+    public int NotableTodayCount { get; init; }
     public IReadOnlyList<ObservationEventDto> RecentEvents { get; init; } = [];
 }

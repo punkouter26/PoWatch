@@ -40,8 +40,7 @@ public partial class ObserverHub
         lastSyncAtUtc = null;
         lastSyncStatus = "Connecting...";
         lastInferenceStatus = "Starting preview...";
-        lastAlertLevel = AlertLevel.Normal;
-        lastAlertReason = "No alerts detected";
+        lastWasNotable = false;
         lastDetectedSubject = "Awaiting first detection";
         lastConfidencePercent = 0;
         lastConfidenceLabel = "Awaiting AI";
@@ -318,26 +317,7 @@ public partial class ObserverHub
                 lastDetectedSubject = result.SubjectDisplayName;
             }
 
-            if (result.IsOutlier)
-            {
-                ShowUrgentAlert(result, inference.Activity, inference.CapturedImageDataUrl);
-                await PlayCueAsync("alert");
-                if (!muted)
-                {
-                    await JS.TryInvokeVoidAsync("powatchInference.speakBedsideCue", "Caregiver notified. Please remain still.");
-                }
-            }
-            else if (result.IsSignificant)
-            {
-                // Server verdict, not the worker's guess (ActivitySignificanceClassifier).
-                lastAlertLevel = AlertLevel.Watch;
-                lastAlertReason = result.SignificantReason ?? result.Detail;
-            }
-            else
-            {
-                lastAlertLevel = AlertLevel.Normal;
-                lastAlertReason = "No active alert";
-            }
+            lastWasNotable = result.IsSignificant;
 
             if (result.Dropped)
             {

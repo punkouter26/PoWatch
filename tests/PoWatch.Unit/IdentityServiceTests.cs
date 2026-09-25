@@ -31,7 +31,7 @@ public sealed class IdentityServiceTests
             ClinicalDescription = "Observed at desk."
         });
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository(), NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository(), NullLogger<IdentityService>.Instance);
 
         var result = await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, "tester", CancellationToken.None);
 
@@ -77,7 +77,7 @@ public sealed class IdentityServiceTests
             ClinicalDescription = "Observed walking."
         });
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository(), NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository(), NullLogger<IdentityService>.Instance);
 
         var result = await service.MergeAsync(new MergeIdentityRequestDto
         {
@@ -103,7 +103,7 @@ public sealed class IdentityServiceTests
             new SubjectProfile { SubjectId = SubjectId.From("Subject-1"), DisplayName = "Subject-1", IdentityStatus = IdentityStatus.Temporary });
         var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, revisions, NullLogger<IdentityService>.Instance);
 
         await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, "tester", CancellationToken.None);
 
@@ -122,7 +122,7 @@ public sealed class IdentityServiceTests
             new SubjectProfile { SubjectId = SubjectId.From("Subject-1"), DisplayName = "Subject-1", IdentityStatus = IdentityStatus.Temporary });
         var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, revisions, NullLogger<IdentityService>.Instance);
 
         await service.RenameAsync("Subject-1", new RenameSubjectRequestDto { NewName = "Maya" }, "tester", CancellationToken.None);
 
@@ -145,7 +145,7 @@ public sealed class IdentityServiceTests
             new SubjectProfile { SubjectId = SubjectId.From("Subject-2"), DisplayName = "Subject-2", IdentityStatus = IdentityStatus.Temporary });
         var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, revisions, NullLogger<IdentityService>.Instance);
 
         await service.MergeAsync(new MergeIdentityRequestDto
         {
@@ -173,7 +173,7 @@ public sealed class IdentityServiceTests
             new SubjectProfile { SubjectId = SubjectId.From("kim"), DisplayName = "Kim", IdentityStatus = IdentityStatus.Known });
         var revisions = new PoWatch.Infrastructure.Persistence.InMemorySubjectRevisionEventRepository();
 
-        var service = new IdentityService(subjects, observations, new InMemoryAcknowledgementRegistry(), revisions, NullLogger<IdentityService>.Instance);
+        var service = new IdentityService(subjects, observations, revisions, NullLogger<IdentityService>.Instance);
 
         // Force two events with a noticeable timestamp gap (the repo orders by OccurredAtUtc).
         await revisions.AppendAsync(new SubjectRevisionEvent { SubjectId = SubjectId.From("kim"), OccurredAtUtc = DateTimeOffset.UtcNow.AddMinutes(-2), Kind = Domain.Models.SubjectRevisionKind.Created }, CancellationToken.None);

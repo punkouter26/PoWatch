@@ -86,7 +86,6 @@ public static class DependencyInjection
         services.AddSingleton<IObservationProcessingGate, InMemoryObservationProcessingGate>();
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
         services.AddSingleton<ITelemetryContentSanitizer, TelemetryContentSanitizer>();
-        services.AddSingleton<IAcknowledgementRegistry, InMemoryAcknowledgementRegistry>();
 
         // Runs once before the app accepts requests: creates tables/containers and seeds slug registry.
         services.AddHostedService<AzureStorageInitializer>();

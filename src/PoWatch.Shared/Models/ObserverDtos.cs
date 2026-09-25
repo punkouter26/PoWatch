@@ -56,21 +56,3 @@ public sealed class IngestObservationResultDto
     public double SignificanceConfidence { get; init; }
 }
 
-/// <summary>
-/// Request DTO for acknowledging significant events. Lives in PoWatch.Shared (not the API slice) so it
-/// is a first-class cross-boundary contract available to the client and the source-gen JSON context.
-/// </summary>
-public sealed class AcknowledgeEventsRequestDto
-{
-    /// <summary>Event IDs to acknowledge.</summary>
-    public required IReadOnlyList<string> EventIds { get; init; }
-
-    /// <summary>Identifier of the person acknowledging (e.g., nurse ID, username).</summary>
-    public required string AcknowledgedBy { get; init; }
-
-    /// <summary>Optional note explaining the acknowledgment.</summary>
-    public string? Note { get; init; }
-}
-
-/// <summary>Result of <c>POST /api/observer/acknowledge</c> (audit #7: typed instead of an anonymous object).</summary>
-public sealed record AcknowledgeEventsResultDto(int AcknowledgedCount, DateTimeOffset AcknowledgedAtUtc);
