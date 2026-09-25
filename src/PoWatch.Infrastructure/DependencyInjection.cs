@@ -13,27 +13,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPoWatchInfrastructure(this IServiceCollection services)
     {
-        // Handoff Coach summarizer — template is always registered; Azure OpenAI used when configured
-        services.AddScoped<TemplateHandoffSummarizer>();
-
-        // Typed HttpClient for Azure OpenAI backed by a native .NET resilience pipeline
-        // (retry + circuit breaker + timeout + rate limiter) via AddStandardResilienceHandler.
-        services.AddHttpClient<AzureOpenAiHandoffSummarizer>(client =>
-            {
-                client.Timeout = TimeSpan.FromSeconds(45);
-            })
-            .AddStandardResilienceHandler();
-
-        // Multi-provider summarizer (Azure OpenAI + local Ollama edge gateway)
-        services.AddHttpClient<MultiProviderHandoffSummarizer>(client =>
-            {
-                client.Timeout = TimeSpan.FromSeconds(60);
-            })
-            .AddStandardResilienceHandler();
-
-        services.AddScoped<IHandoffSummarizer>(sp =>
-            sp.GetRequiredService<MultiProviderHandoffSummarizer>());
-
         // Boot-time readiness snapshot: lets the app start and report unhealthy on a dependency failure
         // instead of aborting host construction with an opaque 500.30 (see AzureStorageInitializer).
         services.AddSingleton<StartupReadiness>();

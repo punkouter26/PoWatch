@@ -182,21 +182,10 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
     public async Task<HealthReportDto?> GetHealthAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("health", Json.HealthReportDto, cancellationToken);
 
-    public string GetHandoffReportUrl(DateOnly date, string shiftWindow) =>
-        $"{httpClient.BaseAddress}api/archives/{date:yyyy-MM-dd}/handoff-report?shiftWindow={Uri.EscapeDataString(shiftWindow)}";
-
     public async Task<IReadOnlyList<SubjectDriftStatusDto>> GetDriftStatusAsync(CancellationToken cancellationToken = default)
     {
         var items = await httpClient.GetFromJsonAsync("api/identity/subjects/live-risk", Json.ListSubjectDriftStatusDto, cancellationToken);
         return items ?? [];
-    }
-
-    public async Task<HandoffBriefDto?> GenerateHandoffBriefAsync(DateOnly date, GenerateHandoffBriefRequestDto request, CancellationToken cancellationToken = default)
-    {
-        using var response = await httpClient.PostAsJsonAsync($"api/archives/{date:yyyy-MM-dd}/handoff-brief", request, Json.GenerateHandoffBriefRequestDto, cancellationToken);
-        if (!response.IsSuccessStatusCode) return null;
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.HandoffBriefDto, cancellationToken);
     }
 
     public async Task<StorageResetResultDto?> ClearAllDataAsync(CancellationToken cancellationToken = default)

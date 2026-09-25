@@ -6,7 +6,7 @@ namespace PoWatch.Application.Mappers;
 
 /// <summary>
 /// The single Domain → DTO mapping for observation events. This mapping was previously
-/// hand-copied in IdentityService (twice), ReportService, and the (since removed) SSE endpoint —
+/// hand-copied in IdentityService (twice), the (since removed) handoff report, and the (since removed) SSE endpoint —
 /// four places to forget a new field. Add a field to <see cref="ObservationEventDto"/> here once.
 /// </summary>
 public static class ObservationEventMappers

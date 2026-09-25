@@ -178,44 +178,6 @@ public sealed class CaregiverJourneyE2ETests(ApiE2EFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task A_day_produces_a_downloadable_report_and_a_brief_without_raw_ids()
-    {
-        await IngestAsync($"shift-{Guid.NewGuid():N}", "Person is eating a meal");
-        await IngestAsync($"brief-{Guid.NewGuid():N}", "A person entering the room");
-
-        var response = await _client.GetAsync($"/api/archives/{Today:yyyy-MM-dd}/handoff-report?shiftWindow=FullDay");
-        if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-        {
-            // QuestPDF ships no win-arm64 native binary, so the PDF engine cannot start on an ARM64
-            // Windows host. That must still be an EXPLAINED failure, never a bare 500.
-            Assert.Contains("PDF engine", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
-        }
-        else
-        {
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            // A PDF always starts with %PDF.
-            Assert.Equal("%PDF"u8.ToArray(), bytes.Take(4).ToArray());
-        }
-
-        var briefResponse = await _client.PostAsJsonAsync(
-            $"/api/archives/{Today:yyyy-MM-dd}/handoff-brief",
-            new GenerateHandoffBriefRequestDto
-            {
-                ShiftWindow = "FullDay",
-                Audience = "NurseToNurse",
-                IncludeUnresolvedAlerts = true,
-                IncludeHighlights = true
-            });
-
-        Assert.Equal(HttpStatusCode.OK, briefResponse.StatusCode);
-        var brief = await briefResponse.Content.ReadFromJsonAsync<HandoffBriefDto>();
-        Assert.NotNull(brief);
-        Assert.False(string.IsNullOrWhiteSpace(brief!.Summary));
-        Assert.DoesNotContain("Subject-", brief.Summary, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task Operations_endpoints_report_health_boot_and_storage()
     {
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/diag")).StatusCode);

@@ -13,8 +13,6 @@ public static class DependencyInjection
 
         // Archives
         services.AddScoped<ArchivesService>();
-        services.AddScoped<ReportService>();
-        services.AddScoped<HandoffCoachService>();
 
         // Identity
         services.AddScoped<IdentityService>();

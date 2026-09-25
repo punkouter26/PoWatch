@@ -13,7 +13,6 @@ public abstract class SharedFeatureFlagsOptions
     /// <summary>The one poll-interval setting — read by BOTH the server and the Blazor client.</summary>
     public int PollingIntervalSeconds { get; init; } = 10;
     public bool DriftRadarEnabled { get; init; } = true;
-    public bool HandoffCoachEnabled { get; init; } = true;
     /// <summary>
     /// Minimum number of observations before the TEMP badge is shown on Live Dashboard cards.
     /// Set to 0 (default) to always show TEMP for unknown subjects.

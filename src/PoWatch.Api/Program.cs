@@ -81,7 +81,6 @@ var featureFlags = builder.Configuration
 
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.Configure<PoWatch.Application.Options.DriftRadarOptions>(builder.Configuration.GetSection("DriftRadar"));
-builder.Services.Configure<PoWatch.Application.Options.HandoffCoachOptions>(builder.Configuration.GetSection("HandoffCoach"));
 builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
 
 // Audit #2: fail-fast options — the startup-critical settings are validated and ValidateOnStart()

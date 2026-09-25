@@ -34,8 +34,6 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(DiagnosticsSnapshotDto))]
 [JsonSerializable(typeof(SubjectDriftStatusDto))]
 [JsonSerializable(typeof(List<SubjectDriftStatusDto>))]
-[JsonSerializable(typeof(HandoffBriefDto))]
-[JsonSerializable(typeof(GenerateHandoffBriefRequestDto))]
 [JsonSerializable(typeof(StorageResetResultDto))]
 [JsonSerializable(typeof(AuthStateDto))]
 [JsonSerializable(typeof(AuthConfigDto))]
