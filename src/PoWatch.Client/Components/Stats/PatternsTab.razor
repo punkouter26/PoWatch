@@ -1,0 +1,95 @@
+@inherits StatsTabBase<PatternStatsDto>
+
+@if (Data is null)
+{
+    <p class="term-empty">@(Loading ? "Loading…" : "No pattern stats yet.")</p>
+}
+else
+{
+    <div class="term-grid" data-test="stats-patterns">
+        <TerminalPanel Number="C1" Title="Today vs your usual" Class="term-span-2" Flush="true">
+            <Aside>RHYTHM @(Data.RhythmScore is { } r ? Number(r, "0.00") : "n/a")</Aside>
+            <ChildContent>
+                @if (Data.Anomalies.Count == 0)
+                {
+                    <p class="term-empty" style="padding: 10px;">Nothing observed today yet.</p>
+                }
+                else
+                {
+                    <table class="term-table">
+                        <thead><tr><th>Metric</th><th class="r">Today</th><th class="r">Usual</th><th class="r">σ</th><th class="r">Z</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in Data.Anomalies)
+                            {
+                                <tr data-test="anomaly-row"><td>@a.Metric</td><td class="r">@Number(a.Today, "0.###")</td><td class="r">@Number(a.Mean, "0.###")</td><td class="r">@Number(a.StdDev, "0.###")</td><td class="r"><ZChip Z="@a.Z" /></td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                <p class="term-stat-hint" style="padding: 0 10px 10px;">
+                    Occupancy trend @Number(Data.OccupancyTrendPerDay * 100, "+0.00;-0.00")pp/day ·
+                    next busy hour @(Data.NextBusyHour is { } h ? $"{h:00}:00" : "—")
+                </p>
+            </ChildContent>
+        </TerminalPanel>
+
+        <TerminalPanel Number="C2" Title="Today's curve vs usual" Class="term-span-2">
+            <RadzenChart Style="height: 200px;" aria-label="Occupancy by hour, today against the usual day">
+                <RadzenLineSeries Data="@_curve" CategoryProperty="@nameof(Hour.Label)" ValueProperty="@nameof(Hour.Usual)" Title="Usual" LineType="LineType.Dashed" />
+                <RadzenColumnSeries Data="@_curve" CategoryProperty="@nameof(Hour.Label)" ValueProperty="@nameof(Hour.Today)" Title="Today" />
+                <RadzenValueAxis Min="0" Max="1" FormatString="{0:P0}" />
+                <RadzenLegend Position="LegendPosition.Top" />
+            </RadzenChart>
+        </TerminalPanel>
+
+        <TerminalPanel Number="C3" Title="Hour × weekday (28 days)" Class="term-span-2">
+            <HeatGrid Values="@Data.HourByWeekday.SelectMany(d => d).ToList()" Columns="24" Rows="7"
+                      Label="Occupancy by weekday and hour" CellTitle="@((i, v) => $"{Days[i / 24]} {i % 24:00}:00 · {v:P0}")" />
+            <div class="stats-axis"><span>rows: Sun → Sat</span><span>columns: 00:00 → 23:00</span></div>
+        </TerminalPanel>
+
+        <TerminalPanel Number="C4" Title="Calendar (365 days)" Class="term-span-2">
+            <Aside>@Data.Calendar.Count DAYS RECORDED</Aside>
+            <ChildContent>
+                <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
+                          CellTitle="@((i, v) => _calendarDates.TryGetValue(i, out var d) ? $"{d:ddd dd MMM yyyy} · {v:P0}" : "no data")" />
+            </ChildContent>
+        </TerminalPanel>
+    </div>
+}
+
+@code {
+    public sealed record Hour(string Label, double Today, double Usual);
+
+    private static readonly string[] Days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    private List<Hour> _curve = [];
+    private List<double> _calendarCells = [];
+    private Dictionary<int, DateOnly> _calendarDates = [];
+
+    protected override async Task<PatternStatsDto?> LoadAsync(StatsQuery query)
+    {
+        var data = await Api.GetPatternsAsync(query);
+        if (data is null) return null;
+
+        _curve = Enumerable.Range(0, 24)
+            .Select(h => new Hour($"{h:00}", data.TodayProfile.ElementAtOrDefault(h), data.UsualProfile.ElementAtOrDefault(h)))
+            .ToList();
+
+        // GitHub-style: 53 week columns, rows Sunday→Saturday; row-major for HeatGrid.
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var start = today.AddDays(-(52 * 7) - (int)today.DayOfWeek);
+        var cells = new double[53 * 7];
+        _calendarDates = [];
+        foreach (var day in data.Calendar)
+        {
+            var offset = day.Date.DayNumber - start.DayNumber;
+            if (offset < 0 || offset >= cells.Length) continue;
+            var index = ((int)day.Date.DayOfWeek * 53) + (offset / 7);
+            cells[index] = Math.Max(day.Occupancy, 0.0001);
+            _calendarDates[index] = day.Date;
+        }
+        _calendarCells = [.. cells];
+        return data;
+    }
+}

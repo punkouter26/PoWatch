@@ -153,9 +153,14 @@ Rules for every task:
     layout and is docked over the Live panel (`feed-dock.js`), so sessions keep sampling on other
     pages. Old Live page and its exclusive components/helpers removed (7 unit tests went with them).
     UI tests: demo session fills counters < 15 s (SPEC §15 #1); fake-camera session survives navigation.
-- [ ] **E3** `/stats` shell + range picker + Presence & Motion + Space tabs.
-- [ ] **E4** Objects & Regulars + Patterns & Anomalies tabs (removes `DriftDetailPanel`).
-- [ ] **E5** Environment & Captions + Pipeline tabs. **CHECKPOINT**
+- [x] **E3** `/stats` shell + range picker + Presence & Motion + Space tabs.
+- [x] **E4** Objects & Regulars + Patterns & Anomalies tabs (removes `DriftDetailPanel`).
+- [x] **E5** Environment & Captions + Pipeline tabs. **CHECKPOINT**
+  - Done as one `/stats` page: Radzen select bar (session/today/7d/30d/all), session picker, six
+    lazily loaded tabs (`Components/Stats/*`) with Radzen charts/grids and Terminal heatmaps
+    (16×9 frame, 7×24 weekday-hour, 53×7 calendar). Minute/hour occupancy is plotted as a rolling
+    mean. Dark theme is now the default. Reviewed by screenshot; all 24 UI tests pass.
+    `DriftDetailPanel` stays until the Regulars page is rebuilt (F1/F2).
 - [ ] **E6** SignalR `StatsHub` + client subscription (trim-clean build first, then feature).
 - [ ] **E7** `/display` stats wall (no scroll at 1920×1080 and 1280×720, ≤ 5 s refresh).
 - [ ] **E8** "While you were away" card + highlight snapshots (`SnapshotService`, highlight rules,

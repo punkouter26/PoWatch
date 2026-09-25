@@ -9,12 +9,14 @@
     }
     else
     {
-        @* Rendered twice so the scroll loops without a gap. *@
-        <span class="term-ticker-track" aria-hidden="true">
-            @foreach (var line in Lines.Concat(Lines))
-            {
-                <span>@line</span>
-            }
+        @* Rendered twice so the scroll loops without a gap; the lane clips it beside the label. *@
+        <span class="term-ticker-lane" aria-hidden="true">
+            <span class="term-ticker-track">
+                @foreach (var line in Lines.Concat(Lines))
+                {
+                    <span>@line</span>
+                }
+            </span>
         </span>
         <span class="visually-hidden">@Lines.FirstOrDefault()</span>
     }

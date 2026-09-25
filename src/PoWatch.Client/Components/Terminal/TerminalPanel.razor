@@ -6,9 +6,9 @@
             <span class="term-panel-no">@Number</span>
         }
         <h2 id="@_headingId" style="font: inherit; margin: 0;">@Title</h2>
-        @if (Meta is not null)
+        @if (Aside is not null)
         {
-            <span class="term-panel-meta">@Meta</span>
+            <span class="term-panel-meta">@Aside</span>
         }
     </header>
     <div class="term-panel-body @(Flush ? "term-panel-body--flush" : string.Empty)">
@@ -21,7 +21,7 @@
 
     [Parameter] public string? Number { get; set; }
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
-    [Parameter] public RenderFragment? Meta { get; set; }
+    [Parameter] public RenderFragment? Aside { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Test { get; set; }

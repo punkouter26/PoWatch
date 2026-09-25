@@ -1,9 +1,99 @@
 @page "/stats"
+@using PoWatch.Client.Components.Stats
+@inject PoWatchApiClient Api
+@inject NavigationManager Navigation
+@inject SensingSession Sensing
 
 <PageTitle>PoWatch | Stats</PageTitle>
 
-<div class="term-grid">
-    <TerminalPanel Number="02" Title="Stats" Class="term-span-2" Test="stats-placeholder">
-        <p class="term-empty">The stats dashboard is being wired up.</p>
-    </TerminalPanel>
+<div class="stats-toolbar" data-test="stats-toolbar">
+    <RadzenSelectBar TValue="string" Value="@_range" ValueChanged="@OnRangeChanged" Size="ButtonSize.Small" aria-label="Range">
+        <Items>
+            <RadzenSelectBarItem Text="SESSION" Value="@("session")" Disabled="@(_sessions.Count == 0)" />
+            <RadzenSelectBarItem Text="TODAY" Value="@("today")" />
+            <RadzenSelectBarItem Text="7D" Value="@("7d")" />
+            <RadzenSelectBarItem Text="30D" Value="@("30d")" />
+            <RadzenSelectBarItem Text="ALL" Value="@("all")" />
+        </Items>
+    </RadzenSelectBar>
+
+    @if (_range == "session" && _sessions.Count > 0)
+    {
+        <RadzenDropDown TValue="Guid" Data="@_sessions" TextProperty="@nameof(SessionOption.Label)" ValueProperty="@nameof(SessionOption.Id)"
+                        @bind-Value="_sessionId" Change="@(_ => Apply())" aria-label="Session" Style="min-width: 260px;" />
+    }
+
+    <span class="term-stat-hint" data-test="stats-window">@WindowLabel</span>
 </div>
+
+<RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Client" data-test="stats-tabs">
+    <Tabs>
+        <RadzenTabsItem Text="Presence & motion">
+            <PresenceTab Query="@_query" />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Space">
+            <SpaceTab Query="@_query" />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Objects">
+            <ObjectsTab Query="@_query" />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Patterns & anomalies">
+            <PatternsTab Query="@_query" />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Environment & captions">
+            <EnvironmentTab Query="@_query" />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Pipeline">
+            <PipelineTab Query="@_query" />
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+@code {
+    private sealed record SessionOption(Guid Id, string Label);
+
+    private string _range = "today";
+    private Guid _sessionId;
+    private int _tab;
+    private StatsQuery _query = StatsQuery.For("today");
+    private List<SessionOption> _sessions = [];
+
+    [SupplyParameterFromQuery(Name = "range")] public string? RangeParameter { get; set; }
+
+    private string WindowLabel => _range switch
+    {
+        "session" => "One session, minute by minute",
+        "7d" => "Last 7 days, hour by hour",
+        "30d" => "Last 30 days, hour by hour",
+        "all" => "Everything, day by day",
+        _ => "Today so far, minute by minute"
+    } + $" · {TimeZoneInfo.Local.Id}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var sessions = await Api.ListSessionsAsync(20);
+        _sessions = sessions
+            .Select(s => new SessionOption(s.Id, $"#{s.Id.ToString("N")[..4].ToUpperInvariant()} · {s.StartedUtc.ToLocalTime():ddd dd MMM HH:mm}{(s.IsRunning ? " · LIVE" : string.Empty)}"))
+            .ToList();
+        _sessionId = Sensing.Live.Session?.Id ?? _sessions.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (RangeParameter is "session" or "today" or "7d" or "30d" or "all" && RangeParameter != _range)
+        {
+            _range = RangeParameter;
+            Apply();
+        }
+    }
+
+    private void OnRangeChanged(string range)
+    {
+        _range = range;
+        Apply();
+        Navigation.NavigateTo($"stats?range={range}", replace: true);
+    }
+
+    private void Apply() =>
+        _query = StatsQuery.For(_range, _range == "session" && _sessionId != Guid.Empty ? _sessionId : null);
+}

@@ -335,6 +335,12 @@ html, body {
     flex: none;
 }
 
+.term-ticker-lane {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
 .term-ticker-track {
     display: inline-flex;
     gap: 28px;
@@ -620,3 +626,42 @@ html, body {
 .live-wire li { padding: 2px 0; break-inside: avoid; }
 
 .term-span-4 { grid-column: 1 / -1; }
+
+/* ── Stats page ────────────────────────────────────────────────────────── */
+
+.stats-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: var(--term-gap);
+}
+
+.stats-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font: 10px var(--term-mono);
+    color: var(--term-dim);
+}
+
+.stats-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: baseline;
+    font-family: var(--term-font);
+    color: var(--term-text);
+}
+
+.stats-weird {
+    margin: 12px 0 0;
+    font: 12px var(--term-mono);
+    color: var(--term-muted);
+}
+
+.stats-weird b { color: var(--term-accent); }
+
+.rz-tabview { background: transparent; }
+.rz-tabview-panels { background: transparent; padding: var(--term-gap) 0 0; }
+.rz-tabview-nav li a { font-family: var(--term-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }

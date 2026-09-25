@@ -1,0 +1,33 @@
+@inherits StatsTabBase<ObjectStatsDto>
+
+@if (Data is null)
+{
+    <p class="term-empty">@(Loading ? "Loading…" : "No objects seen in this range yet.")</p>
+}
+else
+{
+    <div class="term-grid" data-test="stats-objects">
+        <TerminalPanel Number="B1" Title="Object census" Class="term-span-4" Flush="true">
+            <Aside>@Data.Classes.Count CLASSES@(Data.Rarest is { } rare ? $" · RAREST {rare.ToUpperInvariant()}" : string.Empty)</Aside>
+            <ChildContent>
+                <RadzenDataGrid Data="@Data.Classes" TItem="ClassStatDto" AllowSorting="true" Density="Density.Compact" aria-label="Every class the detector has seen">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="ClassStatDto" Property="@nameof(ClassStatDto.Name)" Title="Class" />
+                        <RadzenDataGridColumn TItem="ClassStatDto" Property="@nameof(ClassStatDto.Share)" Title="In frame" TextAlign="TextAlign.Right">
+                            <Template Context="c">@Percent(c.Share)</Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ClassStatDto" Property="@nameof(ClassStatDto.Peak)" Title="Peak at once" TextAlign="TextAlign.Right" />
+                        <RadzenDataGridColumn TItem="ClassStatDto" Property="@nameof(ClassStatDto.MeanCount)" Title="Mean when present" TextAlign="TextAlign.Right">
+                            <Template Context="c">@Number(c.MeanCount, "0.0")</Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ClassStatDto" Property="@nameof(ClassStatDto.TicksPresent)" Title="10 s ticks" TextAlign="TextAlign.Right" />
+                    </Columns>
+                </RadzenDataGrid>
+            </ChildContent>
+        </TerminalPanel>
+    </div>
+}
+
+@code {
+    protected override Task<ObjectStatsDto?> LoadAsync(StatsQuery query) => Api.GetObjectsAsync(query);
+}

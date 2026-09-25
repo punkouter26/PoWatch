@@ -1,0 +1,42 @@
+@inherits StatsTabBase<PipelineStatsDto>
+@inject SensingSession Sensing
+
+@if (Data is null)
+{
+    <p class="term-empty">@(Loading ? "Loading…" : "No pipeline stats yet.")</p>
+}
+else
+{
+    <div class="term-grid" data-test="stats-pipeline">
+        <TerminalPanel Number="F1" Title="This range" Class="term-span-2">
+            <div class="term-stats">
+                <StatCell Label="Pixel samples" Value="@Data.PixelSamples.ToString("N0")" Hint="@($"{Number(Data.PixelHz, "0.0")} Hz achieved")" />
+                <StatCell Label="Detector frames" Value="@Data.DetectorSamples.ToString("N0")" Hint="@($"{Number(Data.DetectorHz, "0.00")} Hz achieved")" />
+                <StatCell Label="10 s ticks" Value="@Data.Ticks.ToString("N0")" />
+                <StatCell Label="Observed" Value="@Duration(Data.SecondsObserved)" />
+            </div>
+        </TerminalPanel>
+
+        <TerminalPanel Number="F2" Title="All time" Class="term-span-2">
+            <div class="term-stats">
+                <StatCell Label="Frames analysed" Value="@Data.AllTimeFrames.ToString("N0")" Test="stats-all-frames" />
+                <StatCell Label="Hours watched" Value="@Number(Data.AllTimeHours, "0.0")" />
+                <StatCell Label="Ticks stored" Value="@Data.AllTimeTicks.ToString("N0")" Hint="≈ rows in the tick table" />
+                <StatCell Label="Sessions" Value="@Data.Sessions.ToString()" Hint="@(Data.RunningSessionSeconds is { } s ? $"one running for {Duration(s)}" : "none running")" />
+            </div>
+        </TerminalPanel>
+
+        <TerminalPanel Number="F3" Title="This browser" Class="term-span-4">
+            <div class="term-stats">
+                <StatCell Label="Detector" Value="@(Sensing.Live.DetectorModel?.Split('/').Last() ?? "—")" Hint="@(Sensing.Live.DetectorDevice ?? "not loaded")" />
+                <StatCell Label="Detector latency" Value="@Number(Sensing.Live.DetectorLatencyMs, "0")" Unit="ms" />
+                <StatCell Label="Batches sent" Value="@Sensing.Live.BatchesSent.ToString()" Hint="@($"{Sensing.Live.PendingBatches} queued · {Sensing.Live.RejectedBatches} refused")" />
+                <StatCell Label="Lost ticks" Value="@Sensing.Live.LostTicks.ToString()" Hint="dropped when the outbox overflowed" />
+            </div>
+        </TerminalPanel>
+    </div>
+}
+
+@code {
+    protected override Task<PipelineStatsDto?> LoadAsync(StatsQuery query) => Api.GetPipelineAsync(query);
+}

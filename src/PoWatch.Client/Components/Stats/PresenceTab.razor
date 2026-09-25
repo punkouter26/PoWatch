@@ -1,0 +1,68 @@
+@inherits StatsTabBase<PresenceStatsDto>
+
+@if (Data is null)
+{
+    <p class="term-empty">@(Loading ? "Loading…" : "No presence stats for this range yet.")</p>
+}
+else
+{
+    <div class="term-grid" data-test="stats-presence">
+        <TerminalPanel Number="A1" Title="Presence" Class="term-span-4">
+            <div class="term-stats">
+                <StatCell Label="Occupancy" Value="@Percent(Data.Occupancy)" Hint="share of observed time with someone in frame" Test="stats-occupancy" />
+                <StatCell Label="Visits" Value="@Data.Visits.ToString()" Hint="@($"{Number(Data.VisitsPerHour, "0.0")} per hour")" />
+                <StatCell Label="Peak at once" Value="@Data.PeakConcurrency.ToString()" Hint="people + animals" />
+                <StatCell Label="Dwell p50" Value="@(Data.DwellP50Seconds is { } p50 ? Duration(p50) : "—")" Hint="@($"p90 {(Data.DwellP90Seconds is { } p90 ? Duration(p90) : "—")} · max {Duration(Data.DwellMaxSeconds)}")" />
+                <StatCell Label="Longest empty" Value="@Duration(Data.LongestEmptySeconds)" />
+                <StatCell Label="Longest still" Value="@Duration(Data.LongestStillSeconds)" Hint="peak motion under 1%" />
+                <StatCell Label="Busiest" Value="@Local(Data.BusiestStartUtc)" Hint="@($"motion {Number(Data.BusiestMotion, "0.000")}")" />
+                <StatCell Label="Observed" Value="@Duration(Data.SecondsObserved)" />
+            </div>
+        </TerminalPanel>
+
+        <TerminalPanel Number="A2" Title="Motion energy" Class="term-span-4">
+            <Aside>@Data.Window.Grain.ToUpperInvariant() BUCKETS</Aside>
+            <ChildContent>
+                <RadzenChart Style="height: 240px;" aria-label="Motion over the range">
+                    <RadzenAreaSeries Data="@_points" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Motion)" Title="Mean motion" Smooth="false" />
+                    <RadzenLineSeries Data="@_points" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Occupancy)" Title="Occupancy (rolling)" />
+                    <RadzenCategoryAxis Formatter="@FormatAxis" />
+                    <RadzenValueAxis Min="0" />
+                    <RadzenLegend Position="LegendPosition.Top" />
+                </RadzenChart>
+            </ChildContent>
+        </TerminalPanel>
+    </div>
+}
+
+@code {
+    public sealed record Point(DateTime At, double Motion, double Occupancy);
+
+    private List<Point> _points = [];
+
+    protected override async Task<PresenceStatsDto?> LoadAsync(StatsQuery query)
+    {
+        var data = await Api.GetPresenceAsync(query);
+        if (data is null)
+        {
+            _points = [];
+            return null;
+        }
+
+        // A minute is either occupied or not, so the raw line is a barcode; a rolling mean
+        // (15 minutes, or 3 hours on hourly ranges) shows the actual rhythm.
+        var window = data.Window.Grain switch { "Minute" => 15, "Hour" => 3, _ => 1 };
+        var series = data.Series;
+        _points = series.Select((p, i) =>
+        {
+            var from = Math.Max(0, i - window + 1);
+            var occupancy = series.Skip(from).Take(i - from + 1).Average(s => s.Occupancy);
+            return new Point(p.AtUtc.LocalDateTime, p.Motion, occupancy);
+        }).ToList();
+        return data;
+    }
+
+    private string FormatAxis(object value) => value is DateTime at
+        ? at.ToString(Data?.Window.Grain == "Day" ? "dd MMM" : Data?.Window.Grain == "Hour" ? "ddd HH:00" : "HH:mm", System.Globalization.CultureInfo.CurrentCulture)
+        : value?.ToString() ?? string.Empty;
+}

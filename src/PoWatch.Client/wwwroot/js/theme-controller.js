@@ -1,18 +1,14 @@
 // theme-controller.js — runs once at app boot, before any Blazor paint.
-// Reads the persisted theme from localStorage (or matches the OS preference)
-// and applies it to <html data-theme> BEFORE the layout renders, so the user
-// never sees a dark -> light flash. Subsequent toggles are handled by the
-// theme-toggle button in NavMenu.
+// Reads the persisted theme from localStorage and applies it to <html data-theme> BEFORE the
+// layout renders, so there is no flash. The Terminal look is dark by design, so dark is the
+// default whatever the OS prefers; the header's theme toggle switches and remembers light.
 
 (function () {
     'use strict';
     try {
         var stored = null;
         try { stored = localStorage.getItem('powatch:theme'); } catch (_) { /* private mode */ }
-        if (stored !== 'light' && stored !== 'dark') {
-            var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-            stored = prefersLight ? 'light' : 'dark';
-        }
+        if (stored !== 'light' && stored !== 'dark') stored = 'dark';
         document.documentElement.setAttribute('data-theme', stored);
         // Mark the page so server-side RenderTreeBuilder can avoid SSR-side CSS dump conflicts.
         document.documentElement.setAttribute('data-theme-ready', 'true');

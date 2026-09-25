@@ -43,6 +43,35 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
+    public async Task Every_stats_tab_renders_real_numbers_for_a_seeded_month()
+    {
+        if (PlaywrightFixture.BaseUrl is null) return;
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        var seed = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=40&tz=UTC");
+        Assert.True(seed.Ok, $"seed returned {seed.Status}");
+
+        await page.GoToAsync("/stats?range=30d", "STATS");
+        await Assertions.Expect(page.GetByTestId("stats-occupancy")).Not.ToContainTextAsync("0.0%", new() { Timeout = 30_000 });
+        await Assertions.Expect(page.Locator("[data-test=stats-presence] .rz-chart svg").First).ToBeVisibleAsync();
+
+        foreach (var (tab, content) in new[]
+        {
+            ("Space", "stats-space"),
+            ("Objects", "stats-objects"),
+            ("Patterns & anomalies", "stats-patterns"),
+            ("Environment & captions", "stats-environment"),
+            ("Pipeline", "stats-pipeline"),
+        })
+        {
+            await page.GetByRole(AriaRole.Tab, new() { Name = tab }).ClickAsync();
+            await Assertions.Expect(page.GetByTestId(content)).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        }
+
+        await Assertions.Expect(page.GetByTestId("stats-all-frames")).Not.ToContainTextAsync("—");
+        await page.AssertNoBlazorErrorAsync();
+    }
+
+    [Fact]
     public async Task The_people_page_shows_the_glance_grid_and_the_full_list()
     {
         if (PlaywrightFixture.BaseUrl is null) return;

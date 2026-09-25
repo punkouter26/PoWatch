@@ -10,9 +10,9 @@
 
 <div class="term-grid live-grid">
     <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2" Test="live-camera" Flush="true">
-        <Meta>
+        <Aside>
             @(Sensing.IsRunning ? $"{L.PixelHz:0.0} FPS · {L.Tracks.Count} TRACKS" : "STANDBY")
-        </Meta>
+        </Aside>
         <ChildContent>
             @* The camera element itself lives in the layout and is docked over this slot. *@
             <div class="live-feed" @ref="_slot">
@@ -71,7 +71,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="02" Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
-        <Meta>TODAY vs USUAL</Meta>
+        <Aside>TODAY vs USUAL</Aside>
         <ChildContent>
             <table class="term-table">
                 <thead><tr><th>Metric</th><th class="r">Now</th><th class="r">Chg</th><th style="width: 34%">Trend</th></tr></thead>
@@ -118,7 +118,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="03" Title="Active tracks" Test="live-tracks" Flush="true">
-        <Meta>@L.Tracks.Count LIVE</Meta>
+        <Aside>@L.Tracks.Count LIVE</Aside>
         <ChildContent>
             @if (L.Tracks.Count == 0)
             {
@@ -140,7 +140,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="04" Title="Census" Test="live-census" Flush="true">
-        <Meta>@CensusRows.Count CLASSES</Meta>
+        <Aside>@CensusRows.Count CLASSES</Aside>
         <ChildContent>
             @if (CensusRows.Count == 0)
             {
@@ -162,7 +162,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="05" Title="Pipeline" Test="live-pipeline">
-        <Meta>@(L.DetectorDevice?.ToUpperInvariant() ?? "—")</Meta>
+        <Aside>@(L.DetectorDevice?.ToUpperInvariant() ?? "—")</Aside>
         <ChildContent>
             <div class="term-stats">
                 <StatCell Label="Pixel layer" Value="@L.PixelHz.ToString("0.0", CultureInfo.InvariantCulture)" Unit="Hz" Test="stat-pixel-hz" />
@@ -178,7 +178,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="06" Title="Motion grid" Test="live-motion-grid">
-        <Meta>16×9 · EDGES TODAY</Meta>
+        <Aside>16×9 · EDGES TODAY</Aside>
         <ChildContent>
             <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
             <div class="live-edges">
@@ -191,7 +191,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="07" Title="Light · palette" Test="live-light">
-        <Meta>LUMA @L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</Meta>
+        <Aside>LUMA @L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</Aside>
         <ChildContent>
             <Sparkline Values="@(_today?.Series.Select(p => p.Luminance).TakeLast(240).ToList() ?? [])" Max="1" Cyan="true" Label="Light today" />
             <div class="term-stat-label" style="margin: 8px 0 4px;">Now</div>
@@ -205,7 +205,7 @@
     </TerminalPanel>
 
     <TerminalPanel Number="08" Title="Occupancy 28d" Test="live-pattern">
-        <Meta>@(_patterns?.NextBusyHour is { } h ? $"NEXT BUSY {h:00}:00" : "HOUR × WEEKDAY")</Meta>
+        <Aside>@(_patterns?.NextBusyHour is { } h ? $"NEXT BUSY {h:00}:00" : "HOUR × WEEKDAY")</Aside>
         <ChildContent>
             <HeatGrid Values="@PatternCells" Columns="24" Rows="7" Label="Occupancy by weekday and hour, last 28 days"
                       CellTitle="@((i, v) => $"{Days[i / 24]} {i % 24:00}:00 · {v:P0}")" />

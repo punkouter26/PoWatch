@@ -1,0 +1,76 @@
+@inherits StatsTabBase<EnvironmentStatsDto>
+
+@if (Data is null)
+{
+    <p class="term-empty">@(Loading ? "Loading…" : "No environment stats yet.")</p>
+}
+else
+{
+    <div class="term-grid" data-test="stats-environment">
+        <TerminalPanel Number="D1" Title="Light" Class="term-span-2">
+            <Aside>@Data.Switches.Count SWITCHES@(Data.SunriseUtc is { } up ? $" · SUNRISE ~{Local(up, "HH:mm")} · SUNSET ~{Local(Data.SunsetUtc, "HH:mm")}" : string.Empty)</Aside>
+            <ChildContent>
+                <RadzenChart Style="height: 200px;" aria-label="Brightness over the range">
+                    <RadzenAreaSeries Data="@_light" CategoryProperty="@nameof(LightPoint.At)" ValueProperty="@nameof(LightPoint.Luminance)" Title="Brightness" />
+                    <RadzenValueAxis Min="0" Max="1" />
+                    <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("dd MMM HH:mm", System.Globalization.CultureInfo.CurrentCulture) : string.Empty)" />
+                </RadzenChart>
+            </ChildContent>
+        </TerminalPanel>
+
+        <TerminalPanel Number="D2" Title="Palette" Class="term-span-2">
+            @if (Data.Palette.Count == 0)
+            {
+                <p class="term-empty">No colours sampled yet.</p>
+            }
+            else
+            {
+                <div class="term-swatches" style="height: 60px;" aria-label="The range's dominant colours">
+                    @foreach (var color in Data.Palette)
+                    {
+                        <span style="background: #@color.Rgb.ToString("x6", System.Globalization.CultureInfo.InvariantCulture); flex: @Number(color.Share * 100, "0.#");"
+                              title="#@color.Rgb.ToString("x6", System.Globalization.CultureInfo.InvariantCulture) · @Percent(color.Share)"></span>
+                    }
+                </div>
+            }
+        </TerminalPanel>
+
+        <TerminalPanel Number="D3" Title="What the model said" Class="term-span-4">
+            <Aside>@Data.CaptionCount CAPTIONS</Aside>
+            <ChildContent>
+                @if (Data.Words.Count == 0)
+                {
+                    <p class="term-empty">Captions are read for a session or today; nothing yet.</p>
+                }
+                else
+                {
+                    <div class="stats-cloud" aria-label="Most common words in captions">
+                        @foreach (var word in Data.Words)
+                        {
+                            <span style="font-size: @Number(11 + (18.0 * word.Count / _maxWord), "0")px" title="@word.Count×">@word.Word</span>
+                        }
+                    </div>
+                }
+                @if (Data.WeirdestCaption is { } weird)
+                {
+                    <p class="stats-weird" data-test="weirdest-caption"><b>WEIRDEST</b> @Local(Data.WeirdestAtUtc, "HH:mm:ss") — “@weird”</p>
+                }
+            </ChildContent>
+        </TerminalPanel>
+    </div>
+}
+
+@code {
+    public sealed record LightPoint(DateTime At, double Luminance);
+
+    private List<LightPoint> _light = [];
+    private int _maxWord = 1;
+
+    protected override async Task<EnvironmentStatsDto?> LoadAsync(StatsQuery query)
+    {
+        var data = await Api.GetEnvironmentAsync(query);
+        _light = data?.LightCurve.Select(p => new LightPoint(p.AtUtc.LocalDateTime, p.Luminance)).ToList() ?? [];
+        _maxWord = Math.Max(1, data?.Words.Select(w => w.Count).DefaultIfEmpty(1).Max() ?? 1);
+        return data;
+    }
+}

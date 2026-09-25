@@ -4,7 +4,14 @@
 @code {
     [Parameter] public double? Z { get; set; }
 
-    private string Text => Z is { } z ? z.ToString("+0.0;-0.0", System.Globalization.CultureInfo.InvariantCulture) + "σ" : "n/a";
+    // Round first: a value like -0.04 would otherwise format as "-+0.0" (the sign survives rounding).
+    private string Text => Z is { } z
+        ? Math.Round(z, 1) switch
+        {
+            0 => "±0.0σ",
+            var r => r.ToString("+0.0;-0.0", System.Globalization.CultureInfo.InvariantCulture) + "σ"
+        }
+        : "n/a";
 
     private string Tooltip => Z is { } z
         ? $"{(Math.Abs(z) >= 2 ? "Unusual: " : string.Empty)}{Text} from your usual"
