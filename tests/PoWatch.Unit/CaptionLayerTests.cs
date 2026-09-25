@@ -57,4 +57,28 @@ public sealed class CaptionLayerTests
         time.Advance(scheduler.Interval);
         Assert.True(scheduler.IsDue);
     }
+
+    [Fact]
+    public void Captions_are_grounded_in_what_the_detector_sees_and_an_unchanged_scene_waits()
+    {
+        Assert.Equal(CaptionParser.Instruction, CaptionParser.Prompt([]));
+        Assert.Equal($"{CaptionParser.Instruction}\nVisible: person x2, cat.", CaptionParser.Prompt(["cat", "person", "person"]));
+
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 9, 24, 14, 0, 0, TimeSpan.Zero));
+        var scheduler = new VlmScheduler(time, baseIntervalSeconds: 15);
+        var couch = CaptionParser.Prompt(["person"]);
+        Assert.True(scheduler.IsDueFor(couch));
+        scheduler.MarkRun(couch);
+
+        // The cadence says go, but the same scene waits; a changed one, or no detector at all, does not.
+        time.Advance(scheduler.Interval);
+        Assert.True(scheduler.IsDue);
+        Assert.False(scheduler.IsDueFor(couch));
+        Assert.True(scheduler.IsDueFor(CaptionParser.Prompt(["person", "cat"])));
+        Assert.True(scheduler.IsDueFor(null));
+
+        // Even an unchanged scene is re-captioned once its last caption is old.
+        time.Advance(VlmScheduler.SameSceneEvery);
+        Assert.True(scheduler.IsDueFor(couch));
+    }
 }

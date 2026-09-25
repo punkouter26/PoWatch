@@ -1,5 +1,6 @@
 @page "/history"
 @using System.Globalization
+@using PoWatch.Shared.Services.Recaps
 @inject PoWatchApiClient Api
 @inject IJSRuntime JS
 
@@ -276,6 +277,22 @@
             .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == _day)
             .OrderByDescending(m => m.Score)
             .ToList();
+
+        await RewriteOnDeviceAsync(day);
+    }
+
+    /// <summary>
+    /// With no model on the server, the browser's built-in one (Chrome's Prompt API, only when already
+    /// downloaded) rewrites the paragraph: same prompt, same no-invented-numbers check, nothing sent anywhere.
+    /// </summary>
+    private async Task RewriteOnDeviceAsync(DateOnly day)
+    {
+        if (_recap is not { Source: "template" } recap || _presence is not { SecondsObserved: > 0 }) return;
+        var prompt = RecapPrompt.User(recap);
+        var text = await JS.TryInvokeAsync<string>("powatchInference.rewriteOnDevice", RecapPrompt.System, prompt);
+        if (day != _day || string.IsNullOrWhiteSpace(text) || !RecapPrompt.KeepsToFacts(text, prompt)) return;
+        _recap = RecapPrompt.Rewritten(recap, text.Trim(), "on-device");
+        StateHasChanged();
     }
 
     /// <summary>Plays the day's frames (stored only in this browser) and offers the recording as a download.</summary>

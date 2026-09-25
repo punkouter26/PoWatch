@@ -200,7 +200,7 @@ async function ensureModelLoaded() {
   self.postMessage({ type: 'STATE_UPDATE', loadState: _loadState });
 
   _loadPromise = (async () => {
-    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, Qwen2VLForConditionalGeneration, RawImage, env } = await import(_TRANSFORMERS_URL);
+    const { AutoProcessor, AutoModelForImageTextToText, AutoModelForCausalLM, Qwen2VLForConditionalGeneration, Florence2ForConditionalGeneration, RawImage, env } = await import(_TRANSFORMERS_URL);
     env.useFSCache = false;
     // Load the ONNX Runtime wasm from the same vendored, pinned directory (offline supply chain, §7)
     // instead of letting transformers.js fetch it from its default CDN.
@@ -219,6 +219,7 @@ async function ensureModelLoaded() {
     const ModelClass =
       cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM
       : cfg.modelClass === 'qwen2vl' ? Qwen2VLForConditionalGeneration
+      : cfg.modelClass === 'florence2' ? Florence2ForConditionalGeneration
       : AutoModelForImageTextToText;
     _processor = await AutoProcessor.from_pretrained(cfg.id);
 
@@ -278,8 +279,29 @@ function describeError(err) {
   return 'unknown';
 }
 
-async function prepareInputs(base64Frame, prompt) {
-  const image = await _RawImage.fromURL(base64Frame);
+// Frames arrive as a transferred ImageBitmap (no JPEG encode on the page, no base64 copy, no decode
+// here), the same hand-off the detector worker uses.
+let _frameCanvas = null;
+
+function toRawImage(bitmap) {
+  if (!_frameCanvas || _frameCanvas.width !== bitmap.width || _frameCanvas.height !== bitmap.height) {
+    _frameCanvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  }
+  const ctx = _frameCanvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0);
+  const pixels = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  return new _RawImage(pixels.data, bitmap.width, bitmap.height, 4).rgb();
+}
+
+// Florence-2 is a task-token captioner: it ignores the free-text prompt, so it cannot echo it.
+const _FLORENCE_TASK = '<CAPTION>';
+
+function isFlorence() {
+  return _MODELS[_activeModelKey]?.modelClass === 'florence2';
+}
+
+async function prepareInputs(image, prompt) {
+  if (isFlorence()) return _processor(image, _processor.construct_prompts(_FLORENCE_TASK));
 
   const messages = [
     {
@@ -291,10 +313,15 @@ async function prepareInputs(base64Frame, prompt) {
     },
   ];
   const text = _processor.apply_chat_template(messages, { add_generation_prompt: true });
-  return _processor(text, [image]);
+  // SmolVLM otherwise upscales the frame to its longest_edge and tiles it into up to 16 crops plus a
+  // global view — hundreds of image tokens for a one-sentence caption. One global view is enough.
+  return _processor(text, [image], { do_image_splitting: false });
 }
 
 function decodeGenerated(generatedIds, inputs) {
+  if (isFlorence()) {
+    return { output: _processor.batch_decode(generatedIds, { skip_special_tokens: true })[0].trim(), generationDiagnostic: null };
+  }
   const newTokenIds = generatedIds.slice(null, [inputs.input_ids.dims[1], null]);
   let output = _processor.batch_decode(newTokenIds, { skip_special_tokens: true })[0].trim();
   let generationDiagnostic = null;
@@ -343,10 +370,11 @@ function nextRuntimeFallback() {
 async function reloadModel(device, dtype) {
   const cfg = _MODELS[_activeModelKey];
   self.postMessage({ type: 'STATE_UPDATE', loadState: 'loading' });
-  const { AutoModelForImageTextToText, AutoModelForCausalLM, Qwen2VLForConditionalGeneration } = await import(_TRANSFORMERS_URL);
+  const { AutoModelForImageTextToText, AutoModelForCausalLM, Qwen2VLForConditionalGeneration, Florence2ForConditionalGeneration } = await import(_TRANSFORMERS_URL);
   const RetryModelClass =
     cfg.modelClass === 'causal-lm' ? AutoModelForCausalLM
     : cfg.modelClass === 'qwen2vl' ? Qwen2VLForConditionalGeneration
+    : cfg.modelClass === 'florence2' ? Florence2ForConditionalGeneration
     : AutoModelForImageTextToText;
   _model = await RetryModelClass.from_pretrained(cfg.id, { device, dtype });
   _device = device;
@@ -355,42 +383,35 @@ async function reloadModel(device, dtype) {
   self.postMessage({ type: 'STATE_UPDATE', loadState: 'ready' });
 }
 
-async function runInference(base64Frame, prompt, maxNewTokens = 32) {
-  if (!base64Frame) {
-    return {
-      isAvailable: false,
-      status: 'No frame captured',
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: 'Unavailable',
-    };
+function unavailable(status, rawOutput = '', generationDiagnostic = null) {
+  return { isAvailable: false, status, rawOutput, generationDiagnostic, activity: 'Unavailable', caption: '' };
+}
+
+// Words that say nothing about the scene, and the signature of a small model stuck in a loop.
+const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
+
+function hasRepetition(text) {
+  const counts = Object.create(null);
+  for (const w of text.toLowerCase().split(/\s+/)) {
+    if (w.length < 2) continue;
+    counts[w] = (counts[w] ?? 0) + 1;
+    if (counts[w] > 3) return true;
   }
+  return /(.{3,})\1{3,}/i.test(text);
+}
+
+async function runInference(bitmap, prompt, maxNewTokens = 32) {
+  if (!bitmap) return unavailable('No frame captured');
 
   try {
     await ensureModelLoaded();
   } catch (err) {
     // "Failed to fetch" is what the browser reports for a reset, DNS or TLS failure alike, and on its
     // own it reads as an app bug rather than what it is — the model weights could not be downloaded.
-    // Say so, and say that it was already retried, so the next step is the network and not this loop.
     const detail = describeError(err);
-    const isNetworkFailure = /failed to fetch|networkerror|network error|load failed/i.test(detail);
-    return {
-      isAvailable: false,
-      status: isNetworkFailure
-        ? `Model unavailable: could not download model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
-        : `Model unavailable: ${detail}`,
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: 'Unavailable',
-    };
+    return unavailable(/failed to fetch|networkerror|network error|load failed/i.test(detail)
+      ? `Model unavailable: could not download model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
+      : `Model unavailable: ${detail}`);
   }
 
   const inferStart = performance.now();
@@ -398,33 +419,33 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
     ? Math.min(96, Math.max(16, Math.trunc(maxNewTokens)))
     : 32;
 
+  const image = toRawImage(bitmap);
+  bitmap.close?.();
   // Rebuild tensors after every backend switch. Reusing WebGPU inputs on wasm (or a poisoned
-  // session) is how generate() started throwing a bare ONNX code with no .message — the UI then
-  // reported "Inference error: unknown" and pretended the model returned empty text.
-  let inputs = await prepareInputs(base64Frame, prompt);
-  let generatedIds = null;
+  // session) is how generate() started throwing a bare ONNX code with no .message.
+  let inputs = await prepareInputs(image, prompt);
   let generateError = null;
   let output = '';
   let generationDiagnostic = null;
 
   for (let attempt = 0; attempt < 4; attempt++) {
     generateError = null;
-    generatedIds = null;
+    let generatedIds = null;
     try {
       generatedIds = await _model.generate({
         ...inputs,
         max_new_tokens: safeMaxNewTokens,
         do_sample: false,
-        temperature: 0,
+        // Greedy decoding on a small model loops ("the the the…"); forbidding a repeated trigram
+        // stops that at the source instead of rejecting the caption afterwards.
+        no_repeat_ngram_size: 3,
       });
     } catch (err) {
       generateError = describeError(err);
     }
 
     if (generatedIds) {
-      const decoded = decodeGenerated(generatedIds, inputs);
-      output = decoded.output;
-      generationDiagnostic = decoded.generationDiagnostic;
+      ({ output, generationDiagnostic } = decodeGenerated(generatedIds, inputs));
       if (output.length > 0) break;
     }
 
@@ -434,7 +455,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
     _runtimeFallbackStage += 1;
     try {
       await reloadModel(fallback.device, fallback.dtype);
-      inputs = await prepareInputs(base64Frame, prompt);
+      inputs = await prepareInputs(image, prompt);
     } catch (err) {
       generateError = `Fallback to ${fallback.device}/${fallback.dtype} failed: ${describeError(err)}`;
       break;
@@ -446,217 +467,40 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
   _inferenceCount++;
   _lastInferenceOutput = output;
 
-  // Distinguish "the model said nothing" from "the model said something we rejected". These had
-  // identical symptoms before, which is why 33 cycles of empty output read as a quality problem.
+  // Distinguish "the model said nothing" from "the model said something we rejected".
   if (output.length === 0) {
-    return {
-      isAvailable: false,
-      status: generateError
+    return unavailable(
+      generateError
         ? `Inference error: ${generateError}`
-        : (_runtimeFallbackStage > 0
-          ? `Model returned an empty response (retried on ${_device}/${_dtype})`
-          : 'Model returned an empty response'),
-      rawOutput: '',
-      generationDiagnostic: generationDiagnostic
-        || (generateError ? `generateFailed device=${_device} dtype=${_dtype} error=${generateError}` : null),
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: generateError ? 'Unavailable' : 'Empty',
-    };
+        : (_runtimeFallbackStage > 0 ? `Model returned an empty response (retried on ${_device}/${_dtype})` : 'Model returned an empty response'),
+      '',
+      generationDiagnostic || (generateError ? `generateFailed device=${_device} dtype=${_dtype} error=${generateError}` : null));
   }
 
-  // Parse structured LABEL / NOTE response.
-  // LABEL: is preferred. Accept common misspellings/malformations emitted by small models:
-  //   - LABLE, LABELL, LABERF (off-by-one/extra chars)
-  //   - LABEL (correct)
-  // Also handles: L A B E L (space-separated), [LABEL], etc.
-  // When absent, fall back to extracting the first sentence as low-confidence activity.
-  const labelRegex = /(?:^|\n)\s*\[?L\s*A\s*B\s*E\s*L\s*\]?\s*:\s*([^|\n]+)/i;
-  const labelMatch = output.match(labelRegex);
-  const noteMatch  = output.match(/NOTE:\s*([^\n]+)/i);
-
-  const _DENY = new Set(['yes', 'no', 'ok', 'yeah', 'yep', 'nope', 'none', 'true', 'false', 'maybe']);
-
-  // Detect repetitive / hallucinated output, e.g.:
-  //   "I am I I I I I I I" — any word repeated more than 3 times
-  //   "I'm'NON'NON'NON..."  — a short substring repeated 4+ times in a row
-  //   "the most common and most common..." — word-pair repetition
-  // Returns true when the text is dominated by repetition and should be discarded.
-  function hasRepetition(text) {
-    const words = text.toLowerCase().split(/\s+/);
-    const wordCounts = Object.create(null);
-    for (const w of words) {
-      if (w.length < 2) continue;
-      wordCounts[w] = (wordCounts[w] ?? 0) + 1;
-      if (wordCounts[w] > 3) return true;
-    }
-    // Character-level: any 3+-char chunk that repeats 4+ times consecutively
-    return /(.{3,})\1{3,}/i.test(text);
-  }
-
-  let activity;
-  let note;
-  let isUnstructured = false;
-
-  if (!labelMatch) {
-    // Fallback: use the first sentence of raw output as the activity summary.
-    const rawTrimmed = output.replace(/\s+/g, ' ').trim();
-    const firstSentence = rawTrimmed.split(/[.\n]/)[0].trim().slice(0, 80);
-    // Enhanced normalization: remove malformed label prefixes and clean up
-    const normalizedSentence = firstSentence
-      .replace(/^[L\s]*A[A\s]*B[B\s]*E[E\s]*L[L\s]*\s*:\s*/i, '') // Space-separated LABEL variants
-      .replace(/^(?:LABEL|LABLE|LABELL|LABERF)\s*:\s*/i, '')          // Compact variants
-      .replace(/^\[.*?\]\s*/, '')                                      // Remove bracketed prefixes
-      .replace(/^[^\w\s]*/, '')                                        // Remove leading non-alphanumeric
-      .trim();
-
-    if (normalizedSentence.length < 6 || _DENY.has(normalizedSentence.toLowerCase()) || hasRepetition(normalizedSentence)) {
-      return {
-        isAvailable: false,
-        status: 'Low-quality inference: unstructured output skipped',
-        rawOutput: output,
-        subjectHint: null,
-        activity: 'Unavailable',
-        caption: '',
-        isSignificant: false,
-        significantReason: null,
-        confidenceScore: 0.18,
-        confidenceLabel: 'Low',
-      };
-    }
-
-    activity = normalizedSentence;
-    note = rawTrimmed.slice(0, 200);
-    isUnstructured = true;
-  } else {
-    activity = labelMatch[1].trim().slice(0, 80);
-    // When NOTE is absent, fall back to the activity text to avoid storing the raw
-    // "LABEL: <text>" prefix in the note.
-    note = noteMatch?.[1]?.trim() ?? activity;
-  }
-
-  // Guard: reject any output that echoes prompt placeholder tokens (e.g. "<5 word activity>")
-  if (/[<>]/.test(activity)) {
-    return {
-      isAvailable: false,
-      status: 'Low-quality inference: prompt echo detected',
-        rawOutput: output,
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: 'Low',
-    };
-  }
-
-  // Quality gate: reject trivially short, deny-listed, or repetitive outputs
+  // The prompt asks for one plain sentence; the C# caption parser keeps the first one. Here only the
+  // replies that are clearly not a description are dropped.
+  const text = output.replace(/\s+/g, ' ').trim();
+  const activity = text.split(/[.\n]/)[0].trim().slice(0, 80);
   if (activity.length < 6 || _DENY.has(activity.toLowerCase()) || hasRepetition(activity)) {
-    return {
-      isAvailable: false,
-      status: 'Low-quality inference: skipped',
-        rawOutput: output,
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0.24,
-      confidenceLabel: 'Low',
-    };
+    return unavailable('Low-quality inference: skipped', output);
   }
 
-  // Guard: reject activities that echo prompt format hints, e.g. "5 words: 1", "word count:", etc.
-  // These occur when small models repeat instructions rather than describing the scene.
-  if (/^\d+\s+words?/i.test(activity) || /^word\s+count/i.test(activity) || /^(?:short\s+)?activity\s+phrase/i.test(activity)) {
-    return {
-      isAvailable: false,
-      status: 'Low-quality inference: prompt format echo detected',
-        rawOutput: output,
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: 'Low',
-    };
-  }
-
-  // Guard: reject output that parrots the prompt instead of describing the scene. Small VLMs copy
-  // instruction text and worked examples verbatim — the old prompt's example line was recorded as a
-  // real observation four times in a row. A fabricated record that reads plausibly is worse than a
-  // rejected one, so anything substantially overlapping the prompt is discarded.
-  const promptWords = new Set(
-    (prompt ?? '').toLowerCase().match(/[a-z]{4,}/g) ?? []);
+  // Small VLMs copy instruction text verbatim; a fabricated record that reads plausibly is worse than a
+  // rejected one. Only the instruction line counts: words from the "Visible:" hint are meant to be reused.
+  const instruction = (prompt ?? '').split('\n')[0].toLowerCase();
+  const promptWords = new Set(instruction.match(/[a-z]{4,}/g) ?? []);
   const activityWords = activity.toLowerCase().match(/[a-z]{4,}/g) ?? [];
-  const echoedWordCount = activityWords.filter((w) => promptWords.has(w)).length;
-  if (
-    /^(?:task|answer|question|instruction|example|reply|response|output)\s*[:\-]/i.test(activity) ||
-    (activityWords.length >= 3 && echoedWordCount / activityWords.length >= 0.8)
-  ) {
-    return {
-      isAvailable: false,
-      status: 'Low-quality inference: prompt echoed instead of describing the scene',
-      rawOutput: output,
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: 'Low',
-    };
+  const echoed = activityWords.filter((w) => promptWords.has(w)).length;
+  if (/[<>]/.test(activity) || (activityWords.length >= 3 && echoed / activityWords.length >= 0.8)) {
+    return unavailable('Low-quality inference: prompt echoed instead of describing the scene', output);
   }
 
-  // Guard: reject obviously incomplete sentences that indicate the model did not finish its output.
-  // e.g. "The scene is a bit", "Person is a", "Room has a"
-  // An activity ending with a bare article or preposition is structurally unfinished.
-  if (/\b(?:is\s+a|is\s+an|is\s+the|has\s+a|has\s+an|a\s+bit|in\s+a|in\s+the|at\s+a|at\s+the|of\s+a|on\s+a)\s*\.?\s*$/i.test(activity)) {
-    return {
-      isAvailable: false,
-      status: 'Low-quality inference: incomplete sentence',
-        rawOutput: output,
-      subjectHint: null,
-      activity: 'Unavailable',
-      caption: '',
-      isSignificant: false,
-      significantReason: null,
-      confidenceScore: 0,
-      confidenceLabel: 'Low',
-    };
+  // A sentence ending on a bare article or preposition ran out of tokens mid-thought.
+  if (/\b(?:is|has|in|at|of|on|with)\s+(?:a|an|the)\s*\.?\s*$|\ba\s+bit\s*\.?\s*$/i.test(activity)) {
+    return unavailable('Low-quality inference: incomplete sentence', output);
   }
 
-  // The worker only reports what it saw; the C# caption layer decides what counts as notable.
-  const caption = `<S>${note}<E>`;
-
-  // A plain caption is now the EXPECTED result, not a degraded one: the prompt asks a question
-  // rather than demanding a LABEL/NOTE format the small models cannot produce. Capping captions at
-  // 0.50 and tagging them "Unstructured inference" made every correct observation look suspect.
-  // A LABEL: reply still scores slightly higher because it carries an explicit activity/note split.
-  const confidenceScore = Math.max(0.40, Math.min(isUnstructured ? 0.88 : 0.98,
-    (isUnstructured ? 0.46 : 0.58) +
-    Math.min(activity.length, 32) / 120 +
-    Math.min(note.length, 160) / 500 +
-    (noteMatch ? 0.07 : 0)));
-  const confidenceLabel = confidenceScore >= 0.85 ? 'High' : confidenceScore >= 0.72 ? 'Medium' : 'Low';
-
-  return {
-    isAvailable: true,
-    status: 'OK',
-    subjectHint: null,
-    activity,
-    caption,
-    isSignificant: false,
-    significantReason: null,
-    confidenceScore: Number(confidenceScore.toFixed(2)),
-    confidenceLabel,
-  };
+  return { isAvailable: true, status: 'OK', activity, caption: text.slice(0, 200) };
 }
 
 // Per-model self-test for the System page. Loads ONE registry model and runs a single generation
@@ -672,7 +516,7 @@ async function runInference(base64Frame, prompt, maxNewTokens = 32) {
 // The worker holds one model at a time, so the test necessarily evicts whatever was loaded. The
 // previously selected key is restored UNLOADED before returning, so the Live Room reloads its own
 // model on next use instead of silently inheriting the test's.
-async function runModelTest(modelKey, base64Frame, prompt, maxNewTokens) {
+async function runModelTest(modelKey, frame, prompt, maxNewTokens) {
   const cfg = _MODELS[modelKey];
   const result = {
     modelKey,
@@ -728,7 +572,7 @@ async function runModelTest(modelKey, base64Frame, prompt, maxNewTokens) {
   result.stage = 'inference';
   let inference = null;
   try {
-    inference = await runInference(base64Frame, prompt, maxNewTokens);
+    inference = await runInference(frame, prompt, maxNewTokens);
   } catch (err) {
     result.error = describeError(err);
   }
@@ -782,24 +626,14 @@ self.onmessage = async (e) => {
       // The page's model pick travels with each request; switching inside the lock never cuts a run short.
       const run = _inferLock.then(async () => {
         await useModel(payload.modelKey);
-        return runInference(payload.base64Frame, payload.prompt, payload.maxNewTokens);
+        return runInference(payload.frame, payload.prompt, payload.maxNewTokens);
       });
       _inferLock = run.then(() => undefined, () => undefined);
       let result;
       try {
         result = await run;
       } catch (err) {
-        result = {
-          isAvailable: false,
-          status: `Inference error: ${describeError(err)}`,
-          subjectHint: null,
-          activity: 'Unavailable',
-          caption: '',
-          isSignificant: false,
-          significantReason: null,
-          confidenceScore: 0,
-          confidenceLabel: 'Unavailable',
-        };
+        result = unavailable(`Inference error: ${describeError(err)}`);
       }
       self.postMessage({ id, type: 'INFERENCE_RESULT', result });
       break;
@@ -809,7 +643,7 @@ self.onmessage = async (e) => {
       // Shares _inferLock with RUN_INFERENCE: the test swaps the loaded model out from under the
       // worker, so it must never overlap an observation cycle.
       const test = _inferLock.then(() => runModelTest(
-        payload.modelKey, payload.base64Frame, payload.prompt, payload.maxNewTokens));
+        payload.modelKey, payload.frame, payload.prompt, payload.maxNewTokens));
       _inferLock = test.then(() => undefined, () => undefined);
       let testResult;
       try {

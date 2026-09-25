@@ -14,8 +14,25 @@ public static class CaptionParser
 {
     public const int MaxLength = 200;
 
-    /// <summary>The prompt the sensing loop sends with each frame.</summary>
-    public const string Prompt = "Describe what is happening in this scene in one short sentence.";
+    /// <summary>The instruction line of every caption prompt.</summary>
+    public const string Instruction = "Describe what is happening in this scene in one short sentence.";
+
+    /// <summary>Decode budget: one short sentence fits, and the parser keeps only the first anyway.</summary>
+    public const int MaxNewTokens = 32;
+
+    /// <summary>
+    /// The prompt the sensing loop sends with each frame. What the detector already sees goes on a
+    /// second line: small models make up far less when told what is there. The worker's prompt-echo
+    /// check reads only the first line, so the caption may reuse these words.
+    /// </summary>
+    public static string Prompt(IEnumerable<string> visible)
+    {
+        var counts = visible.GroupBy(l => l, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} x{g.Count()}")
+            .ToList();
+        return counts.Count == 0 ? Instruction : $"{Instruction}\nVisible: {string.Join(", ", counts)}.";
+    }
 
     private static readonly (string Activity, string[] Keywords)[] ActivityKeywords =
     [

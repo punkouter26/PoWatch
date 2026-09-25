@@ -81,9 +81,20 @@ everything. With no storage configured the API falls back to in-memory stores.
 ## Recaps
 
 `TemplateRecap` writes the paragraph from the numbers (Humanizer). If `AiProvider:Provider` is
-`Ollama` or `AzureOpenAi`, an `IChatClient` may rewrite the paragraph only — never the numbers — and
-the template wins on timeout or error. QuestPDF renders the PDF; a host without its native engine
-answers an explained 503.
+`Ollama`, `AzureOpenAi` or `OpenAiCompatible` (e.g. Gemini), an `IChatClient` may rewrite the
+paragraph only — never the numbers — and the template wins on timeout, error, or a reply that uses a
+number not in the facts (`RecapPrompt.KeepsToFacts`). Azure OpenAI signs in with the app's Entra
+identity when `AzureOpenAi:ApiKey` is empty (Development uses `gpt-5.4-nano` via the az CLI login;
+Production stays on Template until the web app's identity has *Cognitive Services OpenAI User* on
+`po-aiservices-shared`). Replies are cached by prompt, so reopening a day or its PDF costs nothing.
+With no server model, History asks Chrome's built-in model (Prompt API) when it is already on the
+device. QuestPDF renders the PDF; a host without its native engine answers an explained 503.
+
+**Captions.** The VLM prompt carries what the detector sees (`Visible: person x2, cat.`), an unchanged
+scene is re-captioned at most every 2 minutes, SmolVLM runs without image splitting, and frames reach
+the worker as transferred `ImageBitmap`s. A caption unlike the last 10 becomes a Notable moment. COOP
+`same-origin` + COEP `credentialless` make the page cross-origin isolated, so the WASM backend runs
+multi-threaded.
 
 ## Quality gates
 

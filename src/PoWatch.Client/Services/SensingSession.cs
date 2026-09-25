@@ -36,6 +36,9 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private ElementReference? _video;
     private CancellationTokenSource? _cts;
     private bool _vlmBusy;
+
+    /// <summary>Labels the detector tracks right now; null until it reports, so captions then go ungrounded.</summary>
+    private List<string>? _inFrame;
     private bool _sending;
     private bool _vlmEnabled;
     private int _demoStep;
@@ -82,6 +85,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _vlm = new VlmScheduler(time);
         _highlights = new HighlightRules(time);
         _observing.Clear();
+        _inFrame = null;
         _scene = demo ? new SyntheticScene() : null;
         _demoStep = 0;
         _cts = new CancellationTokenSource();
@@ -176,6 +180,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private void AddDetections(DateTimeOffset atUtc, IReadOnlyList<Detection> detections)
     {
         var frame = _tracker.Update(atUtc, detections);
+        _inFrame = [.. frame.Active.Select(t => t.Label)];
         _batcher.AddDetections(atUtc, frame, trackId => Live.RegularFor(trackId)?.Id);
         Live.RecordDetections(frame, time.GetUtcNow());
         foreach (var exited in frame.Exited) Live.ForgetTrack(exited.TrackId);
@@ -308,12 +313,15 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     private async Task VlmTickAsync(CancellationToken ct)
     {
-        if (!_vlmEnabled || _vlmBusy || !_vlm.IsDue || _video is null) return;
+        // The grounded prompt doubles as the scene key: same objects, same counts, same prompt.
+        var prompt = CaptionParser.Prompt(_inFrame ?? []);
+        var scene = _inFrame is null ? null : prompt;
+        if (!_vlmEnabled || _vlmBusy || !_vlm.IsDueFor(scene) || _video is null) return;
         _vlmBusy = true;
         try
         {
-            _vlm.MarkRun();
-            var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", CaptionParser.Prompt, _video, 48);
+            _vlm.MarkRun(scene);
+            var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", prompt, _video, CaptionParser.MaxNewTokens);
             if (result is { IsAvailable: true })
                 AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.Caption) ? result.Activity : result.Caption);
             else if (result is not null)

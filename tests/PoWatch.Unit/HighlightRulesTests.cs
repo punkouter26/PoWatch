@@ -39,4 +39,19 @@ public sealed class HighlightRulesTests
         time.Advance(TimeSpan.FromMinutes(56));
         Assert.NotNull(rules.OnPixel(Motion(0.25)));
     }
+
+    [Fact]
+    public void A_caption_unlike_every_recent_one_is_a_moment()
+    {
+        var rules = new HighlightRules(new FakeTimeProvider(T0));
+        static ParsedCaption Plain(string text) => new(text, [], null, Notable: false);
+
+        // Nothing is novel until there is a full window to compare with.
+        for (var i = 0; i < HighlightRules.NoveltyWindow; i++)
+            Assert.Null(rules.OnCaption(Plain("A person sitting on the couch watching television.")));
+
+        // More of the same is not a moment; something the room has not shown lately is.
+        Assert.Null(rules.OnCaption(Plain("A person sitting on the couch reading.")));
+        Assert.Equal("Two cats wrestle across the kitchen floor.", rules.OnCaption(Plain("Two cats wrestle across the kitchen floor."))!.Reason);
+    }
 }

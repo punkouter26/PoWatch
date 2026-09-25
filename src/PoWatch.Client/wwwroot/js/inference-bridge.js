@@ -30,7 +30,7 @@
 
   function getWorker() {
     if (!_worker) {
-      _worker = new Worker('/js/inference-worker.js?v=20260925-early-messages', { type: 'module' });
+      _worker = new Worker('/js/inference-worker.js?v=20260925-bitmap-frames', { type: 'module' });
       _worker.onmessage = (e) => {
         const { id, type, ...rest } = e.data;
         // Unsolicited state broadcasts from the worker (e.g. during model loading)
@@ -58,7 +58,7 @@
   // timeoutMs = 0 means wait forever (RUN_INFERENCE/model loads can be slow). Quick status
   // queries MUST pass a timeout: a worker that never responds otherwise hangs the awaiting
   // Blazor OnInitializedAsync and the page never renders (System page bug, 2026-07-22).
-  function postToWorker(type, payload, timeoutMs = 0) {
+  function postToWorker(type, payload, timeoutMs = 0, transfer = []) {
     return new Promise((resolve, reject) => {
       const id = _msgId++;
       let timer = null;
@@ -73,7 +73,7 @@
         resolve: (v) => { if (timer) clearTimeout(timer); resolve(v); },
         reject: (e) => { if (timer) clearTimeout(timer); reject(e); },
       });
-      getWorker().postMessage({ id, type, payload });
+      getWorker().postMessage({ id, type, payload }, transfer);
     });
   }
 
@@ -101,8 +101,6 @@
 
   let _diffCanvas = null;
   let _diffCtx = null;
-  let _captureCanvas = null;
-  let _captureCtx = null;
 
   // Returns fraction of pixels that changed significantly vs last frame (0–1).
   // Reuses a cached canvas and samples with stride at 120×68 with willReadFrequently to keep cost <1ms.
@@ -144,27 +142,21 @@
   // processor downsamples anyway, so the extra pixels bought nothing but latency.
   const _MAX_CAPTURE_EDGE = 512;
 
+  // The frame goes to the worker as a transferable ImageBitmap, resized by the browser: no JPEG
+  // encode here, no base64 string copied across, no decode on the other side.
   async function captureFrame(videoElement) {
     if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
-      return '';
+      return null;
     }
 
     const srcW = videoElement.videoWidth;
     const srcH = videoElement.videoHeight;
     const scale = Math.min(1, _MAX_CAPTURE_EDGE / Math.max(srcW, srcH));
-    const targetW = Math.max(1, Math.round(srcW * scale));
-    const targetH = Math.max(1, Math.round(srcH * scale));
-
-    if (!_captureCanvas) {
-      _captureCanvas = document.createElement('canvas');
-      _captureCtx = _captureCanvas.getContext('2d');
-    }
-    if (_captureCanvas.width !== targetW || _captureCanvas.height !== targetH) {
-      _captureCanvas.width = targetW;
-      _captureCanvas.height = targetH;
-    }
-    _captureCtx?.drawImage(videoElement, 0, 0, targetW, targetH);
-    return _captureCanvas.toDataURL('image/jpeg', 0.85);
+    return createImageBitmap(videoElement, {
+      resizeWidth: Math.max(1, Math.round(srcW * scale)),
+      resizeHeight: Math.max(1, Math.round(srcH * scale)),
+      resizeQuality: 'medium',
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -183,7 +175,7 @@
     canvas.width = _TEST_FRAME_EDGE;
     canvas.height = _TEST_FRAME_EDGE;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
+    if (!ctx) return null;
 
     ctx.fillStyle = '#d8d4cc';                       // wall
     ctx.fillRect(0, 0, 384, 384);
@@ -205,14 +197,8 @@
     ctx.fillStyle = '#3f5c78';                       // person: torso on the bed
     ctx.fillRect(95, 205, 120, 34);
 
-    return canvas.toDataURL('image/jpeg', 0.9);
+    return canvas;
   }
-
-  // Kept close to the real observation prompt so the reply the test shows is the kind of reply the
-  // observation loop would get. It is not the same constant — the real one lives in C# with the
-  // reasoning for its wording, and a shared copy would drift silently.
-  const _TEST_PROMPT =
-    'What is the person in this image doing? Answer with one short sentence describing only what you can see.';
 
   function classifyMotion(diff) {
     if (diff >= 0.18) return 'High';
@@ -329,21 +315,21 @@
       }
 
       // Capture frame on main thread (DOM), then hand off to the worker
-      const base64Frame = await captureFrame(videoElement);
+      const frame = await captureFrame(videoElement);
       if (ctrl.signal.aborted) {
+        frame?.close();
         return { isAvailable: false, status: 'Cancelled', activity: 'Cancelled', confidenceLabel: 'Cancelled' };
       }
       const res = await postToWorker('RUN_INFERENCE', {
-        base64Frame,
+        frame,
         prompt,
         maxNewTokens: maxInferenceTokens,
         modelKey: savedModel(),
-      });
+      }, 0, frame ? [frame] : []);
       return {
         ...res.result,
         motionScore,
         motionLevel,
-        capturedImageDataUrl: base64Frame,
       };
     },
 
@@ -378,17 +364,15 @@
     // Per-model self-test for the System page. No timeout is passed: a first-time load of the 2.2B
     // model downloads well over a gigabyte, and a timeout here would report a slow-but-working
     // laptop as a failure. The card disables its buttons for the duration instead.
-    async runModelTest(modelKey) {
-      const testFrameDataUrl = buildTestFrame();
-      if (!testFrameDataUrl) {
+    // The prompt and token budget come from C# (CaptionParser), so the test measures the loop's real call.
+    async runModelTest(modelKey, prompt, maxNewTokens) {
+      const canvas = buildTestFrame();
+      if (!canvas) {
         return { modelKey, ok: false, stage: 'fixture', error: 'Could not draw the test image in this browser' };
       }
-      const res = await postToWorker('MODEL_TEST', {
-        modelKey,
-        base64Frame: testFrameDataUrl,
-        prompt: _TEST_PROMPT,
-        maxNewTokens: 48,
-      });
+      const testFrameDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const frame = await createImageBitmap(canvas);
+      const res = await postToWorker('MODEL_TEST', { modelKey, frame, prompt, maxNewTokens }, 0, [frame]);
       // The worker owns the model state and has just unloaded whatever it tested, so the cached
       // state must follow it back to 'idle' — otherwise the Live Room reads a stale 'ready'.
       _cachedLoadState = 'idle';
@@ -425,6 +409,23 @@
           track.stop();
         }
         activeStream = null;
+      }
+    },
+
+    // Chrome's built-in language model (Prompt API). Only used when it is already on the device — this
+    // never starts a multi-gigabyte download on its own. Null means "not here", and the caller keeps
+    // the template text.
+    async rewriteOnDevice(system, prompt) {
+      try {
+        if (typeof LanguageModel === 'undefined' || (await LanguageModel.availability()) !== 'available') return null;
+        const session = await LanguageModel.create({ initialPrompts: [{ role: 'system', content: system }] });
+        try {
+          return (await session.prompt(prompt)).trim() || null;
+        } finally {
+          session.destroy();
+        }
+      } catch {
+        return null;
       }
     },
 

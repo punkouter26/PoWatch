@@ -5,6 +5,7 @@ using PoWatch.Application.Contracts;
 using PoWatch.Domain.Models;
 using PoWatch.Domain.Services;
 using PoWatch.Shared.Models;
+using PoWatch.Shared.Services.Recaps;
 
 namespace PoWatch.Application.Services;
 
@@ -92,38 +93,30 @@ public sealed class RecapService(
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(AiTimeout);
+        var prompt = RecapPrompt.User(recap);
         try
         {
+            // Identical facts give an identical prompt, which the chat client's response cache answers
+            // (RecapAi), so re-opening a past day or its PDF does not pay for the model again.
             var response = await chat.GetResponseAsync(
-                [
-                    new ChatMessage(ChatRole.System,
-                        "You write short, upbeat recaps for a hobbyist who points a webcam at a room and loves statistics. " +
-                        "Use only the facts given. Three or four sentences, no lists, no invented numbers, no safety or medical language."),
-                    new ChatMessage(ChatRole.User,
-                        $"{facts.Title} ({facts.Subtitle}).\nFacts: {recap.Summary}\n{string.Join('\n', recap.Highlights)}\n" +
-                        $"Numbers: {string.Join("; ", recap.Numbers.Select(n => $"{n.Label} {n.Value}"))}")
-                ],
+                [new ChatMessage(ChatRole.System, RecapPrompt.System), new ChatMessage(ChatRole.User, prompt)],
                 new ChatOptions { Temperature = 0.4f, MaxOutputTokens = 300 },
                 timeout.Token);
 
             var text = response.Text?.Trim();
             if (string.IsNullOrWhiteSpace(text)) return recap;
-            var source = chat.GetService<ChatClientMetadata>()?.ProviderName ?? "ai";
-            return new RecapDto
+            if (!RecapPrompt.KeepsToFacts(text, prompt))
             {
-                Title = recap.Title,
-                Subtitle = recap.Subtitle,
-                FromUtc = recap.FromUtc,
-                ToUtc = recap.ToUtc,
-                Summary = text,
-                Highlights = recap.Highlights,
-                Numbers = recap.Numbers,
-                Moments = recap.Moments,
-                Source = source
-            };
+                logger.LogWarning("AI recap used a number that is not in the facts; using the template recap.");
+                return recap;
+            }
+
+            return RecapPrompt.Rewritten(recap, text, chat.GetService<ChatClientMetadata>()?.ProviderName ?? "ai");
         }
-        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or InvalidOperationException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
+            // Timeouts, transport and provider errors (the OpenAI SDK throws ClientResultException, not
+            // HttpRequestException) all end the same way: the template paragraph.
             logger.LogWarning(ex, "AI recap failed; using the template recap. Provider={Provider}", chat.GetType().Name);
             return recap;
         }

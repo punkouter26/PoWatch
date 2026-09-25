@@ -41,8 +41,9 @@ For isolated UI verification, install Chromium using the suite's generated `play
 `E2E_LOCAL=1`, and run `dotnet test tests/PoWatch.E2EUI -c Release`.
 
 Session and day recaps (and their PDFs) are written by a template by default. Set
-`AiProvider:Provider` to `Ollama` or `AzureOpenAi` to let a model rewrite the paragraph; the numbers
-always come from the stats, and the template takes over on any timeout or error.
+`AiProvider:Provider` to `Ollama`, `AzureOpenAi` or `OpenAiCompatible` to let a model rewrite the
+paragraph; the numbers always come from the stats, and the template takes over on any timeout, error
+or invented number.
 Pushing to `master` deploys to production. Production resource names are shared
 between Bicep and CI in `infra/deployment.json`.
 

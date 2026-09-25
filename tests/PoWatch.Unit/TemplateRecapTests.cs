@@ -1,5 +1,6 @@
 using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
+using PoWatch.Shared.Services.Recaps;
 
 namespace PoWatch.Unit;
 
@@ -49,5 +50,16 @@ public sealed class TemplateRecapTests
             [new MomentDto { AtUtc = T0.AddMinutes(20), Text = "First cat of the session", Score = 0.8 }]);
 
         return Verify(TemplateRecap.Build(facts));
+    }
+
+    [Fact]
+    public void A_rewritten_recap_may_only_use_numbers_from_the_facts()
+    {
+        const string facts = "Thursday 24 September 2026 (Daily recap).\nFacts: 1,234 frames over 3.50 hours; busiest at 14:05.";
+
+        // Formatting may differ: 1,234 and 1234, 3.50 and 3.5, 05 and 5 are the same number.
+        Assert.True(RecapPrompt.KeepsToFacts("Across 1234 frames and 3.5 hours, things peaked at 14:5 on the 24th.", facts));
+        Assert.False(RecapPrompt.KeepsToFacts("Across 1234 frames and 4 hours of watching.", facts));
+        Assert.True(RecapPrompt.KeepsToFacts("A calm day, told without a single figure.", facts));
     }
 }

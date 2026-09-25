@@ -417,7 +417,8 @@
             // CancellationToken.None opts out of JSInterop's default timeout: a first load of the 2.2B
             // model pulls well over a gigabyte, and timing it out would report a slow-but-working
             // machine as a failure — the exact wrong answer for a page that tells those two apart.
-            return await JS.InvokeAsync<ModelSelfTestResult>("powatchInference.runModelTest", CancellationToken.None, modelKey);
+            return await JS.InvokeAsync<ModelSelfTestResult>("powatchInference.runModelTest", CancellationToken.None, modelKey,
+                PoWatch.Shared.Services.Sensing.CaptionParser.Prompt(["person", "bed"]), PoWatch.Shared.Services.Sensing.CaptionParser.MaxNewTokens);
         }
         catch (JSException ex)
         {

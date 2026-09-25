@@ -138,6 +138,8 @@ builder.Services.AddRateLimiter(rl =>
 
 builder.Services.AddPoWatchApplication();
 builder.Services.AddPoWatchInfrastructure();
+// ponytail: in-memory recap response cache (200 MB cap), lost on restart; swap in Redis/SQL if that matters.
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddPoWatchRecapAi(builder.Configuration);
 builder.Services.AddSingleton<FluentValidation.IValidator<PoWatch.Shared.Models.IngestBatchDto>, IngestBatchValidator>();
 builder.Services.AddSignalR();
@@ -322,6 +324,12 @@ app.MapGet("/diag/boot", (
 // every request to prevent stale-cache errors after deployments.
 app.Use(async (context, next) =>
 {
+    // Cross-origin isolation unlocks SharedArrayBuffer, so the vision model's WASM backend runs
+    // multi-threaded on machines without WebGPU. "credentialless" (not require-corp) keeps the
+    // Hugging Face weights and SAS snapshot images loading without CORP headers on their side.
+    context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    context.Response.Headers["Cross-Origin-Embedder-Policy"] = "credentialless";
+
     if (context.Request.Path.StartsWithSegments("/js") ||
         context.Request.Path.StartsWithSegments("/css"))
     {
