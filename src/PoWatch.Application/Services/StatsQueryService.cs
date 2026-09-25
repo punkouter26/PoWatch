@@ -11,7 +11,8 @@ public enum StatsRange
     Today,
     Week,
     Month,
-    All
+    All,
+    Day
 }
 
 /// <summary>A resolved stats window: the instants it covers and the coarsest rollup grain that answers it.</summary>
@@ -51,7 +52,8 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
         ["today"] = StatsRange.Today,
         ["7d"] = StatsRange.Week,
         ["30d"] = StatsRange.Month,
-        ["all"] = StatsRange.All
+        ["all"] = StatsRange.All,
+        ["day"] = StatsRange.Day
     };
 
     public static bool TryParseRange(string? value, out StatsRange range) =>
@@ -59,11 +61,15 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
 
     public static string RangeName(StatsRange range) => RangeNames.First(kv => kv.Value == range).Key;
 
-    /// <summary>Null when the range is <see cref="StatsRange.Session"/> and the session is not the user's.</summary>
-    public async Task<StatsWindow?> ResolveAsync(string userId, StatsRange range, string? timeZoneId, Guid? sessionId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Null when the range is <see cref="StatsRange.Session"/> and the session is not the user's, or
+    /// <see cref="StatsRange.Day"/> without a date.
+    /// </summary>
+    public async Task<StatsWindow?> ResolveAsync(string userId, StatsRange range, string? timeZoneId, Guid? sessionId, CancellationToken cancellationToken, DateOnly? date = null)
     {
         var session = sessionId is { } id ? await sessions.GetAsync(userId, id, cancellationToken) : null;
         if (range == StatsRange.Session && session is null) return null;
+        if (range == StatsRange.Day && date is null) return null;
 
         var zone = FindZone(timeZoneId) ?? session?.TimeZone ?? TimeZoneInfo.Utc;
         var now = time.GetUtcNow();
@@ -78,6 +84,9 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
             StatsRange.Week => new StatsWindow(range, DayStart(6), now.AddHours(1), RollupGrain.Hour, zone),
             StatsRange.Month => new StatsWindow(range, DayStart(29), now.AddHours(1), RollupGrain.Hour, zone),
             StatsRange.All => new StatsWindow(range, DateTimeOffset.UnixEpoch, now.AddDays(1), RollupGrain.Day, zone),
+            StatsRange.Day => LocalDay.Window(date!.Value, zone) is var (start, end)
+                ? new StatsWindow(range, start, end, RollupGrain.Minute, zone)
+                : null,
             _ => new StatsWindow(range, DayStart(0), now.AddMinutes(1), RollupGrain.Minute, zone)
         };
     }
@@ -207,11 +216,12 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
     public async Task<EnvironmentStatsDto> EnvironmentAsync(string userId, StatsWindow window, CancellationToken cancellationToken)
     {
         var series = await SeriesAsync(userId, window, cancellationToken);
-        var daylight = window.Range is StatsRange.Today or StatsRange.Session ? EnvironmentStats.EstimateDaylight(series) : null;
+        var shortWindow = window.Range is StatsRange.Today or StatsRange.Session or StatsRange.Day;
+        var daylight = shortWindow ? EnvironmentStats.EstimateDaylight(series) : null;
 
         // Captions are raw events, so only the days a short window touches are read.
         var captions = new List<(DateTimeOffset AtUtc, string Text)>();
-        if (window.Range is StatsRange.Today or StatsRange.Session)
+        if (shortWindow)
         {
             var firstDay = LocalDay.Of(window.FromUtc, window.Zone);
             var lastDay = LocalDay.Of(Min(window.ToUtc, time.GetUtcNow()), window.Zone);

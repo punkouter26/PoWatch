@@ -71,7 +71,8 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
     private async Task<T?> GetStatsAsync<T>(string family, StatsQuery query, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, CancellationToken cancellationToken)
     {
         var url = $"api/stats/{family}?range={Uri.EscapeDataString(query.Range)}&tz={Uri.EscapeDataString(query.TimeZoneId)}"
-            + (query.SessionId is { } id ? $"&sessionId={id}" : string.Empty);
+            + (query.SessionId is { } id ? $"&sessionId={id}" : string.Empty)
+            + (query.Date is { } date ? $"&date={date:yyyy-MM-dd}" : string.Empty);
         try
         {
             using var response = await httpClient.GetAsync(url, cancellationToken);

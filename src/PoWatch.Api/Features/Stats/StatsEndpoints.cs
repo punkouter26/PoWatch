@@ -38,6 +38,7 @@ internal static class StatsEndpoints
                 string? range,
                 string? tz,
                 Guid? sessionId,
+                string? date,
                 HttpContext http,
                 StatsQueryService service,
                 HybridCache cache,
@@ -45,9 +46,16 @@ internal static class StatsEndpoints
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
                 if (!StatsQueryService.TryParseRange(range, out var parsed))
-                    return Results.BadRequest(new { message = "range must be one of session, today, 7d, 30d, all." });
+                    return Results.BadRequest(new { message = "range must be one of session, today, 7d, 30d, all, day." });
+                DateOnly? day = null;
+                if (parsed == StatsRange.Day)
+                {
+                    if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedDay))
+                        return Results.BadRequest(new { message = "range=day needs date=yyyy-MM-dd." });
+                    day = parsedDay;
+                }
 
-                var window = await service.ResolveAsync(userId, parsed, tz, sessionId, ct);
+                var window = await service.ResolveAsync(userId, parsed, tz, sessionId, ct, day);
                 if (window is null) return Results.NotFound();
 
                 // Windows ending "now" shift every call; key on the resolved grain bucket so repeat
@@ -64,6 +72,6 @@ internal static class StatsEndpoints
                 return Results.Ok(result);
             })
             .WithName($"Stats{char.ToUpperInvariant(family[0])}{family[1..]}")
-            .WithSummary($"Stat family '{family}' for a range: session, today, 7d, 30d or all.");
+            .WithSummary($"Stat family '{family}' for a range: session, today, 7d, 30d, all, or day (with date).");
     }
 }

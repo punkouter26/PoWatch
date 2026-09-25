@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using System.Text.Json.Nodes;
 
 namespace PoWatch.E2EUI;
 
@@ -114,44 +113,48 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task The_history_page_offers_day_navigation()
+    public async Task History_walks_back_day_by_day_through_real_sessions()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        // A rendering failure must stay on its page instead of poisoning later navigation.
-        var archiveRoute = $"{PlaywrightFixture.BaseUrl}/api/archives/*";
-        await page.RouteAsync(archiveRoute, async route =>
+        // Real ingest (not the seed), so past days have the minute rollups a day view reads.
+        var zone = TimeZoneInfo.Local.Id;
+        var start = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/sessions", new() { DataObject = new { timeZoneId = zone } });
+        var sessionId = (await start.JsonAsync())!.Value.GetProperty("id").GetString();
+        var todayNoon = new DateTimeOffset(DateTime.Today.AddHours(12));
+        var noonToday = todayNoon > DateTimeOffset.Now ? DateTimeOffset.Now.AddMinutes(-5) : todayNoon;
+        object Tick(DateTimeOffset at) => new
         {
-            var response = await route.FetchAsync();
-            var chapter = JsonNode.Parse(await response.TextAsync())!.AsObject();
-            chapter["timeline"] = null;
-            chapter["highlights"] = new JsonArray();
-            await route.FulfillAsync(new() { Response = response, Body = chapter.ToJsonString() });
+            startUtc = at.UtcDateTime,
+            pixelSamples = 40,
+            motionMean = 0.2,
+            motionMax = 0.4,
+            luminanceMean = 0.5,
+            classes = new Dictionary<string, object> { ["person"] = new { max = 1, mean = 1 } }
+        };
+        var batch = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/sessions/{sessionId}/batches", new()
+        {
+            DataObject = new { batchKey = Guid.NewGuid(), ticks = new[] { Tick(noonToday), Tick(todayNoon.AddDays(-1)) } }
         });
-        await page.GetByTestId("nav-history").ClickAsync();
-        await Assertions.Expect(page.Locator(".po-error-panel")).ToBeVisibleAsync(new() { Timeout = 30000 });
-        await page.UnrouteAsync(archiveRoute);
+        Assert.True(batch.Ok, $"batch returned {batch.Status}");
 
-        await page.GetByTestId("nav-live").ClickAsync();
-        await Assertions.Expect(page.GetByTestId("start-demo")).ToBeVisibleAsync();
-        await page.GetByTestId("nav-history").ClickAsync();
+        await page.GoToAsync("/history", "HISTORY");
+        await Assertions.Expect(page.GetByTestId("history-calendar")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
+        await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
 
-        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Previous day" })).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Go to today" })).ToBeVisibleAsync();
-        await page.AssertNoBlazorErrorAsync();
+        var today = await page.GetByTestId("history-day").TextContentAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Previous day" }).ClickAsync();
+        await Assertions.Expect(page.GetByTestId("history-day")).Not.ToHaveTextAsync(today!);
+        await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
 
-        // A network failure must offer recovery before opening the handoff dialog.
-        await page.RouteAsync(archiveRoute, route => route.AbortAsync("failed"));
-        await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/archives?handoff=1&shift=Afternoon");
-        await Assertions.Expect(page.GetByTestId("history-load-error")).ToBeVisibleAsync(new() { Timeout = 30000 });
-        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Generate shift brief" })).Not.ToBeVisibleAsync();
-        await page.UnrouteAsync(archiveRoute);
-        await page.GetByRole(AriaRole.Button, new() { Name = "Try again" }).ClickAsync();
-        await Assertions.Expect(page.GetByTestId("history-load-error")).Not.ToBeVisibleAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Generate shift brief" }).ClickAsync();
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Handoff brief", Exact = true }))
-            .ToBeVisibleAsync(new() { Timeout = 30000 });
+        // Arrow keys page too; a day with nothing recorded says so instead of showing zeros.
+        await page.GetByTestId("history-toolbar").FocusAsync();
+        await page.Keyboard.PressAsync("ArrowLeft");
+        await Assertions.Expect(page.GetByTestId("history-empty")).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await page.GetByRole(AriaRole.Button, new() { Name = "Go to today" }).ClickAsync();
+        await Assertions.Expect(page.GetByTestId("history-day")).ToHaveTextAsync(today!);
         await page.AssertNoBlazorErrorAsync();
     }
 

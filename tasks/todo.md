@@ -165,7 +165,7 @@ Rules for every task:
 - [x] **E7** `/display` stats wall (no scroll at 1920×1080 and 1280×720, ≤ 5 s refresh).
 - [x] **E8** "While you were away" card + highlight snapshots (`SnapshotService`, highlight rules,
   200/day cap, reuse of `blob-upload.js`).
-- [ ] **E9** `/history`: calendar heatmap → day → sessions (replaces the Archives page).
+- [x] **E9** `/history`: calendar heatmap → day → sessions (replaces the Archives page).
   **CHECKPOINT**
 
 ### F — Regulars, recaps, achievements

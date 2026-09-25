@@ -1,0 +1,212 @@
+@page "/history"
+@page "/archives"
+@using System.Globalization
+@inject PoWatchApiClient Api
+
+<PageTitle>PoWatch | History</PageTitle>
+
+<div class="stats-toolbar" data-test="history-toolbar" @onkeydown="OnKeyDown" tabindex="-1">
+    <button class="term-button" @onclick="() => MoveAsync(-1)" aria-label="Previous day" title="Previous day (←)">◀</button>
+    <RadzenDatePicker TValue="DateTime?" Value="@_day.ToDateTime(TimeOnly.MinValue)" DateFormat="ddd dd MMM yyyy" Max="@DateTime.Today"
+                      Change="@(async v => { if (v is { } d) await GoAsync(DateOnly.FromDateTime(d)); })" aria-label="Pick a day" />
+    <button class="term-button" @onclick="() => MoveAsync(1)" disabled="@(_day >= Today)" aria-label="Next day" title="Next day (→)">▶</button>
+    <button class="term-button" @onclick="() => GoAsync(Today)" disabled="@(_day == Today)" aria-label="Go to today">Today</button>
+    <span class="term-stat-hint" data-test="history-day">@_day.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture)</span>
+</div>
+
+<div class="term-grid">
+    <TerminalPanel Number="H1" Title="The year" Class="term-span-4" Test="history-calendar">
+        <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS RECORDED · SELECTED @_day.ToString("dd MMM", CultureInfo.CurrentCulture)</Aside>
+        <ChildContent>
+            <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
+                      CellTitle="@((i, v) => _calendarDates.TryGetValue(i, out var d) ? $"{d:ddd dd MMM} · {v:P0}" : "no data")" />
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="H2" Title="The day" Class="term-span-4" Test="history-day-stats">
+        @if (_presence is null || _presence.SecondsObserved == 0)
+        {
+            <p class="term-empty" data-test="history-empty">Nothing was observed on this day.</p>
+        }
+        else
+        {
+            <div class="term-stats">
+                <StatCell Label="Observed" Value="@Duration(_presence.SecondsObserved)" />
+                <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0.0%", CultureInfo.InvariantCulture)" Test="history-occupancy" />
+                <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" />
+                <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
+                <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
+                <StatCell Label="Longest empty" Value="@Duration(_presence.LongestEmptySeconds)" />
+            </div>
+        }
+    </TerminalPanel>
+
+    <TerminalPanel Number="H3" Title="Motion across the day" Class="term-span-2">
+        <RadzenChart Style="height: 220px;" aria-label="Motion across the day">
+            <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
+            <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
+            <RadzenValueAxis Min="0" />
+            <RadzenLegend Visible="false" />
+        </RadzenChart>
+    </TerminalPanel>
+
+    <TerminalPanel Number="H4" Title="Sessions" Class="term-span-2" Test="history-sessions" Flush="true">
+        <Aside>@_sessions.Count THAT DAY</Aside>
+        <ChildContent>
+            @if (_sessions.Count == 0)
+            {
+                <p class="term-empty" style="padding: 10px;">No sessions ran on this day.</p>
+            }
+            else
+            {
+                <table class="term-table">
+                    <thead><tr><th>Session</th><th>From</th><th>To</th><th class="r">Length</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var s in _sessions)
+                        {
+                            <tr>
+                                <td>#@s.Id.ToString("N")[..4].ToUpperInvariant()</td>
+                                <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
+                                <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
+                                <td class="r">@Duration(s.DurationSeconds)</td>
+                                <td class="r"><a href="stats?range=session" title="Open the Stats page for sessions">stats</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Number="H5" Title="Moments" Class="term-span-2" Test="history-moments">
+        @if (_moments.Count == 0)
+        {
+            <p class="term-empty">No highlights kept on this day.</p>
+        }
+        else
+        {
+            <ol class="away-moments">
+                @foreach (var moment in _moments.Take(6))
+                {
+                    <li>
+                        @if (moment.ImageUrl is { } url)
+                        {
+                            <img src="@url" alt="Snapshot: @moment.Text" loading="lazy" />
+                        }
+                        <span class="num">@moment.AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)</span>
+                        <span>@moment.Text</span>
+                    </li>
+                }
+            </ol>
+        }
+    </TerminalPanel>
+
+    <TerminalPanel Number="H6" Title="What the model said" Class="term-span-2">
+        <Aside>@(_environment?.CaptionCount ?? 0) CAPTIONS</Aside>
+        <ChildContent>
+            @if (_environment is null || _environment.Words.Count == 0)
+            {
+                <p class="term-empty">No captions on this day.</p>
+            }
+            else
+            {
+                <div class="stats-cloud">
+                    @foreach (var word in _environment.Words.Take(20))
+                    {
+                        <span style="font-size: @((11 + (16.0 * word.Count / _environment.Words[0].Count)).ToString("0", CultureInfo.InvariantCulture))px">@word.Word</span>
+                    }
+                </div>
+                @if (_environment.WeirdestCaption is { } weird)
+                {
+                    <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
+                }
+            }
+        </ChildContent>
+    </TerminalPanel>
+</div>
+
+@code {
+    public sealed record Point(DateTime At, double Value);
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+
+    private DateOnly _day = Today;
+    private PresenceStatsDto? _presence;
+    private EnvironmentStatsDto? _environment;
+    private PatternStatsDto? _patterns;
+    private List<Point> _motion = [];
+    private List<SessionDto> _sessions = [];
+    private List<MomentDto> _moments = [];
+    private List<double> _calendarCells = [];
+    private Dictionary<int, DateOnly> _calendarDates = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _patterns = await Api.GetPatternsAsync(StatsQuery.For("today"));
+        BuildCalendar();
+        await LoadDayAsync();
+    }
+
+    private Task MoveAsync(int days) => GoAsync(_day.AddDays(days) > Today ? Today : _day.AddDays(days));
+
+    private async Task GoAsync(DateOnly day)
+    {
+        _day = day;
+        await LoadDayAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowLeft") await MoveAsync(-1);
+        else if (e.Key == "ArrowRight") await MoveAsync(1);
+    }
+
+    private async Task LoadDayAsync()
+    {
+        var query = StatsQuery.ForDay(_day);
+        var presence = Api.GetPresenceAsync(query);
+        var environment = Api.GetEnvironmentAsync(query);
+        var sessions = Api.ListSessionsAsync(100);
+        await Task.WhenAll(presence, environment, sessions);
+
+        _presence = presence.Result;
+        _environment = environment.Result;
+        _motion = _presence?.Series.Select(p => new Point(p.AtUtc.LocalDateTime, p.Motion)).ToList() ?? [];
+
+        // Sessions that overlap the local day.
+        var start = _day.ToDateTime(TimeOnly.MinValue);
+        var end = start.AddDays(1);
+        _sessions = sessions.Result
+            .Where(s => s.StartedUtc.LocalDateTime < end && (s.EndedUtc?.LocalDateTime ?? DateTime.Now) >= start)
+            .OrderBy(s => s.StartedUtc)
+            .ToList();
+
+        var moments = await Task.WhenAll(_sessions.Select(s => Api.GetMomentsAsync(s.Id)));
+        _moments = moments.SelectMany(m => m)
+            .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == _day)
+            .OrderByDescending(m => m.Score)
+            .ToList();
+    }
+
+    private void BuildCalendar()
+    {
+        var start = Today.AddDays(-(52 * 7) - (int)Today.DayOfWeek);
+        var cells = new double[53 * 7];
+        _calendarDates = [];
+        foreach (var day in _patterns?.Calendar ?? [])
+        {
+            var offset = day.Date.DayNumber - start.DayNumber;
+            if (offset < 0 || offset >= cells.Length) continue;
+            var index = ((int)day.Date.DayOfWeek * 53) + (offset / 7);
+            cells[index] = Math.Max(day.Occupancy, 0.0001);
+            _calendarDates[index] = day.Date;
+        }
+        _calendarCells = [.. cells];
+    }
+
+    private static string Duration(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(seconds);
+        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes:00}m" : $"{span.Minutes}m {span.Seconds:00}s";
+    }
+}
