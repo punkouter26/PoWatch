@@ -72,7 +72,6 @@ var featureFlags = builder.Configuration
     .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
 
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
-builder.Services.Configure<PoWatch.Application.Options.AlertThresholdOptions>(builder.Configuration.GetSection("AlertThresholds"));
 builder.Services.Configure<PoWatch.Application.Options.DriftRadarOptions>(builder.Configuration.GetSection("DriftRadar"));
 builder.Services.Configure<PoWatch.Application.Options.HandoffCoachOptions>(builder.Configuration.GetSection("HandoffCoach"));
 builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));

@@ -112,12 +112,6 @@ public partial class ObserverHub
             ModelOptions = [new ModelOption(selectedModelKey, selectedModelKey)];
     }
 
-    private void DismissThresholdAlert(ThresholdAlertDto alert) =>
-        _activeThresholdAlerts.Remove(alert);
-
-    private void DismissAllThresholdAlerts() =>
-        _activeThresholdAlerts.Clear();
-
     private async Task InjectEventAsync()
     {
         thinking = true;

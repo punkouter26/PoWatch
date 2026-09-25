@@ -5,9 +5,6 @@ public sealed class ObserverRuntimeStateDto
     public bool ObservationLoopEnabled { get; init; }
     public bool SaveSignificantImages { get; init; }
     public bool DeveloperModeEnabled { get; init; }
-    /// <summary>The server's alert-threshold switch — the client renders exactly this, so the
-    /// banner can never disagree with what ingest actually produced.</summary>
-    public bool AlertThresholdsEnabled { get; init; }
     public int PollIntervalSeconds { get; init; }
     public DateTimeOffset CapturedAtUtc { get; init; }
     public string Status { get; init; } = string.Empty;
@@ -57,16 +54,6 @@ public sealed class IngestObservationResultDto
     /// and by low letter density. Informational — alert gates filter on <see cref="IsSignificant"/>,
     /// never on this number.</summary>
     public double SignificanceConfidence { get; init; }
-    /// <summary>Alert threshold rules that fired during this ingest cycle.</summary>
-    public IReadOnlyList<ThresholdAlertDto> TriggeredAlerts { get; init; } = [];
-}
-
-public sealed class ThresholdAlertDto
-{
-    public string RuleName { get; init; } = string.Empty;
-    public string Description { get; init; } = string.Empty;
-    public string SubjectId { get; init; } = string.Empty;
-    public DateTimeOffset TriggeredAtUtc { get; init; }
 }
 
 /// <summary>

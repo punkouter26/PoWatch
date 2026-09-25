@@ -54,7 +54,6 @@ public partial class ObserverHub
         _maxInferenceMs = 0;
         _latencyHistory.Clear();
         _p95LatencyMs = 0;
-        _activeThresholdAlerts = [];
 
         // Fresh session — clear any latched pipeline-degradation warning from a prior run.
         _pipelineHealthLatched = false;
@@ -376,20 +375,6 @@ public partial class ObserverHub
         // Standby (#7): if the camera frame changed enough to count as "motion", reset the idle timer
         // so the watchdog does not park the model on a busy room.
         if (inference.MotionScore >= 6) _standby.RecordMotion();
-
-        // Accumulate threshold alerts for the banner — gated on the SERVER's switch (mirrored via
-        // /api/observer/state), not a second client-side flag that could disagree with it.
-        if (result is not null && result.TriggeredAlerts.Count > 0 && ThresholdAlertsEnabled)
-        {
-            var hadAlerts = _activeThresholdAlerts.Count;
-            foreach (var alert in result.TriggeredAlerts)
-            {
-                if (!_activeThresholdAlerts.Any(a => a.RuleName == alert.RuleName && a.SubjectId == alert.SubjectId))
-                    _activeThresholdAlerts.Add(alert);
-            }
-            // Micro-cue on a newly-raised threshold alert (audit #8).
-            if (_activeThresholdAlerts.Count > hadAlerts && result?.IsOutlier != true) await PlayCueAsync("alert");
-        }
 
         // Diagnostics is a cheap local JS call — always refresh it for the HUD.
         await RefreshDiagnosticsAsync();

@@ -29,6 +29,6 @@ internal static partial class ObservationServiceLog
     public static partial void ClinicalOutlier(this ILogger logger, string subjectId, string? payload);
 
     [LoggerMessage(EventId = 1005, Level = LogLevel.Information,
-        Message = "Observation persisted. EventId={EventId} SubjectId={SubjectId} Significant={Significant} Outlier={Outlier} ImageReference={ImageReference} ObservedAtUtc={ObservedAtUtc} TriggeredAlerts={TriggeredAlertCount}")]
-    public static partial void ObservationPersisted(this ILogger logger, Guid eventId, string subjectId, bool significant, bool outlier, string? imageReference, DateTimeOffset observedAtUtc, int triggeredAlertCount);
+        Message = "Observation persisted. EventId={EventId} SubjectId={SubjectId} Significant={Significant} Outlier={Outlier} ImageReference={ImageReference} ObservedAtUtc={ObservedAtUtc}")]
+    public static partial void ObservationPersisted(this ILogger logger, Guid eventId, string subjectId, bool significant, bool outlier, string? imageReference, DateTimeOffset observedAtUtc);
 }

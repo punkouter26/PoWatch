@@ -149,9 +149,6 @@ public sealed class ServerDerivedSignificanceTests
             new FakeSubjects(),
             new OpenGate(),
             new TelemetryContentSanitizer(),
-            new AlertThresholdEvaluator(
-                Options.Create(new AlertThresholdOptions()),
-                NullLogger<AlertThresholdEvaluator>.Instance),
             Options.Create(new FeatureFlagsOptions()),
             NullLogger<ObservationService>.Instance);
     }

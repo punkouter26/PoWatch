@@ -13,7 +13,6 @@ public sealed class ObservationService(
     ISubjectRepository subjectRepository,
     IObservationProcessingGate processingGate,
     ITelemetryContentSanitizer telemetryContentSanitizer,
-    AlertThresholdEvaluator thresholdEvaluator,
     IOptions<FeatureFlagsOptions> featureFlags,
     ILogger<ObservationService> logger)
 {
@@ -113,7 +112,6 @@ public sealed class ObservationService(
             // Previously, stable-state observations were silently dropped. This caused:
             // 1. Drift detection to miss stable subjects
             // 2. Archives to never record them
-            // 3. Alert thresholds to never evaluate them
             // 
             // The redundancy flag is now set on the observation itself, allowing downstream
             // consumers to filter if needed, while ensuring ALL events are persisted.
@@ -122,16 +120,13 @@ public sealed class ObservationService(
             await observationRepository.AddAsync(observation, cancellationToken);
             await subjectRepository.UpdateLastActivityAsync(subject.SubjectId, observation.Activity, observation.IsClinicalOutlier, cancellationToken);
 
-            var triggeredAlerts = thresholdEvaluator.Evaluate(observation);
-
             logger.ObservationPersisted(
                 (Guid)observation.Id,
                 observation.SubjectId,
                 observation.IsSignificant,
                 observation.IsClinicalOutlier,
                 observation.ImageReference,
-                observation.ObservedAtUtc,
-                triggeredAlerts.Count);
+                observation.ObservedAtUtc);
 
             return new IngestObservationResultDto
             {
@@ -151,8 +146,7 @@ public sealed class ObservationService(
                 SignificanceConfidence = observation.SignificanceConfidence,
                 Detail = isRedundant
                     ? "Observation recorded with stable-state flag."
-                    : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded."),
-                TriggeredAlerts = triggeredAlerts
+                    : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded.")
             };
         }
         finally
@@ -166,7 +160,6 @@ public sealed class ObservationService(
         ObservationLoopEnabled = featureFlags.Value.ObservationLoopEnabled,
         SaveSignificantImages = featureFlags.Value.SaveSignificantImages,
         DeveloperModeEnabled = featureFlags.Value.DeveloperBypassAuth,
-        AlertThresholdsEnabled = featureFlags.Value.AlertThresholdsEnabled,
         PollIntervalSeconds = featureFlags.Value.PollingIntervalSeconds,
         CapturedAtUtc = DateTimeOffset.UtcNow,
         Status = !featureFlags.Value.ObservationLoopEnabled

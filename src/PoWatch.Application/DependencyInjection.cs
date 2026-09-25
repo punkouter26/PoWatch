@@ -22,7 +22,6 @@ public static class DependencyInjection
         services.AddScoped<ObservationService>();
 
         // Risk
-        services.AddSingleton<AlertThresholdEvaluator>();
 
         return services;
     }

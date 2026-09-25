@@ -12,7 +12,6 @@ public abstract class SharedFeatureFlagsOptions
     public bool UseMockAi { get; init; } = false;
     /// <summary>The one poll-interval setting — read by BOTH the server and the Blazor client.</summary>
     public int PollingIntervalSeconds { get; init; } = 10;
-    public bool AlertThresholdsEnabled { get; init; } = true;
     public bool DriftRadarEnabled { get; init; } = true;
     public bool HandoffCoachEnabled { get; init; } = true;
     /// <summary>

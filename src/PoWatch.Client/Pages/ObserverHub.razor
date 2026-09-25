@@ -24,10 +24,8 @@
                   OnAcknowledge="AcknowledgeAlertOverlay"
                   OnViewSubject="ViewAlertSubject" />
 
-@* Consolidation #7: ONE inline alert strip for every non-critical warning (pipeline health +
-   threshold alerts share the same visual language); the full-screen overlay above is reserved
-   for critical events. *@
-@if (_pipelineHealthLatched || (HasActiveThresholdAlerts && ThresholdAlertsEnabled))
+@* One inline strip for pipeline-health warnings. *@
+@if (_pipelineHealthLatched)
 {
     <div class="alert-strip">
         @if (_pipelineHealthLatched)
@@ -39,12 +37,6 @@
                 </div>
                 <button class="threshold-alert-dismiss" @onclick="@(() => _pipelineHealthLatched = false)" aria-label="Dismiss pipeline health alert">×</button>
             </div>
-        }
-        @if (HasActiveThresholdAlerts && ThresholdAlertsEnabled)
-        {
-            <ThresholdAlertBanner Alerts="_activeThresholdAlerts"
-                                  OnDismiss="@(alert => { DismissThresholdAlert(alert); StateHasChanged(); })"
-                                  OnDismissAll="@(() => { DismissAllThresholdAlerts(); StateHasChanged(); })" />
         }
     </div>
 }

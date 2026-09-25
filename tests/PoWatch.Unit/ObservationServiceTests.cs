@@ -138,9 +138,6 @@ public sealed class ObservationServiceTests
             subjects,
             gate,
             new TelemetryContentSanitizer(),
-            new AlertThresholdEvaluator(
-                Microsoft.Extensions.Options.Options.Create(new PoWatch.Application.Options.AlertThresholdOptions()),
-                NullLogger<AlertThresholdEvaluator>.Instance),
             Options.Create(flags ?? new FeatureFlagsOptions()),
             NullLogger<ObservationService>.Instance);
     }

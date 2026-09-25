@@ -82,18 +82,8 @@ public partial class ObserverHub
     /// </summary>
     private bool AllCyclesRejected => _totalCycles >= 3 && _structuredCycles == 0;
 
-    private List<ThresholdAlertDto> _activeThresholdAlerts = [];
-    private bool HasActiveThresholdAlerts => _activeThresholdAlerts.Count > 0;
     private bool ObservationLoopEnabled => observerState?.ObservationLoopEnabled ?? FeatureFlags.Value.ObservationLoopEnabled;
 
-    /// <summary>
-    /// The SERVER's alert-threshold switch, mirrored onto <see cref="ObserverRuntimeStateDto"/> so
-    /// there is exactly one source of truth. Previously the client gated on its own
-    /// <c>AlertThresholdsEnabled</c> appsettings value: the server could fire alerts the UI hid,
-    /// or the UI could show alerts the server never fired. The local flag is only the fallback
-    /// for the moment before the first /api/observer/state response arrives.
-    /// </summary>
-    private bool ThresholdAlertsEnabled => observerState?.AlertThresholdsEnabled ?? FeatureFlags.Value.AlertThresholdsEnabled;
 
     // ── Start-up failure latch (Fix #2/#8): when Start watching fails (no webcam, permission
     // denied, model not loadable, …) we previously just snapped back to Standby and toasted
