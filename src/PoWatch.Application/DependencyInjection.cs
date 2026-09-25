@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<StatsQueryService>();
         services.AddScoped<RegularsService>();
         services.AddScoped<RecapService>();
+        services.AddScoped<AchievementService>();
 
         return services;
     }

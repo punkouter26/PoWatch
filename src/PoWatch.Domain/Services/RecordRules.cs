@@ -8,6 +8,20 @@ public sealed record RecordEntry(string RecordId, double Value, DateTimeOffset S
 /// <summary>Stat family E — personal bests.</summary>
 public static class RecordRules
 {
+    public const string LongestSession = "longest-session";
+    public const string BusiestDayVisits = "busiest-day-visits";
+    public const string PeakConcurrency = "peak-concurrency";
+    public const string DailyStreak = "daily-streak";
+
+    /// <summary>Every record, in cabinet order, with its display title.</summary>
+    public static readonly IReadOnlyList<(string Id, string Title)> All =
+    [
+        (LongestSession, "Longest session"),
+        (BusiestDayVisits, "Busiest day"),
+        (PeakConcurrency, "Most at once"),
+        (DailyStreak, "Longest daily streak"),
+    ];
+
     /// <summary>
     /// The records that <paramref name="candidates"/> beat. Only a strictly higher value counts, so
     /// replaying the same candidates after applying the result changes nothing.

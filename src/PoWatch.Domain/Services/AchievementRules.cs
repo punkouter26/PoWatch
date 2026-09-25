@@ -11,8 +11,11 @@ public sealed record AchievementContext
     public TimeSpan LongestSession { get; init; }
     public int DailyStreak { get; init; }
     public long CaptionCount { get; init; }
-    public int LightSwitchesToday { get; init; }
-    public TimeSpan LongestStillStreakToday { get; init; }
+    /// <summary>Light switches over the trailing two hours; evaluation runs with every batch, so no window is missed.</summary>
+    public int RecentLightSwitches { get; init; }
+
+    /// <summary>Longest stretch without motion over the trailing two hours.</summary>
+    public TimeSpan RecentLongestStill { get; init; }
     public Rollup AllTime { get; init; } = Rollup.Empty;
     public Rollup Today { get; init; } = Rollup.Empty;
 
@@ -46,8 +49,8 @@ public static class AchievementRules
         new("crowd", "Crowd", "See five people or animals at once.", c => c.AllTime.PeakConcurrency >= 5),
         new("party", "Party Mode", "See ten people or animals at once.", c => c.AllTime.PeakConcurrency >= 10),
         new("rush-hour", "Rush Hour", "Log a hundred visits in one day.", c => c.Today.Visits >= 100),
-        new("still-life", "Still Life", "An hour without anything moving.", c => c.LongestStillStreakToday >= TimeSpan.FromHours(1)),
-        new("disco", "Disco", "Ten light switches in one day.", c => c.LightSwitchesToday >= 10),
+        new("still-life", "Still Life", "An hour without anything moving.", c => c.RecentLongestStill >= TimeSpan.FromHours(1)),
+        new("disco", "Disco", "Ten light switches within two hours.", c => c.RecentLightSwitches >= 10),
         new("regular-habits", "Creature of Habit", "Run a session seven days in a row.", c => c.DailyStreak >= 7),
         new("committed", "Committed", "Run a session thirty days in a row.", c => c.DailyStreak >= 30),
         new("wordsmith", "Wordsmith", "Collect a thousand captions.", c => c.CaptionCount >= 1_000),

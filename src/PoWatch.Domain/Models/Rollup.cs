@@ -83,6 +83,9 @@ public sealed record Rollup
     /// <summary>People and animals that entered the frame.</summary>
     public long Visits { get; init; }
 
+    /// <summary>VLM captions folded in.</summary>
+    public long Captions { get; init; }
+
     /// <summary>Dwell times keyed by <see cref="DwellBin"/> — a quarter-octave log scale, so percentiles merge.</summary>
     public IReadOnlyDictionary<int, long> DwellHistogram { get; init; } = new Dictionary<int, long>();
 
@@ -141,6 +144,9 @@ public sealed record Rollup
         ArgumentNullException.ThrowIfNull(sceneEvent);
         var rollup = new Rollup { BucketStartUtc = sceneEvent.AtUtc };
 
+        if (sceneEvent.Kind == SceneEventKind.Caption)
+            return rollup with { Captions = 1 };
+
         if (sceneEvent.Class is null || !EntityClasses.IsPresence(sceneEvent.Class))
             return rollup;
 
@@ -194,6 +200,7 @@ public sealed record Rollup
             Classes = MergeMaps(a.Classes, b.Classes, (x, y) => x.Merge(y)),
             Palette = MergeMaps(a.Palette, b.Palette, (x, y) => x + y),
             Visits = a.Visits + b.Visits,
+            Captions = a.Captions + b.Captions,
             DwellHistogram = MergeMaps(a.DwellHistogram, b.DwellHistogram, (x, y) => x + y),
             DwellMaxSeconds = Math.Max(a.DwellMaxSeconds, b.DwellMaxSeconds),
             Entries = MergeMaps(a.Entries, b.Entries, (x, y) => x + y),

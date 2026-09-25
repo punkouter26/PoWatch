@@ -1,0 +1,36 @@
+@implements IDisposable
+@inject StatsFeed Feed
+
+@* Unlock toasts: pushed from the stats hub, shown for a few seconds, never blocking anything. *@
+<div class="trophy-toasts" role="status" aria-live="polite" data-test="trophy-toasts">
+    @foreach (var toast in _toasts)
+    {
+        <a class="trophy-toast" href="trophies" data-test="trophy-toast">
+            <span class="trophy-toast-kicker">▲ ACHIEVEMENT UNLOCKED</span>
+            <b>@toast.Title</b>
+            <span>@toast.Description</span>
+        </a>
+    }
+</div>
+
+@code {
+    private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(8);
+    private readonly List<AchievementDto> _toasts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Feed.Unlocked += OnUnlocked;
+        await Feed.EnsureConnectedAsync();
+    }
+
+    private void OnUnlocked(AchievementsUnlockedDto unlocked) => InvokeAsync(async () =>
+    {
+        _toasts.AddRange(unlocked.Unlocked);
+        StateHasChanged();
+        await Task.Delay(Lifetime);
+        foreach (var achievement in unlocked.Unlocked) _toasts.Remove(achievement);
+        StateHasChanged();
+    });
+
+    public void Dispose() => Feed.Unlocked -= OnUnlocked;
+}

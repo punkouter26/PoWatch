@@ -116,6 +116,11 @@ public sealed class RollupTests
         Assert.Equal(1, merged.OccupiedTicks);
         Assert.Equal(0.1, merged.Motion.Mean, 12);
 
+        // A caption is counted (for Wordsmith) and nothing else.
+        var caption = Rollup.FromEvent(new SceneEvent { SessionId = tick.SessionId, AtUtc = T0, Kind = SceneEventKind.Caption, Text = "A cat naps." });
+        Assert.Equal(1, Rollup.Merge(merged, caption).Captions);
+        Assert.Equal(0, caption.Visits);
+
         // 21:00Z is 16:00 at UTC-5; the day bucket starts at local midnight.
         var at = new DateTimeOffset(2026, 9, 25, 3, 28, 42, TimeSpan.Zero);
         Assert.Equal(new DateTimeOffset(2026, 9, 25, 3, 28, 0, TimeSpan.Zero), RollupBuckets.StartUtc(RollupGrain.Minute, at, UtcMinus5));
@@ -141,7 +146,7 @@ public sealed class RollupTests
             && x.Classes.All(kv => y.Classes.TryGetValue(kv.Key, out var o)
                 && o.TicksPresent == kv.Value.TicksPresent && o.PeakCount == kv.Value.PeakCount && Close(o.MeanSum, kv.Value.MeanSum))
             && SameCounts(x.Palette, y.Palette)
-            && x.Visits == y.Visits && Close(x.DwellMaxSeconds, y.DwellMaxSeconds)
+            && x.Visits == y.Visits && x.Captions == y.Captions && Close(x.DwellMaxSeconds, y.DwellMaxSeconds)
             && SameCounts(x.DwellHistogram, y.DwellHistogram)
             && SameCounts(x.Entries, y.Entries) && SameCounts(x.Exits, y.Exits)
             && x.PresenceGrid.Length == y.PresenceGrid.Length

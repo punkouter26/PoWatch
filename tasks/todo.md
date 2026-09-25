@@ -186,7 +186,12 @@ Rules for every task:
   - AC: a valid PDF (API E2E).
   - Done as: `/api/recaps/session/{id}.pdf` and `/api/recaps/day/{date}.pdf`. A missing native PDF
     engine (win-arm64) returns an explained 503, never a bare 500.
-- [ ] **F5** `AchievementService` + endpoints + `/trophies` + unlock toast. **CHECKPOINT**
+- [x] **F5** `AchievementService` + endpoints + `/trophies` + unlock toast. **CHECKPOINT**
+  - Done as: evaluated at session start and after every newly counted batch (never on a replay);
+    unlocks push `achievementsUnlocked` over the stats hub and the header toasts them for 8 s.
+    `GET /api/achievements` returns 20 achievements (locked too) and 4 records (longest session,
+    busiest day, most at once, daily streak). Rollups gained a caption counter for Wordsmith. Still
+    Life and Disco read a trailing 2 h minute window, so each check stays cheap.
 
 ### G — Cleanup and verification prep
 - [ ] **G1** Retire the old `/api/observer/ingest`, `ObservationService`, archives/handoff endpoints and

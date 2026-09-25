@@ -49,6 +49,9 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.ListMomentDto, cancellationToken) ?? [] : [];
     }
 
+    public async Task<TrophyCabinetDto?> GetTrophiesAsync(CancellationToken cancellationToken = default) =>
+        await httpClient.GetFromJsonAsync("api/achievements", Json.TrophyCabinetDto, cancellationToken);
+
     public async Task<IReadOnlyList<RegularDto>> ListRegularsAsync(CancellationToken cancellationToken = default) =>
         await httpClient.GetFromJsonAsync("api/regulars", Json.ListRegularDto, cancellationToken) ?? [];
 

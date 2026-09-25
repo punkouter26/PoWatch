@@ -17,6 +17,9 @@ public sealed class StatsFeed(NavigationManager navigation) : IAsyncDisposable
 
     public event Action<StatsChangedDto>? Changed;
 
+    /// <summary>Achievements that just unlocked, for the header toast and the trophy cabinet.</summary>
+    public event Action<AchievementsUnlockedDto>? Unlocked;
+
     public bool IsConnected => _connection?.State == HubConnectionState.Connected;
 
     /// <summary>Connects once; later calls are no-ops. Safe to call from every page that shows stats.</summary>
@@ -32,6 +35,7 @@ public sealed class StatsFeed(NavigationManager navigation) : IAsyncDisposable
             .Build();
 
         _connection.On<StatsChangedDto>("statsChanged", change => Changed?.Invoke(change));
+        _connection.On<AchievementsUnlockedDto>("achievementsUnlocked", unlocked => Unlocked?.Invoke(unlocked));
 
         try
         {

@@ -23,13 +23,15 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task A_demo_session_fills_the_counters_within_15_seconds_and_stops_cleanly()
+    public async Task A_demo_session_fills_the_counters_unlocks_a_trophy_and_stops_cleanly()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await page.GetByTestId("start-demo").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
+        // A first session unlocks First Light, announced by a toast pushed over the stats hub.
+        await Assertions.Expect(page.GetByTestId("trophy-toasts")).ToContainTextAsync("First Light", new() { Timeout = 10_000 });
 
         // SPEC §15 #1: nonzero live counters within 15 s, with no camera, GPU or model.
         await Assertions.Expect(page.GetByTestId("metric-visits")).Not.ToHaveTextAsync("0", new() { Timeout = 15_000 });
@@ -45,6 +47,10 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("away-card")).ToContainTextAsync("of the session");
         await page.GetByTestId("away-close").ClickAsync();
         await Assertions.Expect(page.GetByTestId("away-card")).Not.ToBeVisibleAsync();
+
+        await page.GoToAsync("/trophies", "TROPHIES");
+        await Assertions.Expect(page.Locator("[data-test=trophy][data-unlocked=true]").Filter(new() { HasText = "First Light" })).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("record-row").Filter(new() { HasText = "Longest session" })).ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
     }
 

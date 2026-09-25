@@ -770,3 +770,64 @@ html, body {
 .regular-name { display: flex; gap: 6px; align-items: center; }
 .regular-name input { min-height: 32px; width: 180px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-mono); padding: 0 6px; }
 .regular-name .term-button { min-height: 32px; padding: 0 10px; }
+
+/* ── Trophies ─────────────────────────────────────────────────────────── */
+
+.trophy-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.trophy {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    padding: 10px;
+    border: 1px solid var(--term-line);
+    border-radius: var(--term-radius);
+    background: var(--term-bg);
+    font-size: 12px;
+    color: var(--term-muted);
+}
+
+.trophy b { font: 600 13px var(--term-font); color: var(--term-text); }
+.trophy-mark { font: 16px var(--term-mono); color: var(--term-dim); }
+.trophy-when { font: 11px var(--term-mono); color: var(--term-dim); letter-spacing: 0.04em; }
+.trophy--unlocked { border-left: 3px solid var(--term-accent); }
+.trophy--unlocked .trophy-mark, .trophy--unlocked .trophy-when { color: var(--term-accent); }
+.trophy--locked b { color: var(--term-muted); }
+
+.trophy-toasts {
+    position: fixed;
+    top: 56px;
+    right: 14px;
+    z-index: 30;
+    display: grid;
+    gap: 8px;
+    width: min(320px, calc(100vw - 28px));
+    pointer-events: none;
+}
+
+.trophy-toast {
+    pointer-events: auto;
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    background: var(--term-panel);
+    border: 1px solid var(--term-accent);
+    border-radius: var(--term-radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--term-muted);
+    font-size: 12px;
+    text-decoration: none;
+    animation: name-prompt-in 0.25s ease-out;
+}
+
+.trophy-toast b { font: 600 14px var(--term-font); color: var(--term-text); }
+.trophy-toast-kicker { font: 600 10px var(--term-mono); letter-spacing: 0.08em; color: var(--term-accent); }
+
+@media (prefers-reduced-motion: reduce) { .trophy-toast { animation: none; } }
