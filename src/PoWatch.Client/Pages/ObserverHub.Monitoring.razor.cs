@@ -84,7 +84,6 @@ public partial class ObserverHub
         _lastAttemptAtUtc = null;
 
         await RefreshDiagnosticsAsync();
-        await PlayCueAsync("start");
 
         _ = Task.Run(() => RunMonitorLoopAsync(monitorCts.Token));
         // No per-second heartbeat here: the running clock is owned by the isolated
@@ -97,7 +96,6 @@ public partial class ObserverHub
 
     private async Task StopMonitoringAsync()
     {
-        await PlayCueAsync("stop");
         monitoring = false;
         thinking = false;
         lastSyncStatus = "Paused";
@@ -344,12 +342,6 @@ public partial class ObserverHub
         if (result is not null && !result.Dropped && !result.SkippedAsRedundant && result.IsSignificant)
         {
             await TryUploadEvidenceAsync(result.ImageReference, inference.CapturedImageDataUrl, $"{result.SubjectDisplayName}: {inference.Activity}");
-        }
-
-        if (result is not null && result.IsSignificant && !result.IsOutlier && !muted && !result.SkippedAsRedundant)
-        {
-            await JS.TryInvokeVoidAsync("powatchAudio.announce",
-                $"Notable activity: {result.SignificantReason ?? result.Detail}");
         }
 
         // Standby (#7): if the camera frame changed enough to count as "motion", reset the idle timer

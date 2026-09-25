@@ -19,7 +19,6 @@ public partial class ObserverHub
     private List<ObservationEventDto> streamItems = [];
     private ObserverRuntimeStateDto? observerState;
     private InferenceDiagnosticsSnapshot? inferenceDiagnostics;
-    private bool muted = true;
     private bool thinking;
     private bool monitoring;
     private bool _settingsOpen;

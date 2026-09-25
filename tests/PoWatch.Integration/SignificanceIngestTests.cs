@@ -100,12 +100,12 @@ public sealed class SignificanceIngestTests(AzuriteWebApplicationFactory factory
     }
 
     [Fact]
-    public async Task A_malformed_payload_is_recorded_as_an_outlier()
+    public async Task An_untagged_payload_is_recorded_without_an_outlier_flag()
     {
         var result = await IngestAsync("Unknown movement", "not a tagged payload");
 
         Assert.True(result.Accepted);
-        Assert.True(result.IsOutlier);
+        Assert.False(result.IsOutlier);
     }
 
     [Fact]

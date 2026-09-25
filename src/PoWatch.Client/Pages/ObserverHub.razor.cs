@@ -11,8 +11,6 @@ public partial class ObserverHub
 {
     protected override async Task OnInitializedAsync()
     {
-        muted = true;
-
         // TTV: these loads are independent (state, timeline, local JS diagnostics, subjects, model list).
         // Fetch them concurrently instead of serially so the first paint lands after the slowest
         // round-trip, not the sum of all of them.
@@ -132,39 +130,10 @@ public partial class ObserverHub
             await TryUploadEvidenceAsync(result.ImageReference, null, $"{result.SubjectDisplayName}: Desk Work");
         }
 
-        if (result is not null && !muted && !result.SkippedAsRedundant)
-        {
-            await AnnounceAsync(result.SubjectDisplayName, true);
-        }
-
         await RefreshTimelineAsync();
         RebuildHeatmap();
         _standby.RecordMotion();
         RefreshStandbyStatus();
-    }
-
-    // Lightweight, oscillator-synthesized interaction cue (audit #8). Best-effort: audio must never
-    // break the monitoring flow, and it only works after a user gesture has unlocked the AudioContext.
-    private async Task PlayCueAsync(string kind)
-    {
-        if (muted) return;
-        // Safe wrapper — audio bridge is optional; absence must not throw.
-        await JS.TryInvokeVoidAsync("powatchAudio.cue", kind);
-    }
-
-    private async Task AnnounceAsync(string subjectDisplayName, bool isUnknown)
-    {
-        if (isUnknown)
-        {
-            await JS.TryInvokeVoidAsync("powatchAudio.playChirp");
-        }
-
-        subjectDisplayName = DisplayText.SubjectName(subjectDisplayName, !isUnknown);
-        var message = isUnknown
-            ? $"New subject detected: {subjectDisplayName}"
-            : $"Subject identified: {subjectDisplayName}";
-
-        await JS.TryInvokeVoidAsync("powatchAudio.announce", message);
     }
 
     private async Task TryUploadEvidenceAsync(string? imageReference, string? capturedImageDataUrl, string label)

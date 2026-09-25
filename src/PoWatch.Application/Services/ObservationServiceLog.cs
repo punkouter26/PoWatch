@@ -24,10 +24,6 @@ internal static partial class ObservationServiceLog
         Message = "Observation rejected by telemetry sanitizer. Reason={Reason} Activity={Activity} SubjectHint={SubjectHint}")]
     public static partial void RejectedBySanitizer(this ILogger logger, string? reason, string? activity, string? subjectHint);
 
-    [LoggerMessage(EventId = 1004, Level = LogLevel.Warning,
-        Message = "Clinical outlier captured. SubjectId={SubjectId} Payload={Payload}")]
-    public static partial void ClinicalOutlier(this ILogger logger, string subjectId, string? payload);
-
     [LoggerMessage(EventId = 1005, Level = LogLevel.Information,
         Message = "Observation persisted. EventId={EventId} SubjectId={SubjectId} Significant={Significant} Outlier={Outlier} ImageReference={ImageReference} ObservedAtUtc={ObservedAtUtc}")]
     public static partial void ObservationPersisted(this ILogger logger, Guid eventId, string subjectId, bool significant, bool outlier, string? imageReference, DateTimeOffset observedAtUtc);

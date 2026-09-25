@@ -63,13 +63,7 @@ public sealed class ObservationService(
             }
 
             var subject = await subjectRepository.GetOrCreateAsync(request.SubjectHint, cancellationToken);
-            var isOutlier = !ClinicalTagParser.TryExtract(request.ClinicalPayload, out var extracted);
-            var description = isOutlier ? "Clinical outlier: malformed inference payload." : extracted;
-
-            if (isOutlier)
-            {
-                logger.ClinicalOutlier(subject.SubjectId, request.ClinicalPayload);
-            }
+            var description = ExtractCaption(request.ClinicalPayload) ?? request.Activity;
 
             // Significance is decided here, not by the caller. The inference worker used to set it from
             // the caption's length, which flagged every well-formed observation; deriving it from the
@@ -100,7 +94,6 @@ public sealed class ObservationService(
                 ClinicalDescription = description,
                 IsSignificant = isSignificant,
                 SignificantReason = significantReason,
-                IsClinicalOutlier = isOutlier,
                 SignificanceScore = significanceScore,
                 SignificanceConfidence = significanceConfidence,
                 ImageReference = isSignificant && featureFlags.Value.SaveSignificantImages
@@ -115,7 +108,7 @@ public sealed class ObservationService(
             // 
             // The redundancy flag is now set on the observation itself, allowing downstream
             // consumers to filter if needed, while ensuring ALL events are persisted.
-            var isRedundant = IsRedundantObservation(subject, request.Activity, isOutlier);
+            var isRedundant = IsRedundantObservation(subject, request.Activity);
 
             await observationRepository.AddAsync(observation, cancellationToken);
             await subjectRepository.UpdateLastActivityAsync(subject.SubjectId, observation.Activity, observation.IsClinicalOutlier, cancellationToken);
@@ -146,7 +139,7 @@ public sealed class ObservationService(
                 SignificanceConfidence = observation.SignificanceConfidence,
                 Detail = isRedundant
                     ? "Observation recorded with stable-state flag."
-                    : (observation.IsClinicalOutlier ? "Clinical outlier recorded." : "Observation recorded.")
+                    : "Observation recorded."
             };
         }
         finally
@@ -178,7 +171,7 @@ public sealed class ObservationService(
     /// Determines if an observation is redundant (stable activity matching cached state).
     /// The observation is STILL persisted, but this flag indicates it represents no change.
     /// </summary>
-    private static bool IsRedundantObservation(SubjectProfile subject, string activity, bool isOutlier)
+    private static bool IsRedundantObservation(SubjectProfile subject, string activity)
     {
         if (string.IsNullOrWhiteSpace(activity))
             return false;
@@ -187,16 +180,33 @@ public sealed class ObservationService(
         if (subject.LastActivity is null)
             return false;
 
-        // Don't mark as redundant if this is an outlier (outliers always have significance)
-        if (isOutlier || subject.LastActivityIsOutlier)
-            return false;
-
         // Check if activity is "stable" (low-change activities)
         if (!IsStableActivity(activity))
             return false;
 
         // Check if it matches the cached state
         return string.Equals(subject.LastActivity, activity, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private const int MaxCaptionLength = 500;
+
+    /// <summary>
+    /// Pulls the caption out of the worker's payload. The VLM worker wraps it in &lt;S&gt;…&lt;E&gt; markers;
+    /// anything without markers is taken as-is. Returns null when nothing usable remains.
+    /// </summary>
+    private static string? ExtractCaption(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+            return null;
+
+        var caption = payload.Replace("<S>", string.Empty, StringComparison.Ordinal)
+            .Replace("<E>", string.Empty, StringComparison.Ordinal)
+            .Trim();
+
+        if (caption.Length == 0)
+            return null;
+
+        return caption.Length > MaxCaptionLength ? caption[..MaxCaptionLength] : caption;
     }
 
     private static bool IsStableActivity(string activity)

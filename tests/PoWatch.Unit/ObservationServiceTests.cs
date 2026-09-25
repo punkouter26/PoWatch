@@ -27,20 +27,19 @@ public sealed class ObservationServiceTests
     }
 
     [Fact]
-    public async Task IngestAsync_RecordsOutlier_WhenPayloadMalformed()
+    public async Task IngestAsync_KeepsAnUntaggedPayloadAsTheCaption()
     {
         var service = BuildService(new OpenGate(), out var observations, out _);
 
         var result = await service.IngestAsync(new IngestObservationRequestDto
         {
-            ClinicalPayload = "broken",
-            Activity = "Unknown"
+            ClinicalPayload = "A cat walks across the desk",
+            Activity = "Cat walking"
         }, CancellationToken.None);
 
         Assert.True(result.Accepted);
-        Assert.True(result.IsOutlier);
-        Assert.Single(observations.Items);
-        Assert.True(observations.Items[0].IsClinicalOutlier);
+        Assert.False(result.IsOutlier);
+        Assert.Equal("A cat walks across the desk", observations.Items.Single().ClinicalDescription);
     }
 
     [Fact]

@@ -110,9 +110,6 @@
                     @if (monitoring) { <span class="page-header-time"><LiveDurationTimer StartedAtUtc="monitoringStartedAtUtc" IdleText="--:--:--" /></span> }
                 </div>
                 <div class="page-header-meta">
-                    <label for="observer-mute" class="mute-label">Mute audio</label>
-                    <RadzenSwitch id="observer-mute" @bind-Value="muted" TValue="bool"
-                                  aria-label="Mute or unmute audio notifications for new observations" />
                     <button class="settings-gear" @onclick="@(() => _settingsOpen = true)"
                             title="Observer settings — model, GPU & check interval"
                             aria-label="Open observer settings" data-test="observer-settings-gear">⚙</button>

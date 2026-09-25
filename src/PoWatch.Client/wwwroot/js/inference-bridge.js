@@ -233,20 +233,6 @@
       catch { /* nothing to cancel */ }
     },
 
-    // Idea 10: Bedside spoken reassurance cue when Urgent events occur
-    speakBedsideCue(message) {
-      try {
-        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !message) return;
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.rate = 0.95;
-        utterance.pitch = 1.0;
-        utterance.volume = 0.8;
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        // Audio cue best-effort
-      }
-    },
 
     async ensureWebcamAccess() {
       if (!navigator?.mediaDevices?.getUserMedia) {

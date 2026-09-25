@@ -29,14 +29,13 @@
     <script type="importmap"></script>
     <!-- All app-specific JS bridges load in <head> with defer: defer scripts execute after the
          document is parsed but before DOMContentLoaded, so the globals (`powatchInference`,
-         `powatchAudio`, …) are attached before Blazor's first OnAfterRenderAsync interop call.
+         …) are attached before Blazor's first OnAfterRenderAsync interop call.
          NOTE: theme-controller.js runs on this same deferred schedule — before Blazor boots and
          paints the app shell, so there is no theme flash, but it is NOT synchronous. -->
     <script src="js/theme-controller.js" defer></script>
     <script src="js/evidence-images.js" defer></script>
     <script src="js/preferences.js" defer></script>
     <script src="js/inference-bridge.js" defer></script>
-    <script src="js/audio-bridge.js" defer></script>
     <script src="js/blob-upload.js" defer></script>
     <script src="js/keyboard-bindings.js" defer></script>
     <script src="js/viewport-watch.js" defer></script>

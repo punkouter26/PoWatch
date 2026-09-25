@@ -125,20 +125,6 @@ public sealed class ServerDerivedSignificanceTests
         Assert.Equal(observations.Items[0].SignificantReason, result.SignificantReason);
     }
 
-    [Fact]
-    public async Task A_malformed_payload_stays_an_outlier_regardless_of_the_caption()
-    {
-        var service = BuildService(out var observations);
-
-        var result = await service.IngestAsync(new IngestObservationRequestDto
-        {
-            Activity = "Person seated using laptop",
-            ClinicalPayload = "no tags here"
-        }, CancellationToken.None);
-
-        Assert.True(result.IsOutlier);
-        Assert.True(observations.Items[0].IsClinicalOutlier);
-    }
 
     private static ObservationService BuildService(out FakeObservations observations)
     {
