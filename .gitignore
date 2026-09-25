@@ -99,3 +99,6 @@ __queuestorage__/
 
 # Local Data Protection keyring (dev/test)
 .dataprotection-keys/
+
+# Verify snapshot runs
+*.received.*

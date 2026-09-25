@@ -1,0 +1,57 @@
+﻿{
+  Title: Session #AB12,
+  Subtitle: Thu 24 Sep, 08:00 · 3 hours,
+  FromUtc: DateTimeOffset_1,
+  ToUtc: DateTimeOffset_2,
+  Summary: PoWatch watched for 3 hours, 12 minutes and someone was in frame 42% of that time. There were 17 visits, about 5.3 an hour, with up to 3 at once. Bob dropped by most (6 visits, 40 minutes in frame). The busiest minute was 09:35. Visits/hour was unusual — 2.7σ above your usual.,
+  Highlights: [
+    Seen: person, cup, cat, laptop, chair and 1 more.,
+    Rarest sighting: dog.,
+    The lights were switched 1 time.,
+    The model kept mentioning: desk, laptop, cat.,
+    Weirdest caption: “A cat supervises a laptop.”,
+    Stillest stretch: 14 minutes without anything moving.
+  ],
+  Numbers: [
+    {
+      Label: Observed,
+      Value: 3 hours, 12 minutes
+    },
+    {
+      Label: Occupancy,
+      Value: 42%
+    },
+    {
+      Label: Visits,
+      Value: 17
+    },
+    {
+      Label: Peak at once,
+      Value: 3
+    },
+    {
+      Label: Busiest,
+      Value: 09:35
+    },
+    {
+      Label: Longest empty,
+      Value: 41 minutes
+    },
+    {
+      Label: Things seen,
+      Value: 6
+    },
+    {
+      Label: Captions,
+      Value: 24
+    }
+  ],
+  Moments: [
+    {
+      AtUtc: DateTimeOffset_3,
+      Text: First cat of the session,
+      Score: 0.8
+    }
+  ],
+  Source: template
+}

@@ -1,15 +1,12 @@
 using PoWatch.Api.Security;
 using PoWatch.Application.Contracts;
-using PoWatch.Domain.Models;
-using PoWatch.Domain.Services;
+using PoWatch.Application.Services;
 using PoWatch.Shared.Models;
 
 namespace PoWatch.Api.Features.Snapshots;
 
 internal static class SnapshotEndpoints
 {
-    private const int MaxMoments = 12;
-
     internal static IEndpointRouteBuilder MapSnapshotsFeature(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/snapshots", async (string? day, HttpContext http, ISnapshotStore store, CancellationToken ct) =>
@@ -43,28 +40,12 @@ internal static class SnapshotEndpoints
                 Guid id,
                 HttpContext http,
                 ISessionRepository sessions,
-                ISensingLog log,
-                ISnapshotStore store,
-                TimeProvider time,
+                RecapService recaps,
                 CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
                 if (await sessions.GetAsync(userId, id, ct) is not { } session) return Results.NotFound();
-
-                var zone = session.TimeZone;
-                var end = session.EndedUtc ?? time.GetUtcNow();
-                var notable = new List<SceneEvent>();
-                for (var day = LocalDay.Of(session.StartedUtc, zone); day <= LocalDay.Of(end, zone); day = day.AddDays(1))
-                    notable.AddRange((await log.GetEventsAsync(userId, day, ct)).Where(e => e.SessionId == id && e.Kind == SceneEventKind.Notable));
-
-                var moments = new List<MomentDto>();
-                foreach (var moment in notable.OrderByDescending(e => e.Score ?? 0).ThenBy(e => e.AtUtc).Take(MaxMoments))
-                {
-                    var url = moment.ImagePath is { } path ? await store.CreateReadUrlAsync(userId, path, ct) : null;
-                    moments.Add(new MomentDto { AtUtc = moment.AtUtc, Text = moment.Text ?? string.Empty, Score = moment.Score ?? 0, ImageUrl = url?.ToString() });
-                }
-
-                return Results.Ok(moments);
+                return Results.Ok(await recaps.MomentsAsync(userId, session, ct));
             })
             .WithTags("Sessions")
             .RequireAuthorization()

@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IngestService>();
         services.AddScoped<StatsQueryService>();
         services.AddScoped<RegularsService>();
+        services.AddScoped<RecapService>();
 
         return services;
     }

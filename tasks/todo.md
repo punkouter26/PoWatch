@@ -177,10 +177,15 @@ Rules for every task:
   person, cat or dog gets a non-blocking "name them?" card that fades after 60 s, leaving them
   "Person N". Exits carry the regular id, so visits and dwell roll up per regular (leaderboard in
   Objects stats and on /regulars). Old People page removed. Co-occurrence stats deferred.
-- [ ] **F3** `RecapService` on M.E.AI (`IChatClient`: Azure OpenAI / Ollama) + `TemplateRecap`
+- [x] **F3** `RecapService` on M.E.AI (`IChatClient`: Azure OpenAI / Ollama) + `TemplateRecap`
   fallback + Humanizer + Verify snapshot. Replaces `HandoffCoachService`/`ReportService`.
-- [ ] **F4** `RecapReportRenderer` (QuestPDF) + session/day PDF endpoints.
+  - Done as: `/api/recaps/session/{id}` and `/api/recaps/day/{date}?tz=`. `AiProvider:Provider`
+    picks Ollama or Azure OpenAI; with none configured, or on a timeout or error, the template wins.
+    The AI only rewrites the paragraph, never the numbers. Moments now come from `RecapService`.
+- [x] **F4** `RecapReportRenderer` (QuestPDF) + session/day PDF endpoints.
   - AC: a valid PDF (API E2E).
+  - Done as: `/api/recaps/session/{id}.pdf` and `/api/recaps/day/{date}.pdf`. A missing native PDF
+    engine (win-arm64) returns an explained 503, never a bare 500.
 - [ ] **F5** `AchievementService` + endpoints + `/trophies` + unlock toast. **CHECKPOINT**
 
 ### G — Cleanup and verification prep

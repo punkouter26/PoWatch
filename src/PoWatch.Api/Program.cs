@@ -17,6 +17,8 @@ using PoWatch.Api.Features.Sessions;
 using PoWatch.Api.Features.Ingest;
 using PoWatch.Api.Features.Snapshots;
 using PoWatch.Api.Features.Regulars;
+using PoWatch.Api.Features.Recaps;
+using PoWatch.Infrastructure.Runtime;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Features.Dev;
 using PoWatch.Api.Features.Auth;
@@ -144,6 +146,7 @@ builder.Services.AddRateLimiter(rl =>
 
 builder.Services.AddPoWatchApplication();
 builder.Services.AddPoWatchInfrastructure();
+builder.Services.AddPoWatchRecapAi(builder.Configuration);
 builder.Services.AddSingleton<FluentValidation.IValidator<PoWatch.Shared.Models.IngestBatchDto>, IngestBatchValidator>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CurrentUserIdProvider>();
@@ -351,6 +354,7 @@ app.MapSessionsFeature();
 app.MapIngestFeature();
 app.MapSnapshotsFeature();
 app.MapRegularsFeature();
+app.MapRecapsFeature();
 app.MapStatsFeature();
 app.MapHub<StatsHub>(StatsHub.Path).RequireAuthorization();
 app.MapDevSeedFeature(app.Environment);
