@@ -250,8 +250,13 @@
           });
         }
         return { available: true, errorState: '' };
-      } catch {
-        return { available: false, errorState: 'Webcam unavailable in this browser. Fallback preview active.' };
+      } catch (e) {
+        const why = {
+          NotReadableError: 'Webcam busy (another app is using it).',
+          NotAllowedError: 'Webcam permission denied.',
+          NotFoundError: 'No webcam found.',
+        }[e?.name] ?? `Webcam error (${e?.name ?? 'unknown'}).`;
+        return { available: false, errorState: `${why} Fallback preview active.` };
       }
     },
 

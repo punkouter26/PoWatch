@@ -42,4 +42,6 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(MergeRegularsRequestDto))]
 [JsonSerializable(typeof(List<MomentDto>))]
 [JsonSerializable(typeof(DetectionsPayload))]
+[JsonSerializable(typeof(FxFramePayload))]
+[JsonSerializable(typeof(List<double>))]
 internal sealed partial class PoWatchJsonContext : JsonSerializerContext;

@@ -1,8 +1,19 @@
-@* How far today sits from your usual, in standard deviations. Flagged at |z| ≥ 2. *@
+@* How far today sits from your usual, in standard deviations. Flagged at |z| ≥ 2: the panel glitches
+   (terminal.css) and, with sound on, a blip plays when the flag first appears. *@
+@inject IJSRuntime JS
 <span class="@CssClass" title="@Tooltip">@Text</span>
 
 @code {
+    private bool _flagged;
+
     [Parameter] public double? Z { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var flagged = Z is { } z && Math.Abs(z) >= 2;
+        if (flagged && !_flagged) await JS.TryInvokeVoidAsync("powatchFx.blip");
+        _flagged = flagged;
+    }
 
     // Round first: a value like -0.04 would otherwise format as "-+0.0" (the sign survives rounding).
     private string Text => Z is { } z

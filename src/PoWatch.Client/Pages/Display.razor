@@ -4,7 +4,9 @@
 @page "/display"
 @implements IAsyncDisposable
 @using System.Globalization
+@using System.Text.Json
 @inject PoWatchApiClient Api
+@inject IJSRuntime JS
 @inject SensingSession Sensing
 @inject StatsFeed Feed
 
@@ -52,12 +54,17 @@
 
     <section class="wall-tile">
         <div class="wall-label">28 DAYS · HOUR × WEEKDAY</div>
-        <HeatGrid Values="@(_patterns?.HourByWeekday.SelectMany(d => d).ToList() ?? [])" Columns="24" Rows="7" Label="Occupancy by weekday and hour" />
+        @* A 3D terrain of the same numbers (fx.js) covers the plain grid once WebGL2 is up. *@
+        <div class="fx-3d-wrap">
+            <HeatGrid Values="@(_patterns?.HourByWeekday.SelectMany(d => d).ToList() ?? [])" Columns="24" Rows="7" Label="Occupancy by weekday and hour" />
+            <canvas class="fx-3d" @ref="_terrain" aria-hidden="true"></canvas>
+        </div>
     </section>
 
     <section class="wall-tile wall-span-2 wall-caption">
         <div class="wall-label">LATEST CAPTION</div>
-        <p data-test="wall-caption">@(Sensing.Live.LastCaption ?? _environment?.WeirdestCaption ?? "Waiting for the vision model…")</p>
+        @{ var caption = Sensing.Live.LastCaption ?? _environment?.WeirdestCaption ?? "Waiting for the vision model…"; }
+        <p @key="caption" class="fx-type" style="--chars: @caption.Length" data-test="wall-caption">@caption</p>
     </section>
 
     <section class="wall-tile">
@@ -89,6 +96,8 @@
     private PipelineStatsDto? _pipeline;
     private List<Point> _motion = [];
     private CancellationTokenSource? _cts;
+    private ElementReference _terrain;
+    private PatternStatsDto? _terrainFor;
 
     protected override void OnInitialized()
     {
@@ -130,6 +139,15 @@
         _motion = _today?.Series.Select(p => new Point(p.AtUtc.LocalDateTime, p.Motion)).ToList() ?? [];
         _now = DateTimeOffset.Now;
         await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_patterns is null || ReferenceEquals(_patterns, _terrainFor)) return;
+        _terrainFor = _patterns;
+        var now = DateTime.Now;
+        var values = JsonSerializer.Serialize(_patterns.HourByWeekday.SelectMany(d => d).ToList(), PoWatchJsonContext.Default.ListDouble);
+        await JS.TryInvokeVoidAsync("powatchFx.terrain", _terrain, values, ((int)now.DayOfWeek * 24) + now.Hour);
     }
 
     private void OnPush(StatsChangedDto change) => _ = RefreshAsync();

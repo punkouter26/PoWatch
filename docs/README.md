@@ -48,6 +48,14 @@ camera ──► browser (all sensing on-device)                        server
 sessions, moments, captions, time-lapse) · `/regulars` name/rename/merge · `/trophies` · `/display`
 full-screen stats wall · `/system` model readiness and self-tests · `/health` connections.
 
+**Scene effects** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) come only from live numbers:
+a Web Audio drone (light → pitch, motion → filter, who's in frame → chord), arrival plucks, anomaly
+blips and teletype clicks; an announcer (speechSynthesis); a WebGL2 thermal shader in the Live motion
+grid; comet trails over the camera plus a long-exposure PNG on the session recap; panel morphs
+between sections (View Transitions); and a 3D occupancy terrain on the wall. Sound and announcer are
+off until toggled in the header; motion effects respect `prefers-reduced-motion`; the plain HTML
+grids stay underneath as the no-WebGL fallback.
+
 ## API surface
 
 | Route | Purpose |

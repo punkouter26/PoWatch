@@ -11,7 +11,7 @@
 
 @if (_away is { } away)
 {
-    <AwayCard Session="@away.Session" AwayFor="@away.For" OnClose="@(() => _away = null)" />
+    <AwayCard Session="@away.Session" AwayFor="@away.For" Exposure="@away.Exposure" OnClose="@(() => _away = null)" />
 }
 
 <div class="term-grid live-grid">
@@ -22,16 +22,8 @@
         <ChildContent>
             @* The camera element itself lives in the layout and is docked over this slot. *@
             <div class="live-feed" @ref="_slot">
-
-                @if (_showHeat && Sensing.IsRunning)
-                {
-                    <div class="live-heat" aria-hidden="true">
-                        @foreach (var v in L.Heat)
-                        {
-                            <span style="opacity: @Pct(Math.Min(1, v * 3))"></span>
-                        }
-                    </div>
-                }
+                @* Comet trails of everyone in frame, drawn by fx.js. *@
+                <canvas class="fx-trails" data-fx-trails aria-hidden="true"></canvas>
 
                 @foreach (var track in L.Tracks)
                 {
@@ -65,11 +57,18 @@
             </div>
             <div class="live-caption" data-test="live-caption">
                 <span class="live-caption-tag">VLM @(L.LastCaptionUtc?.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture) ?? "--:--:--")</span>
-                <span>@(L.LastCaption ?? (Sensing.IsRunning ? "Waiting for the first caption…" : "—"))</span>
+                @if (L.LastCaption is { } caption)
+                {
+                    @* Keyed, so each new caption types itself out afresh. *@
+                    <span @key="L.LastCaptionUtc" class="fx-type" style="--chars: @caption.Length">@caption</span>
+                }
+                else
+                {
+                    <span>@(Sensing.IsRunning ? "Waiting for the first caption…" : "—")</span>
+                }
                 @if (Sensing.IsRunning)
                 {
                     <span class="term-spacer"></span>
-                    <label class="live-toggle"><input type="checkbox" @bind="_showHeat" /> Motion heat</label>
                     <button class="term-button term-button--danger" @onclick="StopAsync" data-test="stop-session">Stop</button>
                 }
             </div>
@@ -186,7 +185,11 @@
     <TerminalPanel Number="06" Title="Motion grid" Test="live-motion-grid">
         <Aside>16×9 · EDGES TODAY</Aside>
         <ChildContent>
-            <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+            @* The shader canvas covers the plain grid once WebGL2 is up (fx.js). *@
+            <div class="fx-heat-wrap">
+                <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+                <canvas class="fx-heat" data-fx-heat aria-hidden="true"></canvas>
+            </div>
             <div class="live-edges">
                 @foreach (var edge in Edges)
                 {
@@ -245,11 +248,10 @@
     private static readonly string[] Edges = ["Left", "Top", "Right", "Bottom"];
 
     private ElementReference _slot;
-    private (SessionDto Session, TimeSpan? For)? _away;
+    private (SessionDto Session, TimeSpan? For, string? Exposure)? _away;
     private DotNetObjectReference<Live>? _self;
     private bool _starting;
     private bool _enableVlm = true;
-    private bool _showHeat = true;
     private string? _error;
     private PresenceStatsDto? _today;
     private SpaceStatsDto? _space;
@@ -323,8 +325,10 @@
 
     private async Task StopAsync()
     {
+        // Taken before stopping, while the camera still has a frame to print the paths over.
+        var exposure = await ExposureAsync();
         await Sensing.StopAsync();
-        if (Sensing.Live.Session is { } session) _away = (session, null);
+        if (Sensing.Live.Session is { } session) _away = (session, null, exposure);
         await DockFeedAsync();
         await RefreshStatsAsync();
     }
@@ -381,9 +385,13 @@
     {
         if (!Sensing.IsRunning || Sensing.Live.Session is not { } session) return;
         var refreshed = await Api.ListSessionsAsync(5);
-        _away = (refreshed.FirstOrDefault(s => s.Id == session.Id) ?? session, TimeSpan.FromSeconds(secondsAway));
+        _away = (refreshed.FirstOrDefault(s => s.Id == session.Id) ?? session, TimeSpan.FromSeconds(secondsAway), await ExposureAsync());
         await InvokeAsync(StateHasChanged);
     }
+
+    /// <summary>The session's long-exposure print so far (fx.js), or null when nobody has moved.</summary>
+    private Task<string?> ExposureAsync() =>
+        JS.TryInvokeAsync<string>("powatchFx.exposure", Sensing.Live.Demo ? null : Sensing.Feed);
 
     /// <summary>Shows the camera over the slot while a camera session runs; hides it otherwise.</summary>
     private async Task DockFeedAsync()

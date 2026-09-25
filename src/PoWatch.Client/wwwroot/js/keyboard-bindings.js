@@ -52,8 +52,10 @@
 
     // Blazor SPA navigation; a full reload would re-boot the WASM runtime for an in-app hop.
     function navigate(path) {
-        if (window.Blazor && typeof window.Blazor.navigateTo === 'function') {
-            window.Blazor.navigateTo(path);
+        if (window.powatchFx) {
+            window.powatchFx.navigate(path);   // panels morph between sections
+        } else if (window.Blazor && typeof window.Blazor.navigateTo === 'function') {
+            window.powatchFx ? window.powatchFx.navigate(path) : window.Blazor.navigateTo(path);
         } else {
             window.location.href = path || '/';
         }

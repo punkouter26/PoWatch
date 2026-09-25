@@ -531,18 +531,6 @@ html, body {
     overflow: hidden;
 }
 
-.live-heat {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: grid;
-    grid-template-columns: repeat(16, minmax(0, 1fr));
-    grid-template-rows: repeat(9, minmax(0, 1fr));
-    pointer-events: none;
-}
-
-.live-heat > span { background: var(--term-amber); mix-blend-mode: screen; }
-
 .live-box {
     position: absolute;
     z-index: 3;
@@ -841,3 +829,42 @@ html, body {
 
 .recap-summary { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--term-text); max-width: 90ch; }
 .recap-highlights { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12px; color: var(--term-muted); }
+
+/* ── Scene effects (fx.js) ────────────────────────────────────────────── */
+
+.term-icon-button--on { color: var(--term-accent); border-color: var(--term-accent); }
+
+.fx-trails { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none; }
+
+/* Shader canvases sit over the plain HTML grid, which stays underneath for WebGL-less browsers and
+   screen readers; fx.js adds .fx-on once a canvas draws. */
+.fx-heat-wrap { position: relative; }
+.fx-3d-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+.fx-heat, .fx-3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fx-heat { border-radius: 2px; }
+.fx-on > .term-heat { opacity: 0; }
+
+/* Teletype: each new caption types itself out, --chars steps at 30 ms (fx.js clicks in time). */
+.fx-type { animation: fx-type calc(var(--chars, 40) * 30ms) steps(var(--chars, 40), end) both; }
+@keyframes fx-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+
+/* An unusual stat (|z| ≥ 2) makes its panel glitch briefly every few seconds. */
+.term-panel:has(.term-z--flag), .wall-tile:has(.term-z--flag) { animation: fx-glitch 7s steps(1) infinite; }
+@keyframes fx-glitch {
+    0%, 5%, 100% { transform: none; text-shadow: none; clip-path: none; }
+    1% { transform: translateX(-2px); text-shadow: -2px 0 rgba(255, 0, 80, 0.7), 2px 0 rgba(0, 220, 255, 0.7); }
+    2% { transform: translateX(2px); clip-path: inset(10% 0 50% 0); text-shadow: 2px 0 rgba(255, 0, 80, 0.7), -2px 0 rgba(0, 220, 255, 0.7); }
+    3% { transform: translateX(-1px); clip-path: inset(55% 0 8% 0); }
+    4% { transform: none; clip-path: none; text-shadow: 1px 0 rgba(255, 0, 80, 0.5), -1px 0 rgba(0, 220, 255, 0.5); }
+}
+
+/* Section changes: panels morph from their old spot to the new one. */
+::view-transition-group(*) { animation-duration: 0.35s; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+.away-exposure { margin: 12px 0 0; display: grid; gap: 6px; }
+.away-exposure img { width: min(100%, 640px); aspect-ratio: 16 / 9; border: 1px solid var(--term-line); border-radius: 2px; }
+.away-exposure figcaption { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font: 11px var(--term-mono); letter-spacing: 0.06em; color: var(--term-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+    .fx-type, .term-panel:has(.term-z--flag), .wall-tile:has(.term-z--flag) { animation: none; }
+}

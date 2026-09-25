@@ -27,6 +27,17 @@
                 <StatCell Label="Moments" Value="@_moments.Count.ToString(CultureInfo.InvariantCulture)" />
             </div>
 
+            @if (Exposure is not null)
+            {
+                <figure class="away-exposure" data-test="away-exposure">
+                    <img src="@Exposure" alt="Long exposure: every path walked through the frame this session" />
+                    <figcaption>
+                        LONG EXPOSURE · every path this session
+                        <a class="term-button" href="@Exposure" download="PoWatch-exposure-@(Session.Id.ToString("N")[..4]).png">PNG ↓</a>
+                    </figcaption>
+                </figure>
+            }
+
             @if (_moments.Count > 0)
             {
                 <ol class="away-moments">
@@ -60,6 +71,9 @@
 
     /// <summary>How long the tab was away; null when the card follows a stopped session.</summary>
     [Parameter] public TimeSpan? AwayFor { get; set; }
+
+    /// <summary>The session's paths as a long-exposure PNG data URL (fx.js); null when nobody moved.</summary>
+    [Parameter] public string? Exposure { get; set; }
 
     [Parameter] public EventCallback OnClose { get; set; }
 
