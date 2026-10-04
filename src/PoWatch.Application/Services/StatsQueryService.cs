@@ -41,6 +41,25 @@ public sealed record StatsWindow(StatsRange Range, DateTimeOffset FromUtc, DateT
 /// </summary>
 public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, ISessionRepository sessions, IRegularStore regulars, TimeProvider time)
 {
+    /// <summary>
+    /// The raw record behind a short window (session, today or one day): every 10 s tick and every scene
+    /// event, as stored. Null for longer windows, where the rollups are the record worth reading.
+    /// </summary>
+    public async Task<(List<Tick> Ticks, List<SceneEvent> Events)?> RawAsync(string userId, StatsWindow window, CancellationToken cancellationToken)
+    {
+        if (window.Range is not (StatsRange.Today or StatsRange.Session or StatsRange.Day)) return null;
+
+        var (ticks, events) = (new List<Tick>(), new List<SceneEvent>());
+        var lastDay = LocalDay.Of(Min(window.ToUtc, time.GetUtcNow()), window.Zone);
+        for (var day = LocalDay.Of(window.FromUtc, window.Zone); day <= lastDay; day = day.AddDays(1))
+        {
+            ticks.AddRange((await sensingLog.GetTicksAsync(userId, day, cancellationToken)).Where(t => t.StartUtc >= window.FromUtc && t.StartUtc < window.ToUtc));
+            events.AddRange((await sensingLog.GetEventsAsync(userId, day, cancellationToken)).Where(e => e.AtUtc >= window.FromUtc && e.AtUtc < window.ToUtc));
+        }
+
+        return (ticks, events);
+    }
+
     /// <summary>Days that make up "your usual".</summary>
     public const int BaselineDays = 28;
 

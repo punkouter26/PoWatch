@@ -134,6 +134,8 @@ main:focus { outline: none; }
 .rz-dropdown, .rz-textbox { background: var(--term-bg) !important; color: var(--term-text) !important; border: 1px solid var(--term-line) !important; }
 .rz-dropdown.rz-state-focused, .rz-textbox:focus { border-color: var(--term-accent) !important; }
 .rz-button:disabled, .rz-button.rz-state-disabled { opacity: 0.55; }
+/* Radzen hovers an unselected range to near-white, which hid its light label. */
+.rz-selectbar .rz-button[aria-pressed="false"]:hover { background: var(--term-panel-2) !important; color: var(--term-text) !important; }
 .rz-chart, .rz-chart text, .rz-legend { font-family: var(--term-mono); font-size: 11px; }
 .rz-data-grid, .rz-grid-table td, .rz-grid-table th, .rz-grid-table tr { border-color: var(--term-line) !important; }
 
@@ -568,20 +570,6 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 .live-who { list-style: none; margin: 0; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 12px var(--term-mono); color: var(--term-muted); border-bottom: 1px solid var(--term-line); }
 .live-who b { color: var(--term-text); font-weight: 600; }
 
-/* Narrower than a desktop the columns dissolve into the shared grid. On a desktop they fill the
-   viewport: camera over key metrics on the left, in-frame over the motion grid on the right. The feed
-   keeps 16:9 (the boxes are placed in frame percentages) and takes the largest size the space allows. */
-.live-col { display: contents; }
-
-@media (min-width: 1281px) {
-    .live-grid { height: 100%; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
-    .live-col { display: flex; flex-direction: column; gap: var(--term-gap); min-height: 0; }
-    .live-camera, .live-grow { flex: 1 1 0; min-height: 0; }
-    .live-camera > .term-panel-body { display: flex; flex-direction: column; overflow: hidden; }
-    .live-stage { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; background: #05070a; }
-    .live-stage > .live-feed { width: min(100cqw, 100cqh * 16 / 9); }
-}
-
 .term-span-4 { grid-column: 1 / -1; }
 
 /* ── Stats page ────────────────────────────────────────────────────────── */
@@ -591,7 +579,6 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: var(--term-gap);
 }
 
 .stats-axis {
@@ -852,20 +839,158 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 .live-metric { white-space: nowrap; }
 .live-metric .term-z { margin-left: 6px; }
 
-/* ── Stats: one action bar ────────────────────────────────────────────── */
+/* ── Live: the bar and the 4×4 grid ───────────────────────────────────── */
 
-.stats-page { position: relative; }
+.dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--term-gap); }
 .stats-ask { display: flex; gap: 6px; flex: 1 1 220px; min-width: 0; max-width: 420px; }
 .stats-ask input { flex: 1; min-width: 0; min-height: 32px; padding: 0 8px; background: var(--term-bg); border: 1px solid var(--term-line); border-radius: var(--term-radius); color: var(--term-text); font: 12px var(--term-font); }
 .stats-ask input:focus-visible { outline: none; border-color: var(--term-accent); }
 .stats-toolbar .term-button { min-height: 32px; padding: 0 10px; }
-.stats-window { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 2px 0; }
-.stats-answer { color: var(--term-text); font-family: var(--term-font); font-size: 13px; }
+.stats-window { margin-left: auto; }
+.stats-answer { margin: 0 2px; color: var(--term-text); font-family: var(--term-font); font-size: 13px; }
 .stats-answer b { font: 600 11px var(--term-mono); letter-spacing: 0.08em; color: var(--term-accent); margin-right: 6px; }
 
-/* Wide enough for both: the bar sits on the tab strip's row, on its empty right-hand side. */
-@media (min-width: 1180px) {
-    .stats-toolbar { position: absolute; z-index: 2; top: 0; right: 0; margin: 0; flex-wrap: nowrap; justify-content: flex-end; width: calc(100% - 520px); }
+/* The live panels and the stat panels share one grid: each family's own .term-grid dissolves into it. */
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--term-gap); }
+.dash-grid > .term-grid { display: contents; }
+.dash-grid .term-panel { grid-column: auto; }
+.dash-grid .rz-chart { height: 200px; }
+.dash-grid .term-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stats-heats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stats-heats figure { margin: 0; }
+.stats-heats figcaption { margin-top: 4px; font: 11px var(--term-mono); color: var(--term-dim); }
+.dash-grid .stats-cloud, .dash-grid .stats-weird { margin-top: 6px; }
+
+@media (min-width: 720px) {
+    .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dash-grid .live-camera { grid-column: span 2; }
+}
+
+/* A desktop shows all sixteen cells at once: four rows share the height left under the bar, the camera
+   takes 2×2, charts flex to fit, and the feed and the motion grid keep 16:9 (the boxes are placed in
+   frame percentages) at the largest size their cells allow. */
+@media (min-width: 1280px) and (min-height: 700px) {
+    .dash { height: 100%; grid-template-rows: auto minmax(0, 1fr); }
+    .dash:has(> .stats-answer) { grid-template-rows: auto auto minmax(0, 1fr); }
+    .dash-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); min-height: 0; }
+    .dash-grid .live-camera { grid-row: span 2; }
+    .dash-grid .term-skeleton { height: auto !important; }
+    .dash-grid .term-stats .term-stat-hint { display: none; }
+    .dash-grid .term-panel-body:has(> .rz-chart), .dash-grid .term-panel-body:has(> .live-heat), .live-camera > .term-panel-body { display: flex; flex-direction: column; overflow: hidden; }
+    .dash-grid .rz-chart { flex: 1 1 0; min-height: 0; height: auto; }
+    .live-stage, .live-heat { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+    .live-stage { background: #05070a; }
+    .live-stage > .live-feed, .live-heat > * { width: min(100cqw, 100cqh * 16 / 9); }
+}
+
+/* ── Live: the precrime look ───────────────────────────────────────────── */
+
+/* Cold glass over deep blue: the tokens are re-pointed for everything inside the dashboard (the heat
+   shader reads --term-accent and --term-bg from here too, so those two stay plain hex), and Radzen's
+   variables are re-declared because they resolved against the root palette. Dark in either theme. */
+.dash {
+    --term-bg: #030a12;
+    --term-panel: rgba(110, 190, 255, 0.06);
+    --term-panel-2: rgba(110, 190, 255, 0.12);
+    --term-line: rgba(140, 215, 255, 0.22);
+    --term-text: #e9f6ff;
+    --term-muted: #a4c8de;
+    --term-dim: #7fa3ba;
+    --term-amber: #8fdcff;
+    --term-cyan: #f2fbff;
+    --term-accent: #8fdcff;
+    --term-accent-ink: #021018;
+    --term-radius: 2px;
+    --dash-glow: 0 0 10px rgba(120, 200, 255, 0.6);
+    --rz-primary: var(--term-accent);
+    --rz-on-primary: var(--term-accent-ink);
+    --rz-selectbar-selected-background-color: var(--term-accent);
+    --rz-selectbar-selected-color: var(--term-accent-ink);
+    --rz-selectbar-selected-border: 1px solid var(--term-accent);
+    --rz-text-color: var(--term-text);
+    --rz-text-secondary-color: var(--term-muted);
+    --rz-base-background-color: transparent;
+    --rz-grid-background-color: transparent;
+    --rz-grid-header-background-color: var(--term-panel-2);
+    --rz-grid-header-color: var(--term-muted);
+    --rz-grid-cell-color: var(--term-text);
+    --rz-grid-stripe-background-color: rgba(140, 215, 255, 0.04);
+    --rz-border-color: var(--term-line);
+    --rz-chart-axis-color: var(--term-line);
+    --rz-chart-axis-label-color: var(--term-dim);
+    --rz-series-1: var(--term-accent);
+    --rz-series-2: #4a86ff;
+    color: var(--term-text);
+}
+
+/* Behind the glass: a dark field with faint rings spreading from the camera. */
+.term-body:has(.dash) {
+    background:
+        repeating-radial-gradient(circle at 25% 38%, rgba(130, 205, 255, 0.07) 0 1px, transparent 1px 84px),
+        radial-gradient(120% 90% at 25% 30%, #0b2540 0%, #030a12 62%);
+}
+
+.dash .term-panel {
+    background: linear-gradient(180deg, rgba(110, 190, 255, 0.1), rgba(110, 190, 255, 0.03));
+    border-color: rgba(140, 215, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(140, 215, 255, 0.04), 0 0 22px rgba(60, 160, 255, 0.12);
+    backdrop-filter: blur(6px);
+}
+
+/* Bright brackets on two corners instead of the accent bar. */
+.dash .term-panel::before, .dash .term-panel::after {
+    content: "";
+    position: absolute;
+    z-index: 4;
+    width: 12px;
+    height: 12px;
+    border: 0 solid #d4f1ff;
+    filter: drop-shadow(0 0 4px #6cc8ff);
+    pointer-events: none;
+}
+
+.dash .term-panel::before { top: 0; left: 0; border-width: 2px 0 0 2px; }
+.dash .term-panel::after { right: 0; bottom: 0; border-width: 0 2px 2px 0; }
+
+.dash .term-panel-head {
+    border-top: 0;
+    background: linear-gradient(90deg, rgba(140, 215, 255, 0.16), transparent 65%);
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: #cfeeff;
+    text-shadow: var(--dash-glow);
+}
+
+.dash .term-panel-head .term-panel-meta { letter-spacing: 0.08em; text-shadow: none; }
+.dash .term-stat-value, .dash .term-table td.r, .dash .stats-cloud { font-weight: 400; text-shadow: var(--dash-glow); }
+.dash .term-heat { background: rgba(140, 215, 255, 0.1); }
+.dash .term-heat-cell > span, .dash .term-spark, .dash .rz-chart svg { filter: drop-shadow(0 0 3px rgba(120, 200, 255, 0.55)); }
+.dash .live-feed { background-color: #02060b; }
+
+/* The feed reads as a display, not a webcam: drained of colour, washed blue, with scanlines and a slow sweep. */
+.term-shell:has(.dash) ~ .term-feed { filter: saturate(0.4) contrast(1.08); }
+
+.dash .live-feed::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    background:
+        linear-gradient(180deg, transparent 0 46%, rgba(190, 235, 255, 0.22) 50%, transparent 54% 100%) 0 0 / 100% 300% no-repeat,
+        repeating-linear-gradient(0deg, rgba(160, 220, 255, 0.07) 0 1px, transparent 1px 3px),
+        linear-gradient(rgba(70, 170, 255, 0.16), rgba(70, 170, 255, 0.1));
+    animation: dash-sweep 7s linear infinite;
+}
+
+@keyframes dash-sweep {
+    from { background-position: 0 100%, 0 0, 0 0; }
+    to { background-position: 0 0, 0 0, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash .live-feed::after { animation: none; }
 }
 
 /* ── History: master and detail ───────────────────────────────────────── */

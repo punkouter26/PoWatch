@@ -3,7 +3,7 @@
 (function () {
     'use strict';
 
-    const SECTIONS = { l: 'live', s: 'stats', h: 'history', r: 'regulars' };
+    const SECTIONS = { l: 'live', h: 'history', r: 'regulars' };
     const find = (test) => document.querySelector(`[data-test="${test}"]`);
     const click = (test) => { const el = find(test); el?.click(); return !!el; };
 

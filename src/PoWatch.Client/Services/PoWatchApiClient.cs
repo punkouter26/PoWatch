@@ -112,6 +112,9 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         }
     }
 
+    /// <summary>Every stat family for the query in one JSON file.</summary>
+    public static string AllStatsUrl(StatsQuery query) => StatsUrl("all", query);
+
     public static string ExportUrl(string timeZoneId) => $"api/export.csv?tz={Uri.EscapeDataString(timeZoneId)}";
 
     public async Task<bool> DeleteMyDataAsync(CancellationToken cancellationToken = default)
@@ -185,12 +188,15 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
     public Task<PipelineStatsDto?> GetPipelineAsync(StatsQuery query, CancellationToken cancellationToken = default) =>
         GetStatsAsync("pipeline", query, Json.PipelineStatsDto, cancellationToken);
 
+    private static string StatsUrl(string family, StatsQuery query) =>
+        $"api/stats/{family}?range={Uri.EscapeDataString(query.Range)}&tz={Uri.EscapeDataString(query.TimeZoneId)}"
+        + (query.SessionId is { } id ? $"&sessionId={id}" : string.Empty)
+        + (query.Date is { } date ? $"&date={date:yyyy-MM-dd}" : string.Empty);
+
     /// <summary>Stats are nice-to-have on every page: a failed read returns null rather than throwing.</summary>
     private async Task<T?> GetStatsAsync<T>(string family, StatsQuery query, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, CancellationToken cancellationToken)
     {
-        var url = $"api/stats/{family}?range={Uri.EscapeDataString(query.Range)}&tz={Uri.EscapeDataString(query.TimeZoneId)}"
-            + (query.SessionId is { } id ? $"&sessionId={id}" : string.Empty)
-            + (query.Date is { } date ? $"&date={date:yyyy-MM-dd}" : string.Empty);
+        var url = StatsUrl(family, query);
         try
         {
             using var response = await httpClient.GetAsync(url, cancellationToken);

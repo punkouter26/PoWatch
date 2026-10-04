@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch: Live and Stats as one 4×4 dashboard (2026-10-04)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch: Live and Stats as one 4×4 dashboard</h1>
+<p class="lead">Captured 4 October 2026 from the running Development app (guest account, seeded synthetic history; the green pattern is Chromium's fake test camera).
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+<h2>After</h2>
+<div style="max-width: 1200px"><figure><figcaption class="new">AFTER · one page, 4×4, standby (1440×900, range 30D)</figcaption><div class="shot"><img src="after-standby.png" alt=""><span class="mark new" style="left:17%;top:2.4%">1</span><span class="mark new" style="left:25%;top:31%">2</span><span class="mark new" style="left:62%;top:12.4%">3</span><span class="mark new" style="left:87%;top:34.6%">4</span><span class="mark new" style="left:37%;top:57%">5</span><span class="mark new" style="left:62%;top:57%">6</span><span class="mark new" style="left:87%;top:57%">7</span><span class="mark new" style="left:62%;top:79%">8</span><span class="mark new" style="left:96%;top:8%">9</span><span class="mark new" style="left:5%;top:12.4%">10</span></div><ol class="notes"><li><b>Three section keys.</b> Stats is gone; Live is the dashboard.</li><li><b>Camera</b> takes 2×2 of the sixteen cells.</li><li><b>Key metrics, In frame, Motion grid</b>: the live panels, with shorter labels.</li><li><b>Presence</b> shows four headline numbers; the rest is in the JSON file.</li><li><b>Space</b>: two heatmaps; the doors line stays on the live Motion grid.</li><li><b>Object census</b>: class, share, peak.</li><li><b>Today vs usual</b>: the σ column moved to the JSON file.</li><li><b>Light</b> and <b>Colour &amp; captions</b> are separate cells again.</li><li><b>All data ↓</b> downloads every stat family for the range as one JSON file, with raw ticks and events for session and today.</li><li><b>The look:</b> cold glass panels, corner brackets, glowing figures, rings behind the grid, scanlines over the feed.</li></ol></figure></div>
+<div class="pair" style="margin-top: 16px"><figure><figcaption class="new">AFTER · a session running (fake test camera; taken before the second chart colour changed from white to blue)</figcaption><div class="shot"><img src="after-live.png" alt=""><span class="mark new" style="left:25%;top:31%">1</span><span class="mark new" style="left:62%;top:43%">2</span></div><ol class="notes"><li><b>The feed</b> docks at 16:9, desaturated and washed blue.</li><li><b>Motion grid</b> keeps 16:9 inside its cell.</li></ol></figure><figure><figcaption class="new">AFTER · narrower window (1000 wide)</figcaption><div class="shot"><img src="after-narrow.png" alt=""><span class="mark new" style="left:50%;top:5%">1</span></div><ol class="notes"><li><b>Below 1280 px</b> the grid drops to two columns (one on a phone) and the page scrolls.</li></ol></figure></div>
+<h2>Before</h2>
+<div class="pair"><figure><figcaption class="old">BEFORE · Live</figcaption><div class="shot"><img src="before-live.png" alt=""><span class="mark old" style="left:50%;top:50%">1</span></div><ol class="notes"><li><b>Live</b> had four panels: camera, key metrics, in frame, motion grid.</li></ol></figure><figure><figcaption class="old">BEFORE · Stats (3×3)</figcaption><div class="shot"><img src="before-stats.png" alt=""><span class="mark old" style="left:15%;top:2.4%">1</span></div><ol class="notes"><li><b>Stats</b> was its own page and section key.</li></ol></figure></div>
+</body>
+</html>

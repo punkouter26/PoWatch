@@ -14,32 +14,19 @@
 else
 {
     <div class="term-grid" data-test="stats-space">
-        <TerminalPanel Title="Where motion happens">
-            <Aside>@(Data.HottestCell >= 0 ? $"HOTTEST {Cell(Data.HottestCell)}" : "NO MOTION YET")</Aside>
+        <TerminalPanel Title="Space">
+            <Aside>BUSIEST DOOR: @Data.BusiestEdge.ToUpperInvariant()</Aside>
             <ChildContent>
-                <HeatGrid Values="@Data.MotionHeat" Label="Motion across the frame" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0} of the hottest")" />
-            </ChildContent>
-        </TerminalPanel>
-
-        <TerminalPanel Title="Where people & animals hang out">
-            <Aside>@(Data.FavouriteSpotCell >= 0 ? $"FAVOURITE {Cell(Data.FavouriteSpotCell)}" : "NOBODY YET")</Aside>
-            <ChildContent>
-                <HeatGrid Values="@Data.PresenceHeat" Label="Where tracked people and animals were centred" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0}")" />
-            </ChildContent>
-        </TerminalPanel>
-
-        <TerminalPanel Title="Doors · entry and exit edges" Class="term-span-2" Flush="true">
-            <Aside>BUSIEST: @Data.BusiestEdge.ToUpperInvariant()</Aside>
-            <ChildContent>
-                <table class="term-table">
-                    <thead><tr><th>Edge</th><th class="r">Entries</th><th class="r">Exits</th></tr></thead>
-                    <tbody>
-                        @foreach (var edge in new[] { "Left", "Top", "Right", "Bottom", "None" })
-                        {
-                            <tr><td>@(edge == "None" ? "Mid-frame" : edge)</td><td class="r">@Data.Entries.GetValueOrDefault(edge)</td><td class="r">@Data.Exits.GetValueOrDefault(edge)</td></tr>
-                        }
-                    </tbody>
-                </table>
+                <div class="stats-heats">
+                    <figure>
+                        <HeatGrid Values="@Data.MotionHeat" Label="Motion across the frame" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0} of the hottest")" />
+                        <figcaption>MOTION · @(Data.HottestCell >= 0 ? $"HOTTEST {Cell(Data.HottestCell)}" : "NONE YET")</figcaption>
+                    </figure>
+                    <figure>
+                        <HeatGrid Values="@Data.PresenceHeat" Label="Where tracked people and animals were centred" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0}")" />
+                        <figcaption>PEOPLE &amp; ANIMALS · @(Data.FavouriteSpotCell >= 0 ? $"FAVOURITE {Cell(Data.FavouriteSpotCell)}" : "NOBODY YET")</figcaption>
+                    </figure>
+                </div>
             </ChildContent>
         </TerminalPanel>
     </div>

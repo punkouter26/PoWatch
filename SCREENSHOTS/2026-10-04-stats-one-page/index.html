@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch Stats: every chart on one page (2026-10-04)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch Stats: every chart on one page</h1>
+<p class="lead">Captured 4 October 2026 from the running Development app (guest, seeded history, range 30D), 1440 wide.
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+<h2>Before: four tabs</h2>
+<div class="pair"><figure><figcaption class="old">BEFORE · Presence &amp; space tab</figcaption><div class="shot"><img src="before-1.png" alt=""><span class="mark old" style="left:19%;top:8.8%">1</span><span class="mark old" style="left:72%;top:8%">2</span><span class="mark old" style="left:11%;top:92%">3</span></div><ol class="notes"><li><b>Four tabs.</b> One stat family on screen at a time; the rest took a click each.</li><li><b>Range and Ask</b> floated over the right of the tab strip.</li><li><b>Range label</b> (and the Ask answer) sat under the tab content.</li></ol></figure><figure><figcaption class="old">BEFORE · Objects tab</figcaption><div class="shot"><img src="before-2.png" alt=""></div></figure><figure><figcaption class="old">BEFORE · Patterns tab</figcaption><div class="shot"><img src="before-3.png" alt=""></div></figure><figure><figcaption class="old">BEFORE · Environment tab</figcaption><div class="shot"><img src="before-4.png" alt=""></div></figure></div>
+<h2>After: one page</h2>
+<div style="max-width: 900px"><figure><figcaption class="new">AFTER · one page</figcaption><div class="shot"><img src="after-1.png" alt=""><span class="mark new" style="left:25%;top:3.8%">1</span><span class="mark new" style="left:23%;top:5.6%">2</span><span class="mark new" style="left:10%;top:7.3%">3</span><span class="mark new" style="left:9%;top:43.5%">4</span><span class="mark new" style="left:11%;top:51.8%">5</span><span class="mark new" style="left:5%;top:80.6%">6</span></div><ol class="notes"><li><b>No tabs.</b> Range and Ask sit on a plain bar at the top and apply to everything below.</li><li><b>Range label and the Ask answer</b> moved up under the bar, so an answer is visible without scrolling.</li><li><b>Presence and space</b>: numbers, motion chart, both heatmaps, doors.</li><li><b>Object census</b>, formerly its own tab.</li><li><b>Patterns</b>: today vs usual, the hourly curve, hour × weekday.</li><li><b>Environment</b>: light, palette, caption words.</li></ol></figure></div>
+</body>
+</html>

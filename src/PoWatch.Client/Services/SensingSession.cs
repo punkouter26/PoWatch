@@ -118,6 +118,15 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     /// <summary>Starts a camera (or demo) session with the <see cref="Captions"/> setting in the local time zone.</summary>
     public Task<string?> StartAsync(bool demo) => StartAsync(demo ? null : Feed, demo, Captions, TimeZoneInfo.Local.Id);
 
+    /// <summary>Shows the camera over <paramref name="slot"/> while a camera session runs; hides it otherwise.</summary>
+    public async Task DockFeedAsync(ElementReference slot)
+    {
+        if (Feed is { } feed && IsRunning && !Live.Demo)
+            await js.TryInvokeVoidAsync("powatchFeed.dock", feed, slot);
+        else
+            await js.TryInvokeVoidAsync("powatchFeed.undock");
+    }
+
     /// <summary>The session's long-exposure print so far (fx.js), or null when nobody has moved.</summary>
     public Task<string?> ExposureAsync() => js.TryInvokeAsync<string>("powatchFx.exposure", Live.Demo ? null : Feed);
 

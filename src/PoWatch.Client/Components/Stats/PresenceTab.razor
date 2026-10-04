@@ -4,7 +4,7 @@
 {
     @if (Loading)
     {
-        <Skeleton Heights="@([150, 300])" />
+        <Skeleton Heights="@([220, 220])" />
     }
     else
     {
@@ -14,23 +14,19 @@
 else
 {
     <div class="term-grid" data-test="stats-presence">
-        <TerminalPanel Title="Presence" Class="term-span-4">
+        <TerminalPanel Title="Presence">
             <div class="term-stats">
                 <StatCell Label="Occupancy" Value="@Percent(Data.Occupancy)" Hint="share of observed time with someone in frame" Test="stats-occupancy" />
                 <StatCell Label="Visits" Value="@Data.Visits.ToString()" Hint="@($"{Number(Data.VisitsPerHour, "0.0")} per hour")" />
                 <StatCell Label="Peak at once" Value="@Data.PeakConcurrency.ToString()" Hint="people + animals" />
-                <StatCell Label="Dwell p50" Value="@(Data.DwellP50Seconds is { } p50 ? Duration(p50) : "—")" Hint="@($"p90 {(Data.DwellP90Seconds is { } p90 ? Duration(p90) : "—")} · max {Duration(Data.DwellMaxSeconds)}")" />
                 <StatCell Label="Longest empty" Value="@Duration(Data.LongestEmptySeconds)" />
-                <StatCell Label="Longest still" Value="@Duration(Data.LongestStillSeconds)" Hint="peak motion under 1%" />
-                <StatCell Label="Busiest" Value="@Local(Data.BusiestStartUtc)" Hint="@($"motion {Number(Data.BusiestMotion, "0.000")}")" />
-                <StatCell Label="Observed" Value="@Duration(Data.SecondsObserved)" />
             </div>
         </TerminalPanel>
 
-        <TerminalPanel Title="Motion energy" Class="term-span-4">
+        <TerminalPanel Title="Motion energy">
             <Aside>@Data.Window.Grain.ToUpperInvariant() BUCKETS</Aside>
             <ChildContent>
-                <RadzenChart Style="height: 240px;" aria-label="Motion over the range">
+                <RadzenChart aria-label="Motion over the range">
                     <RadzenAreaSeries Data="@_points" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Motion)" Title="Mean motion" Smooth="false" />
                     <RadzenLineSeries Data="@_points" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Occupancy)" Title="Occupancy (rolling)" />
                     <RadzenCategoryAxis Formatter="@FormatAxis" />

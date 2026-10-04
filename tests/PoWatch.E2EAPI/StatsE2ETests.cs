@@ -45,6 +45,17 @@ public sealed class StatsE2ETests(ApiE2EFactory factory) : IClassFixture<ApiE2EF
         var pipeline = await client.GetFromJsonAsync<PipelineStatsDto>("/api/stats/pipeline?range=all&tz=UTC");
         Assert.True(pipeline!.AllTimeFrames > 0);
         Assert.InRange(pipeline.PixelHz, 3.9, 4.1);
+
+        // The one-file export carries every family.
+        var everything = await client.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/stats/all?range=30d&tz=UTC");
+        Assert.Equal(["presence", "space", "objects", "patterns", "environment", "pipeline", "ticks", "events"], everything.EnumerateObject().Select(p => p.Name));
+        Assert.Equal(month.Visits, everything.GetProperty("presence").GetProperty("visits").GetInt64());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, everything.GetProperty("ticks").ValueKind);
+
+        // A short window also carries the raw record.
+        var day = await client.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/stats/all?range=today&tz=UTC");
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, day.GetProperty("ticks").ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, day.GetProperty("events").ValueKind);
     }
 
     [Fact]

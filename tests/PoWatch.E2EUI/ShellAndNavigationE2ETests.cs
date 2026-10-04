@@ -27,11 +27,10 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         foreach (var (route, heading) in new (string route, string heading)[]
         {
             ("/", "LIVE"),
-            ("/stats", "STATS"),
             ("/history", "HISTORY"),
             ("/regulars", "REGULARS"),
             ("/history/2026-01-01", "HISTORY"),
-            ("/stats?range=7d&tab=patterns", "STATS"),
+            ("/?range=7d", "LIVE"),
         })
         {
             if (PlaywrightFixture.BaseUrl is null) return;
@@ -48,8 +47,8 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        await page.GetByTestId("nav-stats").ClickAsync();
-        await page.ExpectSectionAsync("STATS");
+        await page.GetByTestId("nav-history").ClickAsync();
+        await page.ExpectSectionAsync("HISTORY");
 
         await page.GetByTestId("nav-regulars").ClickAsync();
         await page.ExpectSectionAsync("REGULARS");

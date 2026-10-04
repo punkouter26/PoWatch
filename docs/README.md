@@ -18,7 +18,7 @@ camera ──► browser (all sensing on-device)                        server
                                                   IngestService: raw rows + rollups (minute/hour/day/all)
                                                   ──► SignalR push (statsChanged)
                                                                           │
-           Stats · History · Regulars  ◄── GET /api/stats/{family}, /api/recaps, …
+           Live · History · Regulars   ◄── GET /api/stats/{family}, /api/recaps, …
 ```
 
 - **Frames never leave the device.** The only images uploaded are highlight snapshots (first sighting
@@ -34,30 +34,32 @@ camera ──► browser (all sensing on-device)                        server
 
 | Family | What | Where |
 |---|---|---|
-| A · Presence & space | occupancy, visits, dwell percentiles, peak at once, empty/still streaks, busiest minute, heatmaps, entry/exit edges | Stats → Presence & space |
-| B · Objects & regulars | classes seen, rarest, regulars leaderboard (recognised by look, never by face) | Stats → Objects, /regulars |
-| C · Patterns & anomalies | hour × weekday, rhythm score, "today vs usual" z-scores, trend, busy-hour forecast | Stats → Patterns |
-| D · Environment & captions | light curve, lights on/off, daylight estimate, palette, word cloud, weirdest caption, recaps | Stats → Environment, History |
+| A · Presence & space | occupancy, visits, dwell percentiles, peak at once, empty/still streaks, busiest minute, heatmaps, entry/exit edges | Live |
+| B · Objects & regulars | classes seen, rarest, regulars leaderboard (recognised by look, never by face) | Live, /regulars |
+| C · Patterns & anomalies | hour × weekday, rhythm score, "today vs usual" z-scores, trend, busy-hour forecast | Live |
+| D · Environment & captions | light curve, lights on/off, daylight estimate, palette, word cloud, weirdest caption, recaps | Live, History |
 | E · Pipeline | frames per layer, FPS, latency, detector confidence, uptime, storage | /system |
 
 ## Pages
 
-`/` Live (one Start button; the demo scene is offered until a first session exists) · `/stats` four
-tabs, a range picker and an "Ask" box, all on one bar · `/history/{yyyy-MM-dd}` the year and the day's
+`/` Live, one screen under a range picker and an "Ask" box: a 4×4 grid of the camera (2×2, one
+Start button; the demo scene is offered until a first session exists), key metrics, who is in frame,
+the live motion grid and nine stat panels. The grid shows the headlines; "All data ↓" on the bar
+downloads every number behind them as one JSON file · `/history/{yyyy-MM-dd}` the year and the day's
 numbers beside three tabs (recap with motion, sessions and captions + PDF; moments; time-lapse) ·
 `/regulars` a sortable, filterable grid: rename in place, tick several to merge · `/settings` every
 optional choice (theme, sound, captions, watch rules) plus sign out, your data (CSV export, delete
-everything) and the way to `/system` (connections, runtime, inference, pipeline). Range, tab, session and day live in the URL, so reloads, links and Back/Forward keep
+everything) and the way to `/system` (connections, runtime, inference, pipeline). Range, session and day live in the URL, so reloads, links and Back/Forward keep
 their place. Every page needs a sign-in.
 
-**Header.** Brand, four section keys, a status chip (state and uptime), Start/Stop, a bell and a gear
+**Header.** Brand, three section keys, a status chip (state and uptime), Start/Stop, a bell and a gear
 that opens Settings. The bell is the one notification tray: sensing problems, watch-rule alerts and
 "name this newcomer" prompts; it opens by itself for a problem or an alert, and a prompt only raises
 its count. Watch rules ("person between 22:00 and
 06:00") are edited on Settings, kept in the browser, checked as things enter the frame, and relayed to
 every open tab over the hub (plus a desktop notification where allowed).
 
-**Keyboard.** `g` then `l s h r` jumps to a section, Space starts or stops, ← → step History's
+**Keyboard.** `g` then `l h r` jumps to a section, Space starts or stops, ← → step History's
 day, Ctrl+K opens a command palette (also: the demo scene, System, full screen) (`wwwroot/js/menus.js`).
 
 **Sound.** `wwwroot/js/cues.js` synthesises short cues with the Web Audio API (start, stop, something
@@ -83,6 +85,7 @@ the camera and add up to a long-exposure PNG on the session recap; they respect
 | `POST /api/sessions`, `POST /api/sessions/{id}/stop`, `GET /api/sessions[?from=&to=]` | session lifecycle; `from`/`to` list every session overlapping a range |
 | `POST /api/sessions/{id}/batches` | tick + event ingest (idempotent by `batchKey`) |
 | `GET /api/stats/{presence\|space\|objects\|patterns\|environment\|pipeline}?range=` | stat families |
+| `GET /api/stats/all?range=` | every family in one JSON document, plus the raw ticks and events for session, today or one day (Live's "All data ↓", History's "Day data ↓") |
 | `GET /api/recaps/session/{id}[.pdf]`, `GET /api/recaps/day/{date}[.pdf]?tz=[&ai=false]` | recaps and PDFs; `ai=false` answers from the template at once |
 | `POST /api/ask` | a plain-language question answered from the caller's own statistics (503 without an AI provider) |
 | `POST /api/alerts` | relay a fired watch rule to the user's open tabs |

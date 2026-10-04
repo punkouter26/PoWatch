@@ -81,6 +81,7 @@
                         }
                         <p class="history-recap-foot">
                             <span class="term-stat-hint">WRITTEN BY @_recap.Source.ToUpperInvariant()@(_rewriting ? " · A MODEL IS REWORDING IT…" : string.Empty)</span>
+                            <a class="term-button" href="@PoWatchApiClient.AllStatsUrl(StatsQuery.ForDay(_day))" download="PoWatch-@(DayKey).json" title="Every tick, event and stat stored for this day" data-test="history-day-json">Day data ↓</a>
                             <a class="term-button" href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">Recap PDF ↓</a>
                         </p>
                     </div>
@@ -111,7 +112,7 @@
                                         <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
                                         <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
                                         <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
-                                        <td class="r"><a href="stats?session=@s.Id" title="Open this session on the Stats page">stats</a></td>
+                                        <td class="r"><a href="?session=@s.Id" title="Open this session's stats on Live">stats</a></td>
                                     </tr>
                                 }
                             </tbody>

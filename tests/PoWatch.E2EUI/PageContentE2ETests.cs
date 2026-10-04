@@ -48,31 +48,23 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
-    public async Task Every_stats_tab_renders_real_numbers_for_a_seeded_month()
+    public async Task Live_renders_every_stat_family_with_real_numbers_for_a_seeded_month()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
         var seed = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=40&tz=UTC");
         Assert.True(seed.Ok, $"seed returned {seed.Status}");
 
-        await page.GoToAsync("/stats?range=30d", "STATS");
+        await page.GoToAsync("/?range=30d", "LIVE");
         await Assertions.Expect(page.GetByTestId("stats-occupancy")).Not.ToContainTextAsync("0.0%", new() { Timeout = 30_000 });
         await Assertions.Expect(page.Locator("[data-test=stats-presence] .rz-chart svg").First).ToBeVisibleAsync();
 
-        foreach (var (tab, content) in new[]
+        // Every family is on the Live grid; pipeline counters are on System.
+        foreach (var content in new[] { "stats-space", "stats-objects", "stats-patterns", "stats-environment" })
         {
-            ("Objects", "stats-objects"),
-            ("Patterns", "stats-patterns"),
-            ("Environment", "stats-environment"),
-        })
-        {
-            await page.GetByRole(AriaRole.Tab, new() { Name = tab }).ClickAsync();
             await Assertions.Expect(page.GetByTestId(content)).ToBeVisibleAsync(new() { Timeout = 30_000 });
         }
 
-        // Presence and space share a tab; pipeline counters moved to System.
-        await page.GetByRole(AriaRole.Tab, new() { Name = "Presence & space" }).ClickAsync();
-        await Assertions.Expect(page.GetByTestId("stats-space")).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await page.GoToSystemAsync();
         await Assertions.Expect(page.GetByTestId("stats-all-frames")).Not.ToContainTextAsync("—", new() { Timeout = 30_000 });
         await page.AssertNoBlazorErrorAsync();

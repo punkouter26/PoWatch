@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch Stats: camera and stats in a 3×3 grid (2026-10-04)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch Stats: camera and stats in a 3×3 grid</h1>
+<p class="lead">Captured 4 October 2026 from the running Development app (guest, seeded history).
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+<h2>After</h2>
+<div style="max-width: 1100px"><figure><figcaption class="new">AFTER · 3×3 with a session running (1440×900, fake test camera)</figcaption><div class="shot"><img src="after-live.png" alt=""><span class="mark new" style="left:17%;top:12.5%">1</span><span class="mark new" style="left:50%;top:12.5%">2</span><span class="mark new" style="left:83%;top:12.5%">3</span><span class="mark new" style="left:17%;top:42.3%">4</span><span class="mark new" style="left:50%;top:42.3%">5</span><span class="mark new" style="left:83%;top:42.3%">6</span><span class="mark new" style="left:17%;top:72%">7</span><span class="mark new" style="left:50%;top:72%">8</span><span class="mark new" style="left:83%;top:72%">9</span><span class="mark new" style="left:88%;top:7.9%">10</span></div><ol class="notes"><li><b>Camera</b> is the first cell. The live feed docks here at 16:9, as it does on Live.</li><li><b>Presence</b> numbers in a 4×2 block.</li><li><b>Motion energy</b> chart flexes to its cell.</li><li><b>Space</b>: both heatmaps side by side, doors as one line under them.</li><li><b>Object census.</b> Column titles were shortened after this shot; see the standby one.</li><li><b>Today vs your usual.</b></li><li><b>Today’s curve vs usual.</b></li><li><b>Hour × weekday.</b></li><li><b>Light, colour and captions</b> in one cell: chart, palette strip, top words, weirdest caption.</li><li><b>Range label</b> moved onto the bar; the whole page fits one screen with no scrolling.</li></ol></figure></div>
+<div class="pair" style="margin-top: 16px"><figure><figcaption class="new">AFTER · standby (range 30D)</figcaption><div class="shot"><img src="after-standby.png" alt=""><span class="mark new" style="left:17%;top:27%">1</span></div><ol class="notes"><li><b>Standby</b>: the camera cell says so until Start is pressed.</li></ol></figure><figure><figcaption class="new">AFTER · narrower window (900 wide)</figcaption><div class="shot"><img src="after-narrow.png" alt=""><span class="mark new" style="left:50%;top:5%">1</span></div><ol class="notes"><li><b>Below 1100 px</b> the grid drops to two columns (one on a phone) and the page scrolls.</li></ol></figure></div>
+<h2>Before</h2>
+<div style="max-width: 800px"><figure><figcaption class="old">BEFORE · one long page, no camera</figcaption><div class="shot"><img src="before.png" alt=""><span class="mark old" style="left:50%;top:12%">1</span><span class="mark old" style="left:25%;top:31%">2</span><span class="mark old" style="left:75%;top:81%">3</span><span class="mark old" style="left:75%;top:69%">4</span></div><ol class="notes"><li><b>Twelve panels</b> stacked down a page about two screens tall.</li><li><b>Three space panels</b>: two heatmaps and a doors table.</li><li><b>Three environment panels</b>: light, palette, captions.</li><li><b>Empty half row</b> beside Hour × weekday.</li></ol></figure></div>
+</body>
+</html>

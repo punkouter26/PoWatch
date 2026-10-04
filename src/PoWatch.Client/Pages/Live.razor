@@ -1,6 +1,7 @@
 @page "/"
 @implements IAsyncDisposable
 @using System.Globalization
+@using PoWatch.Client.Components.Stats
 @inject SensingSession Sensing
 @inject PoWatchApiClient Api
 @inject NavigationManager Navigation
@@ -9,13 +10,41 @@
 
 <PageTitle>PoWatch | Live</PageTitle>
 
-@* Four panels: the camera, the numbers, who and what is in frame, and where it moves. Recent events
-   scroll on the tape below; frame rates and the detector live on System. On a wide screen the two columns fill
-   the viewport (the camera grows into the height left over); narrower, they fall back to the grid. *@
+@* Everything on one screen: the range and the question box on top, then a 4×4 grid. The camera takes
+   four cells; key metrics, who is in frame and the live motion grid sit beside it; the nine stat
+   panels follow (CSS dissolves each family's own grid into this one). Range and session live in the
+   URL, so a reload, a shared link and Back/Forward land where you were. *@
 @{ var census = CensusRows(); }
-<div class="term-grid live-grid">
-    <div class="live-col live-col--main">
-        <TerminalPanel Title="Camera" Class="term-span-2 term-row-span-2 live-camera" Test="live-camera" Flush="true">
+<div class="dash">
+    <div class="stats-toolbar" data-test="stats-toolbar">
+        <RadzenSelectBar TValue="string" Value="@_range" ValueChanged="@OnRangeChanged" Size="ButtonSize.Small" aria-label="Range">
+            <Items>
+                <RadzenSelectBarItem Text="SESSION" Value="@("session")" Disabled="@(_sessionId == Guid.Empty)" />
+                <RadzenSelectBarItem Text="TODAY" Value="@("today")" />
+                <RadzenSelectBarItem Text="7D" Value="@("7d")" />
+                <RadzenSelectBarItem Text="30D" Value="@("30d")" />
+                <RadzenSelectBarItem Text="ALL" Value="@("all")" />
+            </Items>
+        </RadzenSelectBar>
+
+        <form class="stats-ask" @onsubmit="AskAsync" data-test="stats-ask">
+            <label class="visually-hidden" for="ask">Ask a question about your stats</label>
+            <input id="ask" @bind="_question" @bind:event="oninput" maxlength="300" autocomplete="off" placeholder="Ask: when is it usually busiest?" disabled="@_asking" />
+            <button type="submit" class="term-button" disabled="@(_asking || string.IsNullOrWhiteSpace(_question))">@(_asking ? "…" : "Ask")</button>
+        </form>
+
+        <span class="stats-window term-stat-hint" data-test="stats-window">@WindowLabel</span>
+        @* The grid shows the headlines; this file has every number behind them. *@
+        <a class="term-button" href="@PoWatchApiClient.AllStatsUrl(_query)" download="PoWatch-@(_range).json" title="Everything for this range, as one JSON file" data-test="stats-json">All data ↓</a>
+    </div>
+
+    @if (_answer is not null)
+    {
+        <p class="stats-answer" role="status" data-test="stats-answer"><b>ANSWER</b> @_answer</p>
+    }
+
+    <div class="dash-grid">
+        <TerminalPanel Title="Camera" Class="live-camera" Test="live-camera" Flush="true">
             <Aside>
                 @(Sensing.IsRunning ? (L.Demo ? "DEMO SCENE" : "CAMERA") : "STANDBY")
             </Aside>
@@ -77,41 +106,39 @@
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
+        <TerminalPanel Title="Key metrics" Test="live-metrics" Flush="true">
             <Aside>TODAY vs USUAL</Aside>
             <ChildContent>
                 <table class="term-table">
                     @* One cell carries the value and how unusual it is; rows without a baseline have no empty column to show. *@
-                    <thead><tr><th>Metric</th><th class="r">Now · vs usual</th><th class="live-trend">Trend</th></tr></thead>
+                    <thead><tr><th>Metric</th><th class="r">Now</th><th class="live-trend">Trend</th></tr></thead>
                     <tbody>
                         <tr data-test="metric-occupancy">
-                            <td>OCCUPANCY TODAY</td>
+                            <td>OCCUPANCY</td>
                             <td class="r live-metric">@Percent(_today?.Occupancy) <ZChip Z="@Anomaly("occupancy")" /></td>
                             <td><Sparkline Values="@_occupancyTrend" Max="1" Label="Occupancy today" /></td>
                         </tr>
                         <tr>
-                            <td>VISITS / HR TODAY</td>
+                            <td>VISITS / HR</td>
                             <td class="r live-metric">@(_today is null ? "—" : _today.VisitsPerHour.ToString("0.0", CultureInfo.InvariantCulture)) <ZChip Z="@Anomaly("visits/hour")" /></td>
                             <td><Sparkline Values="@_visitsTrend" Cyan="true" Label="Visits today" /></td>
                         </tr>
                         <tr>
-                            <td>MOTION NOW</td>
+                            <td>MOTION</td>
                             <td class="r live-metric"><span data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</span> <ZChip Z="@Anomaly("motion")" /></td>
                             <td><Sparkline Values="@L.MotionHistory" Label="Motion, last minute" /></td>
                         </tr>
                         <tr>
-                            <td>PEOPLE · ANIMALS NOW</td>
+                            <td>PEOPLE · ANIMALS</td>
                             <td class="r" data-test="metric-people"><span class="fx-tick" @key="(L.PeopleNow, L.AnimalsNow)">@L.PeopleNow · @L.AnimalsNow</span></td>
-                            <td class="term-stat-hint">peak @L.PeakConcurrency · <span data-test="metric-visits">@L.Visits</span> visits this session</td>
+                            <td class="term-stat-hint">peak @L.PeakConcurrency · <span data-test="metric-visits">@L.Visits</span> visits</td>
                         </tr>
                     </tbody>
                 </table>
             </ChildContent>
         </TerminalPanel>
-    </div>
 
-    <div class="live-col">
-        <TerminalPanel Title="In frame" Class="live-grow" Test="live-tracks" Flush="true">
+        <TerminalPanel Title="In frame" Test="live-tracks" Flush="true">
             <Aside>@L.Tracks.Count TRACKED · @census.Count CLASSES</Aside>
             <ChildContent>
                 @if (L.Tracks.Count > 0)
@@ -145,15 +172,17 @@
         <TerminalPanel Title="Motion grid" Test="live-motion-grid">
             <Aside>16×9 · EDGES TODAY</Aside>
             <ChildContent>
-                @if (_shaderHeat)
-                {
-                    @* Drawn by heat-gl.js (a WebGL2 shader) after every render; the plain grid is the fallback. *@
-                    <canvas @ref="_heat" class="heat-gl" role="img" aria-label="Where motion is happening right now" data-test="heat-gl"></canvas>
-                }
-                else
-                {
-                    <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
-                }
+                <div class="live-heat">
+                    @if (_shaderHeat)
+                    {
+                        @* Drawn by heat-gl.js (a WebGL2 shader) after every render; the plain grid is the fallback. *@
+                        <canvas @ref="_heat" class="heat-gl" role="img" aria-label="Where motion is happening right now" data-test="heat-gl"></canvas>
+                    }
+                    else
+                    {
+                        <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+                    }
+                </div>
                 <div class="live-edges">
                     @foreach (var edge in Edges)
                     {
@@ -162,11 +191,27 @@
                 </div>
             </ChildContent>
         </TerminalPanel>
+
+        @* Pipeline numbers are operations, not the room: they live on System. *@
+        <PresenceTab Query="@_query" />
+        <SpaceTab Query="@_query" />
+        <ObjectsTab Query="@_query" />
+        <PatternsTab Query="@_query" />
+        <EnvironmentTab Query="@_query" />
     </div>
 </div>
 
 @code {
+    private const string RangeKey = "powatch:range";
+    private static readonly string[] Ranges = ["session", "today", "7d", "30d", "all"];
     private static readonly string[] Edges = ["Left", "Top", "Right", "Bottom"];
+
+    private string _range = "today";
+    private Guid _sessionId;
+    private StatsQuery _query = StatsQuery.For("today");
+    private string? _question;
+    private string? _answer;
+    private bool _asking;
 
     private ElementReference _slot;
     private ElementReference _heat;
@@ -187,6 +232,20 @@
     private DateTimeOffset _lastPush;
 
     [SupplyParameterFromQuery(Name = "start")] public string? StartMode { get; set; }
+
+    [SupplyParameterFromQuery(Name = "range")] public string? RangeParameter { get; set; }
+
+    /// <summary>A session to open straight away (History links each of its sessions here).</summary>
+    [SupplyParameterFromQuery(Name = "session")] public Guid? SessionParameter { get; set; }
+
+    private string WindowLabel => _range switch
+    {
+        "session" => $"Session {DisplayText.SessionTag(_sessionId)}, minute by minute",
+        "7d" => "Last 7 days, hour by hour",
+        "30d" => "Last 30 days, hour by hour",
+        "all" => "Everything, day by day",
+        _ => "Today so far, minute by minute"
+    } + $" · {TimeZoneInfo.Local.Id}";
 
     private LiveSensingState L => Sensing.Live;
 
@@ -209,6 +268,36 @@
         _ = Feed.EnsureConnectedAsync();
         _refresh = new CancellationTokenSource();
         _ = RefreshLoopAsync(_refresh.Token);
+    }
+
+    /// <summary>The URL is the state: the range control navigates, and this reads the result back.</summary>
+    protected override void OnParametersSet()
+    {
+        var range = SessionParameter is not null ? "session" : RangeParameter is { } r && Ranges.Contains(r) ? r : null;
+        var session = SessionParameter ?? _sessionId;
+        if (range is null || (range == _range && session == _sessionId)) return;
+
+        (_range, _sessionId) = (range, session);
+        Apply();
+    }
+
+    private void OnRangeChanged(string range)
+    {
+        if (range != "session") _ = JS.TryInvokeVoidAsync("localStorage.setItem", RangeKey, range);
+        Navigation.NavigateTo($"?range={range}" + (range == "session" && _sessionId != Guid.Empty ? $"&session={_sessionId}" : string.Empty));
+    }
+
+    private void Apply() =>
+        _query = StatsQuery.For(_range, _range == "session" && _sessionId != Guid.Empty ? _sessionId : null);
+
+    private async Task AskAsync()
+    {
+        if (_asking || string.IsNullOrWhiteSpace(_question)) return;
+        _asking = true;
+        _answer = "Thinking…";
+        _answer = await Api.AskAsync(_question.Trim())
+            ?? "No answer: this server has no AI model configured, or it did not reply.";
+        _asking = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -256,6 +345,13 @@
         if (Sensing.IsRunning != _wasRunning)
         {
             _wasRunning = Sensing.IsRunning;
+            // SESSION means the one running, else the latest.
+            if (SessionParameter is null && Sensing.Live.Session is { } running)
+            {
+                _sessionId = running.Id;
+                if (_range == "session") Apply();
+            }
+
             InvokeAsync(async () =>
             {
                 await DockFeedAsync();
@@ -275,12 +371,25 @@
     {
         if (DateTimeOffset.UtcNow - _lastPush < TimeSpan.FromSeconds(5)) return;
         _lastPush = DateTimeOffset.UtcNow;
+        _query = _query with { Stamp = _query.Stamp + 1 };
         _ = RefreshStatsAsync();
     }
 
     private async Task RefreshLoopAsync(CancellationToken ct)
     {
-        _firstRun = (await Api.ListSessionsAsync(1)).Count == 0;
+        var latest = await Api.ListSessionsAsync(1);
+        _firstRun = latest.Count == 0;
+        if (_sessionId == Guid.Empty) _sessionId = Sensing.Live.Session?.Id ?? latest.FirstOrDefault()?.Id ?? Guid.Empty;
+
+        // A bare address opens on the range you last looked at.
+        if (RangeParameter is null && SessionParameter is null
+            && await JS.TryInvokeAsync<string>("localStorage.getItem", RangeKey) is { } remembered
+            && Ranges.Contains(remembered) && remembered != "session" && remembered != _range)
+        {
+            _range = remembered;
+            Apply();
+        }
+
         await RefreshStatsAsync();
         // Push (StatsFeed) refreshes as data lands; this slow timer only covers a dropped hub.
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
@@ -321,14 +430,7 @@
         Sensing.Recap = new SessionRecap(refreshed.FirstOrDefault(s => s.Id == session.Id) ?? session, TimeSpan.FromSeconds(secondsAway), await Sensing.ExposureAsync());
     }
 
-    /// <summary>Shows the camera over the slot while a camera session runs; hides it otherwise.</summary>
-    private async Task DockFeedAsync()
-    {
-        if (Sensing.Feed is { } feed && Sensing.IsRunning && !Sensing.Live.Demo)
-            await JS.TryInvokeVoidAsync("powatchFeed.dock", feed, _slot);
-        else
-            await JS.TryInvokeVoidAsync("powatchFeed.undock");
-    }
+    private Task DockFeedAsync() => Sensing.DockFeedAsync(_slot);
 
     private double? Anomaly(string metric) => _patterns?.Anomalies.FirstOrDefault(a => a.Metric == metric)?.Z;
 

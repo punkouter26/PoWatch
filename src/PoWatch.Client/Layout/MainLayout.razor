@@ -67,7 +67,7 @@
 
     private static bool IsLive(string uri) => Section(uri).Length == 0;
 
-    /// <summary>The first path segment: "" for Live, "stats", "history", …</summary>
+    /// <summary>The first path segment: "" for Live, "history", "regulars", …</summary>
     private static string Section(string uri) => new Uri(uri).AbsolutePath.Trim('/').Split('/')[0];
 
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;

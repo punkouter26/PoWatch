@@ -4,10 +4,11 @@ using PoWatch.Client.Services;
 
 namespace PoWatch.Client.Components.Stats;
 
-/// <summary>A stats tab: loads its family whenever the range changes and renders nothing stale.</summary>
+/// <summary>A stat family's panels: loads whenever the range changes and renders nothing stale.</summary>
 public abstract class StatsTabBase<T> : ComponentBase where T : class
 {
     private StatsQuery? _loaded;
+    private bool _dirty;
 
     [Inject] protected PoWatchApiClient Api { get; set; } = default!;
 
@@ -24,8 +25,18 @@ public abstract class StatsTabBase<T> : ComponentBase where T : class
         if (Query == _loaded) return;
         _loaded = Query;
         Loading = true;
+        _dirty = true;
         Data = await LoadAsync(Query);
         Loading = false;
+        _dirty = true;
+    }
+
+    /// <summary>Only when a load starts or lands: the host page re-renders several times a second.</summary>
+    protected override bool ShouldRender()
+    {
+        var dirty = _dirty;
+        _dirty = false;
+        return dirty;
     }
 
     protected static string Percent(double value) => value.ToString("0.0%", CultureInfo.InvariantCulture);
