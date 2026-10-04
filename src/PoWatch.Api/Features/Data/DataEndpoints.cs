@@ -41,7 +41,7 @@ internal static class DataEndpoints
             .WithTags("Data")
             .RequireAuthorization()
             .WithName("DeleteMyData")
-            .WithSummary("Delete everything stored for the caller: sessions, ticks, events, rollups, regulars, trophies and snapshots.");
+            .WithSummary("Delete everything stored for the caller: sessions, ticks, events, rollups, regulars and snapshots.");
 
         return app;
     }

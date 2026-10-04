@@ -10,8 +10,7 @@ public enum SceneEventKind
     LightsOn,
     LightsOff,
     Caption,
-    Notable,
-    AchievementCandidate
+    Notable
 }
 
 /// <summary>Which side of the frame a track crossed when it entered or left.</summary>
@@ -72,7 +71,7 @@ public sealed record SceneEvent
                 if (string.IsNullOrWhiteSpace(TrackId) || string.IsNullOrWhiteSpace(Class))
                     errors.Add($"{Kind} needs {nameof(TrackId)} and {nameof(Class)}.");
                 break;
-            case SceneEventKind.Caption or SceneEventKind.Notable or SceneEventKind.AchievementCandidate:
+            case SceneEventKind.Caption or SceneEventKind.Notable:
                 if (string.IsNullOrWhiteSpace(Text))
                     errors.Add($"{Kind} needs {nameof(Text)}.");
                 break;

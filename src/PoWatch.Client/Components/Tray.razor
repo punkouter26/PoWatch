@@ -1,15 +1,14 @@
-@* The one place the app tells you things: sensing problems, watch-rule alerts, unlocked trophies and
-   "name this newcomer" prompts, behind a bell with a count. It opens by itself when something new
-   arrives and never blocks the page. Watch rules are edited here too. *@
+@* The one place the app tells you things: sensing problems, watch-rule alerts and "name this
+   newcomer" prompts, behind a bell with a count. It opens by itself only for a problem or an alert;
+   a naming prompt just raises the count. Watch rules are edited on Settings. *@
 @implements IDisposable
 @inject SensingSession Sensing
 @inject StatsFeed Feed
 @inject TimeProvider Time
-@inject IJSRuntime JS
 
-<div class="term-tray" data-test="trophy-toasts" data-hub="@(Feed.IsConnected ? "up" : "down")">
+<div class="term-tray" data-test="tray" data-hub="@(Feed.IsConnected ? "up" : "down")">
     <button class="term-icon-button @(_open ? "term-icon-button--on" : null)" @onclick="Toggle" aria-expanded="@(_open ? "true" : "false")"
-            aria-label="@($"Notifications, {Count} waiting")" title="Notifications and watch rules" data-test="tray-toggle">
+            aria-label="@($"Notifications, {Count} waiting")" title="Notifications" data-test="tray-toggle">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" /></svg>
         @if (Count > 0)
         {
@@ -36,15 +35,6 @@
                 </p>
             }
 
-            @foreach (var trophy in _trophies)
-            {
-                <a class="tray-item tray-item--trophy" href="trophies" data-test="trophy-toast">
-                    <span class="tray-kicker">▲ ACHIEVEMENT UNLOCKED</span>
-                    <b>@trophy.Title</b>
-                    <span>@trophy.Description</span>
-                </a>
-            }
-
             @foreach (var prompt in Sensing.Live.Prompts.TakeLast(3))
             {
                 <section class="tray-item name-prompt" data-test="name-prompt" @key="prompt.Regular.Id">
@@ -69,40 +59,12 @@
             {
                 <p class="term-empty">Nothing new.</p>
             }
-            else if (_alerts.Count + _trophies.Count > 0)
+            else if (_alerts.Count > 0)
             {
-                <button class="term-menu-item" @onclick="Clear" data-test="tray-clear"><span>Clear</span><b>@(_alerts.Count + _trophies.Count)</b></button>
+                <button class="term-menu-item" @onclick="Clear" data-test="tray-clear"><span>Clear</span><b>@_alerts.Count</b></button>
             }
 
-            <details class="tray-rules" data-test="watch-rules">
-                <summary>Watch rules · @_rules.Count</summary>
-                @foreach (var rule in _rules)
-                {
-                    <div class="tray-rule">
-                        <span>@rule</span>
-                        <button class="term-icon-button" @onclick="() => RemoveRuleAsync(rule)" aria-label="@($"Remove rule: {rule}")">✕</button>
-                    </div>
-                }
-                @if (_rules.Count < WatchRules.Max)
-                {
-                    <form class="tray-rule-form" @onsubmit="AddRuleAsync">
-                        <label class="visually-hidden" for="rule-class">Alert me when this appears</label>
-                        <select id="rule-class" @bind="_ruleClass">
-                            <option value="person">person</option>
-                            <option value="cat">cat</option>
-                            <option value="dog">dog</option>
-                            <option value="@WatchRules.Any">anything</option>
-                        </select>
-                        <label class="visually-hidden" for="rule-from">From hour</label>
-                        <input id="rule-from" type="number" min="0" max="23" @bind="_ruleFrom" />
-                        <span aria-hidden="true">→</span>
-                        <label class="visually-hidden" for="rule-to">Until hour</label>
-                        <input id="rule-to" type="number" min="0" max="23" @bind="_ruleTo" />
-                        <button type="submit" class="term-button" data-test="rule-add">Add</button>
-                    </form>
-                    <p class="term-stat-hint">Hours are local; the same hour twice means any time. @(_notifications ?? "Alerts also show as desktop notifications if you allow them.")</p>
-                }
-            </details>
+            <a class="term-menu-item" href="settings" @onclick="Toggle" data-test="tray-rules-link"><span>Watch rules</span><b>SETTINGS →</b></a>
         </div>
     }
 </div>
@@ -110,25 +72,18 @@
 @code {
     private const int Kept = 5;
     private readonly List<AlertDto> _alerts = [];
-    private readonly List<AchievementDto> _trophies = [];
     private readonly Dictionary<string, string?> _names = new(StringComparer.Ordinal);
-    private List<WatchRule> _rules = [];
     private Timer? _expiry;
     private bool _open;
     private int _prompts;
     private string? _lastError;
     private string? _announce;
-    private string? _notifications;
-    private string _ruleClass = "person";
-    private int _ruleFrom = 22;
-    private int _ruleTo = 6;
 
-    private int Count => _alerts.Count + _trophies.Count + Sensing.Live.Prompts.Count + (Sensing.IsRunning && Sensing.Live.LastError is not null ? 1 : 0);
+    private int Count => _alerts.Count + Sensing.Live.Prompts.Count + (Sensing.IsRunning && Sensing.Live.LastError is not null ? 1 : 0);
 
     protected override async Task OnInitializedAsync()
     {
         Sensing.Changed += OnSensingChanged;
-        Feed.Unlocked += OnUnlocked;
         Feed.Alerted += OnAlerted;
         // Ignored naming prompts fade after a minute even when no detections arrive to expire them.
         _expiry = new Timer(_ => InvokeAsync(() =>
@@ -136,7 +91,6 @@
             if (Sensing.Live.ExpirePrompts(Time.GetUtcNow())) StateHasChanged();
         }), null, 5000, 5000);
 
-        _rules = await WatchRules.LoadAsync(JS);
         await Feed.EnsureConnectedAsync();
         StateHasChanged();
     }
@@ -146,31 +100,16 @@
     private void Clear()
     {
         _alerts.Clear();
-        _trophies.Clear();
         _open = false;
     }
-
-    /// <summary>Something new arrived: open the tray, say it for screen readers.</summary>
-    private void Arrived(string announce)
-    {
-        _announce = announce;
-        _open = true;
-        StateHasChanged();
-    }
-
-    private void OnUnlocked(AchievementsUnlockedDto unlocked) => InvokeAsync(() =>
-    {
-        _trophies.AddRange(unlocked.Unlocked);
-        if (_trophies.Count > Kept) _trophies.RemoveRange(0, _trophies.Count - Kept);
-        _ = JS.TryInvokeVoidAsync("powatchCues.play", "trophy", 0);
-        Arrived($"Achievement unlocked: {string.Join(", ", unlocked.Unlocked.Select(a => a.Title))}");
-    });
 
     private void OnAlerted(AlertDto alert) => InvokeAsync(() =>
     {
         _alerts.Add(alert);
         if (_alerts.Count > Kept) _alerts.RemoveAt(0);
-        Arrived($"Watch rule: {alert.Text}");
+        _announce = $"Watch rule: {alert.Text}";
+        _open = true;
+        StateHasChanged();
     });
 
     // Sensing fires several times a second; only a new prompt or a new problem is worth a render.
@@ -180,46 +119,22 @@
         var error = Sensing.IsRunning ? Sensing.Live.LastError : null;
         if (prompts == _prompts && error == _lastError) return;
 
-        var arrived = prompts > _prompts ? "Someone new can be named" : error is not null && error != _lastError ? error : null;
+        var newError = error is not null && error != _lastError;
+        var announce = newError ? error : prompts > _prompts ? "Someone new can be named" : null;
         (_prompts, _lastError) = (prompts, error);
         InvokeAsync(() =>
         {
             foreach (var prompt in Sensing.Live.Prompts) _names.TryAdd(prompt.Regular.Id, null);
-            if (arrived is not null) Arrived(arrived);
-            else StateHasChanged();
+            if (announce is not null) _announce = announce;
+            // A problem opens the tray; a newcomer only raises the count.
+            if (newError) _open = true;
+            StateHasChanged();
         });
-    }
-
-    private async Task AddRuleAsync()
-    {
-        var rule = new WatchRule(_ruleClass, Math.Clamp(_ruleFrom, 0, 23), Math.Clamp(_ruleTo, 0, 23));
-        if (!_rules.Contains(rule)) _rules.Add(rule);
-        await SaveRulesAsync();
-        // Asking needs a click, and this is one: the first rule is the moment the permission makes sense.
-        _notifications = await JS.TryInvokeAsync<string>("powatchCues.allowNotifications") switch
-        {
-            "granted" => "Desktop notifications are on.",
-            "denied" => "Desktop notifications are blocked for this site; alerts still show here and play a sound.",
-            _ => null
-        };
-    }
-
-    private Task RemoveRuleAsync(WatchRule rule)
-    {
-        _rules.Remove(rule);
-        return SaveRulesAsync();
-    }
-
-    private async Task SaveRulesAsync()
-    {
-        await WatchRules.SaveAsync(JS, _rules);
-        Sensing.Rules = [.. _rules];
     }
 
     public void Dispose()
     {
         Sensing.Changed -= OnSensingChanged;
-        Feed.Unlocked -= OnUnlocked;
         Feed.Alerted -= OnAlerted;
         _expiry?.Dispose();
     }

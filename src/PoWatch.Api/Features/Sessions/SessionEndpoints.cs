@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.SignalR;
-using PoWatch.Api.Features.Achievements;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
 using PoWatch.Application.Services;
@@ -24,13 +23,12 @@ internal static class SessionEndpoints
     {
         var group = app.MapGroup("/api/sessions").WithTags("Sessions").RequireAuthorization();
 
-        group.MapPost("/", async (StartSessionRequestDto request, HttpContext http, SessionService service, AchievementService achievements, IHubContext<StatsHub> hub, CancellationToken ct) =>
+        group.MapPost("/", async (StartSessionRequestDto request, HttpContext http, SessionService service, CancellationToken ct) =>
         {
             if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
             try
             {
                 var session = await service.StartAsync(userId, request.TimeZoneId, request.SessionId, ct);
-                await achievements.EvaluateAndAnnounceAsync(hub, userId, session.Id, ct);
                 return Results.Created($"/api/sessions/{session.Id}", session.ToDto(service.Now));
             }
             catch (ArgumentException ex)

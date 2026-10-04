@@ -43,7 +43,7 @@ public sealed class SceneEventDto
 
     public DateTimeOffset AtUtc { get; init; }
 
-    /// <summary>TrackEnter, TrackExit, LightsOn, LightsOff, Caption, Notable or AchievementCandidate.</summary>
+    /// <summary>TrackEnter, TrackExit, LightsOn, LightsOff, Caption or Notable.</summary>
     public string Kind { get; init; } = string.Empty;
 
     public string? TrackId { get; init; }

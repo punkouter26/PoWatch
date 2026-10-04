@@ -11,7 +11,6 @@
     var tag = DisplayText.SessionTag(recap.Session.Id);
     <section class="term-panel away-card" data-test="away-card" aria-labelledby="away-title">
         <header class="term-panel-head">
-            <span class="term-panel-no">★</span>
             <h2 id="away-title">@(recap.AwayFor is { } away ? $"While you were away · {DisplayText.Duration(away.TotalSeconds)}" : "Session recap")</h2>
             <span class="term-panel-meta">SESSION @tag · @DisplayText.Duration(recap.Session.DurationSeconds)</span>
             <a class="term-button" href="@PoWatchApiClient.SessionRecapPdfUrl(recap.Session.Id)" download="PoWatch-session-@(tag[1..]).pdf" data-test="away-pdf">PDF ↓</a>

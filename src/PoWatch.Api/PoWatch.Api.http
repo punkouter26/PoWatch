@@ -23,7 +23,7 @@ X-Fake-User: dev
 
 ###
 
-### ─── Stats, recaps, trophies ───────────────────────────────────────────────
+### ─── Stats, recaps ───────────────────────────────────────────────
 
 GET {{PoWatch.Api_HostAddress}}/api/stats/presence?range=today
 X-Fake-User: dev
@@ -31,11 +31,6 @@ X-Fake-User: dev
 ###
 
 GET {{PoWatch.Api_HostAddress}}/api/recaps/day/2026-09-25?tz=UTC
-X-Fake-User: dev
-
-###
-
-GET {{PoWatch.Api_HostAddress}}/api/achievements
 X-Fake-User: dev
 
 ###

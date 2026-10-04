@@ -1,10 +1,6 @@
-@* A numbered Terminal panel: accent bar, "01 · TITLE", optional right-aligned meta, then content. *@
+@* A Terminal panel: accent bar, title, optional right-aligned meta, then content. *@
 <section class="term-panel @Class" data-test="@Test" aria-labelledby="@_headingId">
     <header class="term-panel-head">
-        @if (!string.IsNullOrEmpty(Number))
-        {
-            <span class="term-panel-no">@Number</span>
-        }
         <h2 id="@_headingId">@Title</h2>
         @if (Aside is not null)
         {
@@ -19,7 +15,6 @@
 @code {
     private readonly string _headingId = $"panel-{Guid.NewGuid():N}";
 
-    [Parameter] public string? Number { get; set; }
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter] public RenderFragment? Aside { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }

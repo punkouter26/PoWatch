@@ -30,8 +30,6 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
             ("/stats", "STATS"),
             ("/history", "HISTORY"),
             ("/regulars", "REGULARS"),
-            ("/trophies", "TROPHIES"),
-            ("/system", "SYSTEM"),
             ("/history/2026-01-01", "HISTORY"),
             ("/stats?range=7d&tab=patterns", "STATS"),
         })

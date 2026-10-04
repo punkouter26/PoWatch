@@ -35,9 +35,9 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
         return new AzureStorageClients(Options);
     }
 
-    private IEnumerable<(string Name, Func<IRollupStore> Rollups, Func<IAchievementStore> Achievements)> StatsStores()
+    private IEnumerable<(string Name, Func<IRollupStore> Rollups)> StatsStores()
     {
-        yield return ("azure", () => new AzureRollupStore(AzureClients(), Options), () => new AzureAchievementStore(AzureClients(), Options));
+        yield return ("azure", () => new AzureRollupStore(AzureClients(), Options));
     }
 
     private static string NewUser() => $"user-{Guid.NewGuid():N}";
@@ -113,9 +113,9 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
     }
 
     [Fact]
-    public async Task Rollups_merge_per_bucket_and_achievements_keep_their_first_unlock()
+    public async Task Rollups_merge_per_bucket_and_concurrent_merges_all_count()
     {
-        foreach (var (name, newRollups, newAchievements) in StatsStores())
+        foreach (var (name, newRollups) in StatsStores())
         {
             var rollups = newRollups();
             var user = NewUser();
@@ -166,17 +166,6 @@ public sealed class StatsStoreContractTests(AzuriteWebApplicationFactory factory
             await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => rollups.MergeAsync(user, RollupGrain.Hour, hot, tick, CancellationToken.None)));
             var hotBucket = Assert.Single(await rollups.GetRangeAsync(user, RollupGrain.Hour, hot, hot.AddHours(1), CancellationToken.None));
             Assert.True(hotBucket.Ticks == 20, $"{name}: {hotBucket.Ticks} of 20 concurrent merges counted");
-
-            var achievements = newAchievements();
-            await achievements.UnlockAsync(user, [new("first-cat", T0)], CancellationToken.None);
-            await achievements.UnlockAsync(user, [new("first-cat", T0.AddDays(1)), new("night-owl", T0.AddDays(1))], CancellationToken.None);
-            var unlocked = await achievements.GetUnlockedAsync(user, CancellationToken.None);
-            Assert.Equal(T0, unlocked["first-cat"]);
-            Assert.Equal(2, unlocked.Count);
-
-            await achievements.SaveRecordsAsync(user, [new("peak-concurrency", 5, T0, 3)], CancellationToken.None);
-            var record = (await achievements.GetRecordsAsync(user, CancellationToken.None))["peak-concurrency"];
-            Assert.Equal(new RecordEntry("peak-concurrency", 5, T0, 3), record);
         }
     }
 }

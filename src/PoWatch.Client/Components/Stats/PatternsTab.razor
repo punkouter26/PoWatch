@@ -14,7 +14,7 @@
 else
 {
     <div class="term-grid" data-test="stats-patterns">
-        <TerminalPanel Number="C1" Title="Today vs your usual" Class="term-span-2" Flush="true">
+        <TerminalPanel Title="Today vs your usual" Class="term-span-2" Flush="true">
             <Aside>RHYTHM @(Data.RhythmScore is { } r ? Number(r, "0.00") : "n/a")</Aside>
             <ChildContent>
                 @if (Data.Anomalies.Count == 0)
@@ -40,7 +40,7 @@ else
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="C2" Title="Today's curve vs usual" Class="term-span-2">
+        <TerminalPanel Title="Today's curve vs usual" Class="term-span-2">
             <RadzenChart Style="height: 200px;" aria-label="Occupancy by hour, today against the usual day">
                 <RadzenLineSeries Data="@_curve" CategoryProperty="@nameof(Hour.Label)" ValueProperty="@nameof(Hour.Usual)" Title="Usual" LineType="LineType.Dashed" />
                 <RadzenColumnSeries Data="@_curve" CategoryProperty="@nameof(Hour.Label)" ValueProperty="@nameof(Hour.Today)" Title="Today" />
@@ -49,7 +49,7 @@ else
             </RadzenChart>
         </TerminalPanel>
 
-        <TerminalPanel Number="C3" Title="Hour × weekday (28 days)" Class="term-span-2">
+        <TerminalPanel Title="Hour × weekday (28 days)" Class="term-span-2">
             <HeatGrid Values="@Data.HourByWeekday.SelectMany(d => d).ToList()" Columns="24" Rows="7"
                       Label="Occupancy by weekday and hour" CellTitle="@((i, v) => $"{Days[i / 24]} {i % 24:00}:00 · {v:P0}")" />
             <div class="stats-axis"><span>rows: Sun → Sat</span><span>columns: 00:00 → 23:00</span></div>

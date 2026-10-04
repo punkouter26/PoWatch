@@ -17,9 +17,6 @@ public sealed class StatsFeed(NavigationManager navigation) : IAsyncDisposable
 
     public event Action<StatsChangedDto>? Changed;
 
-    /// <summary>Achievements that just unlocked, for the header toast and the trophy cabinet.</summary>
-    public event Action<AchievementsUnlockedDto>? Unlocked;
-
     /// <summary>A watch rule fired in one of the user's tabs.</summary>
     public event Action<AlertDto>? Alerted;
 
@@ -38,7 +35,6 @@ public sealed class StatsFeed(NavigationManager navigation) : IAsyncDisposable
             .Build();
 
         _connection.On<StatsChangedDto>("statsChanged", change => Changed?.Invoke(change));
-        _connection.On<AchievementsUnlockedDto>("achievementsUnlocked", unlocked => Unlocked?.Invoke(unlocked));
         _connection.On<AlertDto>("alert", alert => Alerted?.Invoke(alert));
 
         try

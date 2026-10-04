@@ -9,7 +9,7 @@
 @* One grid: sort by any column, filter by name, rename in place (Enter or leaving the box saves), and
    tick two or more of the same kind to merge them — recognition goes by look, so a change of clothes
    can make someone new. On a phone the secondary columns move into the row's expander. *@
-<TerminalPanel Number="R1" Title="Regulars" Test="regulars-board" Flush="true">
+<TerminalPanel Title="Regulars" Test="regulars-board" Flush="true">
     <Aside>@_regulars.Count KNOWN · @_regulars.Count(r => r.IsNamed) NAMED</Aside>
     <ChildContent>
         <div class="regulars-bar">

@@ -14,7 +14,6 @@
         stop: [[660, 0, 0.09, 'sine'], [330, 0.09, 0.18, 'sine']],
         enter: [[880, 0, 0.06, 'sine']],
         regular: [[587, 0, 0.08, 'sine'], [880, 0.08, 0.14, 'sine']],
-        trophy: [[523, 0, 0.1, 'triangle'], [659, 0.1, 0.1, 'triangle'], [784, 0.2, 0.1, 'triangle'], [1047, 0.3, 0.32, 'triangle']],
         alert: [[740, 0, 0.12, 'square'], [740, 0.18, 0.12, 'square']],
         error: [[196, 0, 0.28, 'sawtooth']],
         click: [[1200, 0, 0.025, 'square']],

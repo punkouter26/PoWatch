@@ -1,0 +1,186 @@
+@page "/settings"
+@using System.Security.Claims
+@inject SensingSession Sensing
+@inject PoWatchApiClient Api
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+<PageTitle>PoWatch | Settings</PageTitle>
+
+@* Every optional choice in one place, so the pages you work on carry none. Each starts on the value
+   that suits most rooms (dark, quiet cues, captions on, no rules) and is remembered in this browser. *@
+<div class="term-grid" data-test="settings-page">
+    <TerminalPanel Title="Preferences" Class="term-span-2" Test="settings-preferences" Flush="true">
+        <Aside>REMEMBERED IN THIS BROWSER</Aside>
+        <ChildContent>
+            <div class="settings-list">
+                <button class="term-menu-item" @onclick="ToggleThemeAsync" data-test="theme-toggle">
+                    <span>Theme</span><b>@_theme.ToUpperInvariant()</b>
+                </button>
+                <button class="term-menu-item" @onclick="CycleSoundAsync" data-test="sound-toggle">
+                    <span>Sound cues <i>off · low · mid · high</i></span><b>@_sound.ToUpperInvariant()</b>
+                </button>
+                <button class="term-menu-item" role="switch" aria-checked="@(Sensing.Captions ? "true" : "false")" @onclick="ToggleCaptionsAsync" data-test="captions-toggle">
+                    <span>Captions <i>an on-device vision model describes the scene</i></span><b>@(Sensing.Captions ? "ON" : "OFF")</b>
+                </button>
+                <button class="term-menu-item" onclick="powatchMenus.openPalette()" data-test="open-palette">
+                    <span>Commands and shortcuts</span><b>CTRL K</b>
+                </button>
+            </div>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Title="Watch rules" Class="term-span-2" Test="watch-rules">
+        <Aside>@_rules.Count OF @WatchRules.Max</Aside>
+        <ChildContent>
+            @foreach (var rule in _rules)
+            {
+                <div class="rule-row">
+                    <span>@rule</span>
+                    <button class="term-icon-button" @onclick="() => RemoveRuleAsync(rule)" aria-label="@($"Remove rule: {rule}")">✕</button>
+                </div>
+            }
+            @if (_rules.Count < WatchRules.Max)
+            {
+                <form class="rule-form" @onsubmit="AddRuleAsync">
+                    <label class="visually-hidden" for="rule-class">Alert me when this appears</label>
+                    <select id="rule-class" @bind="_ruleClass">
+                        <option value="person">person</option>
+                        <option value="cat">cat</option>
+                        <option value="dog">dog</option>
+                        <option value="@WatchRules.Any">anything</option>
+                    </select>
+                    <label class="visually-hidden" for="rule-from">From hour</label>
+                    <input id="rule-from" type="number" min="0" max="23" @bind="_ruleFrom" />
+                    <span aria-hidden="true">→</span>
+                    <label class="visually-hidden" for="rule-to">Until hour</label>
+                    <input id="rule-to" type="number" min="0" max="23" @bind="_ruleTo" />
+                    <button type="submit" class="term-button" data-test="rule-add">Add</button>
+                </form>
+            }
+            <p class="term-stat-hint">Alerts land in the bell. Hours are local; the same hour twice means any time. @(_notifications ?? "They also show as desktop notifications if you allow them.")</p>
+        </ChildContent>
+    </TerminalPanel>
+
+    <TerminalPanel Title="Account and data" Class="term-span-4" Test="your-data">
+        <Aside>@_email</Aside>
+        <ChildContent>
+            <div class="settings-actions">
+                <button class="term-button" @onclick="SignOutAsync" disabled="@_signingOut" data-test="sign-out">Sign out</button>
+                <a class="term-button" href="system" data-test="nav-system">System status →</a>
+                <a class="term-button" href="@PoWatchApiClient.ExportUrl(TimeZoneInfo.Local.Id)" download="PoWatch-days.csv" data-test="export-csv">Export days as CSV ↓</a>
+                @if (!_confirmDelete)
+                {
+                    <button class="term-button term-button--danger" @onclick="() => _confirmDelete = true" data-test="delete-data">Delete everything…</button>
+                }
+                else
+                {
+                    <button class="term-button term-button--danger" @onclick="DeleteAllAsync" disabled="@_deleting" data-test="delete-data-confirm">@(_deleting ? "Deleting…" : "Yes, delete it all")</button>
+                    <button class="term-button" @onclick="() => _confirmDelete = false" disabled="@_deleting">Keep it</button>
+                    <span class="live-error" role="alert">Sessions, stats, regulars and snapshots go for good.</span>
+                }
+                @if (_dataMessage is not null)
+                {
+                    <span class="term-stat-hint" role="status">@_dataMessage</span>
+                }
+            </div>
+        </ChildContent>
+    </TerminalPanel>
+</div>
+
+@code {
+    private string _theme = "dark";
+    private string _sound = "low";
+    private string? _email;
+    private bool _signingOut;
+    private List<WatchRule> _rules = [];
+    private string? _notifications;
+    private string _ruleClass = "person";
+    private int _ruleFrom = 22;
+    private int _ruleTo = 6;
+    private bool _confirmDelete;
+    private bool _deleting;
+    private string? _dataMessage;
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var user = (await AuthState).User;
+            _email = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst("preferred_username")?.Value ?? user.Identity?.Name;
+        }
+
+        _rules = await WatchRules.LoadAsync(JS);
+        var theme = await JS.TryInvokeAsync<string>("powatchTheme.get");
+        if (!string.IsNullOrEmpty(theme)) _theme = theme;
+        _sound = await JS.TryInvokeAsync<string>("powatchCues.level") ?? _sound;
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        var next = await JS.TryInvokeAsync<string>("powatchTheme.toggle");
+        _theme = string.IsNullOrEmpty(next) ? (_theme == "dark" ? "light" : "dark") : next;
+    }
+
+    private async Task CycleSoundAsync() => _sound = await JS.TryInvokeAsync<string>("powatchCues.cycle") ?? _sound;
+
+    private async Task ToggleCaptionsAsync()
+    {
+        Sensing.Captions = !Sensing.Captions;
+        await JS.TryInvokeVoidAsync("localStorage.setItem", PoWatch.Client.Layout.MainLayout.CaptionsKey, Sensing.Captions ? "on" : "off");
+    }
+
+    private async Task AddRuleAsync()
+    {
+        var rule = new WatchRule(_ruleClass, Math.Clamp(_ruleFrom, 0, 23), Math.Clamp(_ruleTo, 0, 23));
+        if (!_rules.Contains(rule)) _rules.Add(rule);
+        await SaveRulesAsync();
+        // Asking needs a click, and this is one: the first rule is the moment the permission makes sense.
+        _notifications = await JS.TryInvokeAsync<string>("powatchCues.allowNotifications") switch
+        {
+            "granted" => "Desktop notifications are on.",
+            "denied" => "Desktop notifications are blocked for this site; alerts still show in the bell and play a sound.",
+            _ => null
+        };
+    }
+
+    private Task RemoveRuleAsync(WatchRule rule)
+    {
+        _rules.Remove(rule);
+        return SaveRulesAsync();
+    }
+
+    private async Task SaveRulesAsync()
+    {
+        await WatchRules.SaveAsync(JS, _rules);
+        Sensing.Rules = [.. _rules];
+    }
+
+    private async Task DeleteAllAsync()
+    {
+        _deleting = true;
+        _dataMessage = await Api.DeleteMyDataAsync() ? "Everything was deleted." : "Could not delete — nothing was changed. Try again.";
+        (_deleting, _confirmDelete) = (false, false);
+    }
+
+    private async Task SignOutAsync()
+    {
+        _signingOut = true;
+        try
+        {
+            if (Sensing.IsRunning) await Sensing.StopAsync();
+            using var response = await Http.PostAsync("auth/logout", content: null);
+        }
+        catch (HttpRequestException)
+        {
+            // The cookie may already be gone; the reload below settles it either way.
+        }
+        finally
+        {
+            Navigation.NavigateTo("login", forceLoad: true);
+        }
+    }
+}

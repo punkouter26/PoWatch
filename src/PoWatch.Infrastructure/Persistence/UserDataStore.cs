@@ -20,7 +20,7 @@ public sealed class AzureUserDataStore(AzureStorageClients clients, IOptions<Azu
             $"PartitionKey eq {key} or (PartitionKey ge {key + "|"} and PartitionKey lt {key + "}"})");
 
         var o = options.Value;
-        foreach (var name in new[] { o.SessionsTable, o.TicksTable, o.SceneEventsTable, o.IngestLedgerTable, o.RollupsTable, o.RegularsTable, o.AchievementsTable })
+        foreach (var name in new[] { o.SessionsTable, o.TicksTable, o.SceneEventsTable, o.IngestLedgerTable, o.RollupsTable, o.RegularsTable })
         {
             var table = clients.TableService.GetTableClient(name);
             var rows = new List<TableEntity>();

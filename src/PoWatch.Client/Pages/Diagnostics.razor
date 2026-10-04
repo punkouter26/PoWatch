@@ -11,7 +11,7 @@
 @* Everything operational on one page, refreshed on one timer: connections (what /health reports),
    the server runtime, the on-device inference engine, and the pipeline counters. *@
 <div class="term-grid">
-    <TerminalPanel Number="S1" Title="Connections" Class="term-span-2" Test="health-overall" Flush="true">
+    <TerminalPanel Title="Connections" Class="term-span-2" Test="health-overall" Flush="true">
         <Aside>@(_lastRefreshed is { } at ? $"UPDATED {at:HH:mm:ss} · EVERY {RefreshInterval.TotalSeconds:0} S" : "CHECKING…")</Aside>
         <ChildContent>
             @if (_healthError is not null)
@@ -47,7 +47,7 @@
         </ChildContent>
     </TerminalPanel>
 
-    <TerminalPanel Number="S2" Title="Server" Class="term-span-2">
+    <TerminalPanel Title="Server" Class="term-span-2">
         @if (_snapshot is null)
         {
             <p class="term-empty">Server runtime details are unavailable in this environment.</p>
@@ -65,7 +65,7 @@
         }
     </TerminalPanel>
 
-    <TerminalPanel Number="S3" Title="Inference engine" Class="term-span-4">
+    <TerminalPanel Title="Inference engine" Class="term-span-4">
         @if (_inference is { } inf)
         {
             var state = inf.LoadState switch { "ready" => "ok", "loading" => "warn", "error" => "bad", _ => "idle" };
@@ -110,29 +110,6 @@
 
 <PipelineTab Query="@_pipelineQuery" />
 
-<TerminalPanel Number="S4" Title="Your data" Class="sys-data" Test="your-data">
-    <Aside>EVERYTHING STORED FOR THIS ACCOUNT</Aside>
-    <ChildContent>
-        <div class="sys-actions">
-            <a class="term-button" href="@PoWatchApiClient.ExportUrl(TimeZoneInfo.Local.Id)" download="PoWatch-days.csv" data-test="export-csv">Export days as CSV ↓</a>
-            @if (!_confirmDelete)
-            {
-                <button class="term-button term-button--danger" @onclick="() => _confirmDelete = true" data-test="delete-data">Delete everything…</button>
-            }
-            else
-            {
-                <button class="term-button term-button--danger" @onclick="DeleteAllAsync" disabled="@_deleting" data-test="delete-data-confirm">@(_deleting ? "Deleting…" : "Yes, delete it all")</button>
-                <button class="term-button" @onclick="() => _confirmDelete = false" disabled="@_deleting">Keep it</button>
-                <span class="live-error" role="alert">Sessions, stats, regulars, trophies and snapshots go for good.</span>
-            }
-            @if (_dataMessage is not null)
-            {
-                <span class="term-stat-hint" role="status">@_dataMessage</span>
-            }
-        </div>
-    </ChildContent>
-</TerminalPanel>
-
 @code {
     private HealthReportDto? _health;
     private string? _healthError;
@@ -142,9 +119,6 @@
     private DateTime? _lastRefreshed;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
     private readonly CancellationTokenSource _refresh = new();
-    private bool _confirmDelete;
-    private bool _deleting;
-    private string? _dataMessage;
 
     // One timer for the whole page; a health page showing stale numbers reads as broken.
     protected override void OnInitialized() => _ = RefreshLoopAsync(_refresh.Token);
@@ -164,14 +138,6 @@
         {
             // Page closed.
         }
-    }
-
-    private async Task DeleteAllAsync()
-    {
-        _deleting = true;
-        _dataMessage = await ApiClient.DeleteMyDataAsync() ? "Everything was deleted." : "Could not delete — nothing was changed. Try again.";
-        (_deleting, _confirmDelete) = (false, false);
-        await LoadAsync();
     }
 
     public async ValueTask DisposeAsync()

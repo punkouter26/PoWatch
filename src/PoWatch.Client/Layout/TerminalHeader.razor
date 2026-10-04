@@ -1,12 +1,8 @@
 @implements IDisposable
 @using System.Globalization
-@using System.Security.Claims
 @inject SensingSession Sensing
-@inject NavigationManager Navigation
-@inject IJSRuntime JS
-@inject HttpClient Http
 
-@* One row (two on a phone, where the keys drop below): brand, section keys, one status chip, Start/Stop, and a settings menu.
+@* One row (two on a phone, where the keys drop below): brand, section keys, one status chip, Start/Stop, the bell, and a link to Settings.
    The active key names the section, so there is no separate page title. *@
 <header class="term-header" data-test="term-header">
     <a class="term-brand" href="" aria-label="PoWatch home">
@@ -22,7 +18,7 @@
           title="@(Sensing.Live.Demo ? "Numbers come from a scripted demo scene, not a real camera" : null)">
         <span aria-hidden="true">● </span><span role="status">@(Sensing.IsRunning ? "OBSERVING" : "STANDBY")</span>@if (Sensing.IsRunning)
         {
-            <span class="term-status-detail"> · @(Sensing.Live.Demo ? "DEMO" : "CAMERA") · @Uptime@(Sensing.Live.Session is { } s ? $" · {DisplayText.SessionTag(s.Id)}" : string.Empty)</span>
+            <span class="term-status-detail"> · @Uptime</span>
         }
     </span>
 
@@ -37,38 +33,16 @@
 
     <Tray />
 
-    <details class="term-menu">
-        <summary class="term-icon-button" aria-label="Settings" title="Theme, sound, commands, sign out" data-test="settings-menu">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
-        </summary>
-        <div class="term-menu-panel">
-            <button class="term-menu-item" @onclick="ToggleThemeAsync" data-test="theme-toggle">
-                <span>Theme</span><b>@_theme.ToUpperInvariant()</b>
-            </button>
-            <button class="term-menu-item" @onclick="CycleSoundAsync" data-test="sound-toggle">
-                <span>Sound</span><b>@_sound.ToUpperInvariant()</b>
-            </button>
-            <button class="term-menu-item" onclick="powatchMenus.openPalette()" data-test="open-palette">
-                <span>Commands</span><b>CTRL K</b>
-            </button>
-            <button class="term-menu-item" @onclick="SignOutAsync" disabled="@_signingOut" data-test="sign-out">
-                <span>Sign out</span><b class="term-menu-email">@_email</b>
-            </button>
-        </div>
-    </details>
+    <NavLink class="term-icon-button" ActiveClass="term-icon-button--on" href="settings" aria-label="Settings" title="Settings: theme, sound, captions, watch rules, your data, sign out" data-test="settings-menu">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+    </NavLink>
 </header>
 
 @code {
     private Timer? _clock;
-    private string _theme = "dark";
-    private string _sound = "low";
-    private string? _email;
-    private bool _signingOut;
 
     /// <summary>False on Live, where the camera panel has its own start controls.</summary>
     [Parameter] public bool ShowStart { get; set; } = true;
-
-    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     private string Uptime => Sensing.Live.StartedUtc is { } started
         ? (DateTimeOffset.UtcNow - started).ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture)
@@ -81,49 +55,7 @@
         _clock = new Timer(_ => { if (Sensing.IsRunning) InvokeAsync(StateHasChanged); }, null, 1000, 1000);
     }
 
-    protected override async Task OnParametersSetAsync()
-    {
-        if (AuthState is null) return;
-        var user = (await AuthState).User;
-        _email = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst("preferred_username")?.Value ?? user.Identity?.Name;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender) return;
-        var current = await JS.TryInvokeAsync<string>("powatchTheme.get");
-        if (!string.IsNullOrEmpty(current)) _theme = current;
-        _sound = await JS.TryInvokeAsync<string>("powatchCues.level") ?? _sound;
-        StateHasChanged();
-    }
-
     private void OnSensingChanged() => InvokeAsync(StateHasChanged);
-
-    private async Task ToggleThemeAsync()
-    {
-        var next = await JS.TryInvokeAsync<string>("powatchTheme.toggle");
-        _theme = string.IsNullOrEmpty(next) ? (_theme == "dark" ? "light" : "dark") : next;
-    }
-
-    private async Task CycleSoundAsync() => _sound = await JS.TryInvokeAsync<string>("powatchCues.cycle") ?? _sound;
-
-    private async Task SignOutAsync()
-    {
-        _signingOut = true;
-        try
-        {
-            if (Sensing.IsRunning) await Sensing.StopAsync();
-            using var response = await Http.PostAsync("auth/logout", content: null);
-        }
-        catch (HttpRequestException)
-        {
-            // The cookie may already be gone; the reload below settles it either way.
-        }
-        finally
-        {
-            Navigation.NavigateTo("login", forceLoad: true);
-        }
-    }
 
     public void Dispose()
     {

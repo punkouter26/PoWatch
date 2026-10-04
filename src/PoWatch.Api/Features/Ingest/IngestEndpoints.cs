@@ -1,7 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Caching.Hybrid;
-using PoWatch.Api.Features.Achievements;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
 using PoWatch.Application.Services;
@@ -20,7 +19,6 @@ internal static class IngestEndpoints
                 HttpContext http,
                 IValidator<IngestBatchDto> validator,
                 IngestService service,
-                AchievementService achievements,
                 HybridCache cache,
                 IHubContext<StatsHub> hub,
                 CancellationToken ct) =>
@@ -51,7 +49,6 @@ internal static class IngestEndpoints
                         Ticks = batch.Ticks.Count,
                         Events = batch.Events.Count
                     }, ct);
-                    await achievements.EvaluateAndAnnounceAsync(hub, userId, id, ct);
                 }
 
                 return Results.Ok(new IngestBatchResultDto

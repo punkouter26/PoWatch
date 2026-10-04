@@ -16,9 +16,9 @@ camera ──► browser (all sensing on-device)                        server
            TickBatcher      10 s ticks, outbox (IndexedDB) + replay       │
                                                                           ▼
                                                   IngestService: raw rows + rollups (minute/hour/day/all)
-                                                  AchievementService: unlocks + records ──► SignalR push
+                                                  ──► SignalR push (statsChanged)
                                                                           │
-           Stats · History · Regulars · Trophies · wall  ◄── GET /api/stats/{family}, /api/recaps, …
+           Stats · History · Regulars  ◄── GET /api/stats/{family}, /api/recaps, …
 ```
 
 - **Frames never leave the device.** The only images uploaded are highlight snapshots (first sighting
@@ -38,30 +38,31 @@ camera ──► browser (all sensing on-device)                        server
 | B · Objects & regulars | classes seen, rarest, regulars leaderboard (recognised by look, never by face) | Stats → Objects, /regulars |
 | C · Patterns & anomalies | hour × weekday, rhythm score, "today vs usual" z-scores, trend, busy-hour forecast | Stats → Patterns |
 | D · Environment & captions | light curve, lights on/off, daylight estimate, palette, word cloud, weirdest caption, recaps | Stats → Environment, History |
-| E · Achievements & records | 8 achievements, 2 personal records, unlock toasts | /trophies |
-| F · Pipeline | frames per layer, FPS, latency, detector confidence, uptime, storage | /system |
+| E · Pipeline | frames per layer, FPS, latency, detector confidence, uptime, storage | /system |
 
 ## Pages
 
-`/` Live · `/stats` four tabs, a range picker and an "Ask" box, all on one bar · `/history/{yyyy-MM-dd}`
-the year and the day's numbers beside tabs (recap + PDF, motion, sessions, moments, captions,
-time-lapse) · `/regulars` a sortable, filterable grid: rename in place, tick several to merge ·
-`/trophies` · `/system` connections, runtime, inference, pipeline, and your data (CSV export, delete
-everything). Range, tab, session and day live in the URL, so reloads, links and Back/Forward keep
+`/` Live (one Start button; the demo scene is offered until a first session exists) · `/stats` four
+tabs, a range picker and an "Ask" box, all on one bar · `/history/{yyyy-MM-dd}` the year and the day's
+numbers beside three tabs (recap with motion, sessions and captions + PDF; moments; time-lapse) ·
+`/regulars` a sortable, filterable grid: rename in place, tick several to merge · `/settings` every
+optional choice (theme, sound, captions, watch rules) plus sign out, your data (CSV export, delete
+everything) and the way to `/system` (connections, runtime, inference, pipeline). Range, tab, session and day live in the URL, so reloads, links and Back/Forward keep
 their place. Every page needs a sign-in.
 
-**Header.** Brand, section keys, a status chip, Start/Stop, a bell and a settings menu. The bell is
-the one notification tray: sensing problems, watch-rule alerts, unlocked trophies and "name this
-newcomer" prompts; it opens by itself when something arrives. Watch rules ("person between 22:00 and
-06:00") are edited there, kept in the browser, checked as things enter the frame, and relayed to
+**Header.** Brand, four section keys, a status chip (state and uptime), Start/Stop, a bell and a gear
+that opens Settings. The bell is the one notification tray: sensing problems, watch-rule alerts and
+"name this newcomer" prompts; it opens by itself for a problem or an alert, and a prompt only raises
+its count. Watch rules ("person between 22:00 and
+06:00") are edited on Settings, kept in the browser, checked as things enter the frame, and relayed to
 every open tab over the hub (plus a desktop notification where allowed).
 
-**Keyboard.** `g` then `l s h r t y` jumps to a section, Space starts or stops, ← → step History's
-day, Ctrl+K opens a command palette (`wwwroot/js/menus.js`).
+**Keyboard.** `g` then `l s h r` jumps to a section, Space starts or stops, ← → step History's
+day, Ctrl+K opens a command palette (also: the demo scene, System, full screen) (`wwwroot/js/menus.js`).
 
 **Sound.** `wwwroot/js/cues.js` synthesises short cues with the Web Audio API (start, stop, something
-entering — panned to the side it entered from — a new regular, a trophy, an alert, an error). Level
-off/low/mid/high is in the settings menu and remembered per browser.
+entering — panned to the side it entered from — a new regular, an alert, an error). Level
+off/low/mid/high is on Settings and remembered per browser.
 
 **Motion grid.** On Live the 16×9 grid is a WebGL2 shader (`wwwroot/js/heat-gl.js`); without WebGL2
 it is the plain grid. Animations use spring easings and all stop under `prefers-reduced-motion`.
@@ -86,9 +87,8 @@ the camera and add up to a long-exposure PNG on the session recap; they respect
 | `POST /api/ask` | a plain-language question answered from the caller's own statistics (503 without an AI provider) |
 | `POST /api/alerts` | relay a fired watch rule to the user's open tabs |
 | `GET /api/export.csv`, `DELETE /api/data` | one row per observed day; delete everything stored for the caller |
-| `GET /api/achievements` | trophy cabinet |
 | `/api/regulars` (+ `/observe`, `/merge`, `PATCH /{id}`), `POST /api/snapshots`, `GET /api/snapshots/read`, `GET /api/sessions/{id}/moments` | regulars and highlights |
-| `/hubs/stats` | SignalR: `statsChanged`, `achievementsUnlocked`, `alert` |
+| `/hubs/stats` | SignalR: `statsChanged`, `alert` |
 | `/health`, `/health/live`, `/diag/boot` (public), `/diag`, `/api/diagnostics/status` (signed in) | operations |
 
 Unknown `/api/*` routes return 404. Everything except the SPA shell, `/health`, `/diag/boot` and
@@ -102,8 +102,8 @@ partition — production logs a warning at startup when that is the case.
 ## Storage
 
 Azure Table Storage (Azurite locally), partitioned by user: `PoWatchSessions`, `PoWatchTicks`,
-`PoWatchSceneEvents`, `PoWatchIngestLedger`, `PoWatchRollups`, `PoWatchRegulars`,
-`PoWatchAchievements`. Blob containers: `snapshots`, `dataprotection-keys`. Retention: keep
+`PoWatchSceneEvents`, `PoWatchIngestLedger`, `PoWatchRollups`, `PoWatchRegulars`.
+Blob containers: `snapshots`, `dataprotection-keys`. Retention: keep
 everything. Storage is required: Azurite locally (docker compose) and in tests (Testcontainers).
 
 ## Recaps

@@ -20,6 +20,6 @@ public interface ISnapshotStore
 /// <summary>Everything stored for one user, as a whole.</summary>
 public interface IUserDataStore
 {
-    /// <summary>Deletes every session, tick, event, rollup, regular, trophy and snapshot of the user. Cannot be undone.</summary>
+    /// <summary>Deletes every session, tick, event, rollup, regular and snapshot of the user. Cannot be undone.</summary>
     Task PurgeAsync(string userId, CancellationToken cancellationToken);
 }

@@ -14,7 +14,7 @@
 else
 {
     <div class="term-grid" data-test="stats-environment">
-        <TerminalPanel Number="D1" Title="Light" Class="term-span-2">
+        <TerminalPanel Title="Light" Class="term-span-2">
             <Aside>@Data.Switches.Count SWITCHES@(Data.SunriseUtc is { } up ? $" · SUNRISE ~{Local(up, "HH:mm")} · SUNSET ~{Local(Data.SunsetUtc, "HH:mm")}" : string.Empty)</Aside>
             <ChildContent>
                 <RadzenChart Style="height: 200px;" aria-label="Brightness over the range">
@@ -25,7 +25,7 @@ else
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="D2" Title="Palette" Class="term-span-2">
+        <TerminalPanel Title="Palette" Class="term-span-2">
             @if (Data.Palette.Count == 0)
             {
                 <p class="term-empty">No colours sampled yet.</p>
@@ -42,7 +42,7 @@ else
             }
         </TerminalPanel>
 
-        <TerminalPanel Number="D3" Title="What the model said" Class="term-span-4">
+        <TerminalPanel Title="What the model said" Class="term-span-4">
             <Aside>@Data.CaptionCount CAPTIONS</Aside>
             <ChildContent>
                 @if (Data.Words.Count == 0)

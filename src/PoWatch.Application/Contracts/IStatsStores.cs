@@ -15,16 +15,3 @@ public interface IRollupStore
     /// <summary>Everything the user has ever recorded; <see cref="Rollup.Empty"/> when nothing yet.</summary>
     Task<Rollup> GetAllTimeAsync(string userId, CancellationToken cancellationToken);
 }
-
-/// <summary>Unlocked achievements and personal records per user.</summary>
-public interface IAchievementStore
-{
-    Task<IReadOnlyDictionary<string, DateTimeOffset>> GetUnlockedAsync(string userId, CancellationToken cancellationToken);
-
-    /// <summary>Records unlocks; an achievement already unlocked keeps its first unlock time.</summary>
-    Task UnlockAsync(string userId, IReadOnlyList<AchievementUnlock> unlocks, CancellationToken cancellationToken);
-
-    Task<IReadOnlyDictionary<string, RecordEntry>> GetRecordsAsync(string userId, CancellationToken cancellationToken);
-
-    Task SaveRecordsAsync(string userId, IReadOnlyList<RecordEntry> records, CancellationToken cancellationToken);
-}

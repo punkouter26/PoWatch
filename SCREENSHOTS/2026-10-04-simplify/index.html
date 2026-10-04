@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: nine simplifications, no trophies (2026-10-04)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: nine simplifications, and trophies removed</h1>
+<p class="lead">Captured 4 October 2026 from the running Development app (guest, seeded history, demo scene running), 1440×900.
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, before image or null, before marks, after image, after marks]. A mark is [x %, y %, note].
+  const pairs = [
+    ['Live while observing', 'before-live-running.png', [
+        [33.5, 2.4, '<b>Six section keys</b>, including Trophies and System.'],
+        [78.7, 2.4, '<b>Status chip</b> carried four facts: state, source, uptime and session tag.'],
+        [50, 7.8, '<b>FPS and detector rate</b> in the camera panel header.'],
+        [9, 90.5, '<b>Six metric rows</b> mixing today, now and this session, including light and colours.'],
+        [1.9, 7.8, '<b>Panel numbers</b> (01, 02, 03, 04) on every header.'],
+      ], 'after-live-running.png', [
+        [19, 2.4, '<b>Four section keys.</b> Trophies is gone; System is reached from Settings.'],
+        [82.2, 2.4, '<b>Status chip</b>: state and uptime only.'],
+        [56.3, 7.8, '<b>Camera header</b> names the source; frame rates live on System.'],
+        [9, 95, '<b>Four metric rows.</b> Visits this session moved into the last row\'s hint; light and colours stay on Stats.'],
+        [3, 7.8, '<b>No panel numbers</b> anywhere.'],
+      ]],
+    ['Live: the start panel', 'before-live-standby.png', [
+        [34.5, 40.7, '<b>Two buttons</b> of equal standing: camera and demo.'],
+      ], 'after-live-standby.png', [
+        [30, 40.7, '<b>One button.</b> The demo is offered here only until a first session exists, and always from the command palette (Ctrl+K).'],
+      ]],
+    ['Stats', 'before-stats.png', [
+        [98, 8, '<b>Full-screen button</b> on the toolbar; a session dropdown appeared beside the range when SESSION was picked.'],
+        [3, 16.3, '<b>Panel numbers</b> (A1 to A5).'],
+      ], 'after-stats.png', [
+        [83, 8, '<b>Range and Ask only.</b> SESSION means the running or latest session; History links any other. Full screen is a palette command.'],
+      ]],
+    ['History', 'before-history.png', [
+        [70, 8.8, '<b>Six tabs</b>: Recap, Motion, Sessions, Moments, Captions, Time-lapse.'],
+      ], 'after-history.png', [
+        [57.5, 8.8, '<b>Three tabs.</b>'],
+        [49.3, 41.5, '<b>Motion</b> sits under the recap text.'],
+        [49.8, 69, '<b>Sessions</b> (and captions below them) follow on the same tab.'],
+      ]],
+    ['Trophies (removed)', 'before-trophies.png', [
+        [31.5, 2.4, '<b>The whole page is gone</b>, with its achievements, personal records, unlock toasts, sound cue, API route and storage table.'],
+      ], null, []],
+    ['Settings', 'before-settings.png', [
+        [17, 33.5, '<b>Account and data</b> had sign out, export and delete.'],
+      ], 'after-settings.png', [
+        [12, 33.5, '<b>System status</b> is reached from here, now that it has no section key.'],
+      ]],
+    ['System', 'before-system.png', [
+        [37, 2.4, '<b>SYSTEM key</b> in the main navigation.'],
+      ], 'after-system.png', [
+        [97.9, 2.4, '<b>No section key</b>: open it from Settings or the command palette.'],
+      ]],
+  ];
+
+  const figure = (label, kind, image, marks) => image === null ? '' : `
+    <figure>
+      <figcaption class="${kind}">${label}</figcaption>
+      <div class="shot"><img src="${image}" alt="${label}" />
+        ${marks.map(([x, y], i) => `<span class="mark ${kind}" style="left:${x}%;top:${y}%">${i + 1}</span>`).join('')}
+      </div>
+      <ol class="notes">${marks.map(([, , note]) => `<li>${note}</li>`).join('')}</ol>
+    </figure>`;
+
+  document.getElementById('pairs').innerHTML = pairs.map(([title, before, beforeMarks, after, afterMarks]) => `
+    <h2>${title}</h2>
+    <div class="pair">${figure('BEFORE', 'old', before, beforeMarks)}${figure('AFTER', 'new', after, afterMarks)}</div>`).join('');
+</script>
+</body>
+</html>

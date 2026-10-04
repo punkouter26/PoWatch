@@ -14,7 +14,7 @@
 else
 {
     <div class="term-grid" data-test="stats-presence">
-        <TerminalPanel Number="A1" Title="Presence" Class="term-span-4">
+        <TerminalPanel Title="Presence" Class="term-span-4">
             <div class="term-stats">
                 <StatCell Label="Occupancy" Value="@Percent(Data.Occupancy)" Hint="share of observed time with someone in frame" Test="stats-occupancy" />
                 <StatCell Label="Visits" Value="@Data.Visits.ToString()" Hint="@($"{Number(Data.VisitsPerHour, "0.0")} per hour")" />
@@ -27,7 +27,7 @@ else
             </div>
         </TerminalPanel>
 
-        <TerminalPanel Number="A2" Title="Motion energy" Class="term-span-4">
+        <TerminalPanel Title="Motion energy" Class="term-span-4">
             <Aside>@Data.Window.Grain.ToUpperInvariant() BUCKETS</Aside>
             <ChildContent>
                 <RadzenChart Style="height: 240px;" aria-label="Motion over the range">

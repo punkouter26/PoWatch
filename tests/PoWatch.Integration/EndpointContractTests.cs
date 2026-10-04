@@ -19,7 +19,7 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
     [Fact]
     public async Task Read_endpoints_answer_successfully()
     {
-        foreach (string route in new string[] { "/api/sessions", "/api/regulars", "/api/achievements", "/api/stats/presence?range=today", "/api/diagnostics/status", "/auth/me", "/auth/config", "/health", "/diag", "/diag/boot" })
+        foreach (string route in new string[] { "/api/sessions", "/api/regulars", "/api/stats/presence?range=today", "/api/diagnostics/status", "/auth/me", "/auth/config", "/health", "/diag", "/diag/boot" })
         {
             var response = await _client.GetAsync(route);
 
@@ -33,7 +33,7 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
     [Fact]
     public async Task Read_endpoints_return_json()
     {
-        foreach (string route in new string[] { "/api/sessions", "/api/achievements", "/api/diagnostics/status" })
+        foreach (string route in new string[] { "/api/sessions", "/api/diagnostics/status" })
         {
             var response = await _client.GetAsync(route);
 

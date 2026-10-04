@@ -10,35 +10,29 @@ namespace PoWatch.E2EUI;
 public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 {
     [Fact]
-    public async Task The_live_page_shows_every_panel_and_both_ways_to_start()
+    public async Task The_live_page_shows_every_panel_and_one_way_to_start()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
-        foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-motion-grid", "live-light" })
+        foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-motion-grid" })
             await Assertions.Expect(page.GetByTestId(panel)).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("start-camera")).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("start-demo")).ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
     }
 
     [Fact]
-    public async Task A_demo_session_fills_the_counters_unlocks_a_trophy_and_stops_cleanly()
+    public async Task A_demo_session_fills_the_counters_and_stops_cleanly()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        // A fresh user, so First Light is still locked whatever other tests ran first.
+        // A fresh user: the demo button is offered only until a first session exists.
         var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"demo-{Guid.NewGuid():N}");
-        // Unlock toasts ride the stats hub; wait for it so the session-start unlock is not missed.
-        await Assertions.Expect(page.GetByTestId("trophy-toasts")).ToHaveAttributeAsync("data-hub", "up", new() { Timeout = 15_000 });
 
         await page.GetByTestId("start-demo").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
-        // A first session unlocks First Light, announced by a toast pushed over the stats hub.
-        await Assertions.Expect(page.GetByTestId("trophy-toasts")).ToContainTextAsync("First Light", new() { Timeout = 10_000 });
 
         // nonzero live counters within 15 s, with no camera, GPU or model.
         await Assertions.Expect(page.GetByTestId("metric-visits")).Not.ToHaveTextAsync("0", new() { Timeout = 15_000 });
-        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
 
         await page.GetByTestId("header-stop").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");
@@ -50,10 +44,6 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("away-pdf")).ToHaveAttributeAsync("href", new System.Text.RegularExpressions.Regex(@"^api/recaps/session/.+\.pdf$"));
         await page.GetByTestId("away-close").ClickAsync();
         await Assertions.Expect(page.GetByTestId("away-card")).Not.ToBeVisibleAsync();
-
-        await page.GoToAsync("/trophies", "TROPHIES");
-        await Assertions.Expect(page.Locator("[data-test=trophy][data-unlocked=true]").Filter(new() { HasText = "First Light" })).ToBeVisibleAsync();
-        await Assertions.Expect(page.GetByTestId("record-row").Filter(new() { HasText = "Longest session" })).ToBeVisibleAsync();
         await page.AssertNoBlazorErrorAsync();
     }
 
@@ -83,7 +73,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         // Presence and space share a tab; pipeline counters moved to System.
         await page.GetByRole(AriaRole.Tab, new() { Name = "Presence & space" }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("stats-space")).ToBeVisibleAsync(new() { Timeout = 30_000 });
-        await page.GoToAsync("/system", "SYSTEM");
+        await page.GoToSystemAsync();
         await Assertions.Expect(page.GetByTestId("stats-all-frames")).Not.ToContainTextAsync("—", new() { Timeout = 30_000 });
         await page.AssertNoBlazorErrorAsync();
     }
@@ -97,7 +87,8 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
 
         await page.GetByTestId("start-demo").ClickAsync();
 
-        // The demo walker and the cat each get an offer to be named; nothing blocks the page meanwhile.
+        // The demo walker and the cat each get an offer to be named, waiting behind the bell; nothing opens by itself.
+        await page.GetByTestId("tray-toggle").ClickAsync();
         var person = page.GetByTestId("name-prompt").Filter(new() { HasText = "New person spotted" });
         var cat = page.GetByTestId("name-prompt").Filter(new() { HasText = "New cat spotted" });
         await Assertions.Expect(person).ToBeVisibleAsync(new() { Timeout = 20_000 });
@@ -150,8 +141,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await page.GoToAsync("/history", "HISTORY");
         await Assertions.Expect(page.GetByTestId("history-calendar")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
-        // The day's detail is behind tabs; each opens on a click.
-        await page.GetByRole(AriaRole.Tab, new() { NameRegex = new System.Text.RegularExpressions.Regex("^Sessions") }).ClickAsync();
+        // The recap tab carries the day's sessions; the time-lapse opens on a click.
         await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
         await page.GetByRole(AriaRole.Tab, new() { Name = "Time-lapse" }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
@@ -183,7 +173,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/system", "SYSTEM");
+        await page.GoToSystemAsync();
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Inference engine" }))
             .ToBeVisibleAsync();
@@ -194,7 +184,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/system", "SYSTEM");
+        await page.GoToSystemAsync();
 
         await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = 30000 });
         // Wait for the list itself: "Checking…" also renders health-overall, so counting straight

@@ -9,11 +9,11 @@
 <PageTitle>PoWatch | History</PageTitle>
 
 @* Master-detail in one viewport: the year and the chosen day's numbers on the left, everything about
-   that day behind tabs on the right. The day is in the address (/history/2026-10-03), so it survives a
+   that day on the right: the recap with its motion, sessions and captions, then moments and the time-lapse. The day is in the address (/history/2026-10-03), so it survives a
    reload and Back/Forward walk the days you looked at. ◀ ▶ and the arrow keys step a day (menus.js). *@
 <div class="history-grid">
     <div class="history-col">
-        <TerminalPanel Number="H1" Title="The year" Test="history-calendar">
+        <TerminalPanel Title="The year" Test="history-calendar">
             <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS · CLICK ONE TO OPEN IT</Aside>
             <ChildContent>
                 <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
@@ -22,7 +22,7 @@
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="H2" Title="The day" Class="history-day-panel" Test="history-day-stats">
+        <TerminalPanel Title="The day" Class="history-day-panel" Test="history-day-stats">
             <Aside>
                 <span class="history-nav" data-test="history-toolbar">
                     <button class="term-button" @onclick="() => Move(-1)" aria-label="Previous day" title="Previous day (←)" data-test="history-prev">◀</button>
@@ -85,25 +85,22 @@
                         </p>
                     </div>
                 }
-            </RadzenTabsItem>
 
-            <RadzenTabsItem Text="Motion">
+                @if (_motion.Count > 0)
+                {
+                <h3 class="history-sub">Motion</h3>
                 <RadzenChart class="history-chart" aria-label="Motion across the day">
                     <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
                     <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
                     <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
                     <RadzenLegend Visible="false" />
                 </RadzenChart>
-            </RadzenTabsItem>
+                }
 
-            <RadzenTabsItem Text="@($"Sessions · {_sessions.Count}")">
                 <div data-test="history-sessions">
-                    @if (_sessions.Count == 0)
+                    @if (_sessions.Count > 0)
                     {
-                        <p class="term-empty">@(_loaded ? "No sessions ran on this day." : "Loading…")</p>
-                    }
-                    else
-                    {
+                        <h3 class="history-sub">Sessions · @_sessions.Count</h3>
                         <table class="term-table">
                             <thead><tr><th>Session</th><th>From</th><th>To</th><th class="r">Length</th><th></th></tr></thead>
                             <tbody>
@@ -121,6 +118,21 @@
                         </table>
                     }
                 </div>
+
+                @if (_environment is { Words.Count: > 0 })
+                {
+                    <h3 class="history-sub">Captions · @_environment.CaptionCount</h3>
+                    <div class="stats-cloud">
+                        @foreach (var word in _environment.Words.Take(30))
+                        {
+                            <span style="font-size: @((11 + (16.0 * word.Count / _environment.Words[0].Count)).ToString("0", CultureInfo.InvariantCulture))px">@word.Word</span>
+                        }
+                    </div>
+                    @if (_environment.WeirdestCaption is { } weird)
+                    {
+                        <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
+                    }
+                }
             </RadzenTabsItem>
 
             <RadzenTabsItem Text="@($"Moments · {_moments.Count}")">
@@ -146,26 +158,6 @@
                         </ol>
                     }
                 </div>
-            </RadzenTabsItem>
-
-            <RadzenTabsItem Text="@($"Captions · {_environment?.CaptionCount ?? 0}")">
-                @if (_environment is null || _environment.Words.Count == 0)
-                {
-                    <p class="term-empty">No captions on this day.</p>
-                }
-                else
-                {
-                    <div class="stats-cloud">
-                        @foreach (var word in _environment.Words.Take(30))
-                        {
-                            <span style="font-size: @((11 + (16.0 * word.Count / _environment.Words[0].Count)).ToString("0", CultureInfo.InvariantCulture))px">@word.Word</span>
-                        }
-                    </div>
-                    @if (_environment.WeirdestCaption is { } weird)
-                    {
-                        <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
-                    }
-                }
             </RadzenTabsItem>
 
             <RadzenTabsItem Text="Time-lapse">

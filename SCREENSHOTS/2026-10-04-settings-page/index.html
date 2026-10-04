@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: one Settings page (2026-10-04)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: every optional setting on one Settings page</h1>
+<p class="lead">Captured 4 October 2026 from the running Development app (guest, seeded history), 1440×900.
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, before image or null, before marks, after image, after marks]. A mark is [x %, y %, note].
+  const pairs = [
+    ['Settings', 'before-gear.png', [
+        [90.5, 13.5, '<b>Gear dropdown</b> held only theme, sound, commands and sign out; the other options lived on three other screens.'],
+      ], 'after-settings.png', [
+        [97.9, 2.4, '<b>The gear is a link</b> to /settings and lights up while you are there.'],
+        [25, 15.5, '<b>Preferences</b>: theme, sound cues, captions and the command palette, each on its default (dark, low, on).'],
+        [65, 12.8, '<b>Watch rules</b> moved here from the bell.'],
+        [17, 33.5, '<b>Account and data</b>: sign out, CSV export and delete everything, moved from the dropdown and from System.'],
+      ]],
+    ['Live: the start panel', 'before-live.png', [
+        [38.7, 40.7, '<b>Captions checkbox</b> sat beside the start buttons, a decision to make before every session.'],
+      ], 'after-live.png', [
+        [30, 40.7, '<b>Two buttons, nothing to decide.</b> Captions default to on; the switch is on Settings.'],
+      ]],
+    ['Notification bell', 'before-tray.png', [
+        [83, 16, '<b>Watch-rule editor</b> (a select, two hour boxes, a button and a paragraph) inside the notification tray.'],
+      ], 'after-tray.png', [
+        [83, 11.8, '<b>Notifications only.</b> One row links to the rules on Settings.'],
+      ]],
+    ['System', 'before-system.png', [
+        [14, 66.5, '<b>Your data</b> (export, delete) sat under the pipeline counters on an operations page.'],
+      ], 'after-system.png', [
+        [50, 63, '<b>Operations only</b>: connections, server, inference, pipeline. The data actions are on Settings.'],
+      ]],
+  ];
+
+  const figure = (label, kind, image, marks) => image === null ? '' : `
+    <figure>
+      <figcaption class="${kind}">${label}</figcaption>
+      <div class="shot"><img src="${image}" alt="${label}" />
+        ${marks.map(([x, y], i) => `<span class="mark ${kind}" style="left:${x}%;top:${y}%">${i + 1}</span>`).join('')}
+      </div>
+      <ol class="notes">${marks.map(([, , note]) => `<li>${note}</li>`).join('')}</ol>
+    </figure>`;
+
+  document.getElementById('pairs').innerHTML = pairs.map(([title, before, beforeMarks, after, afterMarks]) => `
+    <h2>${title}</h2>
+    <div class="pair">${figure('BEFORE', 'old', before, beforeMarks)}${figure('AFTER', 'new', after, afterMarks)}</div>`).join('');
+</script>
+</body>
+</html>

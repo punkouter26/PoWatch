@@ -27,9 +27,6 @@ public sealed class AzureStorageOptions
     [Required, MinLength(3)]
     public string RegularsTable { get; init; } = "PoWatchRegulars";
 
-    [Required, MinLength(3)]
-    public string AchievementsTable { get; init; } = "PoWatchAchievements";
-
     /// <summary>Highlight snapshots, at {user}/{yyyyMMdd}/{id}.jpg.</summary>
     [Required, MinLength(3)]
     public string SnapshotsContainer { get; init; } = "snapshots";

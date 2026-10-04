@@ -9,14 +9,14 @@
 
 <PageTitle>PoWatch | Stats</PageTitle>
 
-@* One action bar: on a wide screen the range, session, question box and full-screen button sit on the
+@* One action bar: on a wide screen the range and the question box sit on the
    same row as the tab names (CSS floats the bar over the tab strip's empty right side). Range, tab and
    session all live in the URL, so a reload, a shared link and Back/Forward land where you were. *@
 <div class="stats-page">
     <div class="stats-toolbar" data-test="stats-toolbar">
         <RadzenSelectBar TValue="string" Value="@_range" ValueChanged="@OnRangeChanged" Size="ButtonSize.Small" aria-label="Range">
             <Items>
-                <RadzenSelectBarItem Text="SESSION" Value="@("session")" Disabled="@(_sessions.Count == 0)" />
+                <RadzenSelectBarItem Text="SESSION" Value="@("session")" Disabled="@(_sessionId == Guid.Empty)" />
                 <RadzenSelectBarItem Text="TODAY" Value="@("today")" />
                 <RadzenSelectBarItem Text="7D" Value="@("7d")" />
                 <RadzenSelectBarItem Text="30D" Value="@("30d")" />
@@ -24,19 +24,11 @@
             </Items>
         </RadzenSelectBar>
 
-        @if (_range == "session" && _sessions.Count > 0)
-        {
-            <RadzenDropDown TValue="Guid" Data="@_sessions" TextProperty="@nameof(SessionOption.Label)" ValueProperty="@nameof(SessionOption.Id)"
-                            Value="@_sessionId" ValueChanged="@OnSessionChanged" aria-label="Session" class="stats-session" />
-        }
-
         <form class="stats-ask" @onsubmit="AskAsync" data-test="stats-ask">
             <label class="visually-hidden" for="ask">Ask a question about your stats</label>
             <input id="ask" @bind="_question" @bind:event="oninput" maxlength="300" autocomplete="off" placeholder="Ask: when is it usually busiest?" disabled="@_asking" />
             <button type="submit" class="term-button" disabled="@(_asking || string.IsNullOrWhiteSpace(_question))">@(_asking ? "…" : "Ask")</button>
         </form>
-
-        <button class="term-button stats-fullscreen" onclick="document.documentElement.requestFullscreen?.()" data-test="stats-fullscreen" title="Full screen, for a second monitor or a TV">⛶<span class="visually-hidden"> Full screen</span></button>
     </div>
 
     <RadzenTabs SelectedIndex="@_tab" SelectedIndexChanged="@OnTabChanged" RenderMode="TabRenderMode.Server" data-test="stats-tabs">
@@ -68,8 +60,6 @@
 </div>
 
 @code {
-    private sealed record SessionOption(Guid Id, string Label);
-
     private const string RangeKey = "powatch:range";
     private static readonly string[] Ranges = ["session", "today", "7d", "30d", "all"];
     private static readonly string[] Tabs = ["presence", "objects", "patterns", "environment"];
@@ -78,7 +68,6 @@
     private Guid _sessionId;
     private int _tab;
     private StatsQuery _query = StatsQuery.For("today");
-    private List<SessionOption> _sessions = [];
     private DateTimeOffset _lastPush;
     private string? _question;
     private string? _answer;
@@ -93,7 +82,7 @@
 
     private string WindowLabel => _range switch
     {
-        "session" => "One session, minute by minute",
+        "session" => $"Session {DisplayText.SessionTag(_sessionId)}, minute by minute",
         "7d" => "Last 7 days, hour by hour",
         "30d" => "Last 30 days, hour by hour",
         "all" => "Everything, day by day",
@@ -102,12 +91,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var sessions = await Api.ListSessionsAsync(20);
-        _sessions = sessions
-            .Select(s => new SessionOption(s.Id, $"{DisplayText.SessionTag(s.Id)} · {s.StartedUtc.ToLocalTime():ddd dd MMM HH:mm}{(s.IsRunning ? " · LIVE" : string.Empty)}"))
-            .ToList();
+        // SESSION means the one running, else the latest; History links any other one here by id.
         if (_sessionId == Guid.Empty)
-            _sessionId = Sensing.Live.Session?.Id ?? _sessions.FirstOrDefault()?.Id ?? Guid.Empty;
+            _sessionId = Sensing.Live.Session?.Id ?? (await Api.ListSessionsAsync(1)).FirstOrDefault()?.Id ?? Guid.Empty;
 
         // A bare /stats opens on the range you last looked at.
         if (RangeParameter is null && SessionParameter is null
@@ -152,8 +138,6 @@
         if (range != "session") _ = JS.TryInvokeVoidAsync("localStorage.setItem", RangeKey, range);
         Go(range, _tab, _sessionId);
     }
-
-    private void OnSessionChanged(Guid session) => Go("session", _tab, session);
 
     private void OnTabChanged(int tab) => Go(_range, tab, _sessionId);
 

@@ -1,10 +1,9 @@
-// Header menus and the keyboard: the settings menu is a native <details> closed by any click outside
-// it; `g` then a letter jumps to a section, Space starts or stops observing, ← → step History's day,
+// The keyboard: `g` then a letter jumps to a section, Space starts or stops observing, ← → step History's day,
 // and Ctrl+K opens a command palette listing all of it.
 (function () {
     'use strict';
 
-    const SECTIONS = { l: 'live', s: 'stats', h: 'history', r: 'regulars', t: 'trophies', y: 'system' };
+    const SECTIONS = { l: 'live', s: 'stats', h: 'history', r: 'regulars' };
     const find = (test) => document.querySelector(`[data-test="${test}"]`);
     const click = (test) => { const el = find(test); el?.click(); return !!el; };
 
@@ -14,17 +13,12 @@
     const commands = () => [
         ...Object.entries(SECTIONS).map(([key, name]) => ({ label: `Go to ${name}`, hint: `g ${key}`, run: () => click(`nav-${name}`) })),
         { label: 'Start or stop observing', hint: 'Space', run: toggleSession },
-        { label: 'Start the demo scene', hint: '', run: () => click('start-demo') },
-        { label: 'Switch theme', hint: '', run: () => click('theme-toggle') },
-        { label: 'Sound: off, low, mid, high', hint: '', run: () => click('sound-toggle') },
-        { label: 'Notifications and watch rules', hint: '', run: () => click('tray-toggle') },
+        { label: 'Start the demo scene', hint: '', run: () => click('start-demo') || Blazor.navigateTo('?start=demo') },
+        { label: 'Notifications', hint: '', run: () => click('tray-toggle') },
+        { label: 'Settings: theme, sound, captions, watch rules, your data', hint: '', run: () => click('settings-menu') },
+        { label: 'System status', hint: '', run: () => Blazor.navigateTo('system') },
+        { label: 'Full screen', hint: '', run: () => document.documentElement.requestFullscreen?.() },
     ];
-
-    function closeMenus(e) {
-        document.querySelectorAll('details.term-menu[open]').forEach(function (menu) {
-            if (!menu.contains(e.target)) menu.removeAttribute('open');
-        });
-    }
 
     // ── Command palette ──────────────────────────────────────────────────────
 
@@ -126,8 +120,6 @@
     }
 
     function setup() {
-        document.removeEventListener('click', closeMenus);
-        document.addEventListener('click', closeMenus);
         document.removeEventListener('keydown', onKey);
         document.addEventListener('keydown', onKey);
     }

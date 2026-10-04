@@ -96,7 +96,7 @@ public sealed class ViewportFitE2ETests
             if (PlaywrightFixture.BaseUrl is null) return;
             var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
-            await page.GoToAsync("/system", "SYSTEM");
+            await page.GoToSystemAsync();
             await page.WaitForTimeoutAsync(500);
 
             await AssertBodyFitsViewportAsync(page);
@@ -114,12 +114,12 @@ public sealed class ViewportFitE2ETests
         await page.WaitForTimeoutAsync(500);
 
         // Every section stays reachable from the key bar, and the page itself never scrolls sideways.
-        await Assertions.Expect(page.GetByTestId("nav-system")).ToBeInViewportAsync();
+        await Assertions.Expect(page.GetByTestId("nav-regulars")).ToBeInViewportAsync();
         var pageOverflow = await page.EvaluateAsync<bool>("() => document.documentElement.scrollWidth > window.innerWidth + 1");
         Assert.False(pageOverflow, "The page scrolls horizontally on a 360 px phone.");
 
-        await page.GetByTestId("nav-system").ClickAsync();
-        await page.ExpectSectionAsync("SYSTEM");
+        await page.GetByTestId("nav-regulars").ClickAsync();
+        await page.ExpectSectionAsync("REGULARS");
         await page.AssertNoBlazorErrorAsync();
     }
 
@@ -131,18 +131,19 @@ public sealed class ViewportFitE2ETests
         await page.SetViewportSizeAsync(1440, 900);
 
         // Chromium's fake camera (see PlaywrightFixture); captions off so no vision model downloads.
-        await page.GetByLabel("Captions (vision model)").UncheckAsync();
+        await page.OpenSettingsAsync();
+        await page.GetByTestId("captions-toggle").ClickAsync();
+        await page.GetByTestId("nav-live").ClickAsync();
         await page.GetByTestId("start-camera").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING", new() { Timeout = 15_000 });
-        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 15_000 });
 
-        // Leaving Live must not stop sensing: the camera element lives in the layout.
-        await page.GetByTestId("nav-stats").ClickAsync();
-        await page.ExpectSectionAsync("STATS");
-        await page.WaitForTimeoutAsync(2_000);
+        // Leaving Live must not stop sensing: the camera element lives in the layout, and System
+        // (reached from Settings) shows the frame rate this browser is sampling at.
+        await page.OpenSettingsAsync();
+        await page.GetByTestId("nav-system").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 30_000 });
         await page.GetByTestId("nav-live").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
-        await Assertions.Expect(page.GetByTestId("stat-pixel-hz")).Not.ToContainTextAsync("0.0", new() { Timeout = 5_000 });
 
         await page.GetByTestId("header-stop").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("STANDBY");

@@ -10,22 +10,14 @@
 <PageTitle>PoWatch | Live</PageTitle>
 
 @* Four panels: the camera, the numbers, who and what is in frame, and where it moves. Recent events
-   scroll on the tape below; pipeline details live on System. On a wide screen the two columns fill
+   scroll on the tape below; frame rates and the detector live on System. On a wide screen the two columns fill
    the viewport (the camera grows into the height left over); narrower, they fall back to the grid. *@
 @{ var census = CensusRows(); }
 <div class="term-grid live-grid">
     <div class="live-col live-col--main">
-        <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2 live-camera" Test="live-camera" Flush="true">
+        <TerminalPanel Title="Camera" Class="term-span-2 term-row-span-2 live-camera" Test="live-camera" Flush="true">
             <Aside>
-                @if (Sensing.IsRunning)
-                {
-                    <span data-test="stat-pixel-hz">@L.PixelHz.ToString("0.0", CultureInfo.InvariantCulture)</span>
-                    @($" FPS · DETECTOR {L.DetectorHz.ToString("0.0", CultureInfo.InvariantCulture)} Hz · {L.Tracks.Count} TRACKS")
-                }
-                else
-                {
-                    @("STANDBY")
-                }
+                @(Sensing.IsRunning ? (L.Demo ? "DEMO SCENE" : "CAMERA") : "STANDBY")
             </Aside>
             <ChildContent>
                 @* The camera element itself lives in the layout and is docked over this slot. *@
@@ -48,10 +40,11 @@
                                 <p>Point a camera at anything, press Start, walk away.</p>
                                 <div class="live-actions">
                                     <button class="term-button term-button--primary" @onclick="() => StartAsync(demo: false)" disabled="@_starting" data-test="start-camera">Start camera</button>
-                                    <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">Demo scene</button>
-                                    <label class="live-toggle">
-                                        <input type="checkbox" checked="@Sensing.Captions" @onchange="SetCaptionsAsync" /> Captions (vision model)
-                                    </label>
+                                    @* Only until the first session exists; the command palette offers the demo after that. *@
+                                    @if (_firstRun)
+                                    {
+                                        <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">No camera? Try the demo</button>
+                                    }
                                 </div>
                                 @if (_error is not null)
                                 {
@@ -84,7 +77,7 @@
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="02" Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
+        <TerminalPanel Title="Key metrics" Class="term-span-2" Test="live-metrics" Flush="true">
             <Aside>TODAY vs USUAL</Aside>
             <ChildContent>
                 <table class="term-table">
@@ -106,28 +99,10 @@
                             <td class="r live-metric"><span data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</span> <ZChip Z="@Anomaly("motion")" /></td>
                             <td><Sparkline Values="@L.MotionHistory" Label="Motion, last minute" /></td>
                         </tr>
-                        <tr data-test="live-light">
-                            <td>LIGHT · COLOURS NOW</td>
-                            <td class="r">@L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</td>
-                            <td>
-                                <Sparkline Values="@L.LuminanceHistory" Max="1" Cyan="true" Label="Light, last minute" />
-                                <div class="term-swatches live-swatches" aria-label="Colours in frame now">
-                                    @foreach (var color in L.Palette)
-                                    {
-                                        <span style="background: #@color.ToString("x6", CultureInfo.InvariantCulture)"></span>
-                                    }
-                                </div>
-                            </td>
-                        </tr>
                         <tr>
                             <td>PEOPLE · ANIMALS NOW</td>
                             <td class="r" data-test="metric-people"><span class="fx-tick" @key="(L.PeopleNow, L.AnimalsNow)">@L.PeopleNow · @L.AnimalsNow</span></td>
-                            <td class="term-stat-hint">peak @L.PeakConcurrency this session</td>
-                        </tr>
-                        <tr>
-                            <td>VISITS THIS SESSION</td>
-                            <td class="r" data-test="metric-visits"><span class="fx-tick" @key="L.Visits">@L.Visits</span></td>
-                            <td class="term-stat-hint">@L.Captions captions</td>
+                            <td class="term-stat-hint">peak @L.PeakConcurrency · <span data-test="metric-visits">@L.Visits</span> visits this session</td>
                         </tr>
                     </tbody>
                 </table>
@@ -136,7 +111,7 @@
     </div>
 
     <div class="live-col">
-        <TerminalPanel Number="03" Title="In frame" Class="live-grow" Test="live-tracks" Flush="true">
+        <TerminalPanel Title="In frame" Class="live-grow" Test="live-tracks" Flush="true">
             <Aside>@L.Tracks.Count TRACKED · @census.Count CLASSES</Aside>
             <ChildContent>
                 @if (L.Tracks.Count > 0)
@@ -167,7 +142,7 @@
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Number="04" Title="Motion grid" Test="live-motion-grid">
+        <TerminalPanel Title="Motion grid" Test="live-motion-grid">
             <Aside>16×9 · EDGES TODAY</Aside>
             <ChildContent>
                 @if (_shaderHeat)
@@ -200,6 +175,7 @@
     private IReadOnlyList<double> _visitsTrend = [];
     private DotNetObjectReference<Live>? _self;
     private bool _starting;
+    private bool _firstRun;
     private bool _wasRunning;
     private string? _error;
     private PresenceStatsDto? _today;
@@ -304,6 +280,7 @@
 
     private async Task RefreshLoopAsync(CancellationToken ct)
     {
+        _firstRun = (await Api.ListSessionsAsync(1)).Count == 0;
         await RefreshStatsAsync();
         // Push (StatsFeed) refreshes as data lands; this slow timer only covers a dropped hub.
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
@@ -351,12 +328,6 @@
             await JS.TryInvokeVoidAsync("powatchFeed.dock", feed, _slot);
         else
             await JS.TryInvokeVoidAsync("powatchFeed.undock");
-    }
-
-    private async Task SetCaptionsAsync(ChangeEventArgs e)
-    {
-        Sensing.Captions = e.Value is true;
-        await JS.TryInvokeVoidAsync("localStorage.setItem", PoWatch.Client.Layout.MainLayout.CaptionsKey, Sensing.Captions ? "on" : "off");
     }
 
     private double? Anomaly(string metric) => _patterns?.Anomalies.FirstOrDefault(a => a.Metric == metric)?.Z;

@@ -19,7 +19,6 @@ public static class DependencyInjection
         services.AddSingleton<ISensingLog, AzureSensingLog>();
         services.AddSingleton<IIngestLedger, AzureIngestLedger>();
         services.AddSingleton<IRollupStore, AzureRollupStore>();
-        services.AddSingleton<IAchievementStore, AzureAchievementStore>();
         services.AddSingleton<ISnapshotStore, AzureSnapshotStore>();
         services.AddSingleton<IRegularStore, AzureRegularStore>();
         services.AddSingleton<IUserDataStore, AzureUserDataStore>();

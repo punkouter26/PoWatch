@@ -14,7 +14,7 @@
 else
 {
     <div class="term-grid" data-test="stats-objects">
-        <TerminalPanel Number="B1" Title="Object census" Class="term-span-4" Flush="true">
+        <TerminalPanel Title="Object census" Class="term-span-4" Flush="true">
             <Aside>@Data.Classes.Count CLASSES@(Data.Rarest is { } rare ? $" · RAREST {rare.ToUpperInvariant()}" : string.Empty)</Aside>
             <ChildContent>
                 <RadzenDataGrid Data="@Data.Classes" TItem="ClassStatDto" AllowSorting="true" Density="Density.Compact" aria-label="Every class the detector has seen">

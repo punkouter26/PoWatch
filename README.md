@@ -2,7 +2,7 @@
 
 PoWatch is a fun, stat-heavy webcam observer. Point a camera at anything, press Start, walk away, and
 come back to a nerdy statistical picture of what happened: presence, motion, space, objects, recurring
-"regulars", time patterns, anomalies, environment, captions, achievements, and pipeline telemetry. The
+"regulars", time patterns, anomalies, environment, captions, and pipeline telemetry. The
 app runs as a hosted Blazor WebAssembly client served by `PoWatch.Api`; the API owns authentication,
 storage, telemetry, diagnostics, and vertical feature endpoints.
 

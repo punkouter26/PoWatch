@@ -16,7 +16,7 @@ internal static class PoWatchPage
     /// <summary>Generous enough for a cold WASM boot on a slow host.</summary>
     private const int BootTimeoutMs = 60_000;
 
-    /// <param name="user">A distinct guest identity, for tests that need a user with no history (e.g. first unlocks).</param>
+    /// <param name="user">A distinct guest identity, for tests that need a user with no history (e.g. the first-run demo button).</param>
     public static async Task<IPage> SignedInAsync(IBrowser browser, string route = "/", string? user = null)
     {
         var page = await browser.NewPageAsync(new()
@@ -44,11 +44,18 @@ internal static class PoWatchPage
         await page.ExpectSectionAsync(expectedSection, BootTimeoutMs);
     }
 
+    /// <summary>System has no section key (it is reached from Settings): load it and wait for its first panel.</summary>
+    public static async Task GoToSystemAsync(this IPage page)
+    {
+        await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/system");
+        await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = BootTimeoutMs });
+    }
+
     /// <summary>The active key in the header names the section (there is no separate page title).</summary>
     public static Task ExpectSectionAsync(this IPage page, string section, int timeoutMs = 5_000) =>
         Assertions.Expect(page.GetByTestId($"nav-{section.ToLowerInvariant()}"))
             .ToHaveClassAsync(new System.Text.RegularExpressions.Regex(@"\bactive\b"), new() { Timeout = timeoutMs });
 
-    /// <summary>Theme and sign-out live in the header's settings menu.</summary>
+    /// <summary>Theme, captions and sign-out live on the Settings page, behind the header's gear.</summary>
     public static Task OpenSettingsAsync(this IPage page) => page.GetByTestId("settings-menu").ClickAsync();
 }
