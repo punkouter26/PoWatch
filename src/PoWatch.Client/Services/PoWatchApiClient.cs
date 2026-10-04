@@ -35,6 +35,20 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         }
     }
 
+    /// <summary>Every session that overlaps the range, oldest first — however long ago; empty on failure.</summary>
+    public async Task<IReadOnlyList<SessionDto>> ListSessionsBetweenAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await httpClient.GetFromJsonAsync(
+                $"api/sessions?from={Uri.EscapeDataString(from.ToString("O"))}&to={Uri.EscapeDataString(to.ToString("O"))}", Json.ListSessionDto, cancellationToken) ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            return [];
+        }
+    }
+
     /// <summary>
     /// Posts one ingest batch. Returns null when the server refused it outright (4xx) so the caller
     /// can drop it; throws on transport or server errors, an expired sign-in, a timeout or rate
@@ -56,10 +70,61 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.SnapshotUploadDto, cancellationToken) : null;
     }
 
-    public async Task<RecapDto?> GetDayRecapAsync(DateOnly day, string timeZoneId, CancellationToken cancellationToken = default)
+    /// <param name="ai">False answers at once from the template; true may wait on the server's model. Null on any failure.</param>
+    public async Task<RecapDto?> GetDayRecapAsync(DateOnly day, string timeZoneId, bool ai, CancellationToken cancellationToken = default)
     {
-        using var response = await httpClient.GetAsync(DayRecapPath(day, timeZoneId, pdf: false), cancellationToken);
-        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.RecapDto, cancellationToken) : null;
+        try
+        {
+            using var response = await httpClient.GetAsync($"{DayRecapPath(day, timeZoneId, pdf: false)}&ai={(ai ? "true" : "false")}", cancellationToken);
+            return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(Json.RecapDto, cancellationToken) : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>An answer from "Ask PoWatch", or null when the server has no model or it did not answer.</summary>
+    public async Task<string?> AskAsync(string question, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync("api/ask",
+                new AskRequestDto { Question = question, TimeZoneId = TimeZoneInfo.Local.Id }, Json.AskRequestDto, cancellationToken);
+            return response.IsSuccessStatusCode ? (await response.Content.ReadFromJsonAsync(Json.AskAnswerDto, cancellationToken))?.Answer : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Relays a fired watch rule to every open tab; best effort.</summary>
+    public async Task RaiseAlertAsync(string text, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync("api/alerts", new AlertDto { Text = text }, Json.AlertDto, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            // Offline: the sensing tab already showed it.
+        }
+    }
+
+    public static string ExportUrl(string timeZoneId) => $"api/export.csv?tz={Uri.EscapeDataString(timeZoneId)}";
+
+    public async Task<bool> DeleteMyDataAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await httpClient.DeleteAsync("api/data", cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Relative link to a day's recap PDF; the BFF cookie rides along on a plain download.</summary>

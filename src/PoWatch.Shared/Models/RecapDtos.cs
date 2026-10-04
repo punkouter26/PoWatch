@@ -7,7 +7,7 @@ public sealed class RecapNumberDto
 }
 
 /// <summary>A readable recap of a session or a day: a paragraph, the headline numbers, the best moments.</summary>
-public sealed class RecapDto
+public sealed record RecapDto
 {
     public string Title { get; init; } = string.Empty;
     public string Subtitle { get; init; } = string.Empty;

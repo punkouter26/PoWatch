@@ -120,6 +120,12 @@ internal sealed class IngestBatchValidator : AbstractValidator<IngestBatchDto>
             e.RuleFor(x => x.Kind)
                 .Must(k => Enum.TryParse<SceneEventKind>(k, ignoreCase: true, out var kind) && Enum.IsDefined(kind))
                 .WithMessage(x => $"Unknown event kind '{x.Kind}'.");
+            // Caption and moment text later reaches the recap prompt; nothing sensing produces is longer.
+            e.RuleFor(x => x.Text).MaximumLength(SceneEventDto.MaxTextLength);
+            e.RuleFor(x => x.Class).MaximumLength(SceneEventDto.MaxNameLength);
+            e.RuleFor(x => x.TrackId).MaximumLength(SceneEventDto.MaxNameLength);
+            e.RuleFor(x => x.RegularId).MaximumLength(SceneEventDto.MaxNameLength);
+            e.RuleFor(x => x.ImagePath).MaximumLength(SceneEventDto.MaxTextLength);
             e.RuleFor(x => x.Edge)
                 .Must(edge => string.IsNullOrWhiteSpace(edge) || (Enum.TryParse<FrameEdge>(edge, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)))
                 .WithMessage(x => $"Unknown frame edge '{x.Edge}'.");

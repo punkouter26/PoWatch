@@ -4,52 +4,75 @@
 @inject NavigationManager Navigation
 @inject SensingSession Sensing
 @inject StatsFeed Feed
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>PoWatch | Stats</PageTitle>
 
-<div class="stats-toolbar" data-test="stats-toolbar">
-    <RadzenSelectBar TValue="string" Value="@_range" ValueChanged="@OnRangeChanged" Size="ButtonSize.Small" aria-label="Range">
-        <Items>
-            <RadzenSelectBarItem Text="SESSION" Value="@("session")" Disabled="@(_sessions.Count == 0)" />
-            <RadzenSelectBarItem Text="TODAY" Value="@("today")" />
-            <RadzenSelectBarItem Text="7D" Value="@("7d")" />
-            <RadzenSelectBarItem Text="30D" Value="@("30d")" />
-            <RadzenSelectBarItem Text="ALL" Value="@("all")" />
-        </Items>
-    </RadzenSelectBar>
+@* One action bar: on a wide screen the range, session, question box and full-screen button sit on the
+   same row as the tab names (CSS floats the bar over the tab strip's empty right side). Range, tab and
+   session all live in the URL, so a reload, a shared link and Back/Forward land where you were. *@
+<div class="stats-page">
+    <div class="stats-toolbar" data-test="stats-toolbar">
+        <RadzenSelectBar TValue="string" Value="@_range" ValueChanged="@OnRangeChanged" Size="ButtonSize.Small" aria-label="Range">
+            <Items>
+                <RadzenSelectBarItem Text="SESSION" Value="@("session")" Disabled="@(_sessions.Count == 0)" />
+                <RadzenSelectBarItem Text="TODAY" Value="@("today")" />
+                <RadzenSelectBarItem Text="7D" Value="@("7d")" />
+                <RadzenSelectBarItem Text="30D" Value="@("30d")" />
+                <RadzenSelectBarItem Text="ALL" Value="@("all")" />
+            </Items>
+        </RadzenSelectBar>
 
-    @if (_range == "session" && _sessions.Count > 0)
-    {
-        <RadzenDropDown TValue="Guid" Data="@_sessions" TextProperty="@nameof(SessionOption.Label)" ValueProperty="@nameof(SessionOption.Id)"
-                        @bind-Value="_sessionId" Change="@(_ => Apply())" aria-label="Session" class="stats-session" />
-    }
+        @if (_range == "session" && _sessions.Count > 0)
+        {
+            <RadzenDropDown TValue="Guid" Data="@_sessions" TextProperty="@nameof(SessionOption.Label)" ValueProperty="@nameof(SessionOption.Id)"
+                            Value="@_sessionId" ValueChanged="@OnSessionChanged" aria-label="Session" class="stats-session" />
+        }
 
-    <span class="term-stat-hint" data-test="stats-window">@WindowLabel</span>
-    <button class="term-button stats-fullscreen" onclick="document.documentElement.requestFullscreen?.()" data-test="stats-fullscreen">Full screen</button>
+        <form class="stats-ask" @onsubmit="AskAsync" data-test="stats-ask">
+            <label class="visually-hidden" for="ask">Ask a question about your stats</label>
+            <input id="ask" @bind="_question" @bind:event="oninput" maxlength="300" autocomplete="off" placeholder="Ask: when is it usually busiest?" disabled="@_asking" />
+            <button type="submit" class="term-button" disabled="@(_asking || string.IsNullOrWhiteSpace(_question))">@(_asking ? "…" : "Ask")</button>
+        </form>
+
+        <button class="term-button stats-fullscreen" onclick="document.documentElement.requestFullscreen?.()" data-test="stats-fullscreen" title="Full screen, for a second monitor or a TV">⛶<span class="visually-hidden"> Full screen</span></button>
+    </div>
+
+    <RadzenTabs SelectedIndex="@_tab" SelectedIndexChanged="@OnTabChanged" RenderMode="TabRenderMode.Server" data-test="stats-tabs">
+        <Tabs>
+            @* Pipeline numbers are operations, not the room: they live on System. *@
+            <RadzenTabsItem Text="Presence & space">
+                <PresenceTab Query="@_query" />
+                <SpaceTab Query="@_query" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Objects">
+                <ObjectsTab Query="@_query" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Patterns">
+                <PatternsTab Query="@_query" />
+            </RadzenTabsItem>
+            <RadzenTabsItem Text="Environment">
+                <EnvironmentTab Query="@_query" />
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+
+    <p class="stats-window term-stat-hint">
+        <span data-test="stats-window">@WindowLabel</span>
+        @if (_answer is not null)
+        {
+            <span class="stats-answer" role="status" data-test="stats-answer"><b>ANSWER</b> @_answer</span>
+        }
+    </p>
 </div>
-
-<RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Server" data-test="stats-tabs">
-    <Tabs>
-        @* Pipeline numbers are operations, not the room: they live on System. *@
-        <RadzenTabsItem Text="Presence & space">
-            <PresenceTab Query="@_query" />
-            <SpaceTab Query="@_query" />
-        </RadzenTabsItem>
-        <RadzenTabsItem Text="Objects">
-            <ObjectsTab Query="@_query" />
-        </RadzenTabsItem>
-        <RadzenTabsItem Text="Patterns">
-            <PatternsTab Query="@_query" />
-        </RadzenTabsItem>
-        <RadzenTabsItem Text="Environment">
-            <EnvironmentTab Query="@_query" />
-        </RadzenTabsItem>
-    </Tabs>
-</RadzenTabs>
 
 @code {
     private sealed record SessionOption(Guid Id, string Label);
+
+    private const string RangeKey = "powatch:range";
+    private static readonly string[] Ranges = ["session", "today", "7d", "30d", "all"];
+    private static readonly string[] Tabs = ["presence", "objects", "patterns", "environment"];
 
     private string _range = "today";
     private Guid _sessionId;
@@ -57,8 +80,13 @@
     private StatsQuery _query = StatsQuery.For("today");
     private List<SessionOption> _sessions = [];
     private DateTimeOffset _lastPush;
+    private string? _question;
+    private string? _answer;
+    private bool _asking;
 
     [SupplyParameterFromQuery(Name = "range")] public string? RangeParameter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParameter { get; set; }
 
     /// <summary>A session to open straight away (History links each of its sessions here).</summary>
     [SupplyParameterFromQuery(Name = "session")] public Guid? SessionParameter { get; set; }
@@ -78,7 +106,18 @@
         _sessions = sessions
             .Select(s => new SessionOption(s.Id, $"{DisplayText.SessionTag(s.Id)} · {s.StartedUtc.ToLocalTime():ddd dd MMM HH:mm}{(s.IsRunning ? " · LIVE" : string.Empty)}"))
             .ToList();
-        _sessionId = Sensing.Live.Session?.Id ?? _sessions.FirstOrDefault()?.Id ?? Guid.Empty;
+        if (_sessionId == Guid.Empty)
+            _sessionId = Sensing.Live.Session?.Id ?? _sessions.FirstOrDefault()?.Id ?? Guid.Empty;
+
+        // A bare /stats opens on the range you last looked at.
+        if (RangeParameter is null && SessionParameter is null
+            && await JS.TryInvokeAsync<string>("localStorage.getItem", RangeKey) is { } remembered
+            && Ranges.Contains(remembered) && remembered != "session" && remembered != _range)
+        {
+            _range = remembered;
+            Apply();
+        }
+
         Feed.Changed += OnStatsChanged;
         await Feed.EnsureConnectedAsync();
     }
@@ -94,29 +133,46 @@
 
     public void Dispose() => Feed.Changed -= OnStatsChanged;
 
+    /// <summary>The URL is the state: every control navigates, and this reads the result back.</summary>
     protected override void OnParametersSet()
     {
-        if (SessionParameter is { } session && (session != _sessionId || _range != "session"))
-        {
-            (_range, _sessionId) = ("session", session);
-            Apply();
-            return;
-        }
+        if (Array.IndexOf(Tabs, TabParameter) is var tab and >= 0) _tab = tab;
+        else if (TabParameter is null) _tab = 0;
 
-        if (RangeParameter is "session" or "today" or "7d" or "30d" or "all" && RangeParameter != _range)
-        {
-            _range = RangeParameter;
-            Apply();
-        }
+        var range = SessionParameter is not null ? "session" : RangeParameter is { } r && Ranges.Contains(r) ? r : null;
+        var session = SessionParameter ?? _sessionId;
+        if (range is null || (range == _range && session == _sessionId)) return;
+
+        (_range, _sessionId) = (range, session);
+        Apply();
     }
 
     private void OnRangeChanged(string range)
     {
-        _range = range;
-        Apply();
-        Navigation.NavigateTo($"stats?range={range}", replace: true);
+        if (range != "session") _ = JS.TryInvokeVoidAsync("localStorage.setItem", RangeKey, range);
+        Go(range, _tab, _sessionId);
     }
+
+    private void OnSessionChanged(Guid session) => Go("session", _tab, session);
+
+    private void OnTabChanged(int tab) => Go(_range, tab, _sessionId);
+
+    private void Go(string range, int tab, Guid session) =>
+        Navigation.NavigateTo(
+            $"stats?range={range}"
+            + (range == "session" && session != Guid.Empty ? $"&session={session}" : string.Empty)
+            + (tab > 0 ? $"&tab={Tabs[tab]}" : string.Empty));
 
     private void Apply() =>
         _query = StatsQuery.For(_range, _range == "session" && _sessionId != Guid.Empty ? _sessionId : null);
+
+    private async Task AskAsync()
+    {
+        if (_asking || string.IsNullOrWhiteSpace(_question)) return;
+        _asking = true;
+        _answer = "Thinking…";
+        _answer = await Api.AskAsync(_question.Trim())
+            ?? "No answer: this server has no AI model configured, or it did not reply.";
+        _asking = false;
+    }
 }

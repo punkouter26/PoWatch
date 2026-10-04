@@ -15,3 +15,6 @@ Rules for any agent working in this repository.
 - **Automate, don't delegate.** Avoid asking the user to type CLI commands or click through a web
   GUI when you can do it yourself.
 - **Warnings are errors.** Treat compile warnings as errors and fix them.
+- **Big deletions.** If a prompt removes more than 100 lines of code overall, mention it.
+- **UI screenshots.** When the UI changes, take annotated screenshots of the old and new UI with the
+  changes marked. Put them in an HTML file in the `SCREENSHOTS` folder and give its valid full path.

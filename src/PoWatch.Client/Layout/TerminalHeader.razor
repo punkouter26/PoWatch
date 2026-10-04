@@ -15,10 +15,12 @@
 
     <NavBar />
 
+    @* Only the state word is a live region: the uptime ticks every second and would otherwise be
+       read out every second. *@
     <span class="term-status @(Sensing.IsRunning ? (Sensing.Live.Demo ? "term-status--demo" : "term-status--live") : string.Empty)"
-          role="status" data-test="session-status"
+          data-test="session-status"
           title="@(Sensing.Live.Demo ? "Numbers come from a scripted demo scene, not a real camera" : null)">
-        ● @(Sensing.IsRunning ? "OBSERVING" : "STANDBY")@if (Sensing.IsRunning)
+        <span aria-hidden="true">● </span><span role="status">@(Sensing.IsRunning ? "OBSERVING" : "STANDBY")</span>@if (Sensing.IsRunning)
         {
             <span class="term-status-detail"> · @(Sensing.Live.Demo ? "DEMO" : "CAMERA") · @Uptime@(Sensing.Live.Session is { } s ? $" · {DisplayText.SessionTag(s.Id)}" : string.Empty)</span>
         }
@@ -33,13 +35,21 @@
         <a class="term-button term-button--primary" href="?start=camera" data-test="header-start">Start</a>
     }
 
+    <Tray />
+
     <details class="term-menu">
-        <summary class="term-icon-button" aria-label="Settings" title="Theme, sign out" data-test="settings-menu">
+        <summary class="term-icon-button" aria-label="Settings" title="Theme, sound, commands, sign out" data-test="settings-menu">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
         </summary>
         <div class="term-menu-panel">
             <button class="term-menu-item" @onclick="ToggleThemeAsync" data-test="theme-toggle">
                 <span>Theme</span><b>@_theme.ToUpperInvariant()</b>
+            </button>
+            <button class="term-menu-item" @onclick="CycleSoundAsync" data-test="sound-toggle">
+                <span>Sound</span><b>@_sound.ToUpperInvariant()</b>
+            </button>
+            <button class="term-menu-item" onclick="powatchMenus.openPalette()" data-test="open-palette">
+                <span>Commands</span><b>CTRL K</b>
             </button>
             <button class="term-menu-item" @onclick="SignOutAsync" disabled="@_signingOut" data-test="sign-out">
                 <span>Sign out</span><b class="term-menu-email">@_email</b>
@@ -48,11 +58,10 @@
     </details>
 </header>
 
-<TrophyToasts />
-
 @code {
     private Timer? _clock;
     private string _theme = "dark";
+    private string _sound = "low";
     private string? _email;
     private bool _signingOut;
 
@@ -84,6 +93,7 @@
         if (!firstRender) return;
         var current = await JS.TryInvokeAsync<string>("powatchTheme.get");
         if (!string.IsNullOrEmpty(current)) _theme = current;
+        _sound = await JS.TryInvokeAsync<string>("powatchCues.level") ?? _sound;
         StateHasChanged();
     }
 
@@ -94,6 +104,8 @@
         var next = await JS.TryInvokeAsync<string>("powatchTheme.toggle");
         _theme = string.IsNullOrEmpty(next) ? (_theme == "dark" ? "light" : "dark") : next;
     }
+
+    private async Task CycleSoundAsync() => _sound = await JS.TryInvokeAsync<string>("powatchCues.cycle") ?? _sound;
 
     private async Task SignOutAsync()
     {

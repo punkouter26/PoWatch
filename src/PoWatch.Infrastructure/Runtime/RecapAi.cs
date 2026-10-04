@@ -15,6 +15,7 @@ namespace PoWatch.Infrastructure.Runtime;
 /// deterministic and offline. Azure OpenAI is reached through its OpenAI-compatible v1 endpoint, with
 /// an API key or, when none is set, the app's Entra identity (managed identity in App Service, the
 /// az CLI login locally). Responses are cached by prompt, so the same facts never cost twice.
+/// The same client answers "Ask PoWatch", which is why it can call functions.
 /// </summary>
 public static class RecapAi
 {
@@ -28,8 +29,10 @@ public static class RecapAi
             return services;
         var client = OpenAi(new Uri(endpoint, "openai/v1/"), azure.ApiKey, azure.DeploymentName);
 
-        // Resolves the host's IDistributedCache (Program.cs registers the in-memory one).
-        services.AddChatClient(client).UseDistributedCache();
+        // Function calls run outside the cache: each model turn is cached by its full prompt, tool
+        // results included, so a question is answered again as soon as the statistics behind it change.
+        // The cache is the host's IDistributedCache (Program.cs registers the in-memory one).
+        services.AddChatClient(client).UseFunctionInvocation().UseDistributedCache();
         return services;
     }
 

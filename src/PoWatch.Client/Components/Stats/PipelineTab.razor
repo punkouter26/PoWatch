@@ -3,7 +3,14 @@
 
 @if (Data is null)
 {
-    <p class="term-empty">@(Loading ? "Loading…" : "No pipeline stats yet.")</p>
+    @if (Loading)
+    {
+        <Skeleton Heights="@([110, 110])" />
+    }
+    else
+    {
+        <p class="term-empty">No pipeline stats yet.</p>
+    }
 }
 else
 {

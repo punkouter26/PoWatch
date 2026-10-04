@@ -43,10 +43,33 @@ camera ──► browser (all sensing on-device)                        server
 
 ## Pages
 
-`/` Live · `/stats` four tabs with a range picker · `/history` calendar → day (stats, recap + PDF,
-sessions, moments, captions, time-lapse) · `/regulars` name/rename/merge · `/trophies` · `/system`
-(also `/health`) connections, runtime, inference and pipeline. Stats has a Full screen button for a
-second monitor or a TV.
+`/` Live · `/stats` four tabs, a range picker and an "Ask" box, all on one bar · `/history/{yyyy-MM-dd}`
+the year and the day's numbers beside tabs (recap + PDF, motion, sessions, moments, captions,
+time-lapse) · `/regulars` a sortable, filterable grid: rename in place, tick several to merge ·
+`/trophies` · `/system` connections, runtime, inference, pipeline, and your data (CSV export, delete
+everything). Range, tab, session and day live in the URL, so reloads, links and Back/Forward keep
+their place. Every page needs a sign-in.
+
+**Header.** Brand, section keys, a status chip, Start/Stop, a bell and a settings menu. The bell is
+the one notification tray: sensing problems, watch-rule alerts, unlocked trophies and "name this
+newcomer" prompts; it opens by itself when something arrives. Watch rules ("person between 22:00 and
+06:00") are edited there, kept in the browser, checked as things enter the frame, and relayed to
+every open tab over the hub (plus a desktop notification where allowed).
+
+**Keyboard.** `g` then `l s h r t y` jumps to a section, Space starts or stops, ← → step History's
+day, Ctrl+K opens a command palette (`wwwroot/js/menus.js`).
+
+**Sound.** `wwwroot/js/cues.js` synthesises short cues with the Web Audio API (start, stop, something
+entering — panned to the side it entered from — a new regular, a trophy, an alert, an error). Level
+off/low/mid/high is in the settings menu and remembered per browser.
+
+**Motion grid.** On Live the 16×9 grid is a WebGL2 shader (`wwwroot/js/heat-gl.js`); without WebGL2
+it is the plain grid. Animations use spring easings and all stop under `prefers-reduced-motion`.
+
+**Offline.** The published app registers a service worker that caches the app shell (not the ~20 MB
+vision runtime), so PoWatch opens without a network; batches wait in the outbox as before. Offline,
+the shell stays open for whoever was last signed in on that browser; the server still decides what
+the cookie may read.
 
 **Comet trails** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) follow people and animals over
 the camera and add up to a long-exposure PNG on the session recap; they respect
@@ -56,17 +79,25 @@ the camera and add up to a long-exposure PNG on the session recap; they respect
 
 | Route | Purpose |
 |---|---|
-| `POST /api/sessions`, `POST /api/sessions/{id}/stop`, `GET /api/sessions` | session lifecycle |
+| `POST /api/sessions`, `POST /api/sessions/{id}/stop`, `GET /api/sessions[?from=&to=]` | session lifecycle; `from`/`to` list every session overlapping a range |
 | `POST /api/sessions/{id}/batches` | tick + event ingest (idempotent by `batchKey`) |
 | `GET /api/stats/{presence\|space\|objects\|patterns\|environment\|pipeline}?range=` | stat families |
-| `GET /api/recaps/session/{id}[.pdf]`, `GET /api/recaps/day/{date}[.pdf]?tz=` | recaps and PDFs |
+| `GET /api/recaps/session/{id}[.pdf]`, `GET /api/recaps/day/{date}[.pdf]?tz=[&ai=false]` | recaps and PDFs; `ai=false` answers from the template at once |
+| `POST /api/ask` | a plain-language question answered from the caller's own statistics (503 without an AI provider) |
+| `POST /api/alerts` | relay a fired watch rule to the user's open tabs |
+| `GET /api/export.csv`, `DELETE /api/data` | one row per observed day; delete everything stored for the caller |
 | `GET /api/achievements` | trophy cabinet |
 | `/api/regulars` (+ `/observe`, `/merge`, `PATCH /{id}`), `POST /api/snapshots`, `GET /api/snapshots/read`, `GET /api/sessions/{id}/moments` | regulars and highlights |
-| `/hubs/stats` | SignalR: `statsChanged`, `achievementsUnlocked` |
-| `/health`, `/diag`, `/api/diagnostics/status` | operations |
+| `/hubs/stats` | SignalR: `statsChanged`, `achievementsUnlocked`, `alert` |
+| `/health`, `/health/live`, `/diag/boot` (public), `/diag`, `/api/diagnostics/status` (signed in) | operations |
 
-Unknown `/api/*` routes return 404. Everything except the SPA shell, `/health`, `/diag` and sign-in
-requires the BFF cookie (Entra ID, or guest sign-in in Dev/Test).
+Unknown `/api/*` routes return 404. Everything except the SPA shell, `/health`, `/diag/boot` and
+sign-in requires the BFF cookie (Entra ID, or guest sign-in in Dev/Test). `/api`, `/auth` and `/hubs`
+are rate limited to 300 requests a minute per signed-in user (per IP when anonymous).
+
+**Who may sign in.** `AzureAd:AllowedTenants` lists the tenant ids that may; it is compared with the
+token's tenant exactly. Left empty, any Microsoft account can sign in and gets its own (empty) data
+partition — production logs a warning at startup when that is the case.
 
 ## Storage
 
@@ -84,6 +115,12 @@ number not in the facts (`RecapPrompt.KeepsToFacts`). Azure OpenAI signs in with
 identity when `AzureOpenAi:ApiKey` is empty (Development uses `gpt-5.4-nano` via the az CLI login;
 Production stays on Template until the web app's identity has *Cognitive Services OpenAI User* on
 `po-aiservices-shared`). Replies are cached by prompt, so reopening a day or its PDF costs nothing.
+The model answers in a JSON schema (summary + highlights), so there is nothing to parse. Captions,
+moment text and names reach the prompt as fenced data with control characters and the fence removed,
+and the ingest validator caps their length. History paints the template recap first and swaps in
+the model's version when it arrives; where the server has no model, a browser with a built-in one
+(Chrome's Prompt API) rewords it locally under the same number check. "Ask PoWatch" uses the same
+client with one tool, `get_stats(range)`, so the numbers in an answer come from the rollups.
 QuestPDF renders the PDF; a host without its native engine answers an explained 503.
 
 **Captions.** One on-device model, SmolVLM2 500M (WebGPU fp16 → fp32 → WASM q8). The prompt carries what the detector sees (`Visible: person x2, cat.`), an unchanged

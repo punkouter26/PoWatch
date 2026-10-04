@@ -1,12 +1,10 @@
 using PoWatch.Api.Platform;
 using System.Globalization;
-using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using PoWatch.Api.Features.Diagnostics;
@@ -20,9 +18,10 @@ using PoWatch.Infrastructure.Runtime;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Features.Dev;
 using PoWatch.Api.Features.Auth;
+using PoWatch.Api.Features.Ask;
+using PoWatch.Api.Features.Data;
 using PoWatch.Api.HealthChecks;
-using PoWatch.Api.Infrastructure.Kestrel;
-using PoWatch.Api.Infrastructure.KeyVault;
+using PoWatch.Api.Hosting;
 using PoWatch.Api.Middleware;
 using PoWatch.Api.Observability;
 using PoWatch.Api.Security;
@@ -43,39 +42,20 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
     .CreateLogger();
 
-var bootSw = Stopwatch.StartNew();
-
 // Create the builder FIRST so we can install the Kestrel hooks on it.
 var builder = WebApplication.CreateBuilder(args);
 
-// Self-healing Kestrel binding: negotiate a free port if the configured one is held
-// by a stale process, instead of failing the host with HTTP 500.30 on App Service.
+// Development only: step to the next free port when the configured one is held by another app.
 builder.WebHost.ConfigureKestrel((ctx, opts) =>
-{
-    var logger = Log.Logger.ForContext(typeof(PortNegotiation));
-    PortNegotiation.Configure(opts, ctx.Configuration, ctx.HostingEnvironment, logger);
-});
-
-HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
-    HostStartupLog.Stage.BuilderCreated, bootSw);
+    PortNegotiation.Configure(opts, ctx.Configuration, ctx.HostingEnvironment, Log.Logger.ForContext(typeof(PortNegotiation))));
 
 // Two-stage Serilog initialisation — reads config from appsettings after host is built
 builder.Host.UseSerilog(TelemetrySetup.ConfigureSerilog);
 
-// Key Vault: add secrets as a config source before binding feature flags
-var rawKvUri = builder.Configuration["KeyVault:Uri"];
-var tempFlags = builder.Configuration.GetSection("FeatureFlags").Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
-if (tempFlags.EnableKeyVault && !string.IsNullOrWhiteSpace(rawKvUri) && Uri.TryCreate(rawKvUri, UriKind.Absolute, out var kvUri))
-{
+// Feature flags are not secrets, so they are read before Key Vault joins the configuration.
+var featureFlags = builder.Configuration.GetSection("FeatureFlags").Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
+if (featureFlags.EnableKeyVault && Uri.TryCreate(builder.Configuration["KeyVault:Uri"], UriKind.Absolute, out var kvUri))
     KeyVaultConfiguration.AddPoWatchKeyVault(builder.Configuration, kvUri, Log.Logger);
-    HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
-        HostStartupLog.Stage.KeyVaultLoaded, bootSw);
-}
-
-// Bind feature flags early so conditional registrations below can read them
-var featureFlags = builder.Configuration
-    .GetSection("FeatureFlags")
-    .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
 
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
 builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
@@ -118,22 +98,27 @@ var hcBuilder = builder.Services.AddHealthChecks()
 if (featureFlags.EnableKeyVault)
     hcBuilder.AddCheck<KeyVaultHealthCheck>("azure-key-vault");
 
-// Rate limiting: 60 requests per minute per IP address (sliding window)
+// Rate limiting on the API, sign-in and hub routes: 300 requests a minute per signed-in user (per IP
+// when anonymous). A running session posts a batch every 10 s and polls stats, so 60 would trip.
+// Static assets are exempt (a cold load is ~200 files); the Test host is exempt (suites share one guest).
 builder.Services.AddRateLimiter(rl =>
 {
-    rl.AddSlidingWindowLimiter("ApiPerIpPolicy", o =>
+    rl.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    rl.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
     {
-        o.PermitLimit = 60;
-        o.Window = TimeSpan.FromMinutes(1);
-        o.SegmentsPerWindow = 6;
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit = 5;
+        var path = http.Request.Path;
+        var limited = path.StartsWithSegments("/api") || path.StartsWithSegments("/auth") || path.StartsWithSegments("/hubs");
+        if (!limited || builder.Environment.IsEnvironment("Test"))
+            return RateLimitPartition.GetNoLimiter(string.Empty);
+
+        var key = CurrentUser.Id(http.User) ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 300,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6
+        });
     });
-    rl.OnRejected = (context, _) =>
-    {
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        return ValueTask.CompletedTask;
-    };
 });
 
 builder.Services.AddPoWatchApplication();
@@ -150,49 +135,12 @@ builder.Services.AddProblemDetails();
 
 // Auth: BFF cookie session + Microsoft Entra OIDC (when configured) + dev/test guest bypass.
 builder.AddPoWatchAuthentication(featureFlags);
-HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
-    HostStartupLog.Stage.AuthWired, bootSw);
-
-HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
-    HostStartupLog.Stage.ServicesConfigured, bootSw);
 
 var app = builder.Build();
-HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
-    HostStartupLog.Stage.PipelineBuilt, bootSw);
-
-// /health serves two audiences from one route. Machine clients (the App Service health probe, the
-// CI deploy gate, curl) get the JSON document mapped further down — that contract must not change,
-// it is what gates every production deploy. A browser navigating to /health sends Accept: text/html
-// and instead gets the Blazor shell, whose router resolves the Health page (@page "/health").
-//
-// This MUST run before routing, so UseRouting is called explicitly on the next line: otherwise the
-// framework auto-inserts it at the head of the pipeline, the health endpoint is selected before any
-// user middleware runs, and rewriting the path here has no effect (verified — it returned JSON).
-// Only the path the SERVER resolves changes; the browser URL stays /health, and that is what the
-// WASM router reads, so the Health page renders.
-app.Use(async (ctx, next) =>
-{
-    if (HttpMethods.IsGet(ctx.Request.Method)
-        && ctx.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase)
-        && ctx.Request.Headers.Accept.Any(v =>
-            v is not null && v.Contains("text/html", StringComparison.OrdinalIgnoreCase)))
-    {
-        ctx.Request.Path = "/index.html";
-    }
-
-    await next(ctx);
-});
-app.UseRouting();
 
 // OpenAPI + Scalar API reference UI
 app.MapOpenApi("/openapi/v1.json");
 app.MapScalarApiReference("/scalar/v1");
-
-// Capture the actual bind address(es) so the operator gets a single log line
-// pinpointing where Kestrel is listening, with a structural link to the
-// Listening milestone emitted by PortNegotiation.
-HostStartupLog.Milestone(Log.Logger.ForContext(typeof(HostStartupLog)),
-    HostStartupLog.Stage.Listening, bootSw);
 
 // Global exception handler — exposes detail only when ExposeDebugDetailsInUi is true
 app.UseExceptionHandler(errorApp =>
@@ -235,12 +183,13 @@ app.UseExceptionHandler(errorApp =>
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
-app.UseRateLimiter();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Auth middleware — always active (BFF cookie session + OIDC/guest schemes)
 app.UseAuthentication();
 app.UseAuthorization();
+// After authentication: the limiter partitions by the signed-in user.
+app.UseRateLimiter();
 
 // Enrich every request log with UserId and SessionId from the current principal / trace identifier
 app.Use(async (ctx, next) =>
@@ -273,15 +222,15 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     }
 }).AllowAnonymous();
 
-// UI-less diagnostics: masked environment keys + integration statuses (active in Dev/Prod)
+// UI-less diagnostics: masked environment keys + integration statuses, for signed-in callers.
 app.MapGet("/diag", (PoWatch.Application.Contracts.IDiagnosticsProvider provider) =>
         Results.Ok(provider.CaptureSnapshot()))
     .WithName("Diag")
     .WithSummary("Masked environment keys and integration statuses.")
-    .AllowAnonymous();
+    .RequireAuthorization();
 
-// Boot readiness: the fastest answer to "why did the app 500.30 / not come ready?". Reports the last
-// startup milestone reached and per-dependency readiness WITHOUT secrets. Anonymous and dependency-light
+// Boot readiness: the fastest answer to "why did the app not come ready?". Reports per-dependency
+// readiness WITHOUT secrets. Anonymous and dependency-light
 // so it stays reachable even when a downstream dependency is degraded.
 app.MapGet("/diag/boot", (
         PoWatch.Infrastructure.StartupReadiness readiness,
@@ -295,8 +244,6 @@ app.MapGet("/diag/boot", (
         var payload = new
         {
             environment = env.EnvironmentName,
-            lastBootStage = HostStartupLog.LastStage,
-            lastBootStageElapsedMs = HostStartupLog.LastStageElapsedMs,
             ready,
             storage = new
             {
@@ -314,7 +261,7 @@ app.MapGet("/diag/boot", (
         return ready ? Results.Ok(payload) : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
     })
     .WithName("DiagBoot")
-    .WithSummary("Startup milestone reached and per-dependency readiness (no secrets).")
+    .WithSummary("Per-dependency readiness (no secrets).")
     .AllowAnonymous();
 
 // Serve hosted Blazor WASM from same origin — no CORS needed
@@ -350,6 +297,8 @@ app.MapRegularsFeature();
 app.MapRecapsFeature();
 app.MapAchievementsFeature();
 app.MapStatsFeature();
+app.MapAskFeature();
+app.MapDataFeature();
 app.MapHub<StatsHub>(StatsHub.Path).RequireAuthorization();
 app.MapDevSeedFeature(app.Environment);
 // Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which

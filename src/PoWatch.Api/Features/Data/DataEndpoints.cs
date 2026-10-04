@@ -1,0 +1,48 @@
+using System.Globalization;
+using System.Text;
+using Microsoft.Extensions.Caching.Hybrid;
+using PoWatch.Api.Features.Stats;
+using PoWatch.Api.Security;
+using PoWatch.Application.Contracts;
+using PoWatch.Application.Services;
+
+namespace PoWatch.Api.Features.Data;
+
+/// <summary>The caller's own data: take a copy, or delete all of it.</summary>
+internal static class DataEndpoints
+{
+    internal static IEndpointRouteBuilder MapDataFeature(this IEndpointRouteBuilder app)
+    {
+        app.MapGet("/api/export.csv", async (string? tz, HttpContext http, StatsQueryService stats, CancellationToken ct) =>
+            {
+                if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
+                var csv = new StringBuilder("date,occupancy,visits,motion\n");
+                if (await stats.ResolveAsync(userId, StatsRange.Today, tz, null, ct) is { } window)
+                {
+                    foreach (var day in (await stats.PatternsAsync(userId, window, ct)).Calendar)
+                        csv.Append(CultureInfo.InvariantCulture, $"{day.Date:yyyy-MM-dd},{day.Occupancy:0.####},{day.Visits},{day.Motion:0.####}\n");
+                }
+
+                return Results.File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "PoWatch-days.csv");
+            })
+            .WithTags("Data")
+            .RequireAuthorization()
+            .WithName("ExportDays")
+            .WithSummary("One CSV row per observed day of the last year: occupancy, visits, motion.");
+
+        app.MapDelete("/api/data", async (HttpContext http, IUserDataStore data, HybridCache cache, ILogger<Program> logger, CancellationToken ct) =>
+            {
+                if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
+                await data.PurgeAsync(userId, ct);
+                await cache.RemoveByTagAsync(StatsEndpoints.CacheTag(userId), ct);
+                logger.LogWarning("User data purged on request.");
+                return Results.NoContent();
+            })
+            .WithTags("Data")
+            .RequireAuthorization()
+            .WithName("DeleteMyData")
+            .WithSummary("Delete everything stored for the caller: sessions, ticks, events, rollups, regulars, trophies and snapshots.");
+
+        return app;
+    }
+}

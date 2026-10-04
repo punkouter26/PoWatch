@@ -1,0 +1,15 @@
+@* Shimmering placeholders the size of the panels that are loading, so nothing jumps when they arrive. *@
+<div class="term-grid" aria-busy="true" role="status" aria-label="Loading">
+    @foreach (var height in Heights)
+    {
+        <div class="term-panel term-skeleton @Span" style="height: @(height)px"></div>
+    }
+</div>
+
+@code {
+    /// <summary>One placeholder per entry, each this many pixels tall.</summary>
+    [Parameter] public int[] Heights { get; set; } = [150, 300];
+
+    /// <summary>Grid span class for every placeholder.</summary>
+    [Parameter] public string Span { get; set; } = "term-span-4";
+}

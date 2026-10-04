@@ -12,6 +12,8 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <!-- IL2111: emitted by the framework Router source generator for NotFoundPage; not user-addressable. -->
     <NoWarn>$(NoWarn);IL2111</NoWarn>
+    <!-- Offline shell: the build lists every published file with its hash for service-worker.published.js. -->
+    <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +22,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" />
     <PackageReference Include="Radzen.Blazor" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
   </ItemGroup>
 
   <ItemGroup>

@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<RegularsService>();
         services.AddScoped<RecapService>();
         services.AddScoped<AchievementService>();
+        services.AddScoped<AskService>();
 
         return services;
     }

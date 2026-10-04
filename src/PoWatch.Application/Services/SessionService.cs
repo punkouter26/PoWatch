@@ -37,6 +37,16 @@ public sealed class SessionService(ISessionRepository sessions, TimeProvider tim
     public Task<IReadOnlyList<Session>> ListAsync(string userId, int take, CancellationToken cancellationToken) =>
         sessions.ListAsync(userId, Math.Clamp(take, 1, MaxListed), cancellationToken);
 
+    /// <summary>Every session that overlaps [<paramref name="fromUtc"/>, <paramref name="toUtc"/>), oldest first, however long ago.</summary>
+    public async Task<IReadOnlyList<Session>> ListBetweenAsync(string userId, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        return (await sessions.ListAsync(userId, int.MaxValue, cancellationToken))
+            .Where(s => s.StartedUtc < toUtc && (s.EndedUtc ?? now) >= fromUtc)
+            .OrderBy(s => s.StartedUtc)
+            .ToList();
+    }
+
     public DateTimeOffset Now => time.GetUtcNow();
 
     private static DateTimeOffset Max(DateTimeOffset a, DateTimeOffset b) => a > b ? a : b;

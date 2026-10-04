@@ -2,7 +2,14 @@
 
 @if (Data is null)
 {
-    <p class="term-empty">@(Loading ? "Loading…" : "No space stats for this range yet.")</p>
+    @if (Loading)
+    {
+        <Skeleton Heights="@([260])" />
+    }
+    else
+    {
+        <p class="term-empty">No space stats for this range yet.</p>
+    }
 }
 else
 {

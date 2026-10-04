@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddSingleton<IAchievementStore, AzureAchievementStore>();
         services.AddSingleton<ISnapshotStore, AzureSnapshotStore>();
         services.AddSingleton<IRegularStore, AzureRegularStore>();
+        services.AddSingleton<IUserDataStore, AzureUserDataStore>();
 
         services.AddSingleton<IDiagnosticsProvider, LocalDiagnosticsProvider>();
 

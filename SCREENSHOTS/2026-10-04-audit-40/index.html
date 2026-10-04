@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: before and after the 40-item audit (2026-10-04)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  .pair.phone { grid-template-columns: repeat(auto-fit, minmax(240px, 300px)); }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px currentColor; }
+  .mark.old { background: var(--old); color: #0d1014; box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); color: #0d1014; box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: before and after the 40-item audit</h1>
+<p class="lead">Captured 4 October 2026 from the running Development app (demo scene, 60 seeded days), 1440×900 desktop and 390×844 phone.
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, kind, before image or null, before marks, after image, after marks]. A mark is [x %, y %, note].
+  const pairs = [
+    ['Live', '', 'before/live-desktop.png', [
+        [86, 78, '<b>Naming prompts floated</b> over the motion grid, bottom right.'],
+        [37, 74.5, '<b>"Chg" column</b>: empty in three of six rows.'],
+        [80, 72, '<b>Motion grid</b> drawn as 144 flat div cells.'],
+      ], 'after/live-desktop.png', [
+        [94.7, 2.4, '<b>One notification bell</b> replaces the floating prompts and trophy toasts (see "Notification tray" below).'],
+        [35, 74.5, '<b>Composite metric cell</b>: the value and its "vs usual" chip share one column; the empty column is gone.'],
+        [80, 76, '<b>WebGL2 shader</b> motion grid: smoothed, glowing, eased between frames (falls back to the old grid without WebGL2).'],
+        [71.5, 2.4, '<b>Status chip</b>: only the word OBSERVING is a live region now, so screen readers no longer hear the uptime every second.'],
+      ]],
+    ['Stats', '', 'before/stats-desktop.png', [
+        [16, 8, '<b>Toolbar on its own row</b>, tab strip on a second row.'],
+      ], 'after/stats-desktop.png', [
+        [56, 8, '<b>One action bar</b>: range picker sits on the tab strip\'s row.'],
+        [80, 8, '<b>Ask box</b>: a plain-language question answered from your own statistics.'],
+        [98, 8, '<b>Full screen</b> is an icon button.'],
+        [11, 92, '<b>Range, tab and session are in the URL</b> (reload and Back/Forward keep their place); the window label moved under the panels.'],
+      ]],
+    ['Stats: asking a question', '', null, [], 'after/ask-desktop.png', [
+        [80, 8, 'The question, typed into the bar.'],
+        [50, 94.3, '<b>The answer</b>, built by the model from a <code>get_stats</code> tool call over the real rollups.'],
+      ]],
+    ['History', '', 'before/history-desktop.png', [
+        [12, 8, '<b>Day toolbar</b> on its own row.'],
+        [50, 68, '<b>Seven stacked panels</b>: the page scrolled to reach sessions, moments, captions and the time-lapse.'],
+        [75, 33, '<b>Recap</b> waited on the AI model before the day painted.'],
+      ], 'after/history-desktop.png', [
+        [36, 24, '<b>Day picker moved into "The day" header</b>; the day is in the address (<code>/history/2026-10-03</code>).'],
+        [4.6, 32.5, '<b>Occupancy dial</b>: fills and counts up in CSS.'],
+        [70, 8.8, '<b>Detail tabs</b>: recap, motion, sessions, moments, captions, time-lapse — one viewport, no scrolling.'],
+        [58, 31.3, '<b>Template recap paints at once</b>; the model\'s rewording eases in when it arrives.'],
+        [93, 31.3, '<b>Recap PDF</b> button sits with the recap.'],
+      ]],
+    ['Regulars', '', 'before/regulars-desktop.png', [
+        [88, 16, '<b>"Same as…" column</b>: a merge dropdown and button on every row.'],
+      ], 'after/regulars-desktop.png', [
+        [9, 11.8, '<b>Filter by name</b>.'],
+        [4.6, 20.5, '<b>Tick rows to merge</b>; the merge bar appears beside the filter and says why a selection cannot merge yet.'],
+        [40, 16.4, '<b>Sortable columns</b> (Radzen data grid). Rename and merge now show failures and disable while busy.'],
+        [2, 20.5, '<b>Row expander</b> holds kind, today, first and last seen (the only place they show on a phone).'],
+      ]],
+    ['System', '', 'before/system-desktop.png', [], 'after/system-desktop.png', [
+        [14, 66.5, '<b>Your data</b>: export a CSV of every observed day, or delete everything (two clicks).'],
+      ]],
+    ['Notification tray and watch rules (new)', '', null, [], 'after/tray-desktop.png', [
+        [94.7, 2.4, '<b>The bell</b>: sensing problems, watch-rule alerts, unlocked trophies and "name this newcomer" prompts in one frosted panel that opens itself when something arrives.'],
+        [80, 14.8, '<b>Watch rules</b>: "person between 22:00 and 06:00" raises an alert, a sound and (if allowed) a desktop notification.'],
+      ]],
+    ['Command palette (new)', '', null, [], 'after/palette-desktop.png', [
+        [50, 17, '<b>Ctrl+K</b> opens it; <code>g</code> then a letter jumps to a section, Space starts or stops, ← → step History\'s day.'],
+      ]],
+    ['Live on a phone', 'phone', 'before/live-mobile.png', [], 'after/live-mobile.png', [
+        [82, 2.6, 'Bell joins the header; buttons grow to 44 px on touch screens, and the shell respects the notch.'],
+      ]],
+    ['History on a phone', 'phone', 'before/history-mobile.png', [], 'after/history-mobile.png', [
+        [50, 25.5, 'Day picker in the panel header; dial beside the numbers.'],
+        [50, 69, 'Tabs scroll sideways instead of stacking seven panels.'],
+      ]],
+    ['Regulars on a phone', 'phone', 'before/regulars-mobile.png', [], 'after/regulars-mobile.png', [
+        [40, 29.3, 'Name box gets the width; secondary columns moved into the row expander.'],
+      ]],
+  ];
+
+  const host = document.getElementById('pairs');
+  const figure = (label, cls, src, marks) => {
+    const notes = marks.map(([, , note]) => `<li>${note}</li>`).join('');
+    const dots = marks.map(([x, y], i) => `<span class="mark ${cls}" style="left:${x}%;top:${y}%">${i + 1}</span>`).join('');
+    return `<figure><figcaption class="${cls}">${label}</figcaption><div class="shot"><img src="${src}" alt="${label}" loading="lazy" />${dots}</div>${notes ? `<ol class="notes">${notes}</ol>` : ''}</figure>`;
+  };
+  for (const [title, kind, before, beforeMarks, after, afterMarks] of pairs) {
+    host.insertAdjacentHTML('beforeend',
+      `<h2>${title}</h2><div class="pair ${kind}">${before ? figure('BEFORE', 'old', before, beforeMarks) : ''}${figure(before ? 'AFTER' : 'NEW', 'new', after, afterMarks)}</div>`);
+  }
+</script>
+</body>
+</html>

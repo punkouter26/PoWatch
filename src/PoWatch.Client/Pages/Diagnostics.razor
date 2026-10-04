@@ -1,13 +1,9 @@
 @page "/system"
-@page "/diagnostics"
-@page "/health"
-@attribute [Authorize]
 @using System.Globalization
 @using PoWatch.Shared.Models
 @using PoWatch.Client.Components.Stats
 @inject PoWatchApiClient ApiClient
 @inject IJSRuntime JS
-@inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 <PageTitle>PoWatch | System</PageTitle>
@@ -114,6 +110,29 @@
 
 <PipelineTab Query="@_pipelineQuery" />
 
+<TerminalPanel Number="S4" Title="Your data" Class="sys-data" Test="your-data">
+    <Aside>EVERYTHING STORED FOR THIS ACCOUNT</Aside>
+    <ChildContent>
+        <div class="sys-actions">
+            <a class="term-button" href="@PoWatchApiClient.ExportUrl(TimeZoneInfo.Local.Id)" download="PoWatch-days.csv" data-test="export-csv">Export days as CSV ↓</a>
+            @if (!_confirmDelete)
+            {
+                <button class="term-button term-button--danger" @onclick="() => _confirmDelete = true" data-test="delete-data">Delete everything…</button>
+            }
+            else
+            {
+                <button class="term-button term-button--danger" @onclick="DeleteAllAsync" disabled="@_deleting" data-test="delete-data-confirm">@(_deleting ? "Deleting…" : "Yes, delete it all")</button>
+                <button class="term-button" @onclick="() => _confirmDelete = false" disabled="@_deleting">Keep it</button>
+                <span class="live-error" role="alert">Sessions, stats, regulars, trophies and snapshots go for good.</span>
+            }
+            @if (_dataMessage is not null)
+            {
+                <span class="term-stat-hint" role="status">@_dataMessage</span>
+            }
+        </div>
+    </ChildContent>
+</TerminalPanel>
+
 @code {
     private HealthReportDto? _health;
     private string? _healthError;
@@ -122,19 +141,44 @@
     private StatsQuery _pipelineQuery = StatsQuery.For("today");
     private DateTime? _lastRefreshed;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
-    private readonly PollLoop _poll = new();
+    private readonly CancellationTokenSource _refresh = new();
+    private bool _confirmDelete;
+    private bool _deleting;
+    private string? _dataMessage;
 
-    protected override void OnInitialized()
+    // One timer for the whole page; a health page showing stale numbers reads as broken.
+    protected override void OnInitialized() => _ = RefreshLoopAsync(_refresh.Token);
+
+    private async Task RefreshLoopAsync(CancellationToken ct)
     {
-        // The old /health and /diagnostics addresses land here; settle on /system so the SYSTEM key lights up.
-        if (!Navigation.Uri.Contains("/system", StringComparison.OrdinalIgnoreCase))
-            Navigation.NavigateTo("system", replace: true);
-
-        // One timer for the whole page; a health page showing stale numbers reads as broken.
-        _poll.Start(RefreshInterval, _ => LoadAsync(), InvokeAsync);
+        using var timer = new PeriodicTimer(RefreshInterval);
+        try
+        {
+            do
+            {
+                await LoadAsync();
+            }
+            while (await timer.WaitForNextTickAsync(ct));
+        }
+        catch (OperationCanceledException)
+        {
+            // Page closed.
+        }
     }
 
-    public async ValueTask DisposeAsync() => await _poll.DisposeAsync();
+    private async Task DeleteAllAsync()
+    {
+        _deleting = true;
+        _dataMessage = await ApiClient.DeleteMyDataAsync() ? "Everything was deleted." : "Could not delete — nothing was changed. Try again.";
+        (_deleting, _confirmDelete) = (false, false);
+        await LoadAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _refresh.CancelAsync();
+        _refresh.Dispose();
+    }
 
     private async Task LoadAsync()
     {

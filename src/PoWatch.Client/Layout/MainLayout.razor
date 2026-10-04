@@ -12,8 +12,9 @@
     @* App.razor moves focus here after every navigation, so keyboard and screen-reader users land in the page. *@
     <main class="term-body" id="main-content" tabindex="-1">
         <AwayCard />
-        @* Keyed on the path, not the full URI: a query change (?range=, ?start=) must not rebuild the page. *@
-        <ErrorBoundary @key="new Uri(Nav.Uri).AbsolutePath">
+        @* Keyed on the section, not the full URI: a query change (?range=, ?start=) or a deeper
+           segment (/history/2026-10-03) must not rebuild the page. *@
+        <ErrorBoundary @key="Section(Nav.Uri)">
             <ChildContent>
                 @Body
             </ChildContent>
@@ -28,8 +29,6 @@
         </ErrorBoundary>
     </main>
 </div>
-
-<NamePrompts />
 
 @* The camera feed lives here, not on the Live page, so it keeps playing (and the session keeps
    sampling) on every page; Live docks it over its camera panel. *@
@@ -53,6 +52,8 @@
         if (!firstRender) return;
         Sensing.Feed = _feed;
         await JS.TryInvokeVoidAsync("powatchMenus.setup");
+        // Remembered per browser: whether camera sessions also run the caption model.
+        if (await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionsKey) == "off") Sensing.Captions = false;
         await Sensing.ResendLeftoversAsync();
     }
 
@@ -62,7 +63,12 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private static bool IsLive(string uri) => new Uri(uri).AbsolutePath.TrimEnd('/').Length == 0;
+    public const string CaptionsKey = "powatch:captions";
+
+    private static bool IsLive(string uri) => Section(uri).Length == 0;
+
+    /// <summary>The first path segment: "" for Live, "stats", "history", …</summary>
+    private static string Section(string uri) => new Uri(uri).AbsolutePath.Trim('/').Split('/')[0];
 
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

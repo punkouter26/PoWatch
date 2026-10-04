@@ -4,7 +4,7 @@ using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using ILogger = Serilog.ILogger;
 
-namespace PoWatch.Api.Infrastructure.KeyVault;
+namespace PoWatch.Api.Hosting;
 
 /// <summary>
 /// Loads secrets from Azure Key Vault using Managed Identity.

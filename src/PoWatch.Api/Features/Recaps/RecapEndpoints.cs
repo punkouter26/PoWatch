@@ -1,5 +1,4 @@
-using System.Globalization;
-using PoWatch.Api.Infrastructure;
+using PoWatch.Api.Hosting;
 using PoWatch.Api.Security;
 using PoWatch.Application.Contracts;
 using PoWatch.Application.Services;
@@ -27,29 +26,29 @@ internal static class RecapEndpoints
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
                 if (await sessions.GetAsync(userId, id, ct) is not { } session) return Results.NotFound();
                 var recap = await recaps.ForSessionAsync(userId, id, ct);
-                return recap is null ? Results.NotFound() : Pdf(recap, session.TimeZone, $"PoWatch-session-{id.ToString("N")[..4]}.pdf", logger);
+                return recap is null ? Results.NotFound() : Pdf(recap, session.TimeZone, $"PoWatch-session-{SessionDto.Tag(id)[1..]}.pdf", logger);
             })
             .WithName("SessionRecapPdf")
             .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
-        group.MapGet("/day/{date}", async (string date, string? tz, HttpContext http, RecapService recaps, CancellationToken ct) =>
+        group.MapGet("/day/{date}", async (string date, string? tz, bool? ai, HttpContext http, RecapService recaps, CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
-                if (!TryDay(date, out var day)) return Results.BadRequest(new { message = "date must be yyyy-MM-dd." });
-                var recap = await recaps.ForDayAsync(userId, day, tz, ct);
+                if (!ApiParsing.TryDay(date, out var day)) return Results.BadRequest(new { message = "date must be yyyy-MM-dd." });
+                // ai=false answers straight from the template, so a page can paint before the model replies.
+                var recap = await recaps.ForDayAsync(userId, day, tz, ct, useAi: ai ?? true);
                 return recap is null ? Results.NotFound() : Results.Ok(recap);
             })
             .WithName("DayRecap")
-            .WithSummary("A readable recap of one local day.");
+            .WithSummary("A readable recap of one local day; ai=false skips the model rewrite.");
 
         group.MapGet("/day/{date}.pdf", async (string date, string? tz, HttpContext http, RecapService recaps, ILogger<Program> logger, CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
-                if (!TryDay(date, out var day)) return Results.BadRequest(new { message = "date must be yyyy-MM-dd." });
+                if (!ApiParsing.TryDay(date, out var day)) return Results.BadRequest(new { message = "date must be yyyy-MM-dd." });
                 var recap = await recaps.ForDayAsync(userId, day, tz, ct);
-                var zone = !string.IsNullOrWhiteSpace(tz) && TimeZoneInfo.TryFindSystemTimeZoneById(tz, out var found) ? found : TimeZoneInfo.Utc;
-                return recap is null ? Results.NotFound() : Pdf(recap, zone, $"PoWatch-{day:yyyy-MM-dd}.pdf", logger);
+                return recap is null ? Results.NotFound() : Pdf(recap, ApiParsing.Zone(tz), $"PoWatch-{day:yyyy-MM-dd}.pdf", logger);
             })
             .WithName("DayRecapPdf")
             .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
@@ -70,7 +69,4 @@ internal static class RecapEndpoints
             return Results.Problem(title: "The PDF could not be generated on this server.", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     }
-
-    private static bool TryDay(string date, out DateOnly day) =>
-        DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out day);
 }

@@ -32,7 +32,8 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
             ("/regulars", "REGULARS"),
             ("/trophies", "TROPHIES"),
             ("/system", "SYSTEM"),
-            ("/health", "SYSTEM"),
+            ("/history/2026-01-01", "HISTORY"),
+            ("/stats?range=7d&tab=patterns", "STATS"),
         })
         {
             if (PlaywrightFixture.BaseUrl is null) return;

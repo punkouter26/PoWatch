@@ -50,7 +50,7 @@ internal static class StatsEndpoints
                 DateOnly? day = null;
                 if (parsed == StatsRange.Day)
                 {
-                    if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedDay))
+                    if (!ApiParsing.TryDay(date, out var parsedDay))
                         return Results.BadRequest(new { message = "range=day needs date=yyyy-MM-dd." });
                     day = parsedDay;
                 }

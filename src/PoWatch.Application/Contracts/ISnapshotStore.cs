@@ -16,3 +16,10 @@ public interface ISnapshotStore
     /// <summary>A short-lived read link, or null when the path is not one of the caller's snapshots.</summary>
     Task<Uri?> CreateReadUrlAsync(string userId, string path, CancellationToken cancellationToken);
 }
+
+/// <summary>Everything stored for one user, as a whole.</summary>
+public interface IUserDataStore
+{
+    /// <summary>Deletes every session, tick, event, rollup, regular, trophy and snapshot of the user. Cannot be undone.</summary>
+    Task PurgeAsync(string userId, CancellationToken cancellationToken);
+}

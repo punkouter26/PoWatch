@@ -37,7 +37,7 @@ internal static class DevSeedEndpoints
                     return Results.Ok(new { days = 0, buckets = 0 });
 
                 var dayCount = Math.Clamp(days ?? 30, 1, MaxDays);
-                var zone = !string.IsNullOrWhiteSpace(tz) && TimeZoneInfo.TryFindSystemTimeZoneById(tz, out var found) ? found : TimeZoneInfo.Utc;
+                var zone = ApiParsing.Zone(tz);
 
                 var plan = BuildHistory(dayCount, zone, time.GetUtcNow());
                 var writes = plan.Buckets.Select(b => (Func<Task>)(() => rollups.MergeAsync(userId, b.Grain, b.StartUtc, b.Rollup, ct)));

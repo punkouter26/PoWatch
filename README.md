@@ -22,8 +22,8 @@ Run the setup script from the repository root:
 ```
 
 The script prepares local tooling, starts Azurite through Docker Compose, and walks the Azure login path when needed. The development API listens on `http://localhost` (port 80, set by `PoWatch:Ports:Http` in
-`appsettings.Development.json`) and `https://localhost:5001`. If port 80 is taken, the dev port
-negotiator falls back to the next free port and logs it.
+`appsettings.Development.json`) and `https://localhost:5001`. If either port is taken, the dev host
+steps to the next free one and logs it. Sign in at `/auth/login/fake?returnUrl=/` (guest, Dev/Test only).
 
 Useful commands:
 

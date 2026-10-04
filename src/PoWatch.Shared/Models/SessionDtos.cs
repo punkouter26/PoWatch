@@ -11,6 +11,9 @@ public sealed class StartSessionRequestDto
 
 public sealed class SessionDto
 {
+    /// <summary>The short session tag shown everywhere: "#AB12".</summary>
+    public static string Tag(Guid id) => $"#{id.ToString("N")[..4].ToUpperInvariant()}";
+
     public Guid Id { get; init; }
     public DateTimeOffset StartedUtc { get; init; }
     public DateTimeOffset? EndedUtc { get; init; }

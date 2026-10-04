@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using PoWatch.Application.Contracts;
@@ -32,19 +33,21 @@ public sealed class RecapService(
 
         var start = TimeZoneInfo.ConvertTime(session.StartedUtc, window.Zone);
         var facts = await GatherAsync(userId, window,
-            $"Session #{sessionId.ToString("N")[..4].ToUpperInvariant()}",
+            $"Session {SessionDto.Tag(sessionId)}",
             $"{start:ddd d MMM, HH:mm} · {TemplateRecap.Duration(session.Duration(DateTimeOffset.UtcNow))}",
             await MomentsAsync(userId, session, cancellationToken),
             cancellationToken);
         return await WriteAsync(facts, cancellationToken);
     }
 
-    public async Task<RecapDto?> ForDayAsync(string userId, DateOnly day, string? timeZoneId, CancellationToken cancellationToken)
+    /// <param name="useAi">False returns the template recap without asking the model.</param>
+    public async Task<RecapDto?> ForDayAsync(string userId, DateOnly day, string? timeZoneId, CancellationToken cancellationToken, bool useAi = true)
     {
         var window = await stats.ResolveAsync(userId, StatsRange.Day, timeZoneId, null, cancellationToken, day);
         if (window is null) return null;
 
-        var daySessions = (await sessions.ListAsync(userId, SessionService.MaxListed, cancellationToken))
+        // Every session, not the latest hundred: a day long ago still has its moments.
+        var daySessions = (await sessions.ListAsync(userId, int.MaxValue, cancellationToken))
             .Where(s => s.StartedUtc < window.ToUtc && (s.EndedUtc ?? DateTimeOffset.UtcNow) >= window.FromUtc);
         var moments = new List<MomentDto>();
         foreach (var session in daySessions)
@@ -55,7 +58,7 @@ public sealed class RecapService(
             $"Daily recap · {window.Zone.Id}",
             [.. moments.OrderByDescending(m => m.Score)],
             cancellationToken);
-        return await WriteAsync(facts, cancellationToken);
+        return useAi ? await WriteAsync(facts, cancellationToken) : TemplateRecap.Build(facts);
     }
 
     /// <summary>A session's notable moments, best first, with short-lived snapshot links.</summary>
@@ -100,23 +103,27 @@ public sealed class RecapService(
             // (RecapAi), so re-opening a past day or its PDF does not pay for the model again.
             var response = await chat.GetResponseAsync(
                 [new ChatMessage(ChatRole.System, RecapPrompt.System), new ChatMessage(ChatRole.User, prompt)],
-                new ChatOptions { Temperature = 0.4f, MaxOutputTokens = 300 },
+                // A JSON schema, so there is no reply format to parse or guess at.
+                new ChatOptions { Temperature = 0.4f, MaxOutputTokens = 400, ResponseFormat = ChatResponseFormat.ForJsonSchema<RecapRewrite>() },
                 timeout.Token);
 
-            var text = response.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(text)) return recap;
-            if (!RecapPrompt.KeepsToFacts(text, prompt))
+            if (string.IsNullOrWhiteSpace(response.Text)
+                || JsonSerializer.Deserialize<RecapRewrite>(response.Text, JsonSerializerOptions.Web) is not { } rewrite
+                || string.IsNullOrWhiteSpace(rewrite.Summary))
+                return recap;
+            if (!RecapPrompt.KeepsToFacts(rewrite.Summary + ' ' + string.Join(' ', rewrite.Highlights), prompt))
             {
                 logger.LogWarning("AI recap used a number that is not in the facts; using the template recap.");
                 return recap;
             }
 
-            return RecapPrompt.Rewritten(recap, text, chat.GetService<ChatClientMetadata>()?.ProviderName ?? "ai");
+            return RecapPrompt.Rewritten(recap, rewrite, chat.GetService<ChatClientMetadata>()?.ProviderName ?? "ai");
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             // Timeouts, transport and provider errors (the OpenAI SDK throws ClientResultException, not
-            // HttpRequestException) all end the same way: the template paragraph.
+            // HttpRequestException) and a reply that is not the asked-for JSON all end the same way: the
+            // template paragraph.
             logger.LogWarning(ex, "AI recap failed; using the template recap. Provider={Provider}", chat.GetType().Name);
             return recap;
         }

@@ -1,60 +1,75 @@
 @page "/history"
+@page "/history/{Day}"
 @using System.Globalization
 @using PoWatch.Shared.Services.Recaps
 @inject PoWatchApiClient Api
+@inject NavigationManager Navigation
 @inject IJSRuntime JS
 
 <PageTitle>PoWatch | History</PageTitle>
 
-@* Pick a day by clicking the year, or step with ◀ ▶ and the arrow keys. *@
-<div class="stats-toolbar" data-test="history-toolbar" @onkeydown="OnKeyDown" tabindex="-1">
-    <button class="term-button" @onclick="() => MoveAsync(-1)" aria-label="Previous day" title="Previous day (←)">◀</button>
-    <span class="history-day" data-test="history-day">@_day.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture)</span>
-    <button class="term-button" @onclick="() => MoveAsync(1)" disabled="@(_day >= Today)" aria-label="Next day" title="Next day (→)">▶</button>
-    <button class="term-button" @onclick="() => GoAsync(Today)" disabled="@(_day == Today)" aria-label="Go to today">Today</button>
-</div>
+@* Master-detail in one viewport: the year and the chosen day's numbers on the left, everything about
+   that day behind tabs on the right. The day is in the address (/history/2026-10-03), so it survives a
+   reload and Back/Forward walk the days you looked at. ◀ ▶ and the arrow keys step a day (menus.js). *@
+<div class="history-grid">
+    <div class="history-col">
+        <TerminalPanel Number="H1" Title="The year" Test="history-calendar">
+            <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS · CLICK ONE TO OPEN IT</Aside>
+            <ChildContent>
+                <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
+                          Selected="@CellFor(_day)" OnCellClick="@(i => { if (DayFor(i) is { } d) Go(d); })"
+                          CellTitle="@((i, v) => DayFor(i) is { } d ? $"{d:ddd dd MMM} · {(v > 0 ? v.ToString("P0", CultureInfo.CurrentCulture) : "no data")}" : string.Empty)" />
+            </ChildContent>
+        </TerminalPanel>
 
-<div class="term-grid">
-    <TerminalPanel Number="H1" Title="The year" Class="term-span-2" Test="history-calendar">
-        <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS · CLICK ONE TO OPEN IT</Aside>
-        <ChildContent>
-            <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
-                      Selected="@CellFor(_day)" OnCellClick="@(i => DayFor(i) is { } d ? GoAsync(d) : Task.CompletedTask)"
-                      CellTitle="@((i, v) => DayFor(i) is { } d ? $"{d:ddd dd MMM} · {(v > 0 ? v.ToString("P0", CultureInfo.CurrentCulture) : "no data")}" : string.Empty)" />
-        </ChildContent>
-    </TerminalPanel>
+        <TerminalPanel Number="H2" Title="The day" Class="history-day-panel" Test="history-day-stats">
+            <Aside>
+                <span class="history-nav" data-test="history-toolbar">
+                    <button class="term-button" @onclick="() => Move(-1)" aria-label="Previous day" title="Previous day (←)" data-test="history-prev">◀</button>
+                    <span class="history-day" data-test="history-day">@_day.ToString("ddd d MMM yyyy", CultureInfo.CurrentCulture)</span>
+                    <button class="term-button" @onclick="() => Move(1)" disabled="@(_day >= Today)" aria-label="Next day" title="Next day (→)" data-test="history-next">▶</button>
+                    <button class="term-button" @onclick="() => Go(Today)" disabled="@(_day == Today)" aria-label="Go to today">Today</button>
+                </span>
+            </Aside>
+            <ChildContent>
+                @if (!_loaded)
+                {
+                    <Skeleton Heights="@([96])" />
+                }
+                else if (_presence is null || _presence.SecondsObserved == 0)
+                {
+                    <p class="term-empty" data-test="history-empty">Nothing was observed on this day.</p>
+                }
+                else
+                {
+                    <div class="history-numbers">
+                        <Dial Value="@_presence.Occupancy" Label="occupied" />
+                        <div class="term-stats">
+                            <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0.0%", CultureInfo.InvariantCulture)" Test="history-occupancy" />
+                            <StatCell Label="Observed" Value="@DisplayText.Duration(_presence.SecondsObserved)" />
+                            <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" />
+                            <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
+                            <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
+                            <StatCell Label="Longest empty" Value="@DisplayText.Duration(_presence.LongestEmptySeconds)" />
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </TerminalPanel>
+    </div>
 
-    <TerminalPanel Number="H2" Title="The day" Class="term-span-2" Test="history-day-stats">
-        <Aside>
-            @if (_recap is not null && _presence is { SecondsObserved: > 0 })
-            {
-                <a href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">RECAP PDF ↓</a>
-            }
-        </Aside>
-        <ChildContent>
-            @if (!_loaded)
-            {
-                <p class="term-empty">Loading…</p>
-            }
-            else if (_presence is null || _presence.SecondsObserved == 0)
-            {
-                <p class="term-empty" data-test="history-empty">Nothing was observed on this day.</p>
-            }
-            else
-            {
-                <div class="term-stats">
-                    <StatCell Label="Observed" Value="@DisplayText.Duration(_presence.SecondsObserved)" />
-                    <StatCell Label="Occupancy" Value="@_presence.Occupancy.ToString("0.0%", CultureInfo.InvariantCulture)" Test="history-occupancy" />
-                    <StatCell Label="Visits" Value="@_presence.Visits.ToString(CultureInfo.InvariantCulture)" />
-                    <StatCell Label="Peak at once" Value="@_presence.PeakConcurrency.ToString(CultureInfo.InvariantCulture)" />
-                    <StatCell Label="Busiest" Value="@(_presence.BusiestStartUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "—")" />
-                    <StatCell Label="Longest empty" Value="@DisplayText.Duration(_presence.LongestEmptySeconds)" />
-                </div>
-
-                @if (_recap is not null)
+    <RadzenTabs @bind-SelectedIndex="_tab" RenderMode="TabRenderMode.Server" class="history-tabs" data-test="history-tabs">
+        <Tabs>
+            <RadzenTabsItem Text="Recap">
+                @if (_recap is null || _presence is not { SecondsObserved: > 0 })
+                {
+                    <p class="term-empty">@(_loaded ? "No recap: nothing was observed on this day." : "Loading…")</p>
+                }
+                else
                 {
                     <div class="history-recap" data-test="history-recap">
-                        <p class="recap-summary">@_recap.Summary</p>
+                        @* Keyed on who wrote it: when a model's version replaces the template's, it eases in. *@
+                        <p class="recap-summary fx-rise" @key="_recap.Source">@_recap.Summary</p>
                         @if (_recap.Highlights.Count > 0)
                         {
                             <ul class="recap-highlights">
@@ -64,125 +79,124 @@
                                 }
                             </ul>
                         }
-                        <span class="term-stat-hint">WRITTEN BY @_recap.Source.ToUpperInvariant()</span>
+                        <p class="history-recap-foot">
+                            <span class="term-stat-hint">WRITTEN BY @_recap.Source.ToUpperInvariant()@(_rewriting ? " · A MODEL IS REWORDING IT…" : string.Empty)</span>
+                            <a class="term-button" href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">Recap PDF ↓</a>
+                        </p>
                     </div>
                 }
-            }
-        </ChildContent>
-    </TerminalPanel>
+            </RadzenTabsItem>
 
-    <TerminalPanel Number="H3" Title="Motion across the day" Class="term-span-2">
-        <RadzenChart class="history-chart" aria-label="Motion across the day">
-            <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
-            <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
-            <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
-            <RadzenLegend Visible="false" />
-        </RadzenChart>
-    </TerminalPanel>
+            <RadzenTabsItem Text="Motion">
+                <RadzenChart class="history-chart" aria-label="Motion across the day">
+                    <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
+                    <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
+                    <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
+                    <RadzenLegend Visible="false" />
+                </RadzenChart>
+            </RadzenTabsItem>
 
-    <TerminalPanel Number="H4" Title="Sessions" Class="term-span-2" Test="history-sessions" Flush="true">
-        <Aside>@_sessions.Count THAT DAY</Aside>
-        <ChildContent>
-            @if (!_loaded)
-            {
-                <p class="term-empty">Loading…</p>
-            }
-            else if (_sessions.Count == 0)
-            {
-                <p class="term-empty">No sessions ran on this day.</p>
-            }
-            else
-            {
-                <table class="term-table">
-                    <thead><tr><th>Session</th><th>From</th><th>To</th><th class="r">Length</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (var s in _sessions)
-                        {
-                            <tr>
-                                <td>@DisplayText.SessionTag(s.Id)</td>
-                                <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
-                                <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
-                                <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
-                                <td class="r"><a href="stats?session=@s.Id" title="Open this session on the Stats page">stats</a></td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </ChildContent>
-    </TerminalPanel>
-
-    <TerminalPanel Number="H5" Title="Moments" Class="term-span-2" Test="history-moments">
-        @if (_moments.Count == 0)
-        {
-            <p class="term-empty">No highlights kept on this day.</p>
-        }
-        else
-        {
-            <ol class="away-moments">
-                @foreach (var moment in _moments.Take(6))
-                {
-                    <li>
-                        @if (moment.ImageUrl is { } url)
-                        {
-                            <img src="@url" alt="Snapshot: @moment.Text" loading="lazy" />
-                        }
-                        <span class="num">@moment.AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)</span>
-                        <span>@moment.Text</span>
-                    </li>
-                }
-            </ol>
-        }
-    </TerminalPanel>
-
-    <TerminalPanel Number="H6" Title="What the model said" Class="term-span-2">
-        <Aside>@(_environment?.CaptionCount ?? 0) CAPTIONS</Aside>
-        <ChildContent>
-            @if (_environment is null || _environment.Words.Count == 0)
-            {
-                <p class="term-empty">No captions on this day.</p>
-            }
-            else
-            {
-                <div class="stats-cloud">
-                    @foreach (var word in _environment.Words.Take(20))
+            <RadzenTabsItem Text="@($"Sessions · {_sessions.Count}")">
+                <div data-test="history-sessions">
+                    @if (_sessions.Count == 0)
                     {
-                        <span style="font-size: @((11 + (16.0 * word.Count / _environment.Words[0].Count)).ToString("0", CultureInfo.InvariantCulture))px">@word.Word</span>
+                        <p class="term-empty">@(_loaded ? "No sessions ran on this day." : "Loading…")</p>
+                    }
+                    else
+                    {
+                        <table class="term-table">
+                            <thead><tr><th>Session</th><th>From</th><th>To</th><th class="r">Length</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var s in _sessions)
+                                {
+                                    <tr>
+                                        <td>@DisplayText.SessionTag(s.Id)</td>
+                                        <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
+                                        <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
+                                        <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
+                                        <td class="r"><a href="stats?session=@s.Id" title="Open this session on the Stats page">stats</a></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     }
                 </div>
-                @if (_environment.WeirdestCaption is { } weird)
-                {
-                    <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
-                }
-            }
-        </ChildContent>
-    </TerminalPanel>
+            </RadzenTabsItem>
 
-    <TerminalPanel Number="H7" Title="Time-lapse" Class="term-span-4" Test="history-timelapse">
-        <Aside>@_frames FRAMES · THIS DEVICE</Aside>
-        <ChildContent>
-            @if (_frames == 0)
-            {
-                <p class="term-empty">No time-lapse for this day on this device. While a camera session runs, one frame a minute is saved in this browser only, for 7 days.</p>
-            }
-            else
-            {
-                <canvas @ref="_timelapse" class="timelapse-canvas" aria-label="Time-lapse of the day"></canvas>
-                <div class="timelapse-actions">
-                    <button class="term-button" @onclick="PlayTimelapseAsync" disabled="@_playing" data-test="timelapse-play">@(_playing ? "Playing…" : "▶ Play")</button>
-                    @if (_videoUrl is { } url)
+            <RadzenTabsItem Text="@($"Moments · {_moments.Count}")">
+                <div data-test="history-moments">
+                    @if (_moments.Count == 0)
                     {
-                        <a class="term-button" href="@url" download="powatch-@(DayKey).webm" data-test="timelapse-save">Save video</a>
+                        <p class="term-empty">No highlights kept on this day.</p>
                     }
-                    <span class="term-stat-hint">@DisplayText.Duration((double)_frames / TimelapseFps) at @TimelapseFps fps</span>
+                    else
+                    {
+                        <ol class="away-moments">
+                            @foreach (var moment in _moments.Take(9))
+                            {
+                                <li>
+                                    @if (moment.ImageUrl is { } url)
+                                    {
+                                        <img src="@url" alt="Snapshot: @moment.Text" loading="lazy" />
+                                    }
+                                    <span class="num">@moment.AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)</span>
+                                    <span>@moment.Text</span>
+                                </li>
+                            }
+                        </ol>
+                    }
                 </div>
-            }
-        </ChildContent>
-    </TerminalPanel>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="@($"Captions · {_environment?.CaptionCount ?? 0}")">
+                @if (_environment is null || _environment.Words.Count == 0)
+                {
+                    <p class="term-empty">No captions on this day.</p>
+                }
+                else
+                {
+                    <div class="stats-cloud">
+                        @foreach (var word in _environment.Words.Take(30))
+                        {
+                            <span style="font-size: @((11 + (16.0 * word.Count / _environment.Words[0].Count)).ToString("0", CultureInfo.InvariantCulture))px">@word.Word</span>
+                        }
+                    </div>
+                    @if (_environment.WeirdestCaption is { } weird)
+                    {
+                        <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
+                    }
+                }
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Time-lapse">
+                <div data-test="history-timelapse">
+                    <p class="term-stat-hint">@_frames FRAMES · THIS DEVICE</p>
+                    @if (_frames == 0)
+                    {
+                        <p class="term-empty">No time-lapse for this day on this device. While a camera session runs, one frame a minute is saved in this browser only, for 7 days.</p>
+                    }
+                    else
+                    {
+                        <canvas @ref="_timelapse" class="timelapse-canvas" aria-label="Time-lapse of the day"></canvas>
+                        <div class="timelapse-actions">
+                            <button class="term-button" @onclick="PlayTimelapseAsync" disabled="@_playing" data-test="timelapse-play">@(_playing ? "Playing…" : "▶ Play")</button>
+                            @if (_videoUrl is { } url)
+                            {
+                                <a class="term-button" href="@url" download="powatch-@(DayKey).webm" data-test="timelapse-save">Save video</a>
+                            }
+                            <span class="term-stat-hint">@DisplayText.Duration((double)_frames / TimelapseFps) at @TimelapseFps fps</span>
+                        </div>
+                    }
+                </div>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
 </div>
 
 @code {
     public sealed record Point(DateTime At, double Value);
+
+    private const string DayFormat = "yyyy-MM-dd";
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
@@ -190,13 +204,16 @@
     private static DateOnly CalendarStart => Today.AddDays(-(52 * 7) - (int)Today.DayOfWeek);
 
     private DateOnly _day = Today;
+    private DateOnly? _shown;
+    private int _tab;
     private bool _loaded;
+    private bool _rewriting;
     private PresenceStatsDto? _presence;
     private RecapDto? _recap;
     private EnvironmentStatsDto? _environment;
     private PatternStatsDto? _patterns;
     private List<Point> _motion = [];
-    private List<SessionDto> _sessions = [];
+    private IReadOnlyList<SessionDto> _sessions = [];
     private List<MomentDto> _moments = [];
     private List<double> _calendarCells = [];
 
@@ -206,28 +223,29 @@
     private bool _playing;
     private string? _videoUrl;
 
-    private string DayKey => _day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    /// <summary>The day in the address, yyyy-MM-dd; today when absent, unreadable or in the future.</summary>
+    [Parameter] public string? Day { get; set; }
+
+    private string DayKey => _day.ToString(DayFormat, CultureInfo.InvariantCulture);
 
     protected override async Task OnInitializedAsync()
     {
         _patterns = await Api.GetPatternsAsync(StatsQuery.For("today"));
         BuildCalendar();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _day = DateOnly.TryParseExact(Day, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) && day <= Today ? day : Today;
+        if (_day == _shown) return;
+        _shown = _day;
         await LoadDayAsync();
     }
 
-    private Task MoveAsync(int days) => GoAsync(_day.AddDays(days) > Today ? Today : _day.AddDays(days));
+    private void Move(int days) => Go(_day.AddDays(days) > Today ? Today : _day.AddDays(days));
 
-    private async Task GoAsync(DateOnly day)
-    {
-        _day = day;
-        await LoadDayAsync();
-    }
-
-    private async Task OnKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "ArrowLeft") await MoveAsync(-1);
-        else if (e.Key == "ArrowRight") await MoveAsync(1);
-    }
+    private void Go(DateOnly day) =>
+        Navigation.NavigateTo(day == Today ? "history" : $"history/{day.ToString(DayFormat, CultureInfo.InvariantCulture)}");
 
     private static DateOnly? DayFor(int index)
     {
@@ -245,38 +263,61 @@
     {
         var day = _day;
         _loaded = false;
-        var query = StatsQuery.ForDay(_day);
+        var start = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue));
+        var query = StatsQuery.ForDay(day);
         var presence = Api.GetPresenceAsync(query);
         var environment = Api.GetEnvironmentAsync(query);
-        var sessions = Api.ListSessionsAsync(100);
-        var recap = Api.GetDayRecapAsync(_day, TimeZoneInfo.Local.Id);
+        var sessions = Api.ListSessionsBetweenAsync(start, start.AddDays(1));
+        // The template recap answers at once; a model's rewording replaces it when (if) it arrives.
+        var recap = Api.GetDayRecapAsync(day, TimeZoneInfo.Local.Id, ai: false);
         await Task.WhenAll(presence, environment, sessions, recap);
         if (day != _day) return; // A newer ◀/▶ press owns the panels now.
 
-        _recap = recap.Result;
-
-        _presence = presence.Result;
-        _environment = environment.Result;
+        (_presence, _environment, _recap, _sessions) = (presence.Result, environment.Result, recap.Result, sessions.Result);
         _motion = _presence?.Series.Select(p => new Point(p.AtUtc.LocalDateTime, p.Motion)).ToList() ?? [];
-
-        // Sessions that overlap the local day.
-        var start = _day.ToDateTime(TimeOnly.MinValue);
-        var end = start.AddDays(1);
-        _sessions = sessions.Result
-            .Where(s => s.StartedUtc.LocalDateTime < end && (s.EndedUtc?.LocalDateTime ?? DateTime.Now) >= start)
-            .OrderBy(s => s.StartedUtc)
-            .ToList();
-        _loaded = true;
-
+        _moments = [];
         _videoUrl = null;
-        _frames = await JS.TryInvokeAsync<int>("powatchTimelapse.count", DayKey);
+        _loaded = true;
+        StateHasChanged();
 
+        var rewrite = RewordRecapAsync(day);
+        _frames = await JS.TryInvokeAsync<int>("powatchTimelapse.count", DayKey);
         var moments = await Task.WhenAll(_sessions.Select(s => Api.GetMomentsAsync(s.Id)));
-        if (day != _day) return;
-        _moments = moments.SelectMany(m => m)
-            .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == _day)
-            .OrderByDescending(m => m.Score)
-            .ToList();
+        if (day == _day)
+        {
+            _moments = moments.SelectMany(m => m)
+                .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == day)
+                .OrderByDescending(m => m.Score)
+                .ToList();
+            StateHasChanged();
+        }
+
+        await rewrite;
+    }
+
+    /// <summary>
+    /// Asks the server's model for its version of the day's recap; where the server has none, the
+    /// browser's built-in model gets the same prompt. Either answer must keep to the template's numbers.
+    /// </summary>
+    private async Task RewordRecapAsync(DateOnly day)
+    {
+        if (_recap is not { } template || _presence is not { SecondsObserved: > 0 }) return;
+        _rewriting = true;
+        StateHasChanged();
+
+        var reworded = await Api.GetDayRecapAsync(day, TimeZoneInfo.Local.Id, ai: true);
+        if (reworded is null || reworded.Source == template.Source)
+        {
+            var prompt = RecapPrompt.User(template);
+            var text = await JS.TryInvokeAsync<string>("powatchLocalAi.rewrite", RecapPrompt.System + " Reply with the summary paragraph only.", prompt);
+            reworded = !string.IsNullOrWhiteSpace(text) && RecapPrompt.KeepsToFacts(text, prompt)
+                ? RecapPrompt.Rewritten(template, text, "this browser's model")
+                : null;
+        }
+
+        _rewriting = false;
+        if (day == _day && reworded is not null) _recap = reworded;
+        StateHasChanged();
     }
 
     /// <summary>Plays the day's frames (stored only in this browser) and offers the recording as a download.</summary>

@@ -38,6 +38,9 @@ public sealed class ClassCountDto
 
 public sealed class SceneEventDto
 {
+    public const int MaxTextLength = 300;
+    public const int MaxNameLength = 80;
+
     public DateTimeOffset AtUtc { get; init; }
 
     /// <summary>TrackEnter, TrackExit, LightsOn, LightsOff, Caption, Notable or AchievementCandidate.</summary>

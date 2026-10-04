@@ -24,6 +24,6 @@ public static class DisplayText
             : $"{span.Seconds}s";
     }
 
-    /// <summary>The short session tag shown everywhere: "#AB12".</summary>
-    public static string SessionTag(Guid id) => $"#{id.ToString("N")[..4].ToUpperInvariant()}";
+    /// <inheritdoc cref="PoWatch.Shared.Models.SessionDto.Tag"/>
+    public static string SessionTag(Guid id) => PoWatch.Shared.Models.SessionDto.Tag(id);
 }

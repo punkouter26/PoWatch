@@ -53,6 +53,13 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     /// <summary>Whether a camera session also runs the vision model for captions.</summary>
     public bool Captions { get; set; } = true;
 
+    /// <summary>Watch rules checked against everything that enters the frame (see <see cref="WatchRules"/>).</summary>
+    public List<WatchRule> Rules { get; set; } = [];
+
+    /// <summary>A rule may fire again only after this long, so someone pacing in and out is one alert.</summary>
+    private static readonly TimeSpan AlertCooldown = TimeSpan.FromMinutes(1);
+    private readonly Dictionary<WatchRule, DateTimeOffset> _lastAlert = [];
+
     /// <summary>The recap card to show (AwayCard): set when a session stops or the tab comes back; null once dismissed.</summary>
     public SessionRecap? Recap
     {
@@ -91,6 +98,9 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _cts = new CancellationTokenSource();
         Live = new LiveSensingState { Session = session, Demo = demo, StartedUtc = session.StartedUtc };
         await js.TryInvokeVoidAsync("powatchOutbox.guard", session.Id.ToString());
+        Rules = await WatchRules.LoadAsync(js);
+        _lastAlert.Clear();
+        Cue("start");
 
         if (!demo)
         {
@@ -141,6 +151,8 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
             Recap = new SessionRecap(Live.Session, null, exposure);
         }
 
+        Cue("stop");
+
         _self?.Dispose();
         _self = null;
         Notify();
@@ -165,6 +177,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     public void OnDetectorError(string message)
     {
         Live.LastError = $"Detector: {message}";
+        Cue("error");
         Notify();
     }
 
@@ -184,6 +197,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         _batcher.AddDetections(atUtc, frame, trackId => Live.RegularFor(trackId)?.Id);
         Live.RecordDetections(frame, time.GetUtcNow());
         foreach (var exited in frame.Exited) Live.ForgetTrack(exited.TrackId);
+        foreach (var entered in frame.Entered) Announce(entered);
         Consider(_highlights.OnDetections(frame), atUtc);
         RecogniseStableTracks(frame);
         Live.ExpirePrompts(time.GetUtcNow());
@@ -198,6 +212,27 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         Consider(_highlights.OnCaption(caption), atUtc);
         Notify();
     }
+
+    /// <summary>A soft blip from the side of the frame it entered on, and an alert for any watch rule it matches.</summary>
+    private void Announce(TrackEntered track)
+    {
+        if (!CentroidTracker.IsPresence(track.Label)) return;
+        Cue("enter", pan: track.Edge switch { "Left" => -0.8, "Right" => 0.8, _ => 0 });
+
+        var now = time.GetLocalNow();
+        foreach (var rule in Rules.Where(r => r.Matches(track.Label, now)))
+        {
+            if (_lastAlert.TryGetValue(rule, out var last) && now - last < AlertCooldown) continue;
+            _lastAlert[rule] = now;
+            var text = $"{char.ToUpperInvariant(track.Label[0])}{track.Label[1..]} seen at {now:HH:mm}";
+            Cue("alert");
+            _ = js.TryInvokeVoidAsync("powatchCues.notify", text);
+            // The hub relays it to every open tab of this user, this one included (the tray lists it).
+            _ = api.RaiseAlertAsync(text);
+        }
+    }
+
+    private void Cue(string name, double pan = 0) => _ = js.TryInvokeVoidAsync("powatchCues.play", name, pan);
 
     /// <summary>
     /// Records a highlight as a Notable moment. With a camera, a snapshot of the frame is uploaded
@@ -269,6 +304,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
             {
                 var snapshot = _scene is null && _video is not null ? await js.TryInvokeAsync<string>("powatchPixels.snapshot", _video) : null;
                 Live.AddPrompt(new NamingPrompt(result.Regular, snapshot, time.GetUtcNow()));
+                Cue("regular");
             }
 
             Notify();
@@ -421,11 +457,14 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
                 // Null means the server refused it outright; retrying would never help.
                 if (result is null) Live.RejectedBatches++;
                 else Live.BatchesSent++;
+                // Back online: the offline notice has done its job.
+                if (Live.LastError?.StartsWith("Offline", StringComparison.Ordinal) == true) Live.LastError = null;
                 _batcher.Acknowledge(batch.BatchKey);
                 await js.TryInvokeVoidAsync("powatchOutbox.remove", batch.BatchKey.ToString());
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
+                if (Live.LastError is null) Cue("error");
                 Live.LastError = "Offline — batches are queued and will be resent.";
                 return;
             }

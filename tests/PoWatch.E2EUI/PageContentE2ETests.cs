@@ -150,8 +150,12 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await page.GoToAsync("/history", "HISTORY");
         await Assertions.Expect(page.GetByTestId("history-calendar")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
+        // The day's detail is behind tabs; each opens on a click.
+        await page.GetByRole(AriaRole.Tab, new() { NameRegex = new System.Text.RegularExpressions.Regex("^Sessions") }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Time-lapse" }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Recap" }).ClickAsync();
 
         // The day's recap reads as a sentence and downloads as a real PDF.
         await Assertions.Expect(page.GetByTestId("history-recap")).ToContainTextAsync("WRITTEN BY TEMPLATE");
@@ -179,7 +183,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        await page.GoToAsync("/diagnostics", "SYSTEM");
+        await page.GoToAsync("/system", "SYSTEM");
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Inference engine" }))
             .ToBeVisibleAsync();
@@ -190,8 +194,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        // The old /health address still works; it is the System page now.
-        await page.GoToAsync("/health", "SYSTEM");
+        await page.GoToAsync("/system", "SYSTEM");
 
         await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = 30000 });
         // Wait for the list itself: "Checking…" also renders health-overall, so counting straight

@@ -12,6 +12,7 @@
 @* Four panels: the camera, the numbers, who and what is in frame, and where it moves. Recent events
    scroll on the tape below; pipeline details live on System. On a wide screen the two columns fill
    the viewport (the camera grows into the height left over); narrower, they fall back to the grid. *@
+@{ var census = CensusRows(); }
 <div class="term-grid live-grid">
     <div class="live-col live-col--main">
         <TerminalPanel Number="01" Title="Camera" Class="term-span-2 term-row-span-2 live-camera" Test="live-camera" Flush="true">
@@ -49,7 +50,7 @@
                                     <button class="term-button term-button--primary" @onclick="() => StartAsync(demo: false)" disabled="@_starting" data-test="start-camera">Start camera</button>
                                     <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">Demo scene</button>
                                     <label class="live-toggle">
-                                        <input type="checkbox" @bind="Sensing.Captions" /> Captions (vision model)
+                                        <input type="checkbox" checked="@Sensing.Captions" @onchange="SetCaptionsAsync" /> Captions (vision model)
                                     </label>
                                 </div>
                                 @if (_error is not null)
@@ -87,30 +88,27 @@
             <Aside>TODAY vs USUAL</Aside>
             <ChildContent>
                 <table class="term-table">
-                    <thead><tr><th>Metric</th><th class="r">Now</th><th class="r">Chg</th><th class="live-trend">Trend</th></tr></thead>
+                    @* One cell carries the value and how unusual it is; rows without a baseline have no empty column to show. *@
+                    <thead><tr><th>Metric</th><th class="r">Now · vs usual</th><th class="live-trend">Trend</th></tr></thead>
                     <tbody>
                         <tr data-test="metric-occupancy">
                             <td>OCCUPANCY TODAY</td>
-                            <td class="r">@Percent(_today?.Occupancy)</td>
-                            <td class="r"><ZChip Z="@Anomaly("occupancy")" /></td>
-                            <td><Sparkline Values="@(_today?.Series.Select(p => p.Occupancy).TakeLast(120).ToList() ?? [])" Max="1" Label="Occupancy today" /></td>
+                            <td class="r live-metric">@Percent(_today?.Occupancy) <ZChip Z="@Anomaly("occupancy")" /></td>
+                            <td><Sparkline Values="@_occupancyTrend" Max="1" Label="Occupancy today" /></td>
                         </tr>
                         <tr>
                             <td>VISITS / HR TODAY</td>
-                            <td class="r">@(_today is null ? "—" : _today.VisitsPerHour.ToString("0.0", CultureInfo.InvariantCulture))</td>
-                            <td class="r"><ZChip Z="@Anomaly("visits/hour")" /></td>
-                            <td><Sparkline Values="@(_today?.Series.Select(p => (double)p.Visits).TakeLast(120).ToList() ?? [])" Cyan="true" Label="Visits today" /></td>
+                            <td class="r live-metric">@(_today is null ? "—" : _today.VisitsPerHour.ToString("0.0", CultureInfo.InvariantCulture)) <ZChip Z="@Anomaly("visits/hour")" /></td>
+                            <td><Sparkline Values="@_visitsTrend" Cyan="true" Label="Visits today" /></td>
                         </tr>
                         <tr>
                             <td>MOTION NOW</td>
-                            <td class="r" data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</td>
-                            <td class="r"><ZChip Z="@Anomaly("motion")" /></td>
+                            <td class="r live-metric"><span data-test="metric-motion">@L.Motion.ToString("0.000", CultureInfo.InvariantCulture)</span> <ZChip Z="@Anomaly("motion")" /></td>
                             <td><Sparkline Values="@L.MotionHistory" Label="Motion, last minute" /></td>
                         </tr>
                         <tr data-test="live-light">
                             <td>LIGHT · COLOURS NOW</td>
                             <td class="r">@L.Luminance.ToString("0.00", CultureInfo.InvariantCulture)</td>
-                            <td class="r"></td>
                             <td>
                                 <Sparkline Values="@L.LuminanceHistory" Max="1" Cyan="true" Label="Light, last minute" />
                                 <div class="term-swatches live-swatches" aria-label="Colours in frame now">
@@ -123,14 +121,12 @@
                         </tr>
                         <tr>
                             <td>PEOPLE · ANIMALS NOW</td>
-                            <td class="r" data-test="metric-people">@L.PeopleNow · @L.AnimalsNow</td>
-                            <td class="r"></td>
+                            <td class="r" data-test="metric-people"><span class="fx-tick" @key="(L.PeopleNow, L.AnimalsNow)">@L.PeopleNow · @L.AnimalsNow</span></td>
                             <td class="term-stat-hint">peak @L.PeakConcurrency this session</td>
                         </tr>
                         <tr>
                             <td>VISITS THIS SESSION</td>
-                            <td class="r" data-test="metric-visits">@L.Visits</td>
-                            <td class="r"></td>
+                            <td class="r" data-test="metric-visits"><span class="fx-tick" @key="L.Visits">@L.Visits</span></td>
                             <td class="term-stat-hint">@L.Captions captions</td>
                         </tr>
                     </tbody>
@@ -141,7 +137,7 @@
 
     <div class="live-col">
         <TerminalPanel Number="03" Title="In frame" Class="live-grow" Test="live-tracks" Flush="true">
-            <Aside>@L.Tracks.Count TRACKED · @CensusRows.Count CLASSES</Aside>
+            <Aside>@L.Tracks.Count TRACKED · @census.Count CLASSES</Aside>
             <ChildContent>
                 @if (L.Tracks.Count > 0)
                 {
@@ -152,7 +148,7 @@
                         }
                     </ul>
                 }
-                @if (CensusRows.Count == 0)
+                @if (census.Count == 0)
                 {
                     <p class="term-empty">Nothing seen yet.</p>
                 }
@@ -161,7 +157,7 @@
                     <table class="term-table" data-test="live-census">
                         <thead><tr><th>Class</th><th class="r">Now</th><th class="r">Peak</th><th class="r">Share</th></tr></thead>
                         <tbody>
-                            @foreach (var row in CensusRows.Take(8))
+                            @foreach (var row in census.Take(8))
                             {
                                 <tr><td>@row.Name</td><td class="r">@L.ClassesNow.GetValueOrDefault(row.Name)</td><td class="r">@row.Peak</td><td class="r">@Percent(row.Share)</td></tr>
                             }
@@ -174,7 +170,15 @@
         <TerminalPanel Number="04" Title="Motion grid" Test="live-motion-grid">
             <Aside>16×9 · EDGES TODAY</Aside>
             <ChildContent>
-                <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+                @if (_shaderHeat)
+                {
+                    @* Drawn by heat-gl.js (a WebGL2 shader) after every render; the plain grid is the fallback. *@
+                    <canvas @ref="_heat" class="heat-gl" role="img" aria-label="Where motion is happening right now" data-test="heat-gl"></canvas>
+                }
+                else
+                {
+                    <HeatGrid Values="@L.Heat.Select(v => (double)v).ToList()" Label="Where motion is happening right now" />
+                }
                 <div class="live-edges">
                     @foreach (var edge in Edges)
                     {
@@ -190,6 +194,10 @@
     private static readonly string[] Edges = ["Left", "Top", "Right", "Bottom"];
 
     private ElementReference _slot;
+    private ElementReference _heat;
+    private bool _shaderHeat = true;
+    private IReadOnlyList<double> _occupancyTrend = [];
+    private IReadOnlyList<double> _visitsTrend = [];
     private DotNetObjectReference<Live>? _self;
     private bool _starting;
     private bool _wasRunning;
@@ -206,11 +214,13 @@
 
     private LiveSensingState L => Sensing.Live;
 
-    private IReadOnlyList<ClassStatDto> CensusRows =>
-        L.ClassesSeen.Keys.Concat(_objects?.Classes.Select(c => c.Name) ?? [])
+    private Dictionary<string, ClassStatDto> _knownClasses = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Built once per render (the page renders four times a second): what is in frame now first, then history.</summary>
+    private List<ClassStatDto> CensusRows() =>
+        L.ClassesSeen.Keys.Concat(_knownClasses.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(name => _objects?.Classes.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
-                ?? new ClassStatDto { Name = name, Peak = L.ClassesNow.GetValueOrDefault(name) })
+            .Select(name => _knownClasses.GetValueOrDefault(name) ?? new ClassStatDto { Name = name, Peak = L.ClassesNow.GetValueOrDefault(name) })
             .OrderByDescending(c => L.ClassesNow.GetValueOrDefault(c.Name))
             .ThenByDescending(c => c.TicksPresent)
             .ToList();
@@ -232,6 +242,12 @@
             _self = DotNetObjectReference.Create(this);
             await JS.TryInvokeVoidAsync("powatchFeed.watchReturn", _self, 300);
             await DockFeedAsync();
+        }
+
+        if (_shaderHeat && !await JS.TryInvokeAsync<bool>("powatchHeat.draw", _heat, L.Heat, 16, 9))
+        {
+            _shaderHeat = false;
+            StateHasChanged();
         }
 
         // ?start=camera|demo (header Start, or a typed URL) works whether or not Live was already open.
@@ -311,6 +327,11 @@
         var objects = Api.GetObjectsAsync(today);
         await Task.WhenAll(presence, space, patterns, objects);
         (_today, _space, _patterns, _objects) = (presence.Result, space.Result, patterns.Result, objects.Result);
+        // Derived once per refresh, not once per render.
+        _occupancyTrend = _today?.Series.Select(p => p.Occupancy).TakeLast(120).ToList() ?? [];
+        _visitsTrend = _today?.Series.Select(p => (double)p.Visits).TakeLast(120).ToList() ?? [];
+        _knownClasses = _objects?.Classes.GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase) ?? _knownClasses;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -330,6 +351,12 @@
             await JS.TryInvokeVoidAsync("powatchFeed.dock", feed, _slot);
         else
             await JS.TryInvokeVoidAsync("powatchFeed.undock");
+    }
+
+    private async Task SetCaptionsAsync(ChangeEventArgs e)
+    {
+        Sensing.Captions = e.Value is true;
+        await JS.TryInvokeVoidAsync("localStorage.setItem", PoWatch.Client.Layout.MainLayout.CaptionsKey, Sensing.Captions ? "on" : "off");
     }
 
     private double? Anomaly(string metric) => _patterns?.Anomalies.FirstOrDefault(a => a.Metric == metric)?.Z;

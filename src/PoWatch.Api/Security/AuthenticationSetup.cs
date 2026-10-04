@@ -53,6 +53,8 @@ public static class AuthenticationSetup
             var allowedTenants = azureAd.GetSection("AllowedTenants").Get<string[]>() ?? [];
             var instance = (azureAd["Instance"] ?? "https://login.microsoftonline.com/").TrimEnd('/');
             var tenant = azureAd["TenantId"] ?? "common"; // /common accepts work/school + personal accounts
+            if (allowedTenants.Length == 0 && builder.Environment.IsProduction())
+                Serilog.Log.Warning("AzureAd:AllowedTenants is empty: any Microsoft account can sign in and get its own data partition. List the tenant ids that may use this app.");
 
             auth.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
             {
@@ -77,7 +79,12 @@ public static class AuthenticationSetup
                 {
                     if (allowedTenants.Length == 0)
                         return issuer; // no restriction configured
-                    if (allowedTenants.Any(t => issuer.Contains(t, StringComparison.OrdinalIgnoreCase)))
+                    // The tenant is the issuer's first path segment (https://login.microsoftonline.com/{tid}/v2.0).
+                    // Compare it whole: a substring match would also accept a tenant id that merely contains an allowed one.
+                    var tenantId = Uri.TryCreate(issuer, UriKind.Absolute, out var uri) && uri.Segments.Length > 1
+                        ? uri.Segments[1].Trim('/')
+                        : null;
+                    if (allowedTenants.Contains(tenantId, StringComparer.OrdinalIgnoreCase))
                         return issuer;
                     throw new SecurityTokenInvalidIssuerException(
                         $"Issuer '{issuer}' is not in the configured AllowedTenants list.");

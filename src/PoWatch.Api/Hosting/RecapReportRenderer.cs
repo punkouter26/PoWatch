@@ -4,7 +4,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace PoWatch.Api.Infrastructure;
+namespace PoWatch.Api.Hosting;
 
 /// <summary>
 /// Renders a <see cref="RecapDto"/> to a one-to-two page PDF with QuestPDF (Community licence).

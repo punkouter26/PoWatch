@@ -12,7 +12,7 @@ internal static class SnapshotEndpoints
         app.MapPost("/api/snapshots", async (string? day, HttpContext http, ISnapshotStore store, CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
-                if (!DateOnly.TryParse(day, System.Globalization.CultureInfo.InvariantCulture, out var localDay))
+                if (!ApiParsing.TryDay(day, out var localDay))
                     return Results.BadRequest(new { message = "day must be yyyy-MM-dd (the browser's local date)." });
 
                 var upload = await store.CreateUploadAsync(userId, localDay, ct);
