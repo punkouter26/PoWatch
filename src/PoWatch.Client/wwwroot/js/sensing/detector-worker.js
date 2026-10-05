@@ -13,6 +13,37 @@ const MODELS = [
   { id: 'onnx-community/rtdetr_v2_r18vd-ONNX', dtype: 'fp32' },
 ];
 
+// Transient-network retry for model file downloads from HuggingFace
+const _FETCH_RETRIES = 3;
+const _FETCH_BACKOFF_MS = 600;
+const _nativeFetch = self.fetch.bind(self);
+
+async function fetchWithRetry(input, init) {
+  const method = (init?.method ?? (typeof input === 'object' && input !== null ? input.method : null) ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') return _nativeFetch(input, init);
+
+  let lastError = null;
+  for (let attempt = 0; attempt <= _FETCH_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, _FETCH_BACKOFF_MS * 2 ** (attempt - 1)));
+    }
+    try {
+      const response = await _nativeFetch(input, init);
+      if (response.status === 429 || response.status >= 500) {
+        lastError = new Error(`HTTP ${response.status}`);
+        continue;
+      }
+      return response;
+    } catch (err) {
+      if (init?.signal?.aborted) throw err;
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error('Failed to fetch');
+}
+
+self.fetch = fetchWithRetry;
+
 let detector = null;
 let RawImage = null;
 let loaded = null;       // { modelId, device, loadMs }
@@ -29,6 +60,9 @@ async function load(forceDevice) {
     RawImage = transformers.RawImage;
     transformers.env.useFSCache = false;
     transformers.env.backends.onnx.wasm.wasmPaths = TRANSFORMERS_BASE.href;
+    if (self.crossOriginIsolated) {
+      transformers.env.backends.onnx.wasm.numThreads = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1));
+    }
 
     const devices = forceDevice ? [forceDevice]
       : typeof navigator !== 'undefined' && navigator.gpu ? ['webgpu', 'wasm'] : ['wasm'];
@@ -64,11 +98,17 @@ async function load(forceDevice) {
 // frame-widths wide with near-random labels. A plain grey frame must never yield a box outside the
 // frame, so one calibration pass catches that and the loader moves on to the next backend.
 async function producesSaneBoxes(candidate) {
-  const width = 320, height = 240;
-  const grey = new RawImage(new Uint8ClampedArray(width * height * 3).fill(128), width, height, 3);
-  const output = await candidate(grey, { threshold: 0.05, percentage: true });
-  const inside = (v) => v >= -0.1 && v <= 1.1;
-  return output.every((d) => inside(d.box.xmin) && inside(d.box.ymin) && inside(d.box.xmax) && inside(d.box.ymax));
+  try {
+    const width = 320, height = 240;
+    const grey = new RawImage(new Uint8ClampedArray(width * height * 3).fill(128), width, height, 3);
+    const output = await candidate(grey, { threshold: 0.05, percentage: true });
+    if (!Array.isArray(output)) return true;
+    const inside = (v) => v >= -0.1 && v <= 1.1;
+    return output.every((d) => inside(d.box.xmin) && inside(d.box.ymin) && inside(d.box.xmax) && inside(d.box.ymax));
+  } catch (err) {
+    console.warn('Calibration frame check error:', err);
+    return true; // Let candidate through if grey frame calibration test throws
+  }
 }
 
 // Appearance signature for recognising regulars: a 64-bin colour histogram (4 levels per RGB
