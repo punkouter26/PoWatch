@@ -8,10 +8,11 @@
     const LEVELS = { off: 0, low: 0.3, mid: 0.6, high: 1 };
     const ORDER = ['off', 'low', 'mid', 'high'];
 
-    // Each note: [frequency Hz, starts at s, lasts s, waveform].
+    // Each note: [frequency Hz, starts at s, lasts s, waveform, glides to Hz?, loudness ×?].
+    // Start and stop are the tube switching on and off (crt.js): a thump and a glide up, a glide down and a thump.
     const CUES = {
-        start: [[440, 0, 0.09, 'sine'], [660, 0.09, 0.16, 'sine']],
-        stop: [[660, 0, 0.09, 'sine'], [330, 0.09, 0.18, 'sine']],
+        start: [[62, 0, 0.12, 'triangle'], [320, 0.03, 0.42, 'sine', 1900, 0.45], [880, 0.45, 0.16, 'sine']],
+        stop: [[1900, 0, 0.36, 'sine', 240, 0.45], [62, 0.34, 0.14, 'triangle']],
         enter: [[880, 0, 0.06, 'sine']],
         regular: [[587, 0, 0.08, 'sine'], [880, 0.08, 0.14, 'sine']],
         alert: [[740, 0, 0.12, 'square'], [740, 0.18, 0.12, 'square']],
@@ -29,9 +30,18 @@
 
     /** Plays a cue; `pan` runs from -1 (left edge of the frame) to 1 (right edge). */
     function play(name, pan) {
-        const volume = LEVELS[level];
         const notes = CUES[name];
-        if (!volume || !notes) return;
+        if (notes) sound(notes, pan);
+    }
+
+    /** One soft note at `frequency` Hz (the skyline's fly-over plays the year with these). */
+    function tone(frequency, seconds, pan) {
+        sound([[Number(frequency) || 440, 0, Math.min(2, Number(seconds) || 0.2), 'sine', null, 0.6]], pan);
+    }
+
+    function sound(notes, pan) {
+        const volume = LEVELS[level];
+        if (!volume) return;
         try {
             ctx ??= new AudioContext();
             if (ctx.state === 'suspended') ctx.resume();
@@ -39,15 +49,16 @@
             out.pan.value = Math.max(-1, Math.min(1, Number(pan) || 0));
             out.connect(ctx.destination);
 
-            for (const [frequency, at, lasts, wave] of notes) {
+            for (const [frequency, at, lasts, wave, glideTo, loudness] of notes) {
                 const from = ctx.currentTime + at;
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = wave;
-                osc.frequency.value = frequency;
+                osc.frequency.setValueAtTime(frequency, from);
+                if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, from + lasts);
                 // A fast attack and an exponential decay: a pluck, not a beep.
                 gain.gain.setValueAtTime(0.0001, from);
-                gain.gain.exponentialRampToValueAtTime(0.18 * volume, from + 0.012);
+                gain.gain.exponentialRampToValueAtTime(0.18 * volume * (loudness ?? 1), from + 0.012);
                 gain.gain.exponentialRampToValueAtTime(0.0001, from + lasts);
                 osc.connect(gain).connect(out);
                 osc.start(from);
@@ -83,5 +94,5 @@
         try { return await Notification.requestPermission(); } catch { return 'denied'; }
     }
 
-    window.powatchCues = { play, cycle, level: () => level, notify, allowNotifications };
+    window.powatchCues = { play, tone, cycle, level: () => level, notify, allowNotifications };
 })();

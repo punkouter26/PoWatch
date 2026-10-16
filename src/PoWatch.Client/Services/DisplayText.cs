@@ -24,6 +24,17 @@ public static class DisplayText
             : $"{span.Seconds}s";
     }
 
+    /// <summary>"Rain · 7°–19°C · 7.2 mm · SUN 06:58–18:10": a day's weather on one line.</summary>
+    public static string Weather(PoWatch.Shared.Models.WeatherDayDto day)
+    {
+        ArgumentNullException.ThrowIfNull(day);
+        var line = string.Create(CultureInfo.CurrentCulture, $"{day.Summary} · {day.TempMinC:0}°–{day.TempMaxC:0}°C");
+        if (day.PrecipitationMm >= 0.1) line += string.Create(CultureInfo.CurrentCulture, $" · {day.PrecipitationMm:0.#} mm");
+        if (day.SunriseUtc is { } rise && day.SunsetUtc is { } set)
+            line += $" · SUN {rise.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)}–{set.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)}";
+        return line;
+    }
+
     /// <inheritdoc cref="PoWatch.Shared.Models.SessionDto.Tag"/>
     public static string SessionTag(Guid id) => PoWatch.Shared.Models.SessionDto.Tag(id);
 }

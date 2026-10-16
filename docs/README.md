@@ -45,17 +45,20 @@ camera ──► browser (all sensing on-device)                        server
 `/` Live, one screen under a range picker and an "Ask" box: a 4×4 grid of the camera (2×2, one
 Start button; the demo scene is offered until a first session exists), key metrics, who is in frame,
 the live motion grid and nine stat panels. The grid shows the headlines; "All data ↓" on the bar
-downloads every number behind them as one JSON file · `/history/{yyyy-MM-dd}` the year and the day's
-numbers beside three tabs (recap with motion, sessions and captions + PDF; moments; time-lapse) ·
+downloads every number behind them as one JSON file · `/history/{yyyy-MM-dd}` the year (with the
+weather's effect, once a place is set), the day's numbers and weather, and the week against the week
+before, beside four tabs (recap with motion, sessions and captions + PDF + share link; replay; moments;
+time-lapse) ·
 `/regulars` a sortable, filterable grid: rename in place, tick several to merge · `/settings` every
-optional choice (theme, sound, captions, watch rules) plus sign out, your data (CSV export, delete
-everything) and the way to `/system` (connections, runtime, inference, pipeline). Range, session and day live in the URL, so reloads, links and Back/Forward keep
+optional choice (theme, sound, captions, watch rules), what the server keeps for you (retention
+window, weather place, weekly email), your shared recap links, plus sign out, your data (CSV export,
+delete everything) and the way to `/system` (connections, runtime, inference, pipeline). Range, session and day live in the URL, so reloads, links and Back/Forward keep
 their place. Every page needs a sign-in.
 
 **Header.** Brand, three section keys, a status chip (state and uptime), Start/Stop, a bell and a gear
-that opens Settings. The bell is the one notification tray: sensing problems, watch-rule alerts and
-"name this newcomer" prompts; it opens by itself for a problem or an alert, and a prompt only raises
-its count. Watch rules ("person between 22:00 and
+that opens Settings. The bell is the one notification tray: sensing problems, watch-rule alerts,
+"name this newcomer" prompts and, once a week, last week in review; it opens by itself for a problem
+or an alert, and the rest only raise its count. Watch rules ("person between 22:00 and
 06:00") are edited on Settings, kept in the browser, checked as things enter the frame, and relayed to
 every open tab over the hub (plus a desktop notification where allowed).
 
@@ -74,6 +77,22 @@ vision runtime), so PoWatch opens without a network; batches wait in the outbox 
 the shell stays open for whoever was last signed in on that browser; the server still decides what
 the cookie may read.
 
+**Tube switch** (`wwwroot/js/crt.js`). Start and Stop play a short CRT power-on and power-off over the
+camera panel (a transparent WebGL2 overlay, so camera and demo alike), timed with the start and stop
+cues; Stop keeps the picture docked until the tube is dark. Nothing plays under reduced motion.
+
+**The year in 3D** (History, `wwwroot/js/skyline.js`). The year panel switches between the 2D
+calendar and a skyline of instanced WebGL2 towers (height = occupancy, blue = a wet day): drag or
+arrow keys to turn, scroll or + − to zoom, hover for the day, click to open it. "Fly over" glides
+along the year and plays each week as a note (minor pentatonic, higher when busier). It draws only on
+change, never in an idle loop, since the detector and the caption model share the GPU.
+
+**Replay** (History, `wwwroot/js/replay.js`). A day minute by minute from `GET /api/stats/replay`:
+a track of the whole day (occupancy bars, motion line, moment ticks, caption dots) under a native
+range slider (drag, ← →, Home/End); the playhead drives the motion grid shader, the readout, the
+caption of the moment and, where this browser kept a time-lapse, the nearest camera frame. Play walks
+the observed minutes only.
+
 **Comet trails** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) follow people and animals over
 the camera and add up to a long-exposure PNG on the session recap; they respect
 `prefers-reduced-motion`.
@@ -91,12 +110,19 @@ the camera and add up to a long-exposure PNG on the session recap; they respect
 | `POST /api/alerts` | relay a fired watch rule to the user's open tabs |
 | `GET /api/export.csv`, `DELETE /api/data` | one row per observed day; delete everything stored for the caller |
 | `/api/regulars` (+ `/observe`, `/merge`, `PATCH /{id}`), `POST /api/snapshots`, `GET /api/snapshots/read`, `GET /api/sessions/{id}/moments` | regulars and highlights |
+| `GET /api/stats/replay?date=&tz=` | one day's observed minutes with their 16×9 motion grids (base64 bytes), and its captions, moments, entrances and exits |
+| `GET`/`PUT /api/profile`, `GET /api/places?q=` | retention window, weather place, weekly email; place search (Open-Meteo) |
+| `GET /api/weather/year?tz=` | a year of daily weather at the caller's place and, with enough days, how wet days compare with dry |
+| `GET /api/digest/week?date=&tz=` | the Monday-to-Sunday week holding a day against the week before |
+| `POST`/`GET /api/shares`, `DELETE /api/shares/{token}` | make, list and take down shared recap links (1, 7 or 30 days) |
+| `/s/{token}`, `/s/{token}/card.png` (public) | a shared recap as plain HTML (no scripts, `noindex`, strict CSP, `no-store`) and its 1200×630 preview card |
 | `/hubs/stats` | SignalR: `statsChanged`, `alert` |
 | `/health`, `/health/live`, `/diag/boot` (public), `/diag`, `/api/diagnostics/status` (signed in) | operations |
 
-Unknown `/api/*` routes return 404. Everything except the SPA shell, `/health`, `/diag/boot` and
-sign-in requires the BFF cookie (Entra ID, or guest sign-in in Dev/Test). `/api`, `/auth` and `/hubs`
-are rate limited to 300 requests a minute per signed-in user (per IP when anonymous).
+Unknown `/api/*` routes return 404. Everything except the SPA shell, `/health`, `/diag/boot`, shared
+recap pages (`/s/…`) and sign-in requires the BFF cookie (Entra ID, or guest sign-in in Dev/Test).
+`/api`, `/auth`, `/hubs` and `/s` are rate limited to 300 requests a minute per signed-in user (per IP
+when anonymous).
 
 **Who may sign in.** `AzureAd:AllowedTenants` lists the tenant ids that may; it is compared with the
 token's tenant exactly. Left empty, any Microsoft account can sign in and gets its own (empty) data
@@ -105,9 +131,30 @@ partition — production logs a warning at startup when that is the case.
 ## Storage
 
 Azure Table Storage (Azurite locally), partitioned by user: `PoWatchSessions`, `PoWatchTicks`,
-`PoWatchSceneEvents`, `PoWatchIngestLedger`, `PoWatchRollups`, `PoWatchRegulars`.
-Blob containers: `snapshots`, `dataprotection-keys`. Retention: keep
-everything. Storage is required: Azurite locally (docker compose) and in tests (Testcontainers).
+`PoWatchSceneEvents`, `PoWatchIngestLedger`, `PoWatchRollups`, `PoWatchRegulars`, `PoWatchProfiles`;
+`PoWatchShares` is keyed by token (and deleted by owner on "delete everything").
+Blob containers: `snapshots`, `dataprotection-keys`. Storage is required: Azurite locally (docker
+compose) and in tests (Testcontainers).
+
+**Retention.** Everything is kept unless the user picks a window (30 days, 90 days or a year) in
+Settings. A background job (every 6 h) then deletes that user's raw ticks, scene events, snapshots
+and ingest claims older than the window. Rollups are never pruned, so charts, the calendar and
+all-time numbers keep the whole history; replays, captions and moments of older days go.
+
+**Weather.** Optional context from Open-Meteo (free, no key): the user picks a place by name; History
+shows each day's weather and sun, and once there are three or more wet and dry observed days each,
+whether wet days run busier. Older days come from the reanalysis archive (cached a day), the last
+week from the forecast API (cached an hour); a failed read leaves the days out.
+
+**Weekly digest.** The week in review is computed on demand from the day rollups (History's "The
+week" panel; the bell offers last week once per browser). It is also mailed from Monday 08:00 in the
+user's zone when they turn the weekly email on, which needs `Digest:Email:ConnectionString` and
+`Digest:Email:Sender` (Azure Communication Services Email) and, for the link back, `Digest:AppUrl`.
+Without them the switch is disabled and says why.
+
+**Sharing.** "Share link" on a day's recap freezes it (without moments, whose snapshot links are
+private) behind a 128-bit random token for 1, 7 or 30 days. Anyone with the link reads the frozen
+copy; the owner can take it down from History or Settings, and "delete everything" removes it.
 
 ## Recaps
 
@@ -138,7 +185,7 @@ multi-threaded.
 - Test caps (`SCRIPTS/check-test-caps.ps1`): 100 unit · 50 integration · 25 API E2E · 25 UI E2E.
 - `SCRIPTS/check-hygiene.ps1`: layout, naming, central package versions, shell assets, and no
   caregiver-era vocabulary.
-- CI runs unit, integration and API E2E; UI E2E runs locally (`E2E_LOCAL=1`).
+- CI runs all four suites; UI E2E installs Playwright's Chromium and runs with `E2E_LOCAL=1`.
 
 ## Deploy
 

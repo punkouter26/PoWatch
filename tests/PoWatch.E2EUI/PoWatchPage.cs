@@ -37,6 +37,12 @@ internal static class PoWatchPage
         return page;
     }
 
+    /// <summary>
+    /// Headers that make a <c>page.APIRequest</c> call act as <paramref name="user"/>. APIRequest does not
+    /// send the page's sign-in cookie, so without them the Dev/Test fake auth treats the call as "guest".
+    /// </summary>
+    public static Dictionary<string, string> As(string user) => new() { ["X-Fake-User"] = user };
+
     /// <summary>Navigate within the booted app and wait for its section key to light up.</summary>
     public static async Task GoToAsync(this IPage page, string route, string expectedSection)
     {

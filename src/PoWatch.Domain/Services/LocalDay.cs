@@ -7,12 +7,19 @@ namespace PoWatch.Domain.Services;
 /// </summary>
 public static class LocalDay
 {
+    /// <summary>The named time zone (Windows or IANA id), or null when it is missing or unknown.</summary>
+    public static TimeZoneInfo? FindZone(string? id) =>
+        !string.IsNullOrWhiteSpace(id) && TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone) ? zone : null;
+
     /// <summary>The local calendar day that <paramref name="instant"/> falls on in <paramref name="zone"/>.</summary>
     public static DateOnly Of(DateTimeOffset instant, TimeZoneInfo zone) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, zone).DateTime);
 
     /// <summary>The local calendar day currently in progress.</summary>
     public static DateOnly Today(TimeProvider time, TimeZoneInfo zone) => Of(time.GetUtcNow(), zone);
+
+    /// <summary>The Monday that starts the week <paramref name="day"/> is in (weeks run Monday to Sunday).</summary>
+    public static DateOnly WeekStart(DateOnly day) => day.AddDays(-(((int)day.DayOfWeek + 6) % 7));
 
     /// <summary>
     /// The half-open UTC window [start, end) covering local midnight to local midnight. Days that

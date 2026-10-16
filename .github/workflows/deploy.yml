@@ -56,9 +56,10 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - run: dotnet restore ${{ env.SOLUTION_PATH }}
       - run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release
-      # Formatting, test caps and the three CI suites (unit: pure logic; integration and API E2E: Azurite
-      # via Testcontainers). An emergency deploy skips all of it with this one condition.
-      - name: Quality gates (caps, format, unit, integration, API E2E)
+      # Formatting, test caps and all four suites (unit: pure logic; integration, API E2E and UI E2E:
+      # Azurite via Testcontainers; UI E2E drives Playwright's Chromium against the app). An emergency
+      # deploy skips all of it with this one condition.
+      - name: Quality gates (caps, format, unit, integration, API E2E, UI E2E)
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.emergency) }}
         shell: pwsh
         run: |
@@ -66,11 +67,13 @@ jobs:
           ./SCRIPTS/check-test-caps.ps1
           dotnet format ${{ env.SOLUTION_PATH }} --verify-no-changes --verbosity minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($suite in 'Unit', 'Integration', 'E2EAPI') {
+          ./tests/PoWatch.E2EUI/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:E2E_LOCAL = '1'
+          foreach ($suite in 'Unit', 'Integration', 'E2EAPI', 'E2EUI') {
             dotnet test "tests/PoWatch.$suite/PoWatch.$suite.csproj" -c Release --no-build --logger "trx;LogFileName=$($suite.ToLower()).trx" --results-directory testresults
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-      # UI E2E stays local (needs Chromium): E2E_LOCAL=1 or E2E_BASE_URL, after installing Playwright's browser.
       - name: Upload test results
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

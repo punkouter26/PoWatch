@@ -20,6 +20,7 @@ public sealed class IngestService(
     TimeProvider time)
 {
     private static readonly RollupGrain[] BucketedGrains = [RollupGrain.Minute, RollupGrain.Hour, RollupGrain.Day];
+    private const int MaxConcurrentMerges = 32;
 
     public async Task<IngestOutcome> IngestAsync(
         string userId,
@@ -71,21 +72,16 @@ public sealed class IngestService(
             .Concat(events.Select(e => (At: e.AtUtc, Rollup: Rollup.FromEvent(e))))
             .ToList();
 
-        // One merge per touched bucket, not per tick.
-        foreach (var grain in BucketedGrains)
-        {
-            foreach (var bucket in deltas.GroupBy(d => RollupBuckets.StartUtc(grain, d.At, zone)))
-            {
-                var delta = bucket.Select(d => d.Rollup).Aggregate(Rollup.Merge);
-                await rollups.MergeAsync(userId, grain, bucket.Key, delta, cancellationToken);
-            }
-        }
-
+        // One merge per touched bucket, not per tick. Every bucket is its own row, so the merges run
+        // together, a bounded number at a time: a backlog batch can touch thousands of minute buckets.
+        var merges = BucketedGrains.SelectMany(grain => deltas
+            .GroupBy(d => RollupBuckets.StartUtc(grain, d.At, zone))
+            .Select(bucket => (Grain: grain, StartUtc: bucket.Key, Delta: bucket.Select(d => d.Rollup).Aggregate(Rollup.Merge))))
+            .ToList();
         if (deltas.Count > 0)
-        {
-            var allTime = deltas.Select(d => d.Rollup).Aggregate(Rollup.Merge);
-            await rollups.MergeAsync(userId, RollupGrain.AllTime, DateTimeOffset.UnixEpoch, allTime, cancellationToken);
-        }
+            merges.Add((RollupGrain.AllTime, DateTimeOffset.UnixEpoch, deltas.Select(d => d.Rollup).Aggregate(Rollup.Merge)));
+        foreach (var chunk in merges.Chunk(MaxConcurrentMerges))
+            await Task.WhenAll(chunk.Select(m => rollups.MergeAsync(userId, m.Grain, m.StartUtc, m.Delta, cancellationToken)));
 
         // Regulars' totals move with the rollups: only the first time a batch is claimed.
         foreach (var exit in events.Where(e => e.Kind == SceneEventKind.TrackExit && e.RegularId is not null))

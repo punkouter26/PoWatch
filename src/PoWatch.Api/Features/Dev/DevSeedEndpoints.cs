@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Caching.Hybrid;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
 using PoWatch.Application.Contracts;
@@ -26,7 +25,6 @@ internal static class DevSeedEndpoints
                 string? tz,
                 HttpContext http,
                 IRollupStore rollups,
-                HybridCache cache,
                 TimeProvider time,
                 CancellationToken ct) =>
             {
@@ -45,13 +43,13 @@ internal static class DevSeedEndpoints
                     await Task.WhenAll(chunk.Select(write => write()));
                 await rollups.MergeAsync(userId, RollupGrain.AllTime, DateTimeOffset.UnixEpoch, plan.AllTime, ct);
 
-                await cache.RemoveByTagAsync(StatsEndpoints.CacheTag(userId), ct);
                 return Results.Ok(new { days = dayCount, buckets = plan.Buckets.Count });
             })
             .WithTags("Dev")
             .RequireAuthorization()
             .WithName("DevSeed")
-            .WithSummary("Development/Test only: seed synthetic rollup history for the caller.");
+            .WithSummary("Development/Test only: seed synthetic rollup history for the caller.")
+            .InvalidatesStats();
 
         return app;
     }

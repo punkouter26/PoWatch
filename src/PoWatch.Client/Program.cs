@@ -14,7 +14,8 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"];
 // One stable session id per app load, threaded onto every BFF call by CorrelationHandler so the
 // server can correlate an entire monitoring session instead of seeing N unrelated requests.
 var sessionId = Guid.NewGuid().ToString("N");
-builder.Services.AddScoped(sp => new HttpClient(new CorrelationHandler(sessionId) { InnerHandler = new HttpClientHandler() })
+// Reads that fail on the way are retried (RetryHandler); every attempt keeps the request's correlation id.
+builder.Services.AddScoped(sp => new HttpClient(new CorrelationHandler(sessionId) { InnerHandler = new RetryHandler { InnerHandler = new HttpClientHandler() } })
 {
     BaseAddress = new Uri(string.IsNullOrWhiteSpace(apiBaseUrl)
         ? builder.HostEnvironment.BaseAddress

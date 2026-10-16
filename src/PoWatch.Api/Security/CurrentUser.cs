@@ -16,4 +16,10 @@ internal static class CurrentUser
         ?? user?.FindFirst("oid")?.Value
         ?? user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
         ?? user?.FindFirst("sub")?.Value;
+
+    /// <summary>The address the sign-in carried: preferred_username (OIDC), then email, then upn.</summary>
+    public static string? Email(ClaimsPrincipal? user) =>
+        user?.FindFirst("preferred_username")?.Value
+        ?? user?.FindFirst(ClaimTypes.Email)?.Value
+        ?? user?.FindFirst("upn")?.Value;
 }

@@ -17,7 +17,6 @@ public sealed class AzureSnapshotStore(AzureStorageClients clients, IOptions<Azu
 
     public async Task<SnapshotUpload?> CreateUploadAsync(string userId, DateOnly localDay, CancellationToken cancellationToken)
     {
-        clients.EnsureDevelopmentBlobCorsConfigured();
         var prefix = $"{Prefix(userId)}{localDay.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}/";
 
         var count = 0;
@@ -35,9 +34,24 @@ public sealed class AzureSnapshotStore(AzureStorageClients clients, IOptions<Azu
     public Task<Uri?> CreateReadUrlAsync(string userId, string path, CancellationToken cancellationToken)
     {
         if (!IsOwnedBy(userId, path)) return Task.FromResult<Uri?>(null);
-        clients.EnsureDevelopmentBlobCorsConfigured();
         var url = _container.GetBlobClient(path).GenerateSasUri(BlobSasPermissions.Read, DateTimeOffset.UtcNow.Add(ReadWindow));
         return Task.FromResult<Uri?>(url);
+    }
+
+    public async Task<int> PruneBeforeAsync(string userId, DateOnly firstKeptDay, CancellationToken cancellationToken)
+    {
+        // Paths are {user}/{yyyyMMdd}/{id}.jpg, so the day folder sorts and compares as text.
+        var prefix = Prefix(userId);
+        var bound = firstKeptDay.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var removed = 0;
+        await foreach (var blob in _container.GetBlobsAsync(prefix: prefix, cancellationToken: cancellationToken))
+        {
+            var day = blob.Name.AsSpan(prefix.Length);
+            if (day.Length < 8 || day[..8].CompareTo(bound, StringComparison.Ordinal) >= 0) continue;
+            await _container.DeleteBlobIfExistsAsync(blob.Name, cancellationToken: cancellationToken);
+            removed++;
+        }
+        return removed;
     }
 
     internal static string Prefix(string userId) => $"{StatsEntityMapper.UserKey(userId)}/";

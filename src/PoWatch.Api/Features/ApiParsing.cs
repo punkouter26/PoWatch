@@ -1,4 +1,5 @@
 using System.Globalization;
+using PoWatch.Domain.Services;
 
 namespace PoWatch.Api.Features;
 
@@ -11,6 +12,5 @@ internal static class ApiParsing
         DateOnly.TryParseExact(value, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out day);
 
     /// <summary>The named zone, or UTC when it is missing or unknown.</summary>
-    public static TimeZoneInfo Zone(string? id) =>
-        !string.IsNullOrWhiteSpace(id) && TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone) ? zone : TimeZoneInfo.Utc;
+    public static TimeZoneInfo Zone(string? id) => LocalDay.FindZone(id) ?? TimeZoneInfo.Utc;
 }

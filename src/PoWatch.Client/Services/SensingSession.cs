@@ -9,8 +9,8 @@ namespace PoWatch.Client.Services;
 
 /// <summary>
 /// Runs one observation session in the browser: the pixel layer, the detector and the vision model
-/// (or, in demo mode, a scripted <see cref="SyntheticScene"/>) feed the tracker and the tick batcher,
-/// and closed batches are posted to the server in order, kept in the outbox until acknowledged.
+/// (or, in demo mode, a scripted <see cref="SyntheticScene"/>) feed the tracker and the tick batcher;
+/// every closed batch goes into the durable outbox (outbox.js) and is posted from there, oldest first.
 /// The Live page renders <see cref="Live"/> and listens to <see cref="Changed"/>.
 /// </summary>
 public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProvider time) : IAsyncDisposable
@@ -39,7 +39,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     /// <summary>Labels the detector tracks right now; null until it reports, so captions then go ungrounded.</summary>
     private List<string>? _inFrame;
-    private bool _sending;
+    private Task _sending = Task.CompletedTask;
     private bool _vlmEnabled;
     private int _demoStep;
 
@@ -74,7 +74,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     public async Task<string?> StartAsync(ElementReference? video, bool demo, bool enableVlm, string timeZoneId)
     {
         if (IsRunning) return null;
-        await ResendLeftoversAsync();
+        await SendOutboxAsync();
 
         if (!demo)
         {
@@ -84,7 +84,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         }
 
         var session = await api.StartSessionAsync(new StartSessionRequestDto { SessionId = Guid.NewGuid(), TimeZoneId = timeZoneId });
-        if (session is null) return "The server did not start a session.";
+        if (session is null) return "The server could not be reached, so no session was started.";
 
         _video = video;
         _vlmEnabled = enableVlm && !demo;
@@ -145,17 +145,16 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         if (_scene is null) await js.TryInvokeVoidAsync("powatchInference.stopMonitor");
 
         await KeepAsync(_batcher.Flush(final: true));
-        await SendPendingAsync(CancellationToken.None);
+        // A send cancelled with the session may still be finishing; then one last pass with the final batch.
+        await _sending;
+        await SendOutboxAsync();
         if (Live.Session is { } session)
         {
-            try
+            // Offline or refused: keep the page-exit guard so leaving still ends the session server-side.
+            if (await api.StopSessionAsync(session.Id) is { } stopped)
             {
-                Live.Session = await api.StopSessionAsync(session.Id) ?? session;
+                Live.Session = stopped;
                 await js.TryInvokeVoidAsync("powatchOutbox.unguard");
-            }
-            catch (HttpRequestException)
-            {
-                // Offline or refused: keep the page-exit guard so leaving still ends the session server-side.
             }
             Recap = new SessionRecap(Live.Session, null, exposure);
         }
@@ -263,6 +262,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     private async Task CaptureAsync(Highlight highlight, DateTimeOffset atUtc)
     {
+        // Offline or out of storage: the moment is kept without its picture.
         string? path = null;
         try
         {
@@ -270,10 +270,6 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
             var upload = image is null ? null : await api.CreateSnapshotUploadAsync(DateOnly.FromDateTime(atUtc.ToLocalTime().DateTime));
             if (upload is not null && await js.TryInvokeVoidAsync("powatchBlobUpload.uploadFrame", upload.UploadUrl, image))
                 path = upload.Path;
-        }
-        catch (HttpRequestException)
-        {
-            // Offline: keep the moment, lose the picture.
         }
         finally
         {
@@ -286,7 +282,6 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     private void AddMoment(Highlight highlight, DateTimeOffset atUtc, string? imagePath)
     {
         _batcher.AddEvent(new SceneEventDto { AtUtc = atUtc, Kind = "Notable", Text = highlight.Reason, Score = highlight.Score, ImagePath = imagePath });
-        Live.RecordMoment(highlight, atUtc, imagePath is not null);
         Notify();
     }
 
@@ -303,26 +298,19 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
 
     private async Task RecogniseAsync(TrackState track)
     {
-        try
-        {
-            var result = await api.ObserveRegularAsync(new ObserveRegularRequestDto { Class = track.Label, Signature = [.. track.Signature] });
-            if (result is null || !IsRunning) return;
-            Live.AssignRegular(track.TrackId, result.Regular);
+        // Unanswered (offline or refused): this track stays unrecognised; it is asked again when it next enters.
+        var result = await api.ObserveRegularAsync(new ObserveRegularRequestDto { Class = track.Label, Signature = [.. track.Signature] });
+        if (result is null || !IsRunning) return;
+        Live.AssignRegular(track.TrackId, result.Regular);
 
-            if (result.IsNew && Nameable.Contains(track.Label))
-            {
-                var snapshot = _scene is null && _video is not null ? await js.TryInvokeAsync<string>("powatchPixels.snapshot", _video) : null;
-                Live.AddPrompt(new NamingPrompt(result.Regular, snapshot, time.GetUtcNow()));
-                Cue("regular");
-            }
-
-            Notify();
-        }
-        catch (HttpRequestException)
+        if (result.IsNew && Nameable.Contains(track.Label))
         {
-            // Offline: try again when the track is next seen.
-            _observing.Remove(track.TrackId);
+            var snapshot = _scene is null && _video is not null ? await js.TryInvokeAsync<string>("powatchPixels.snapshot", _video) : null;
+            Live.AddPrompt(new NamingPrompt(result.Regular, snapshot, time.GetUtcNow()));
+            Cue("regular");
         }
+
+        Notify();
     }
 
     /// <summary>Saves a name from a prompt (or dismisses it when blank) and relabels live tracks.</summary>
@@ -369,8 +357,6 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
             var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", prompt, _video, CaptionParser.MaxNewTokens);
             if (result is { IsAvailable: true })
                 AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.Caption) ? result.Activity : result.Caption);
-            else if (result is not null)
-                Live.VlmStatus = result.Status;
         }
         finally
         {
@@ -400,66 +386,47 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         await KeepAsync(_batcher.Flush());
         // Sending runs beside this loop: a request hanging on a dead network must not stop new
         // batches from reaching the durable outbox.
-        if (!_sending) _ = SendPendingAsync(ct);
+        _ = SendOutboxAsync(ct);
     }
 
-    /// <summary>Copies a new batch to the durable outbox, so a reload or crash cannot lose it.</summary>
+    /// <summary>Puts a new batch in the durable outbox, so a reload or crash cannot lose it; counts what an overflowing outbox dropped.</summary>
     private async Task KeepAsync(IngestBatchDto? batch)
     {
         if (batch is null || Live.Session is not { } session) return;
-        await js.TryInvokeVoidAsync("powatchOutbox.put", batch.BatchKey.ToString(), session.Id.ToString(), JsonSerializer.Serialize(batch, Json.IngestBatchDto));
+        Live.LostTicks += await js.TryInvokeAsync<int>("powatchOutbox.put", batch.BatchKey.ToString(), session.Id.ToString(), JsonSerializer.Serialize(batch, Json.IngestBatchDto));
     }
 
     /// <summary>
-    /// Posts the batches an earlier page load left in the durable outbox (reloaded, crashed or
-    /// closed mid-session, or stopped while offline). Replays are safe: the server counts a batch
-    /// key once. Stops at the first transport failure; the rest wait for the next call.
+    /// Posts everything waiting in the outbox, oldest first, whichever session it belongs to: this one,
+    /// or one an earlier page load left behind (reloaded, crashed, or stopped while offline). Replays are
+    /// safe: the server counts a batch key once. Stops at the first transport failure; the rest wait for
+    /// the next pass. While a pass runs, a second call joins it instead of starting another.
     /// </summary>
-    public async Task ResendLeftoversAsync()
-    {
-        var running = IsRunning ? Live.Session?.Id.ToString() : null;
-        foreach (var sessionId in await js.TryInvokeAsync<string[]>("powatchOutbox.sessions") ?? [])
-        {
-            if (sessionId == running || !Guid.TryParse(sessionId, out var id)) continue;
-            foreach (var json in await js.TryInvokeAsync<string[]>("powatchOutbox.batches", sessionId) ?? [])
-            {
-                if (JsonSerializer.Deserialize(json, Json.IngestBatchDto) is not { } batch) continue;
-                try
-                {
-                    await api.PostBatchAsync(id, batch);
-                }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-                {
-                    return;
-                }
+    public Task SendOutboxAsync(CancellationToken ct = default) =>
+        _sending.IsCompleted ? _sending = SendWaitingAsync(ct) : _sending;
 
-                await js.TryInvokeVoidAsync("powatchOutbox.remove", batch.BatchKey.ToString());
-            }
-        }
-    }
-
-    private async Task SendPendingAsync(CancellationToken ct)
+    private async Task SendWaitingAsync(CancellationToken ct)
     {
-        if (Live.Session is not { } session) return;
-        _sending = true;
+        List<OutboxEntryPayload> waiting;
         try
         {
-            await SendEachAsync(session.Id, ct);
+            waiting = await js.TryInvokeAsync<string>("powatchOutbox.waiting") is { } json ? JsonSerializer.Deserialize(json, Json.ListOutboxEntryPayload) ?? [] : [];
         }
-        finally
+        catch (JsonException)
         {
-            _sending = false;
+            waiting = [];
         }
-
-        Live.PendingBatches = _batcher.Pending.Count;
-        Live.LostTicks = _batcher.LostTicks;
-        Notify();
-    }
-
-    private async Task SendEachAsync(Guid sessionId, CancellationToken ct)
-    {
-        foreach (var batch in _batcher.Pending.ToList())
+        var left = waiting.Count;
+        foreach (var entry in waiting)
         {
+            if (!Guid.TryParse(entry.SessionId, out var sessionId) || JsonSerializer.Deserialize(entry.Json, Json.IngestBatchDto) is not { } batch)
+            {
+                // Unreadable: it can never be sent, so it must not block the queue.
+                await js.TryInvokeVoidAsync("powatchOutbox.remove", entry.Key);
+                left--;
+                continue;
+            }
+
             try
             {
                 var result = await api.PostBatchAsync(sessionId, batch, ct);
@@ -468,16 +435,22 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
                 else Live.BatchesSent++;
                 // Back online: the offline notice has done its job.
                 if (Live.LastError?.StartsWith("Offline", StringComparison.Ordinal) == true) Live.LastError = null;
-                _batcher.Acknowledge(batch.BatchKey);
-                await js.TryInvokeVoidAsync("powatchOutbox.remove", batch.BatchKey.ToString());
+                await js.TryInvokeVoidAsync("powatchOutbox.remove", entry.Key);
+                left--;
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
-                if (Live.LastError is null) Cue("error");
-                Live.LastError = "Offline — batches are queued and will be resent.";
-                return;
+                if (IsRunning && !ct.IsCancellationRequested)
+                {
+                    if (Live.LastError is null) Cue("error");
+                    Live.LastError = "Offline — batches are queued and will be resent.";
+                }
+                break;
             }
         }
+
+        Live.PendingBatches = left;
+        Notify();
     }
 
     private static async Task RunLoopAsync(TimeSpan period, Func<CancellationToken, Task> step, CancellationToken ct)

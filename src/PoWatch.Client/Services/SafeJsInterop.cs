@@ -19,23 +19,7 @@ public static class SafeJsInterop
             await js.InvokeVoidAsync(identifier, args);
             return true;
         }
-        catch (JSDisconnectedException)
-        {
-            // The browser navigated away or the circuit dropped — silent.
-            return false;
-        }
-        catch (JSException)
-        {
-            // The bridge isn't there or threw. Optional; log nothing for the user.
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            // JSRuntime says "this isn't a WebAssembly rendering" — happens during prerender
-            // and during the dispose window. Treat the same as a missing bridge.
-            return false;
-        }
-        catch (TaskCanceledException)
+        catch (Exception ex) when (IsBridgeFailure(ex))
         {
             return false;
         }
@@ -53,10 +37,19 @@ public static class SafeJsInterop
         {
             return await js.InvokeAsync<T?>(identifier, args);
         }
-        catch (JSDisconnectedException) { return default; }
-        catch (JSException) { return default; }
-        catch (InvalidOperationException) { return default; }
-        catch (TaskCanceledException) { return default; }
+        catch (Exception ex) when (IsBridgeFailure(ex))
+        {
+            return default;
+        }
     }
 #pragma warning restore IL2091
+
+    /// <summary>
+    /// The failures an optional bridge may cause: the browser navigated away or the circuit dropped
+    /// (<see cref="JSDisconnectedException"/>); the bridge isn't there or threw (<see cref="JSException"/>);
+    /// JSRuntime isn't ready, during prerender or the dispose window (<see cref="InvalidOperationException"/>);
+    /// or the call was cancelled.
+    /// </summary>
+    private static bool IsBridgeFailure(Exception ex) =>
+        ex is JSDisconnectedException or JSException or InvalidOperationException or TaskCanceledException;
 }

@@ -5,50 +5,17 @@
 // the VLM worker. WebGPU is tried first, then the WASM backend. Boxes come back normalised to
 // [0, 1] so the page and the tracker never care about the capture resolution.
 
-const TRANSFORMERS_BASE = new URL('../../lib/transformers-3.8.1/', import.meta.url);
-const TRANSFORMERS_URL = new URL('transformers.min.js', TRANSFORMERS_BASE).href;
+import { bitmapToRawImage, loadTransformers } from '../transformers-env.js';
 
 const MODELS = [
   { id: 'onnx-community/rfdetr_nano-ONNX', dtype: 'fp32' },
   { id: 'onnx-community/rtdetr_v2_r18vd-ONNX', dtype: 'fp32' },
 ];
 
-// Transient-network retry for model file downloads from HuggingFace
-const _FETCH_RETRIES = 3;
-const _FETCH_BACKOFF_MS = 600;
-const _nativeFetch = self.fetch.bind(self);
-
-async function fetchWithRetry(input, init) {
-  const method = (init?.method ?? (typeof input === 'object' && input !== null ? input.method : null) ?? 'GET').toUpperCase();
-  if (method !== 'GET' && method !== 'HEAD') return _nativeFetch(input, init);
-
-  let lastError = null;
-  for (let attempt = 0; attempt <= _FETCH_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, _FETCH_BACKOFF_MS * 2 ** (attempt - 1)));
-    }
-    try {
-      const response = await _nativeFetch(input, init);
-      if (response.status === 429 || response.status >= 500) {
-        lastError = new Error(`HTTP ${response.status}`);
-        continue;
-      }
-      return response;
-    } catch (err) {
-      if (init?.signal?.aborted) throw err;
-      lastError = err;
-    }
-  }
-  throw lastError ?? new Error('Failed to fetch');
-}
-
-self.fetch = fetchWithRetry;
-
 let detector = null;
 let RawImage = null;
 let loaded = null;       // { modelId, device, loadMs }
 let loading = null;
-let canvas = null;
 
 async function load(forceDevice) {
   if (loaded) return loaded;
@@ -56,34 +23,42 @@ async function load(forceDevice) {
 
   loading = (async () => {
     const started = performance.now();
-    const transformers = await import(TRANSFORMERS_URL);
+    const transformers = await loadTransformers();
     RawImage = transformers.RawImage;
-    transformers.env.useFSCache = false;
-    transformers.env.backends.onnx.wasm.wasmPaths = TRANSFORMERS_BASE.href;
-    if (self.crossOriginIsolated) {
-      transformers.env.backends.onnx.wasm.numThreads = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1));
-    }
 
     const devices = forceDevice ? [forceDevice]
       : typeof navigator !== 'undefined' && navigator.gpu ? ['webgpu', 'wasm'] : ['wasm'];
     const errors = [];
+    // A backend whose calibration run itself failed is not known to be broken, only unchecked: it is
+    // held back while the others get their turn, and used only if none of them passes.
+    let unchecked = null;
+    const use = (candidate, model, device) => {
+      detector = candidate;
+      loaded = { modelId: model.id, device, loadMs: Math.round(performance.now() - started), rejected: errors };
+      return loaded;
+    };
     for (const model of MODELS) {
       for (const device of devices) {
         try {
           const candidate = await transformers.pipeline('object-detection', model.id, { device, dtype: model.dtype });
-          if (!(await producesSaneBoxes(candidate))) {
-            errors.push(`${model.id}@${device}: calibration frame produced out-of-frame boxes`);
-            await candidate.dispose?.();
+          const verdict = await calibrate(candidate);
+          if (verdict === 'sane') {
+            if (unchecked) await unchecked.candidate.dispose?.();
+            return use(candidate, model, device);
+          }
+          if (verdict === 'unchecked' && !unchecked) {
+            errors.push(`${model.id}@${device}: calibration run failed; kept as a fallback`);
+            unchecked = { candidate, model, device };
             continue;
           }
-          detector = candidate;
-          loaded = { modelId: model.id, device, loadMs: Math.round(performance.now() - started), rejected: errors };
-          return loaded;
+          errors.push(`${model.id}@${device}: ${verdict === 'insane' ? 'calibration frame produced out-of-frame boxes' : 'calibration run failed'}`);
+          await candidate.dispose?.();
         } catch (err) {
           errors.push(`${model.id}@${device}: ${err?.message ?? err}`);
         }
       }
     }
+    if (unchecked) return use(unchecked.candidate, unchecked.model, unchecked.device);
     throw new Error(`No detector could be loaded. ${errors.join(' | ')}`);
   })();
 
@@ -97,18 +72,20 @@ async function load(forceDevice) {
 // Some WebGPU stacks (seen on Chromium's software GPU) run the model but return garbage: boxes many
 // frame-widths wide with near-random labels. A plain grey frame must never yield a box outside the
 // frame, so one calibration pass catches that and the loader moves on to the next backend.
-async function producesSaneBoxes(candidate) {
+// 'sane' passes; 'insane' is rejected; 'unchecked' means the calibration run itself failed.
+async function calibrate(candidate) {
+  let output;
   try {
     const width = 320, height = 240;
     const grey = new RawImage(new Uint8ClampedArray(width * height * 3).fill(128), width, height, 3);
-    const output = await candidate(grey, { threshold: 0.05, percentage: true });
-    if (!Array.isArray(output)) return true;
-    const inside = (v) => v >= -0.1 && v <= 1.1;
-    return output.every((d) => inside(d.box.xmin) && inside(d.box.ymin) && inside(d.box.xmax) && inside(d.box.ymax));
+    output = await candidate(grey, { threshold: 0.05, percentage: true });
   } catch (err) {
-    console.warn('Calibration frame check error:', err);
-    return true; // Let candidate through if grey frame calibration test throws
+    console.warn('Detector calibration run failed:', err);
+    return 'unchecked';
   }
+  if (!Array.isArray(output)) return 'unchecked';
+  const inside = (v) => v >= -0.1 && v <= 1.1;
+  return output.every((d) => inside(d.box.xmin) && inside(d.box.ymin) && inside(d.box.xmax) && inside(d.box.ymax)) ? 'sane' : 'insane';
 }
 
 // Appearance signature for recognising regulars: a 64-bin colour histogram (4 levels per RGB
@@ -133,16 +110,13 @@ function signature(pixels, box) {
 }
 
 async function detect(bitmap, threshold) {
-  await load();
-  if (!canvas || canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
-    canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  let image, pixels;
+  try {
+    await load();
+    ({ image, pixels } = bitmapToRawImage(RawImage, bitmap));
+  } finally {
+    bitmap.close(); // also when the model failed to load, or the transferred frame leaks
   }
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  // The processors expect three channels; canvas pixels are RGBA.
-  const image = new RawImage(pixels.data, canvas.width, canvas.height, 4).rgb();
 
   const started = performance.now();
   const output = await detector(image, { threshold, percentage: true });

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Security.Claims;
 using Serilog.Context;
 
 namespace PoWatch.Api.Middleware;
@@ -32,18 +31,15 @@ public sealed class CorrelationIdMiddleware
 
         context.Response.Headers[HeaderName] = correlationId;
 
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
         var sessionId = context.Request.Headers.TryGetValue("X-Session-ID", out var sessionHeader)
             ? sessionHeader.ToString()
             : context.Request.Cookies.TryGetValue("session", out var sessionCookie) ? sessionCookie : "n/a";
 
         using (LogContext.PushProperty("CorrelationId", correlationId))
-        using (LogContext.PushProperty("UserId", userId))
         using (LogContext.PushProperty("SessionId", sessionId))
         using (_logger.BeginScope(new Dictionary<string, object>
         {
             ["CorrelationId"] = correlationId,
-            ["UserId"] = userId,
             ["SessionId"] = sessionId
         }))
         {

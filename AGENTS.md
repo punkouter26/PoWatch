@@ -10,6 +10,8 @@ Rules for any agent working in this repository.
 - **Git sync.** When syncing, create a short commit message in casual American slang that reads like
   a human wrote it (not technical), then push.
 - **TL;DR.** Any answer longer than 100 words ends with a TL;DR summary of about 20 words.
+- **Three-level TL;DR for code changes.** When a code change is over 20 lines, summarize it at three
+  levels: (1) Toddler, (2) Child, (3) Adult.
 - **Tests.** Do not run the full test suite after code changes. Run only the tests related to the
   change, or none at all if the change is simple.
 - **Automate, don't delegate.** Avoid asking the user to type CLI commands or click through a web

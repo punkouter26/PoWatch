@@ -139,14 +139,8 @@
 
     private async Task LoadAsync()
     {
-        try
-        {
-            _regulars = [.. await Api.ListRegularsAsync()];
-        }
-        catch (HttpRequestException)
-        {
-            Say("COULD NOT LOAD THE REGULARS — THE SERVER DID NOT ANSWER", failed: true);
-        }
+        if (await Api.ListRegularsAsync() is { } regulars) _regulars = [.. regulars];
+        else Say("COULD NOT LOAD THE REGULARS — THE SERVER DID NOT ANSWER", failed: true);
 
         _edits.Clear();
         foreach (var regular in _regulars) _edits[regular.Id] = regular.IsNamed ? regular.DisplayName : null;
@@ -191,11 +185,6 @@
                 Say($"COULD NOT RENAME {regular.DisplayName.ToUpperInvariant()} — NOTHING WAS CHANGED", failed: true);
             }
         }
-        catch (HttpRequestException)
-        {
-            _edits[regular.Id] = regular.IsNamed ? regular.DisplayName : null;
-            Say("COULD NOT RENAME — THE SERVER DID NOT ANSWER", failed: true);
-        }
         finally
         {
             _busy = false;
@@ -218,10 +207,6 @@
 
             if (merged is null) Say("COULD NOT MERGE ALL OF THOSE — CHECK THE LIST", failed: true);
             else Say($"MERGED INTO {merged.DisplayName.ToUpperInvariant()}");
-        }
-        catch (HttpRequestException)
-        {
-            Say("COULD NOT MERGE — THE SERVER DID NOT ANSWER", failed: true);
         }
         finally
         {

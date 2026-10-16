@@ -54,7 +54,7 @@
         await JS.TryInvokeVoidAsync("powatchMenus.setup");
         // Remembered per browser: whether camera sessions also run the caption model.
         if (await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionsKey) == "off") Sensing.Captions = false;
-        await Sensing.ResendLeftoversAsync();
+        await Sensing.SendOutboxAsync();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)

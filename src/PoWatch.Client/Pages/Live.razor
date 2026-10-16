@@ -54,6 +54,8 @@
                     <div class="live-feed" @ref="_slot">
                         @* Comet trails of everyone in frame, drawn by fx.js. *@
                         <canvas class="fx-trails" data-fx-trails aria-hidden="true"></canvas>
+                        @* The tube switching on and off (crt.js): over the picture, under nothing else. *@
+                        <canvas class="crt" @ref="_crt" aria-hidden="true"></canvas>
 
                         @foreach (var track in L.Tracks)
                         {
@@ -214,6 +216,7 @@
     private bool _asking;
 
     private ElementReference _slot;
+    private ElementReference _crt;
     private ElementReference _heat;
     private bool _shaderHeat = true;
     private IReadOnlyList<double> _occupancyTrend = [];
@@ -329,10 +332,6 @@
         {
             _error = await Sensing.StartAsync(demo);
         }
-        catch (HttpRequestException)
-        {
-            _error = "The server could not be reached, so no session was started.";
-        }
         finally
         {
             _starting = false;
@@ -354,6 +353,9 @@
 
             InvokeAsync(async () =>
             {
+                // On: the tube is black before the picture docks under it. Off: the picture stays until it is dark.
+                if (Sensing.IsRunning) _ = JS.TryInvokeVoidAsync("powatchCrt.power", _crt, true);
+                else await JS.TryInvokeVoidAsync("powatchCrt.power", _crt, false);
                 await DockFeedAsync();
                 await RefreshStatsAsync();
             });

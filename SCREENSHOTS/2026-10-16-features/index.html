@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: retention, weather, digest, sharing, replay (2026-10-16)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: retention, weather, the week, shared recaps and day replay</h1>
+<p class="lead">Captured 16 October 2026 from the running Development app (guest, seeded history plus a four-minute demo session), 1440×900.
+History is shown on 15 October in both shots (same day, so the panels line up); the extra shots show today, which has a real session.
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, before image or null, before marks, after image, after marks]. A mark is [x %, y %, note].
+  const pairs = [
+    ['History (15 October)', 'before-history.png', [
+        [23, 31.5, '<b>Only the day's numbers</b>, and nothing at all on a day without minute data.'],
+        [57.6, 8.8, '<b>Three tabs</b>: recap, moments, time-lapse.'],
+      ], 'after-history.png', [
+        [23, 22, '<b>Weather insight</b> under the year: wet days against dry days, once each side has three observed days.'],
+        [11.5, 41.7, '<b>The day's weather</b> at your place: conditions, low–high, rain, sunrise–sunset (Open-Meteo).'],
+        [21, 52, '<b>The week</b>: Monday–Sunday against the week before, with a paragraph and the newcomers.'],
+        [54.5, 8.8, '<b>Replay tab</b>, new, second.'],
+      ]],
+    ['Settings', 'before-settings.png', [
+        [50, 32, '<b>Browser-only choices.</b> Nothing the server keeps for you, and no way to see links you shared.'],
+      ], 'after-settings.png', [
+        [6, 29, '<b>Kept on the server</b>: the choices background jobs act on.'],
+        [47.6, 32.9, '<b>Raw detail kept</b>: forever → 1 year → 90 → 30 days. Shrinking it asks first; charts and totals are never pruned.'],
+        [44, 38, '<b>Weather from</b> a place you pick; ✕ turns weather off.'],
+        [23, 42.7, '<b>Place search</b> by town or city name.'],
+        [48, 47.6, '<b>Weekly email</b>: off here and says why (this server has no email sender configured).'],
+        [55, 33, '<b>Shared recaps</b>: every live link, with when it expires and ✕ to take it down.'],
+      ]],
+    ['History today: recap with a share link', null, [], 'after-share.png', [
+        [11, 44.8, '<b>Today's weather</b> under the day's numbers.'],
+        [66, 45.3, '<b>Share link</b>, made by one click: works without signing in for 7 days.'],
+        [94, 45.3, '<b>Take down</b>: the link stops working at once.'],
+        [60, 48.9, 'States what is shared: <b>no camera images</b>, and until when.'],
+        [22, 64, '<b>The week</b> panel with today in it.'],
+      ]],
+    ['History today: Replay', null, [], 'after-replay.png', [
+        [57, 23, '<b>Motion grid</b> of the chosen minute, through the Live heat shader.'],
+        [73, 16, '<b>Clock</b> of the playhead.'],
+        [75.7, 20, '<b>Readout</b>: occupancy, how many at once, motion. The caption of the moment shows under it.'],
+        [64, 36, '<b>Day track</b>: occupancy bars (amber), motion (cyan), moment ticks and caption dots.'],
+        [73, 39.4, '<b>Slider</b>: drag, or ← → a minute (a native range input).'],
+        [50, 43, '<b>Play</b> walks the observed minutes only, skipping empty hours.'],
+        [49.7, 52, '<b>Moments</b>: jump straight to one.'],
+      ]],
+    ['The bell: the week in review', null, [], 'after-tray.png', [
+        [95.3, 1.6, '<b>Count</b> includes last week's review, once per browser per week.'],
+        [82.6, 10.5, '<b>The week in review</b>: last week's paragraph; opens History on that week. Clear dismisses it.'],
+      ]],
+    ['A shared recap, opened without signing in', null, [], 'after-shared-page.png', [
+        [32, 5.5, '<b>Plain server-rendered page</b>: no scripts, strict CSP, noindex, no-store.'],
+        [50, 44, '<b>The frozen recap</b>: headline numbers and highlights; moments (private snapshot links) are left out.'],
+        [48.6, 77.8, 'Says <b>no camera images</b> are shared and <b>when the link stops working</b>.'],
+      ]],
+  ];
+
+  const figure = (label, kind, image, marks) => image === null ? '' : `
+    <figure>
+      <figcaption class="${kind}">${label}</figcaption>
+      <div class="shot"><img src="${image}" alt="${label}" />
+        ${marks.map(([x, y], i) => `<span class="mark ${kind}" style="left:${x}%;top:${y}%">${i + 1}</span>`).join('')}
+      </div>
+      <ol class="notes">${marks.map(([, , note]) => `<li>${note}</li>`).join('')}</ol>
+    </figure>`;
+
+  document.getElementById('pairs').innerHTML = pairs.map(([title, before, beforeMarks, after, afterMarks]) => `
+    <h2>${title}</h2>
+    <div class="pair">${figure('BEFORE', 'old', before, beforeMarks)}${figure('AFTER', 'new', after, afterMarks)}</div>`).join('');
+</script>
+</body>
+</html>

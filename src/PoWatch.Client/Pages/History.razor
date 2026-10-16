@@ -14,11 +14,28 @@
 <div class="history-grid">
     <div class="history-col">
         <TerminalPanel Title="The year" Test="history-calendar">
-            <Aside>@(_patterns?.Calendar.Count ?? 0) DAYS · CLICK ONE TO OPEN IT</Aside>
+            <Aside>
+                @(_patterns?.Calendar.Count ?? 0) DAYS · CLICK ONE TO OPEN IT
+                <span class="history-view" role="group" aria-label="Year view">
+                    <button class="term-button @(_year3d ? null : "term-button--on")" aria-pressed="@(_year3d ? "false" : "true")" @onclick="() => SetYearViewAsync(false)" data-test="year-2d">2D</button>
+                    <button class="term-button @(_year3d ? "term-button--on" : null)" aria-pressed="@(_year3d ? "true" : "false")" @onclick="() => SetYearViewAsync(true)" data-test="year-3d">3D</button>
+                </span>
+            </Aside>
             <ChildContent>
-                <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
-                          Selected="@CellFor(_day)" OnCellClick="@(i => { if (DayFor(i) is { } d) Go(d); })"
-                          CellTitle="@((i, v) => DayFor(i) is { } d ? $"{d:ddd dd MMM} · {(v > 0 ? v.ToString("P0", CultureInfo.CurrentCulture) : "no data")}" : string.Empty)" />
+                @if (_year3d)
+                {
+                    <YearSkyline Values="@_skyValues" Wet="@_skyWet" Labels="@_skyLabels" Selected="@CellFor(_day)" OnPick="@(i => { if (DayFor(i) is { } d) Go(d); })" />
+                }
+                else
+                {
+                    <HeatGrid Values="@_calendarCells" Columns="53" Rows="7" Label="Daily occupancy over the last year"
+                              Selected="@CellFor(_day)" OnCellClick="@(i => { if (DayFor(i) is { } d) Go(d); })"
+                              CellTitle="@((i, v) => CellLabel(i, v))" />
+                }
+                @if (_weather?.Insight is { } insight)
+                {
+                    <p class="history-insight" data-test="weather-insight">@insight.Sentence</p>
+                }
             </ChildContent>
         </TerminalPanel>
 
@@ -54,6 +71,31 @@
                         </div>
                     </div>
                 }
+                @if (WeatherOn(_day) is { } weather)
+                {
+                    <p class="history-weather" data-test="history-weather" title="Weather at @_weather!.Place?.Name">@DisplayText.Weather(weather)</p>
+                }
+            </ChildContent>
+        </TerminalPanel>
+
+        <TerminalPanel Title="The week" Test="history-week">
+            <Aside>@WeekStart(_day).ToString("d MMM", CultureInfo.CurrentCulture) – @WeekStart(_day).AddDays(6).ToString("d MMM", CultureInfo.CurrentCulture) · VS THE WEEK BEFORE</Aside>
+            <ChildContent>
+                @if (_week is null)
+                {
+                    <Skeleton Heights="@([64])" />
+                }
+                else
+                {
+                    <div class="term-stats history-week-stats">
+                        <StatCell Label="Occupancy" Value="@_week.ThisWeek.Occupancy.ToString("0%", CultureInfo.InvariantCulture)" Hint="@Change(_week.ThisWeek.Occupancy, _week.LastWeek.Occupancy)" Test="week-occupancy" />
+                        <StatCell Label="Observed" Value="@DisplayText.Duration(_week.ThisWeek.SecondsObserved)" Hint="@($"was {DisplayText.Duration(_week.LastWeek.SecondsObserved)}")" />
+                        <StatCell Label="Visits" Value="@_week.ThisWeek.Visits.ToString(CultureInfo.InvariantCulture)" Hint="@($"was {_week.LastWeek.Visits}")" />
+                        <StatCell Label="Busiest day" Value="@(_week.ThisWeek.BusiestDay?.ToString("ddd", CultureInfo.CurrentCulture) ?? "—")"
+                                  Hint="@(_week.ThisWeek.BusiestDay is null ? null : _week.ThisWeek.BusiestOccupancy.ToString("0% occupied", CultureInfo.InvariantCulture))" />
+                    </div>
+                    <p class="history-week-summary" data-test="week-summary">@_week.Summary</p>
+                }
             </ChildContent>
         </TerminalPanel>
     </div>
@@ -83,7 +125,25 @@
                             <span class="term-stat-hint">WRITTEN BY @_recap.Source.ToUpperInvariant()@(_rewriting ? " · A MODEL IS REWORDING IT…" : string.Empty)</span>
                             <a class="term-button" href="@PoWatchApiClient.AllStatsUrl(StatsQuery.ForDay(_day))" download="PoWatch-@(DayKey).json" title="Every tick, event and stat stored for this day" data-test="history-day-json">Day data ↓</a>
                             <a class="term-button" href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">Recap PDF ↓</a>
+                            @if (_share is null)
+                            {
+                                <button class="term-button" @onclick="ShareAsync" disabled="@_sharing" title="A read-only page of this recap that works without signing in, for 7 days" data-test="history-share">@(_sharing ? "Sharing…" : "Share link ↗")</button>
+                            }
                         </p>
+                        @if (_share is { } share)
+                        {
+                            <div class="history-share" data-test="history-share-link">
+                                <label class="visually-hidden" for="share-url">Link to this recap</label>
+                                <input id="share-url" readonly value="@ShareUrl(share)" onfocus="this.select()" />
+                                <button class="term-button" @onclick="() => CopyAsync(share)">@(_copied ? "Copied" : "Copy")</button>
+                                <button class="term-button term-button--danger" @onclick="() => TakeDownAsync(share)" title="The link stops working at once">Take down</button>
+                                <span class="term-stat-hint">WORKS WITHOUT SIGNING IN UNTIL @share.ExpiresUtc.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture).ToUpperInvariant() · NO CAMERA IMAGES</span>
+                            </div>
+                        }
+                        @if (_shareError is not null)
+                        {
+                            <p class="live-error" role="alert">@_shareError</p>
+                        }
                     </div>
                 }
 
@@ -134,6 +194,10 @@
                         <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
                     }
                 }
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Replay">
+                <DayReplay Day="@_day" />
             </RadzenTabsItem>
 
             <RadzenTabsItem Text="@($"Moments · {_moments.Count}")">
@@ -199,6 +263,11 @@
     private DateOnly _day = Today;
     private DateOnly? _shown;
     private int _tab;
+    private const string YearViewKey = "powatch:year-view";
+    private bool _year3d;
+    private IReadOnlyList<double> _skyValues = [];
+    private IReadOnlyList<bool> _skyWet = [];
+    private IReadOnlyList<string> _skyLabels = [];
     private bool _loaded;
     private bool _rewriting;
     private PresenceStatsDto? _presence;
@@ -209,6 +278,14 @@
     private IReadOnlyList<SessionDto> _sessions = [];
     private List<MomentDto> _moments = [];
     private List<double> _calendarCells = [];
+    private WeatherYearDto? _weather;
+    private Dictionary<DateOnly, WeatherDayDto> _weatherByDay = [];
+    private WeekDigestDto? _week;
+    private DateOnly? _weekShown;
+    private ShareDto? _share;
+    private bool _sharing;
+    private bool _copied;
+    private string? _shareError;
 
     private const int TimelapseFps = 24;
     private ElementReference _timelapse;
@@ -223,8 +300,43 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var weather = Api.GetWeatherYearAsync();
         _patterns = await Api.GetPatternsAsync(StatsQuery.For("today"));
         BuildCalendar();
+        _weather = await weather;
+        _weatherByDay = _weather?.Days.ToDictionary(d => d.Date) ?? [];
+        BuildSkyline();
+        _year3d = await JS.TryInvokeAsync<string>("localStorage.getItem", YearViewKey) == "3d";
+    }
+
+    private WeatherDayDto? WeatherOn(DateOnly day) => _weatherByDay.GetValueOrDefault(day);
+
+    private static DateOnly WeekStart(DateOnly day) => day.AddDays(-(((int)day.DayOfWeek + 6) % 7));
+
+    /// <summary>"+6 pts on the week before", or "no week before" when there is nothing to compare with.</summary>
+    private string Change(double now, double before)
+    {
+        if (_week is not { LastWeek.SecondsObserved: > 0 }) return "no week before";
+        var points = Math.Round((now - before) * 100);
+        return points == 0 ? "same as the week before" : $"{(points > 0 ? "+" : "−")}{Math.Abs(points)} pts on the week before";
+    }
+
+    private string ShareUrl(ShareDto share) => Navigation.BaseUri + share.Path;
+
+    private async Task ShareAsync()
+    {
+        (_sharing, _shareError) = (true, null);
+        _share = await Api.CreateShareAsync(_day, days: 7);
+        if (_share is null) _shareError = "Could not make a link — nothing was observed that day, or the server did not answer.";
+        _sharing = false;
+    }
+
+    private async Task CopyAsync(ShareDto share) => _copied = await JS.TryInvokeVoidAsync("navigator.clipboard.writeText", ShareUrl(share));
+
+    private async Task TakeDownAsync(ShareDto share)
+    {
+        if (await Api.RevokeShareAsync(share.Token)) (_share, _copied) = (null, false);
+        else _shareError = "Could not take the link down — try again, or from Settings.";
     }
 
     protected override async Task OnParametersSetAsync()
@@ -256,6 +368,9 @@
     {
         var day = _day;
         _loaded = false;
+        (_share, _shareError, _copied) = (null, null, false);
+        if (_weekShown != WeekStart(day)) (_week, _weekShown) = (null, WeekStart(day));
+        var week = _week is null ? Api.GetWeekDigestAsync(day) : Task.FromResult<WeekDigestDto?>(_week);
         var start = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue));
         var query = StatsQuery.ForDay(day);
         var presence = Api.GetPresenceAsync(query);
@@ -263,10 +378,10 @@
         var sessions = Api.ListSessionsBetweenAsync(start, start.AddDays(1));
         // The template recap answers at once; a model's rewording replaces it when (if) it arrives.
         var recap = Api.GetDayRecapAsync(day, TimeZoneInfo.Local.Id, ai: false);
-        await Task.WhenAll(presence, environment, sessions, recap);
+        await Task.WhenAll(presence, environment, sessions, recap, week);
         if (day != _day) return; // A newer ◀/▶ press owns the panels now.
 
-        (_presence, _environment, _recap, _sessions) = (presence.Result, environment.Result, recap.Result, sessions.Result);
+        (_presence, _environment, _recap, _sessions, _week) = (presence.Result, environment.Result, recap.Result, sessions.Result, week.Result);
         _motion = _presence?.Series.Select(p => new Point(p.AtUtc.LocalDateTime, p.Motion)).ToList() ?? [];
         _moments = [];
         _videoUrl = null;
@@ -319,6 +434,25 @@
         _playing = true;
         _videoUrl = await JS.TryInvokeAsync<string>("powatchTimelapse.play", _timelapse, DayKey, TimelapseFps);
         _playing = false;
+    }
+
+    private string CellLabel(int index, double value) => DayFor(index) is { } d
+        ? $"{d:ddd dd MMM} · {(value > 0 ? value.ToString("P0", CultureInfo.CurrentCulture) : "no data")}{(WeatherOn(d) is { } w ? $" · {w.Summary}" : string.Empty)}"
+        : string.Empty;
+
+    /// <summary>The calendar as the skyline wants it: −1 marks days still to come, so they get no tower.</summary>
+    private void BuildSkyline()
+    {
+        var cells = Enumerable.Range(0, _calendarCells.Count).ToList();
+        _skyValues = cells.Select(i => DayFor(i) is null ? -1 : _calendarCells[i]).ToList();
+        _skyWet = cells.Select(i => DayFor(i) is { } d && WeatherOn(d) is { Wet: true }).ToList();
+        _skyLabels = cells.Select(i => CellLabel(i, _calendarCells[i])).ToList();
+    }
+
+    private async Task SetYearViewAsync(bool threeD)
+    {
+        _year3d = threeD;
+        await JS.TryInvokeVoidAsync("localStorage.setItem", YearViewKey, threeD ? "3d" : "2d");
     }
 
     private void BuildCalendar()

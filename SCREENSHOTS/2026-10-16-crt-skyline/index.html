@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: CRT power-on and the 3D year (2026-10-16)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: the camera switches on like a tube, and the year becomes a skyline</h1>
+<p class="lead">Captured 16 October 2026 from the running Development app (guest, seeded history plus demo sessions), 1440×900.
+The tube is an animation (about 0.7 s on, 0.5 s off), so its shots are stills drawn at fixed points of it with
+<code>powatchCrt.frame</code>; the real thing also plays a matching sound. Numbered markers match the notes under each shot.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, before image or null, before marks, after image, after marks]. A mark is [x %, y %, note].
+  const pairs = [
+    ['Live: pressing Start', 'before-live-running.png', [
+        [25, 32, '<b>A hard cut</b>: the picture just appeared, with a two-note beep.'],
+      ], 'after-crt-line.png', [
+        [25, 32, '<b>About 0.07 s in</b>: the tube warms up as a bright line, colour-fringed at its ends, with a low thump.'],
+      ]],
+    ['Live: the tube opening', null, [], 'after-crt-opening.png', [
+        [25, 15, '<b>About 0.2 s</b>: the line opens into the picture. The edge glows, red a little wide and blue a little narrow, like a tube's convergence; a rising whoosh plays.'],
+        [35, 32, '<b>Scanlines</b> over the picture, which shows through: demo scene here, the camera in a real session.'],
+      ]],
+    ['Live: settling', null, [], 'after-crt-settling.png', [
+        [25, 15, '<b>About 0.5 s</b>: the rim glow and scanlines fade out, leaving the plain picture. Under reduced motion none of this plays.'],
+      ]],
+    ['Live: pressing Stop', null, [], 'after-crt-off.png', [
+        [25, 32, '<b>Switching off</b>: the picture squeezes into a line, then a dot, with a falling glide and a thump. The camera undocks only once the tube is dark.'],
+      ]],
+    ['History: the year', 'before-history.png', [
+        [23, 14, '<b>The year</b> as a flat 53 × 7 grid only.'],
+      ], 'after-skyline.png', [
+        [85, 8.2, '<b>2D / 3D</b> switch, remembered in this browser.'],
+        [42, 24, '<b>The year as a skyline</b>: one tower per day, height = occupancy, blue = a rainy day (from the weather feature).'],
+        [6, 44.3, '<b>Fly over</b>: glides along the year and plays each week as a note, higher when it was busier.'],
+        [30, 48.5, 'How to drive it: drag or arrow keys to turn, scroll or + − to zoom, click a tower to open that day.'],
+      ]],
+    ['History: hovering a day', null, [], 'after-skyline-hover.png', [
+        [72, 21.5, '<b>Hover</b>: the day, its occupancy and its weather; the tower under the pointer is marked.'],
+      ]],
+    ['History: mid fly-over', null, [], 'after-skyline-fly.png', [
+        [30, 30, '<b>Flying low along the year</b>, towards the recent, busier days.'],
+        [6, 44.3, 'The button becomes <b>Stop</b>.'],
+      ]],
+  ];
+
+  const figure = (label, kind, image, marks) => image === null ? '' : `
+    <figure>
+      <figcaption class="${kind}">${label}</figcaption>
+      <div class="shot"><img src="${image}" alt="${label}" />
+        ${marks.map(([x, y], i) => `<span class="mark ${kind}" style="left:${x}%;top:${y}%">${i + 1}</span>`).join('')}
+      </div>
+      <ol class="notes">${marks.map(([, , note]) => `<li>${note}</li>`).join('')}</ol>
+    </figure>`;
+
+  document.getElementById('pairs').innerHTML = pairs.map(([title, before, beforeMarks, after, afterMarks]) => `
+    <h2>${title}</h2>
+    <div class="pair">${figure('BEFORE', 'old', before, beforeMarks)}${figure('AFTER', 'new', after, afterMarks)}</div>`).join('');
+</script>
+</body>
+</html>

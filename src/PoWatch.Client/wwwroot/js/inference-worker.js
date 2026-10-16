@@ -3,12 +3,8 @@
 // keeping the browser's main thread free so the UI stays responsive.
 // The main thread (inference-bridge.js) handles all DOM access (video/canvas).
 
-// Pinned, self-hosted transformers.js supply chain: the library AND its ONNX Runtime wasm are vendored
-// under wwwroot/lib/transformers-<version>/ and loaded from our own origin. To upgrade: vendor a new
-// dist folder (transformers.min.js + ort-wasm-simd-threaded.jsep.{mjs,wasm}) and bump this line.
-const _TRANSFORMERS_VERSION = '3.8.1';
-const _TRANSFORMERS_BASE = new URL(`../lib/transformers-${_TRANSFORMERS_VERSION}/`, import.meta.url);
-const _TRANSFORMERS_URL = new URL('transformers.min.js', _TRANSFORMERS_BASE).href;
+// The vendored transformers.js, its fetch retry and the frame hand-off live in transformers-env.js.
+import { FETCH_ATTEMPTS, bitmapToRawImage, loadTransformers } from './transformers-env.js';
 
 // The one caption model. Weights come from the HF hub; the dtype fields drive the fallback chain.
 const _MODEL = {
@@ -17,42 +13,6 @@ const _MODEL = {
   webgpuDtypeFallback: 'fp32',
   wasmDtype: 'q8',
 };
-
-// Transient-network retry. On some networks connections to the HF hub are reset mid-request, and a
-// single load issues many fetches (the largest ~190 MB) that transformers.js does not retry, so ONE
-// reset failed the whole load. Wrapping the worker's global fetch is the only place the library's
-// internal requests can be reached. Only idempotent methods are retried.
-const _FETCH_RETRIES = 3;
-const _FETCH_BACKOFF_MS = 600;
-const _nativeFetch = self.fetch.bind(self);
-
-async function fetchWithRetry(input, init) {
-  const method = (init?.method ?? (typeof input === 'object' && input !== null ? input.method : null) ?? 'GET').toUpperCase();
-  if (method !== 'GET' && method !== 'HEAD') return _nativeFetch(input, init);
-
-  let lastError = null;
-  for (let attempt = 0; attempt <= _FETCH_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, _FETCH_BACKOFF_MS * 2 ** (attempt - 1)));
-    }
-    try {
-      const response = await _nativeFetch(input, init);
-      // 429 and 5xx are transient upstream states. A 4xx is a real answer and fails fast.
-      if (response.status === 429 || response.status >= 500) {
-        lastError = new Error(`HTTP ${response.status}`);
-        continue;
-      }
-      return response;
-    } catch (err) {
-      // A reset, DNS failure or TLS failure all surface as TypeError("Failed to fetch").
-      if (init?.signal?.aborted) throw err;
-      lastError = err;
-    }
-  }
-  throw lastError ?? new Error('Failed to fetch');
-}
-
-self.fetch = fetchWithRetry;
 
 // Model state
 let _processor = null;
@@ -96,14 +56,7 @@ async function ensureModelLoaded() {
   const started = performance.now();
 
   _loadPromise = (async () => {
-    const { AutoProcessor, AutoModelForImageTextToText, RawImage, env } = await import(_TRANSFORMERS_URL);
-    env.useFSCache = false;
-    // Load the ONNX Runtime wasm from the vendored, pinned directory instead of its default CDN.
-    env.backends.onnx.wasm.wasmPaths = _TRANSFORMERS_BASE.href;
-    // Multi-threaded wasm needs SharedArrayBuffer, which needs cross-origin isolation.
-    if (self.crossOriginIsolated) {
-      env.backends.onnx.wasm.numThreads = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1));
-    }
+    const { AutoProcessor, AutoModelForImageTextToText, RawImage } = await loadTransformers();
 
     _ModelClass = AutoModelForImageTextToText;
     _processor = await AutoProcessor.from_pretrained(_MODEL.id);
@@ -147,20 +100,6 @@ function describeError(err) {
   if (message) return message;
   const asString = String(err);
   return asString && asString !== '[object Object]' ? asString : 'unknown';
-}
-
-// Frames arrive as a transferred ImageBitmap (no JPEG encode on the page, no base64 copy, no decode
-// here), the same hand-off the detector worker uses.
-let _frameCanvas = null;
-
-function toRawImage(bitmap) {
-  if (!_frameCanvas || _frameCanvas.width !== bitmap.width || _frameCanvas.height !== bitmap.height) {
-    _frameCanvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  }
-  const ctx = _frameCanvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(bitmap, 0, 0);
-  const pixels = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-  return new _RawImage(pixels.data, bitmap.width, bitmap.height, 4).rgb();
 }
 
 async function prepareInputs(image, prompt) {
@@ -224,7 +163,7 @@ async function runInference(bitmap, prompt, maxNewTokens = 32) {
     // "Failed to fetch" reads as an app bug rather than what it is — the weights could not be downloaded.
     const detail = describeError(err);
     return unavailable(/failed to fetch|networkerror|network error|load failed/i.test(detail)
-      ? `Model unavailable: could not download model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
+      ? `Model unavailable: could not download model weights after ${FETCH_ATTEMPTS} attempts — check the network connection to the model host`
       : `Model unavailable: ${detail}`);
   }
 
@@ -233,7 +172,8 @@ async function runInference(bitmap, prompt, maxNewTokens = 32) {
     ? Math.min(96, Math.max(16, Math.trunc(maxNewTokens)))
     : 32;
 
-  const image = toRawImage(bitmap);
+  // Frames arrive as a transferred ImageBitmap: no JPEG encode on the page, no base64 copy, no decode here.
+  const { image } = bitmapToRawImage(_RawImage, bitmap);
   bitmap.close?.();
   // Rebuild tensors after every backend switch: reusing WebGPU inputs on wasm is how generate()
   // started throwing a bare ONNX code with no .message.

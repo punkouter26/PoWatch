@@ -1,10 +1,13 @@
-@* The one place the app tells you things: sensing problems, watch-rule alerts and "name this
-   newcomer" prompts, behind a bell with a count. It opens by itself only for a problem or an alert;
-   a naming prompt just raises the count. Watch rules are edited on Settings. *@
+@* The one place the app tells you things: sensing problems, watch-rule alerts, "name this
+   newcomer" prompts and, once a week, the week in review, behind a bell with a count. It opens by
+   itself only for a problem or an alert; the rest just raise the count. Watch rules are edited on Settings. *@
+@using System.Globalization
 @implements IDisposable
 @inject SensingSession Sensing
 @inject StatsFeed Feed
 @inject TimeProvider Time
+@inject PoWatchApiClient Api
+@inject IJSRuntime JS
 
 <div class="term-tray" data-test="tray" data-hub="@(Feed.IsConnected ? "up" : "down")">
     <button class="term-icon-button @(_open ? "term-icon-button--on" : null)" @onclick="Toggle" aria-expanded="@(_open ? "true" : "false")"
@@ -55,13 +58,21 @@
                 </section>
             }
 
+            @if (_week is { } week)
+            {
+                <a class="tray-item tray-item--week" href="@($"history/{_weekEnd:yyyy-MM-dd}")" @onclick="DismissWeekAsync" data-test="tray-week">
+                    <span class="tray-kicker">● THE WEEK IN REVIEW · OPEN HISTORY →</span>
+                    <b>@week.Summary</b>
+                </a>
+            }
+
             @if (Count == 0)
             {
                 <p class="term-empty">Nothing new.</p>
             }
-            else if (_alerts.Count > 0)
+            else if (_alerts.Count > 0 || _week is not null)
             {
-                <button class="term-menu-item" @onclick="Clear" data-test="tray-clear"><span>Clear</span><b>@_alerts.Count</b></button>
+                <button class="term-menu-item" @onclick="Clear" data-test="tray-clear"><span>Clear</span><b>@(_alerts.Count + (_week is null ? 0 : 1))</b></button>
             }
 
             <a class="term-menu-item" href="settings" @onclick="Toggle" data-test="tray-rules-link"><span>Watch rules</span><b>SETTINGS →</b></a>
@@ -79,7 +90,11 @@
     private string? _lastError;
     private string? _announce;
 
-    private int Count => _alerts.Count + Sensing.Live.Prompts.Count + (Sensing.IsRunning && Sensing.Live.LastError is not null ? 1 : 0);
+    private const string WeekSeenKey = "powatch:week-seen";
+    private WeekDigestDto? _week;
+    private DateOnly _weekEnd;
+
+    private int Count => _alerts.Count + Sensing.Live.Prompts.Count + (_week is null ? 0 : 1) + (Sensing.IsRunning && Sensing.Live.LastError is not null ? 1 : 0);
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,13 +108,35 @@
 
         await Feed.EnsureConnectedAsync();
         StateHasChanged();
+        await OfferLastWeekAsync();
     }
+
+    /// <summary>Once per browser per week: last week's review, if anything was observed in it.</summary>
+    private async Task OfferLastWeekAsync()
+    {
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        var lastWeek = today.AddDays(-(((int)today.DayOfWeek + 6) % 7) - 7);
+        if (await JS.TryInvokeAsync<string>("localStorage.getItem", WeekSeenKey) == Key(lastWeek)) return;
+        if (await Api.GetWeekDigestAsync(lastWeek) is not { ThisWeek.SecondsObserved: > 0 } digest) return;
+        (_week, _weekEnd) = (digest, lastWeek.AddDays(6));
+        StateHasChanged();
+    }
+
+    private async Task DismissWeekAsync()
+    {
+        if (_week is null) return;
+        await JS.TryInvokeVoidAsync("localStorage.setItem", WeekSeenKey, Key(_weekEnd.AddDays(-6)));
+        (_week, _open) = (null, false);
+    }
+
+    private static string Key(DateOnly weekStart) => weekStart.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private void Toggle() => _open = !_open;
 
-    private void Clear()
+    private async Task Clear()
     {
         _alerts.Clear();
+        await DismissWeekAsync();
         _open = false;
     }
 

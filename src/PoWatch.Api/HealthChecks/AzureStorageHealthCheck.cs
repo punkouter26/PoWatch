@@ -1,41 +1,21 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
-using Azure.Data.Tables;
-using Azure.Identity;
-using PoWatch.Application.Options;
+using PoWatch.Infrastructure.Persistence;
 
 namespace PoWatch.Api.HealthChecks;
 
-// Pings Azure Table Storage service properties to verify the connection is reachable.
-// Supports both connection-string auth and Managed Identity (ServiceUri).
-public sealed class AzureStorageHealthCheck(IOptions<AzureStorageOptions> storageOptions) : IHealthCheck
+// Lists one table through the app's own storage client, so the probe checks the same endpoint and
+// credential every store uses, and reuses that credential's cached token instead of fetching a new one.
+public sealed class AzureStorageHealthCheck(AzureStorageClients clients) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        var opts = storageOptions.Value;
-
-        TableServiceClient client;
-        if (!string.IsNullOrWhiteSpace(opts.ConnectionString))
-        {
-            client = new TableServiceClient(opts.ConnectionString);
-        }
-        else if (!string.IsNullOrWhiteSpace(opts.ServiceUri) &&
-                 Uri.TryCreate(opts.ServiceUri, UriKind.Absolute, out var serviceUri))
-        {
-            client = new TableServiceClient(serviceUri, new DefaultAzureCredential());
-        }
-        else
-        {
-            return HealthCheckResult.Unhealthy("Azure Storage is not configured.");
-        }
-
         try
         {
             // GetPropertiesAsync requires management-plane permissions (Shared Key / Storage Account Contributor).
             // QueryAsync (list tables) is a data-plane operation supported by Storage Table Data Contributor.
-            await foreach (var _ in client.QueryAsync(maxPerPage: 1, cancellationToken: cancellationToken))
+            await foreach (var _ in clients.TableService.QueryAsync(maxPerPage: 1, cancellationToken: cancellationToken))
             {
                 break; // Only need to confirm the call succeeds; no tables is fine.
             }

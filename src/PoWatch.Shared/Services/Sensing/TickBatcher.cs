@@ -8,29 +8,19 @@ public sealed record PixelSample(DateTimeOffset AtUtc, double Motion, double Lum
 
 /// <summary>
 /// Folds the browser's samples into ten-second ticks aligned to wall-clock boundaries and packs
-/// them, with the scene events raised along the way, into ingest batches. Batches stay in an
-/// outbox until the server acknowledges them, so a dropped connection costs nothing up to the
-/// outbox cap (an hour by default); older batches beyond it are dropped and counted as lost.
+/// them, with the scene events raised along the way, into ingest batches. Each batch is handed out
+/// once; keeping it until the server answers is the outbox's job (outbox.js), not this class's.
 /// </summary>
-public sealed class TickBatcher(TimeProvider time, int maxPending = TickBatcher.DefaultMaxPending)
+public sealed class TickBatcher(TimeProvider time)
 {
     public const int WindowSeconds = 10;
 
-    /// <summary>An hour of ten-second batches.</summary>
-    public const int DefaultMaxPending = 360;
-
     private const int GridCells = 144;
 
-    private readonly List<IngestBatchDto> _pending = [];
     private readonly List<TickDto> _ready = [];
     private readonly List<SceneEventDto> _events = [];
     private Window? _window;
     private DateTimeOffset? _runStartUtc;
-
-    public IReadOnlyList<IngestBatchDto> Pending => _pending;
-
-    /// <summary>Ticks dropped because the outbox was full.</summary>
-    public long LostTicks { get; private set; }
 
     public void AddPixel(PixelSample sample)
     {
@@ -76,7 +66,6 @@ public sealed class TickBatcher(TimeProvider time, int maxPending = TickBatcher.
     /// <summary>
     /// Closes the current window if it has ended (or, when <paramref name="final"/>, right now) and
     /// returns a new batch with every closed tick and pending event, or null when there is nothing to send.
-    /// The batch is also kept in <see cref="Pending"/> until <see cref="Acknowledge"/>.
     /// </summary>
     public IngestBatchDto? Flush(bool final = false)
     {
@@ -98,18 +87,8 @@ public sealed class TickBatcher(TimeProvider time, int maxPending = TickBatcher.
         };
         _ready.Clear();
         _events.Clear();
-
-        _pending.Add(batch);
-        while (_pending.Count > maxPending)
-        {
-            LostTicks += _pending[0].Ticks.Count;
-            _pending.RemoveAt(0);
-        }
-
         return batch;
     }
-
-    public void Acknowledge(Guid batchKey) => _pending.RemoveAll(b => b.BatchKey == batchKey);
 
     private Window WindowFor(DateTimeOffset atUtc)
     {

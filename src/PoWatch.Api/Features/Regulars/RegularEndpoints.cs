@@ -1,3 +1,4 @@
+using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
 using PoWatch.Application.Services;
 using PoWatch.Domain.Models;
@@ -52,7 +53,8 @@ internal static class RegularEndpoints
                 var renamed = await service.RenameAsync(userId, id, request.Name, ct);
                 return renamed is null ? Results.NotFound() : Results.Ok(renamed.ToDto());
             })
-            .WithName("RenameRegular");
+            .WithName("RenameRegular")
+            .InvalidatesStats();
 
         group.MapPost("/merge", async (MergeRegularsRequestDto request, HttpContext http, RegularsService service, CancellationToken ct) =>
             {
@@ -61,7 +63,8 @@ internal static class RegularEndpoints
                 return merged is null ? Results.NotFound() : Results.Ok(merged.ToDto());
             })
             .WithName("MergeRegulars")
-            .WithSummary("Fold a duplicate regular into another; their visits and time add up.");
+            .WithSummary("Fold a duplicate regular into another; their visits and time add up.")
+            .InvalidatesStats();
 
         return app;
     }

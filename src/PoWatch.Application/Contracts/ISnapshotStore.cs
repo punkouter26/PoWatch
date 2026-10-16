@@ -15,6 +15,9 @@ public interface ISnapshotStore
 
     /// <summary>A short-lived read link, or null when the path is not one of the caller's snapshots.</summary>
     Task<Uri?> CreateReadUrlAsync(string userId, string path, CancellationToken cancellationToken);
+
+    /// <summary>Deletes the snapshots of the local days before <paramref name="firstKeptDay"/>; returns how many.</summary>
+    Task<int> PruneBeforeAsync(string userId, DateOnly firstKeptDay, CancellationToken cancellationToken);
 }
 
 /// <summary>Everything stored for one user, as a whole.</summary>

@@ -67,26 +67,23 @@ public sealed class TickBatcherTests
     }
 
     [Fact]
-    public void Unacknowledged_batches_wait_in_the_outbox_up_to_an_hour()
+    public void Each_closed_window_is_handed_out_once_under_its_own_key()
     {
         var time = new FakeTimeProvider(T0);
-        var batcher = new TickBatcher(time, maxPending: 3);
+        var batcher = new TickBatcher(time);
 
         var keys = new List<Guid>();
         for (var i = 0; i < 5; i++)
         {
             batcher.AddPixel(new PixelSample(time.GetUtcNow(), 0.1, 0.5, [], []));
             time.Advance(TimeSpan.FromSeconds(10));
-            keys.Add(batcher.Flush()!.BatchKey);
+            var batch = batcher.Flush()!;
+            Assert.Single(batch.Ticks);
+            keys.Add(batch.BatchKey);
+            // The outbox keeps it from here: flushing again hands out nothing new.
+            Assert.Null(batcher.Flush());
         }
-
-        // Oldest two were dropped to respect the cap, and counted as lost.
-        Assert.Equal(keys.Skip(2), batcher.Pending.Select(b => b.BatchKey));
-        Assert.Equal(2, batcher.LostTicks);
-
-        // Acknowledged batches leave; a retry of what is left resends the same keys.
-        batcher.Acknowledge(keys[2]);
-        Assert.Equal(keys.Skip(3), batcher.Pending.Select(b => b.BatchKey));
+        Assert.Equal(5, keys.Distinct().Count());
 
         // Stopping closes a partial window early: :50 to :57 is 7 s.
         batcher.AddPixel(new PixelSample(time.GetUtcNow(), 0.2, 0.5, [], []));

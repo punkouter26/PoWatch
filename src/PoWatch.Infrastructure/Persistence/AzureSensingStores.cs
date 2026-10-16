@@ -74,6 +74,13 @@ public sealed class AzureSensingLog(AzureStorageClients clients, IOptions<AzureS
         return events.OrderBy(e => e.AtUtc).ToList();
     }
 
+    public async Task<int> PruneBeforeAsync(string userId, DateOnly firstKeptDay, CancellationToken cancellationToken)
+    {
+        var filter = TableDeletes.DaysBefore(userId, firstKeptDay);
+        return await TableDeletes.DeleteWhereAsync(_ticks, filter, cancellationToken)
+            + await TableDeletes.DeleteWhereAsync(_events, filter, cancellationToken);
+    }
+
     private static async Task UpsertAllAsync(TableClient table, IEnumerable<TableEntity> entities, CancellationToken cancellationToken)
     {
         // Duplicate keys inside one transaction are rejected, so keep the last write per row.
@@ -105,4 +112,9 @@ public sealed class AzureIngestLedger(AzureStorageClients clients, IOptions<Azur
             return false;
         }
     }
+
+    public Task<int> PruneBeforeAsync(string userId, DateTimeOffset beforeUtc, CancellationToken cancellationToken) =>
+        TableDeletes.DeleteWhereAsync(_table,
+            TableClient.CreateQueryFilter($"PartitionKey eq {StatsEntityMapper.UserKey(userId)} and ClaimedAtUtc lt {beforeUtc}"),
+            cancellationToken);
 }

@@ -63,3 +63,11 @@ public sealed class FxTrackPayload
     public double X { get; init; }
     public double Y { get; init; }
 }
+
+/// <summary>One batch waiting in the outbox (outbox.js), as its JSON text.</summary>
+public sealed class OutboxEntryPayload
+{
+    public string Key { get; init; } = string.Empty;
+    public string SessionId { get; init; } = string.Empty;
+    public string Json { get; init; } = string.Empty;
+}

@@ -1,6 +1,5 @@
 using PoWatch.Api.Platform;
 using System.Globalization;
-using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -19,6 +18,10 @@ using PoWatch.Api.Features.Dev;
 using PoWatch.Api.Features.Auth;
 using PoWatch.Api.Features.Ask;
 using PoWatch.Api.Features.Data;
+using PoWatch.Api.Features.Digest;
+using PoWatch.Api.Features.Profile;
+using PoWatch.Api.Features.Shares;
+using PoWatch.Api.Features.Weather;
 using PoWatch.Api.HealthChecks;
 using PoWatch.Api.Hosting;
 using PoWatch.Api.Middleware;
@@ -57,7 +60,6 @@ if (featureFlags.EnableKeyVault && Uri.TryCreate(builder.Configuration["KeyVault
     KeyVaultConfiguration.AddPoWatchKeyVault(builder.Configuration, kvUri, Log.Logger);
 
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection("FeatureFlags"));
-builder.Services.Configure<PoWatch.Application.Options.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
 
 // Fail-fast options — the startup-critical settings are validated and ValidateOnStart()
 // forces evaluation during host build, so a bad table name, polling interval, or Azure OpenAI range
@@ -78,15 +80,8 @@ builder.AddPoWatchDataProtection();
 builder.Services.AddOpenApi(options =>
     options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1);
 
-// HybridCache for stats queries, tagged per user and evicted when a batch lands.
-builder.Services.AddHybridCache(o =>
-{
-    o.DefaultEntryOptions = new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions
-    {
-        Expiration = TimeSpan.FromSeconds(10),
-        LocalCacheExpiration = TimeSpan.FromSeconds(10)
-    };
-});
+// HybridCache for stats queries, tagged per user and evicted when a batch lands (entry lifetime: StatsEndpoints).
+builder.Services.AddHybridCache();
 
 // OpenTelemetry tracing (passes config so Azure Monitor exporter can be gated on connection string)
 builder.Services.AddPoWatchTelemetry(builder.Configuration);
@@ -106,7 +101,8 @@ builder.Services.AddRateLimiter(rl =>
     rl.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
     {
         var path = http.Request.Path;
-        var limited = path.StartsWithSegments("/api") || path.StartsWithSegments("/auth") || path.StartsWithSegments("/hubs");
+        // "/s" is the public shared-recap page: anonymous, so it is limited per IP like sign-in is.
+        var limited = path.StartsWithSegments("/api") || path.StartsWithSegments("/auth") || path.StartsWithSegments("/hubs") || path.StartsWithSegments("/s");
         if (!limited || builder.Environment.IsEnvironment("Test"))
             return RateLimitPartition.GetNoLimiter(string.Empty);
 
@@ -125,6 +121,13 @@ builder.Services.AddPoWatchInfrastructure();
 // ponytail: in-memory recap response cache (200 MB cap), lost on restart; swap in Redis/SQL if that matters.
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddPoWatchRecapAi(builder.Configuration);
+builder.Services.AddPoWatchDigestEmail(builder.Configuration);
+// Retention and the weekly digest run on a timer; the Test host leaves them off so suites stay deterministic.
+if (!builder.Environment.IsEnvironment("Test"))
+{
+    builder.Services.AddHostedService<RetentionJob>();
+    builder.Services.AddHostedService<DigestJob>();
+}
 builder.Services.AddSingleton<FluentValidation.IValidator<PoWatch.Shared.Models.IngestBatchDto>, IngestBatchValidator>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CurrentUserIdProvider>();
@@ -182,23 +185,26 @@ app.UseExceptionHandler(errorApp =>
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
+// Before authentication, so responses the auth handlers end themselves (the OIDC callback) still carry one.
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Auth middleware — always active (BFF cookie session + OIDC/guest schemes)
 app.UseAuthentication();
-app.UseAuthorization();
-// After authentication: the limiter partitions by the signed-in user.
-app.UseRateLimiter();
 
-// Enrich every request log with UserId and SessionId from the current principal / trace identifier
+// Only now is the user known: every later log line, Serilog or ILogger scope, carries their partition id.
 app.Use(async (ctx, next) =>
 {
-    using (LogContext.PushProperty("UserId", ctx.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous"))
-    using (LogContext.PushProperty("SessionId", ctx.TraceIdentifier))
+    var userId = CurrentUser.Id(ctx.User) ?? "anonymous";
+    using (LogContext.PushProperty("UserId", userId))
+    using (app.Logger.BeginScope(new Dictionary<string, object> { ["UserId"] = userId }))
     {
         await next(ctx);
     }
 });
+
+app.UseAuthorization();
+// After authentication: the limiter partitions by the signed-in user.
+app.UseRateLimiter();
 
 // JSON health endpoint — returns status of each registered check
 app.MapHealthChecks("/health", new HealthCheckOptions
@@ -297,6 +303,10 @@ app.MapRecapsFeature();
 app.MapStatsFeature();
 app.MapAskFeature();
 app.MapDataFeature();
+app.MapProfileFeature();
+app.MapWeatherFeature();
+app.MapDigestFeature();
+app.MapSharesFeature();
 app.MapHub<StatsHub>(StatsHub.Path).RequireAuthorization();
 app.MapDevSeedFeature(app.Environment);
 // Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which

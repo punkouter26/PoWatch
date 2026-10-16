@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using Microsoft.Extensions.Caching.Hybrid;
 using PoWatch.Api.Features.Stats;
 using PoWatch.Api.Security;
 using PoWatch.Application.Contracts;
@@ -30,18 +29,18 @@ internal static class DataEndpoints
             .WithName("ExportDays")
             .WithSummary("One CSV row per observed day of the last year: occupancy, visits, motion.");
 
-        app.MapDelete("/api/data", async (HttpContext http, IUserDataStore data, HybridCache cache, ILogger<Program> logger, CancellationToken ct) =>
+        app.MapDelete("/api/data", async (HttpContext http, IUserDataStore data, ILogger<Program> logger, CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();
                 await data.PurgeAsync(userId, ct);
-                await cache.RemoveByTagAsync(StatsEndpoints.CacheTag(userId), ct);
                 logger.LogWarning("User data purged on request.");
                 return Results.NoContent();
             })
             .WithTags("Data")
             .RequireAuthorization()
             .WithName("DeleteMyData")
-            .WithSummary("Delete everything stored for the caller: sessions, ticks, events, rollups, regulars and snapshots.");
+            .WithSummary("Delete everything stored for the caller: sessions, ticks, events, rollups, regulars and snapshots.")
+            .InvalidatesStats();
 
         return app;
     }
