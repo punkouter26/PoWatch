@@ -96,6 +96,11 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         if (PlaywrightFixture.BaseUrl is null) return;
         var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
+        // Blazor's FocusOnNavigate moves focus into <main> once the page renders; on a slow host that lands
+        // after the navbar shows, and the Tab then starts from inside main. Let it settle, then start where a
+        // keyboard user arriving on the page does: the top of the document.
+        await page.WaitForFunctionAsync("() => document.activeElement?.tagName === 'MAIN'", null, new() { Timeout = 10_000 });
+        await page.EvaluateAsync("() => { document.body.tabIndex = -1; document.body.focus(); document.body.removeAttribute('tabindex'); }");
         await page.Keyboard.PressAsync("Tab");
         var focused = await page.EvaluateAsync<string>("() => document.activeElement?.textContent ?? ''");
 
