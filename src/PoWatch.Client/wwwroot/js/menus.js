@@ -1,5 +1,6 @@
 // The keyboard: `g` then a letter jumps to a section, Space starts or stops observing, ← → step History's day,
-// and Ctrl+K opens a command palette listing all of it.
+// and Ctrl+K opens a command palette listing all of it. Typing three letters or more also offers a search of
+// the captions by meaning (caption-index.js); its results open that moment in History's replay.
 (function () {
     'use strict';
 
@@ -23,6 +24,7 @@
     // ── Command palette ──────────────────────────────────────────────────────
 
     let palette = null;
+    let results = null; // caption search results while the palette shows them, else null
 
     function openPalette() {
         if (!palette) {
@@ -32,7 +34,7 @@
             palette.innerHTML = '<input type="text" placeholder="Type a command…" aria-label="Command" autocomplete="off" /><ul role="listbox"></ul>';
             document.body.appendChild(palette);
             const input = palette.querySelector('input');
-            input.addEventListener('input', () => renderPalette(0));
+            input.addEventListener('input', () => { results = null; renderPalette(0); });
             palette.addEventListener('keydown', onPaletteKey);
             palette.addEventListener('click', (e) => {
                 const item = e.target.closest('li');
@@ -41,13 +43,46 @@
             });
         }
         palette.querySelector('input').value = '';
+        results = null;
         renderPalette(0);
         palette.showModal();
     }
 
+    const pad = (n) => String(n).padStart(2, '0');
+    const localDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const when = (d) => `${d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    async function searchCaptions(query) {
+        results = [{ label: 'Searching captions…', hint: '', run: () => { } }];
+        renderPalette(0);
+        palette.showModal(); // runPalette closed it
+        let found = [];
+        try { found = (await window.powatchCaptionIndex?.search(query)) ?? []; } catch { found = null; }
+        if (!palette.open || !results) return;
+        results = found === null
+            ? [{ label: 'Caption search is unavailable in this browser', hint: '', run: () => { } }]
+            : found.length === 0
+                ? [{ label: `No caption like “${query}” on this device yet`, hint: 'replayed days are searchable too', run: () => { } }]
+                : found.map((r) => {
+                    const at = new Date(r.at);
+                    return {
+                        label: `“${r.text}”${r.times > 1 ? ` ×${r.times}` : ''}`,
+                        hint: when(at),
+                        run: () => Blazor.navigateTo(`history/${localDay(at)}?tab=replay&at=${r.at}`),
+                    };
+                });
+        renderPalette(0);
+    }
+
     function matches() {
-        const query = palette.querySelector('input').value.trim().toLowerCase();
-        return commands().filter((c) => c.label.toLowerCase().includes(query));
+        if (results) return results;
+        const raw = palette.querySelector('input').value.trim();
+        const query = raw.toLowerCase();
+        const found = commands().filter((c) => c.label.toLowerCase().includes(query));
+        if (raw.length >= 3 && window.powatchCaptionIndex) {
+            found.push({ label: `Search captions: “${raw}”`, hint: 'by meaning', run: () => searchCaptions(raw) });
+        }
+        return found;
     }
 
     function renderPalette(selected) {
@@ -91,6 +126,16 @@
             return;
         }
 
+        // Escape closes an open drawer (Settings, the bell) from anywhere, typing included.
+        if (e.key === 'Escape' && !palette?.open) {
+            const close = document.querySelector('.term-drawer [data-drawer-close]');
+            if (close) {
+                e.preventDefault();
+                close.click();
+                return;
+            }
+        }
+
         // Never steal keys from typing, from an open dialog, or from a modified chord.
         const target = e.target;
         if (e.ctrlKey || e.metaKey || e.altKey || palette?.open) return;
@@ -124,8 +169,13 @@
         document.addEventListener('keydown', onKey);
     }
 
-    /** Whether there is room for secondary table columns (the same breakpoint as terminal.css). */
-    const isWide = () => window.innerWidth > 720;
+    /** Slides a phone strip (Live's stat panels) to its nth panel. */
+    function reveal(strip, index) {
+        const panel = strip?.querySelectorAll('.term-panel')[index];
+        if (!panel) return;
+        const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        strip.scrollBy({ left: panel.getBoundingClientRect().left - strip.getBoundingClientRect().left, behavior: smooth ? 'smooth' : 'auto' });
+    }
 
-    window.powatchMenus = { setup, openPalette, isWide };
+    window.powatchMenus = { setup, openPalette, reveal };
 })();

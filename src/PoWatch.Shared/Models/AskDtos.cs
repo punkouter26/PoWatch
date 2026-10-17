@@ -21,3 +21,20 @@ public sealed class AlertDto
     public DateTimeOffset AtUtc { get; init; }
     public string Text { get; init; } = string.Empty;
 }
+
+/// <summary>"Tell me if a person shows up after 10pm": a watch rule in the user's own words.</summary>
+public sealed class RuleDraftRequestDto
+{
+    public const int MaxLength = 200;
+
+    public string Text { get; init; } = string.Empty;
+}
+
+/// <summary>A watch rule a model drafted from a sentence; the user still confirms it before it is kept.</summary>
+public sealed class RuleDraftDto
+{
+    /// <summary>A detector label, or "*" for anything.</summary>
+    public string Class { get; init; } = string.Empty;
+    public int FromHour { get; init; }
+    public int ToHour { get; init; }
+}

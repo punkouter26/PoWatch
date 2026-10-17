@@ -103,3 +103,6 @@ __queuestorage__/
 # Verify snapshot runs
 *.received.*
 
+
+# Before/after UI screenshots are local review aids, not source
+SCREENSHOTS/

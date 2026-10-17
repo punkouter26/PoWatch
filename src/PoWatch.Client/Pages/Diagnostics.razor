@@ -161,45 +161,14 @@
 
     private async Task LoadHealthAsync()
     {
-        try
-        {
-            _health = await ApiClient.GetHealthAsync();
-            _healthError = _health is null ? "The server returned an empty health document." : null;
-        }
-        catch (OperationCanceledException)
-        {
-            // Page is being disposed — nothing to report.
-        }
-        catch (Exception ex)
-        {
-            _health = null;
-            _healthError = ex.Message;
-        }
+        _health = await ApiClient.GetHealthAsync();
+        _healthError = _health is null ? "The server did not answer with a health document." : null;
     }
 
-    private async Task LoadSnapshotAsync()
-    {
-        try
-        {
-            _snapshot = await ApiClient.GetDiagnosticsAsync();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _snapshot = null;
-        }
-    }
+    private async Task LoadSnapshotAsync() => _snapshot = await ApiClient.GetDiagnosticsAsync();
 
-    private async Task RefreshInferenceDiagnosticsAsync()
-    {
-        try
-        {
-            _inference = await JS.TryInvokeAsync<InferenceDiagnosticsDto>("powatchInference.getInferenceDiagnostics");
-        }
-        catch
-        {
-            _inference = null;
-        }
-    }
+    private async Task RefreshInferenceDiagnosticsAsync() =>
+        _inference = await JS.TryInvokeAsync<InferenceDiagnosticsDto>("powatchInference.getInferenceDiagnostics");
 
     private static string Dot(string status) => status switch
     {

@@ -25,6 +25,11 @@ public sealed record StatsWindow(StatsRange Range, DateTimeOffset FromUtc, DateT
         _ => TimeSpan.FromDays(1)
     };
 
+    /// <summary>Session, today or one day: short enough that the raw ticks and events are worth reading.</summary>
+    public bool IsShort => Range is StatsRange.Today or StatsRange.Session or StatsRange.Day;
+
+    public bool Contains(DateTimeOffset instant) => instant >= FromUtc && instant < ToUtc;
+
     public StatsWindowDto ToDto() => new()
     {
         Range = StatsQueryService.RangeName(Range),
@@ -39,7 +44,7 @@ public sealed record StatsWindow(StatsRange Range, DateTimeOffset FromUtc, DateT
 /// Reads rollups for a window and runs the domain stat calculators over them. Everything here is
 /// composition; the maths lives in <c>PoWatch.Domain.Services</c> and is unit-tested there.
 /// </summary>
-public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, ISessionRepository sessions, IRegularStore regulars, TimeProvider time)
+public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, SessionService sessions, IRegularStore regulars, TimeProvider time)
 {
     /// <summary>
     /// The raw record behind a short window (session, today or one day): every 10 s tick and every scene
@@ -47,17 +52,69 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
     /// </summary>
     public async Task<(List<Tick> Ticks, List<SceneEvent> Events)?> RawAsync(string userId, StatsWindow window, CancellationToken cancellationToken)
     {
-        if (window.Range is not (StatsRange.Today or StatsRange.Session or StatsRange.Day)) return null;
+        if (!window.IsShort) return null;
 
-        var (ticks, events) = (new List<Tick>(), new List<SceneEvent>());
+        var ticks = new List<Tick>();
+        foreach (var day in DaysOf(window))
+            ticks.AddRange((await sensingLog.GetTicksAsync(userId, day, cancellationToken)).Where(t => window.Contains(t.StartUtc)));
+
+        return (ticks, await EventsAsync(userId, window, cancellationToken));
+    }
+
+    /// <summary>
+    /// A day minute by minute for the History replay: every observed minute with its motion grid,
+    /// and the captions, moments, entrances and exits in between.
+    /// </summary>
+    public async Task<ReplayDayDto> ReplayAsync(string userId, StatsWindow window, CancellationToken cancellationToken)
+    {
+        var minutesRead = rollups.GetRangeAsync(userId, RollupGrain.Minute, window.FromUtc, window.ToUtc, cancellationToken);
+        var eventsRead = EventsAsync(userId, window, cancellationToken);
+        await Task.WhenAll(minutesRead, eventsRead);
+
+        var minutes = (await minutesRead).Where(m => m.Ticks > 0).OrderBy(m => m.BucketStartUtc).ToList();
+        var grids = new byte[minutes.Count * SpatialGrid.Cells];
+        for (var i = 0; i < minutes.Count; i++)
+            SpatialGrid.Quantize(minutes[i].Grid.Span, grids.AsSpan(i * SpatialGrid.Cells, SpatialGrid.Cells));
+
+        return new ReplayDayDto
+        {
+            Window = window.ToDto(),
+            Minutes = minutes.Select(m => new ReplayMinuteDto
+            {
+                AtUtc = m.BucketStartUtc,
+                Occupancy = m.OccupancyFraction,
+                Peak = m.PeakConcurrency,
+                Motion = m.Motion.Mean,
+                Luminance = m.Luminance.Mean
+            }).ToList(),
+            Grids = Convert.ToBase64String(grids),
+            Events = (await eventsRead).Select(ReplayEvent).OfType<ReplayEventDto>().ToList()
+        };
+    }
+
+    private static ReplayEventDto? ReplayEvent(SceneEvent e) => e.Kind switch
+    {
+        SceneEventKind.Caption when e.Text is not null => new() { AtUtc = e.AtUtc, Kind = "caption", Text = e.Text },
+        SceneEventKind.Notable => new() { AtUtc = e.AtUtc, Kind = "moment", Text = e.Text },
+        SceneEventKind.TrackEnter when e.Class is { } enterClass && EntityClasses.IsPresence(enterClass) => new() { AtUtc = e.AtUtc, Kind = "enter", Class = e.Class },
+        SceneEventKind.TrackExit when e.Class is { } exitClass && EntityClasses.IsPresence(exitClass) => new() { AtUtc = e.AtUtc, Kind = "exit", Class = e.Class },
+        _ => null
+    };
+
+    /// <summary>The local days a window touches, up to today.</summary>
+    private IEnumerable<DateOnly> DaysOf(StatsWindow window)
+    {
         var lastDay = LocalDay.Of(Min(window.ToUtc, time.GetUtcNow()), window.Zone);
         for (var day = LocalDay.Of(window.FromUtc, window.Zone); day <= lastDay; day = day.AddDays(1))
-        {
-            ticks.AddRange((await sensingLog.GetTicksAsync(userId, day, cancellationToken)).Where(t => t.StartUtc >= window.FromUtc && t.StartUtc < window.ToUtc));
-            events.AddRange((await sensingLog.GetEventsAsync(userId, day, cancellationToken)).Where(e => e.AtUtc >= window.FromUtc && e.AtUtc < window.ToUtc));
-        }
+            yield return day;
+    }
 
-        return (ticks, events);
+    private async Task<List<SceneEvent>> EventsAsync(string userId, StatsWindow window, CancellationToken cancellationToken)
+    {
+        var events = new List<SceneEvent>();
+        foreach (var day in DaysOf(window))
+            events.AddRange((await sensingLog.GetEventsAsync(userId, day, cancellationToken)).Where(e => window.Contains(e.AtUtc)));
+        return events;
     }
 
     /// <summary>Days that make up "your usual".</summary>
@@ -90,7 +147,7 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
         if (range == StatsRange.Session && session is null) return null;
         if (range == StatsRange.Day && date is null) return null;
 
-        var zone = FindZone(timeZoneId) ?? session?.TimeZone ?? TimeZoneInfo.Utc;
+        var zone = LocalDay.FindZone(timeZoneId) ?? session?.TimeZone ?? TimeZoneInfo.Utc;
         var now = time.GetUtcNow();
         var today = LocalDay.Today(time, zone);
         DateTimeOffset DayStart(int daysAgo) => LocalDay.Window(today.AddDays(-daysAgo), zone).StartUtc;
@@ -209,10 +266,12 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
         var todayStart = LocalDay.Window(today, zone).StartUtc;
         var baselineStart = LocalDay.Window(today.AddDays(-BaselineDays), zone).StartUtc;
 
-        var baselineHours = await rollups.GetRangeAsync(userId, RollupGrain.Hour, baselineStart, todayStart, cancellationToken);
-        var todayHours = await rollups.GetRangeAsync(userId, RollupGrain.Hour, todayStart, now.AddHours(1), cancellationToken);
-        var calendar = await rollups.GetRangeAsync(userId, RollupGrain.Day,
+        var baselineRead = rollups.GetRangeAsync(userId, RollupGrain.Hour, baselineStart, todayStart, cancellationToken);
+        var todayRead = rollups.GetRangeAsync(userId, RollupGrain.Hour, todayStart, now.AddHours(1), cancellationToken);
+        var calendarRead = rollups.GetRangeAsync(userId, RollupGrain.Day,
             LocalDay.Window(today.AddDays(-(CalendarDays - 1)), zone).StartUtc, now.AddDays(1), cancellationToken);
+        await Task.WhenAll(baselineRead, todayRead, calendarRead);
+        var (baselineHours, todayHours, calendar) = (await baselineRead, await todayRead, await calendarRead);
 
         static double Occupancy(Rollup r) => r.OccupancyFraction;
         static double VisitsPerHour(Rollup r) => r.Seconds > 0 ? r.Visits / (r.Seconds / 3600) : 0;
@@ -252,22 +311,14 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
     public async Task<EnvironmentStatsDto> EnvironmentAsync(string userId, StatsWindow window, CancellationToken cancellationToken)
     {
         var series = await SeriesAsync(userId, window, cancellationToken);
-        var shortWindow = window.Range is StatsRange.Today or StatsRange.Session or StatsRange.Day;
-        var daylight = shortWindow ? EnvironmentStats.EstimateDaylight(series) : null;
+        var daylight = window.IsShort ? EnvironmentStats.EstimateDaylight(series) : null;
 
-        // Captions are raw events, so only the days a short window touches are read.
-        var captions = new List<(DateTimeOffset AtUtc, string Text)>();
-        if (shortWindow)
-        {
-            var firstDay = LocalDay.Of(window.FromUtc, window.Zone);
-            var lastDay = LocalDay.Of(Min(window.ToUtc, time.GetUtcNow()), window.Zone);
-            for (var day = firstDay; day <= lastDay; day = day.AddDays(1))
-            {
-                captions.AddRange((await sensingLog.GetEventsAsync(userId, day, cancellationToken))
-                    .Where(e => e.Kind == SceneEventKind.Caption && e.Text is not null && e.AtUtc >= window.FromUtc && e.AtUtc < window.ToUtc)
-                    .Select(e => (e.AtUtc, e.Text!)));
-            }
-        }
+        // Captions are raw events, so only a short window reads them.
+        List<(DateTimeOffset AtUtc, string Text)> captions = window.IsShort
+            ? [.. (await EventsAsync(userId, window, cancellationToken))
+                .Where(e => e.Kind == SceneEventKind.Caption && e.Text is not null && !CaptionStats.IsUninformative(e.Text))
+                .Select(e => (e.AtUtc, e.Text!))]
+            : [];
 
         var weirdest = CaptionStats.Weirdest(captions);
         return new EnvironmentStatsDto
@@ -323,9 +374,6 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
         Z = a.Z,
         Flagged = a.Flagged
     };
-
-    private static TimeZoneInfo? FindZone(string? id) =>
-        !string.IsNullOrWhiteSpace(id) && TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone) ? zone : null;
 
     private static DateTimeOffset Min(DateTimeOffset a, DateTimeOffset b) => a < b ? a : b;
 }

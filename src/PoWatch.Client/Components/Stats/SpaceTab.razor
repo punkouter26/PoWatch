@@ -20,11 +20,11 @@ else
                 <div class="stats-heats">
                     <figure>
                         <HeatGrid Values="@Data.MotionHeat" Label="Motion across the frame" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0} of the hottest")" />
-                        <figcaption>MOTION · @(Data.HottestCell >= 0 ? $"HOTTEST {Cell(Data.HottestCell)}" : "NONE YET")</figcaption>
+                        <figcaption title="The cell with the most motion">MOTION · @(Data.HottestCell >= 0 ? $"MOSTLY {Cell(Data.HottestCell)}" : "NONE YET")</figcaption>
                     </figure>
                     <figure>
                         <HeatGrid Values="@Data.PresenceHeat" Label="Where tracked people and animals were centred" CellTitle="@((i, v) => $"{Cell(i)} · {v:P0}")" />
-                        <figcaption>PEOPLE &amp; ANIMALS · @(Data.FavouriteSpotCell >= 0 ? $"FAVOURITE {Cell(Data.FavouriteSpotCell)}" : "NOBODY YET")</figcaption>
+                        <figcaption title="Where people and animals were centred most">PEOPLE · @(Data.FavouriteSpotCell >= 0 ? $"MOSTLY {Cell(Data.FavouriteSpotCell)}" : "NOBODY YET")</figcaption>
                     </figure>
                 </div>
             </ChildContent>

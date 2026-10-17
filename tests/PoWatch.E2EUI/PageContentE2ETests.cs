@@ -13,7 +13,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task The_live_page_shows_every_panel_and_one_way_to_start()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-motion-grid" })
             await Assertions.Expect(page.GetByTestId(panel)).ToBeVisibleAsync();
@@ -25,8 +25,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task A_demo_session_fills_the_counters_and_stops_cleanly()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        // A fresh user: the demo button is offered only until a first session exists.
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"demo-{Guid.NewGuid():N}");
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"demo-{Guid.NewGuid():N}");
 
         await page.GetByTestId("start-demo").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
@@ -51,16 +50,19 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task Live_renders_every_stat_family_with_real_numbers_for_a_seeded_month()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
-        var seed = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=40&tz=UTC");
+        // Its own user: the seed runs once per user, so on the shared guest it would land on whatever earlier tests left.
+        var user = $"month-{Guid.NewGuid():N}";
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user);
+        // APIRequest does not carry the page's sign-in cookie; the header names the same user.
+        var seed = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=40&tz=UTC", new() { Headers = PoWatchPage.As(user) });
         Assert.True(seed.Ok, $"seed returned {seed.Status}");
 
         await page.GoToAsync("/?range=30d", "LIVE");
         await Assertions.Expect(page.GetByTestId("stats-occupancy")).Not.ToContainTextAsync("0.0%", new() { Timeout = 30_000 });
         await Assertions.Expect(page.Locator("[data-test=stats-presence] .rz-chart svg").First).ToBeVisibleAsync();
 
-        // Every family is on the Live grid; pipeline counters are on System.
-        foreach (var content in new[] { "stats-space", "stats-objects", "stats-patterns", "stats-environment" })
+        // Every family is on the Live grid (classes in "In frame"); pipeline counters are on System.
+        foreach (var content in new[] { "stats-space", "live-census", "stats-patterns", "stats-environment" })
         {
             await Assertions.Expect(page.GetByTestId(content)).ToBeVisibleAsync(new() { Timeout = 30_000 });
         }
@@ -75,7 +77,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         // A fresh user: storage persists (Azurite), so a reused guest already knows the walker and the cat.
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"names-{Guid.NewGuid():N}");
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"names-{Guid.NewGuid():N}");
 
         await page.GetByTestId("start-demo").ClickAsync();
 
@@ -107,14 +109,15 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task History_walks_back_day_by_day_through_real_sessions()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        var user = $"history-{Guid.NewGuid():N}";
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user, advanced: true);
 
-        // Real ingest (not the seed), so past days have the minute rollups a day view reads.
+        // Real ingest (not the seed), so today has the minute rollups a day view reads. Ingest refuses
+        // ticks outside their session (no backdating), so only today has a recorded session.
         var zone = TimeZoneInfo.Local.Id;
-        var start = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/sessions", new() { DataObject = new { timeZoneId = zone } });
+        var start = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/sessions", new() { DataObject = new { timeZoneId = zone }, Headers = PoWatchPage.As(user) });
         var sessionId = (await start.JsonAsync())!.Value.GetProperty("id").GetString();
-        var todayNoon = new DateTimeOffset(DateTime.Today.AddHours(12));
-        var noonToday = todayNoon > DateTimeOffset.Now ? DateTimeOffset.Now.AddMinutes(-5) : todayNoon;
+        var justNow = DateTimeOffset.Now.AddSeconds(-30);
         object Tick(DateTimeOffset at) => new
         {
             startUtc = at.UtcDateTime,
@@ -126,34 +129,55 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         };
         var batch = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/sessions/{sessionId}/batches", new()
         {
-            DataObject = new { batchKey = Guid.NewGuid(), ticks = new[] { Tick(noonToday), Tick(todayNoon.AddDays(-1)) } }
+            Headers = PoWatchPage.As(user),
+            DataObject = new { batchKey = Guid.NewGuid(), ticks = new[] { Tick(justNow), Tick(justNow.AddSeconds(10)) } }
         });
         Assert.True(batch.Ok, $"batch returned {batch.Status}");
 
         await page.GoToAsync("/history", "HISTORY");
         await Assertions.Expect(page.GetByTestId("history-calendar")).ToBeVisibleAsync();
+        // The year turns into a 3D skyline and back; the choice is the browser's to remember.
+        await page.GetByTestId("year-3d").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("year-skyline")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("skyline-fly")).ToBeVisibleAsync();
+        await page.GetByTestId("year-2d").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("year-skyline")).Not.ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
-        // The recap tab carries the day's sessions; the time-lapse opens on a click.
+        // The day's sessions sit beside the two tabs: Recap and Replay.
         await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
-        await page.GetByRole(AriaRole.Tab, new() { Name = "Time-lapse" }).ClickAsync();
-        await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
-        await page.GetByRole(AriaRole.Tab, new() { Name = "Recap" }).ClickAsync();
+        Assert.Equal(2, await page.GetByRole(AriaRole.Tab).CountAsync());
 
         // The day's recap reads as a sentence and downloads as a real PDF.
         await Assertions.Expect(page.GetByTestId("history-recap")).ToContainTextAsync("WRITTEN BY TEMPLATE");
         var pdfHref = await page.GetByTestId("history-recap-pdf").GetAttributeAsync("href");
-        var pdf = await page.APIRequest.GetAsync($"{PlaywrightFixture.BaseUrl}/{pdfHref}");
+        var pdf = await page.APIRequest.GetAsync($"{PlaywrightFixture.BaseUrl}/{pdfHref}", new() { Headers = PoWatchPage.As(user) });
         Assert.True(pdf.Ok || pdf.Status == 503, $"recap PDF returned {pdf.Status}");
         if (pdf.Ok) Assert.Equal("%PDF"u8.ToArray(), (await pdf.BodyAsync()).Take(4).ToArray());
 
+        // The week beside the day; a share link that works without signing in; the day replayed minute by minute.
+        await Assertions.Expect(page.GetByTestId("week-summary")).ToContainTextAsync("PoWatch watched for", new() { Timeout = 30_000 });
+        await page.GetByTestId("history-share").ClickAsync();
+        var link = page.GetByTestId("history-share-link").Locator("input");
+        await Assertions.Expect(link).ToHaveValueAsync(new System.Text.RegularExpressions.Regex(@"/s/[A-Za-z0-9_-]{22}$"), new() { Timeout = 30_000 });
+        var shared = await page.APIRequest.GetAsync(await link.InputValueAsync());
+        Assert.True(shared.Ok, $"shared page returned {shared.Status}");
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Replay" }).ClickAsync();
+        await Assertions.Expect(page.GetByTestId("replay-scrub")).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await Assertions.Expect(page.GetByTestId("replay-clock")).Not.ToHaveTextAsync("--:--");
+        // Moments and the time-lapse live under the replay.
+        await Assertions.Expect(page.GetByTestId("history-moments")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
+        await page.GetByRole(AriaRole.Tab, new() { Name = "Recap" }).ClickAsync();
+
+        // A day with nothing recorded says so instead of showing zeros; arrow keys page too.
         var today = await page.GetByTestId("history-day").TextContentAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Previous day" }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("history-day")).Not.ToHaveTextAsync(today!);
-        await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
-
-        // Arrow keys page too; a day with nothing recorded says so instead of showing zeros.
+        await Assertions.Expect(page.GetByTestId("history-empty")).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        var yesterday = await page.GetByTestId("history-day").TextContentAsync();
         await page.GetByTestId("history-toolbar").FocusAsync();
         await page.Keyboard.PressAsync("ArrowLeft");
+        await Assertions.Expect(page.GetByTestId("history-day")).Not.ToHaveTextAsync(yesterday!);
         await Assertions.Expect(page.GetByTestId("history-empty")).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await page.GetByRole(AriaRole.Button, new() { Name = "Go to today" }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("history-day")).ToHaveTextAsync(today!);
@@ -164,7 +188,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task The_system_page_reports_runtime_and_inference_state()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
         await page.GoToSystemAsync();
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Inference engine" }))
@@ -175,7 +199,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task The_system_page_lists_every_connection_with_a_verdict()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
         await page.GoToSystemAsync();
 
         await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = 30000 });
@@ -189,7 +213,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task Signing_out_returns_the_operator_to_the_login_page()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await page.OpenSettingsAsync();
         await page.GetByTestId("sign-out").ClickAsync();

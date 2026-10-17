@@ -28,7 +28,7 @@
     }
 
     /** Posts `message`; resolves to the worker's reply. timeoutMs = 0 waits forever (model loads are slow). */
-    return function call(message, transfer = [], timeoutMs = 0) {
+    function call(message, transfer = [], timeoutMs = 0) {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         let timer = null;
@@ -43,6 +43,16 @@
         });
         ensureWorker().postMessage({ ...message, id }, transfer);
       });
+    }
+
+    /** Ends the worker (and fails whatever it still owed); the next call starts a fresh one. */
+    call.restart = () => {
+      worker?.terminate();
+      worker = null;
+      for (const { reject } of pending.values()) reject(new Error('Worker restarted'));
+      pending.clear();
     };
+
+    return call;
   };
 })();

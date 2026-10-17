@@ -1,4 +1,6 @@
-# CLAUDE.md — PoWatch
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 @AGENTS.md
 
@@ -14,6 +16,7 @@ dotnet run --project src/PoWatch.Api --launch-profile http   # http://localhost 
 dotnet format PoWatch.slnx --verify-no-changes         # the CI formatting gate
 ./SCRIPTS/check-hygiene.ps1                            # layout, naming, package versions, vocabulary
 ./SCRIPTS/check-test-caps.ps1                          # after a build: 100 unit / 50 integration / 25 API E2E / 25 UI E2E
+./SCRIPTS/caption-eval.ps1 -Count 10                   # score the caption models (Node; first run downloads ~1 GB)
 ```
 
 Tests, narrowest first (integration and E2E start Azurite through Testcontainers, so Docker must be up):
@@ -22,8 +25,36 @@ Tests, narrowest first (integration and E2E start Azurite through Testcontainers
 dotnet test tests/PoWatch.Unit --filter "FullyQualifiedName~RollupTests"
 dotnet test tests/PoWatch.Integration
 dotnet test tests/PoWatch.E2EAPI
-$env:E2E_LOCAL = '1'; dotnet test tests/PoWatch.E2EUI -c Release   # local only; needs Playwright's Chromium
+$env:E2E_LOCAL = '1'; dotnet test tests/PoWatch.E2EUI -c Release   # needs Playwright's Chromium (CI installs it)
 ```
+
+## Where the pipeline lives
+
+Sensing runs in the browser; the server only ingests 10-second ticks and serves rollups.
+
+- **Browser sensing:** `PoWatch.Client/wwwroot/js/sensing/` (pixel layer, RF-DETR detector worker) and
+  `js/inference-worker.js` (captions: models in `js/caption-models.js`, keep/reject rules in
+  `js/caption-quality.js`, MiniLM embeddings in `js/embedder.js`), driven from `Client/Services/SensingSession.cs`. The
+  browser-safe C# parts (`CentroidTracker`, `TickBatcher`, `VlmScheduler`, `AdaptiveCadence`,
+  `HighlightRules`) sit in `PoWatch.Shared/Services` so unit tests can cover them. Unsent batches wait
+  in the IndexedDB outbox (`js/outbox.js`).
+- **Ingest:** `Api/Features/Ingest` → `Application/Services/IngestService.cs`. It claims each `batchKey`
+  once in `PoWatchIngestLedger`, writes raw rows and merges minute/hour/day/all rollups; the endpoint
+  then pushes `statsChanged` through `NotifyStatsChangedAsync` (`Api/Features/Stats/StatsHub.cs`).
+- **Reads:** `StatsQueryService` reads rollups and calls the pure stat math in `PoWatch.Domain/Services`
+  (`PresenceStats`, `PatternStats`, `AnomalyMath`, …). New stats usually mean Domain math plus a rollup field.
+- **Storage:** interfaces in `Application/Contracts`, Azure Table/Blob implementations in
+  `Infrastructure/Persistence`. Every table is partitioned by user, except `PoWatchShares` (by token, so a
+  public link is one point read); anything that deletes a user's data must also delete their shares by owner.
+- **API:** one folder per feature under `Api/Features`, each exposing a `Map*Feature()` extension that
+  `Program.cs` calls. Integration tests run the real host against Azurite via
+  `tests/PoWatch.Integration/Infrastructure/AzuriteWebApplicationFactory.cs`.
+- **Background jobs:** `Api/Hosting/BackgroundJobs.cs` runs retention (`RetentionService`) and the weekly
+  email (`DigestMailer`) on timers; both are off in the `Test` environment, so tests call the services directly.
+- **Recaps:** `TemplateRecap` always writes the numbers; an optional `IChatClient` (`AiProvider:Provider`
+  = `AzureOpenAi`, `Gemini` or `Ollama`, built in `Infrastructure/Runtime/RecapAi.cs`) may only reword them, and
+  `RecapPrompt.KeepsToFacts` rejects any invented number, digits or words. The same client serves Ask
+  (`AskService`, four tools) and `AssistService` (watch-rule drafts, the digest headline).
 
 ## Things that are easy to get wrong
 

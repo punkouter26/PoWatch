@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $sourceRoot = Join-Path $repoRoot 'src'
 
-foreach ($projectDir in Get-ChildItem -LiteralPath $sourceRoot -Directory) {
+foreach ($projectDir in Get-ChildItem -LiteralPath $sourceRoot -Directory | Where-Object Name -notin 'bin', 'obj') {
     if ($projectDir.Name -cnotmatch '^PoWatch\.[A-Z][A-Za-z]+$') {
         throw "Invalid project name: $($projectDir.Name)"
     }
@@ -50,4 +50,22 @@ if ($hits) {
     throw "Caregiver-era vocabulary found ($(@($hits).Count) lines)."
 }
 
-Write-Host 'Directory structure, naming, package versions, shell assets, and vocabulary passed.'
+# Every class a stylesheet defines must be used somewhere in markup, code or scripts. Radzen's own
+# classes (rz-*) are styled, never written by us, so they are exempt.
+$clientRoot = Join-Path $sourceRoot 'PoWatch.Client'
+$usage = (Get-ChildItem -LiteralPath $clientRoot -File -Recurse |
+    Where-Object { $_.Extension -in '.razor', '.cs', '.js', '.html' -and $_.FullName -notmatch '[\\/](bin|obj|lib)[\\/]' } |
+    ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+$orphans = foreach ($sheet in Get-ChildItem -LiteralPath $clientRoot -Filter '*.css' -File -Recurse | Where-Object { $_.FullName -notmatch '[\\/](bin|obj|lib)[\\/]' }) {
+    $css = [regex]::Replace((Get-Content -LiteralPath $sheet.FullName -Raw), '/\*[\s\S]*?\*/|url\([^)]*\)', '')
+    foreach ($class in [regex]::Matches($css, '\.([A-Za-z][\w-]*)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique) {
+        if ($class -like 'rz-*') { continue }
+        if ($usage -notmatch "(?<![\w-])$([regex]::Escape($class))(?![\w-])") { "$($sheet.Name): .$class" }
+    }
+}
+if ($orphans) {
+    $orphans | ForEach-Object { Write-Host $_ }
+    throw "Unused CSS classes found ($(@($orphans).Count))."
+}
+
+Write-Host 'Directory structure, naming, package versions, shell assets, vocabulary, and CSS classes passed.'

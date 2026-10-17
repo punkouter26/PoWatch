@@ -61,6 +61,12 @@ public sealed class TemplateRecapTests
         Assert.True(RecapPrompt.KeepsToFacts("Across 1234 frames and 3.5 hours, things peaked at 14:5 on the 24th.", facts));
         Assert.False(RecapPrompt.KeepsToFacts("Across 1234 frames and 4 hours of watching.", facts));
         Assert.True(RecapPrompt.KeepsToFacts("A calm day, told without a single figure.", facts));
+
+        // Spelled-out numbers are numbers: "three" needs a 3 (or "three") in the facts, "twice" a 2.
+        const string counted = "Facts: 3 visits; 21 minutes in frame; one of the regulars came back.";
+        Assert.True(RecapPrompt.KeepsToFacts("Three visits and twenty-one minutes, one regular among them.", counted));
+        Assert.False(RecapPrompt.KeepsToFacts("Seven visits today.", counted));
+        Assert.False(RecapPrompt.KeepsToFacts("Twice as busy as usual.", counted));
     }
 
     [Fact]

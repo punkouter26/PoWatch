@@ -1,9 +1,10 @@
 @* Feeds the comet trails (wwwroot/js/fx.js) who is where, four times a second while a session runs,
-   plus one frame whenever it starts or stops. Renders nothing. *@
+   plus one frame whenever it starts or stops. Renders nothing; an Advanced feature. *@
 @implements IDisposable
 @using System.Text.Json
 @using PoWatch.Shared.Services.Tracking
 @inject SensingSession Sensing
+@inject UiPrefs Prefs
 @inject IJSRuntime JS
 
 @code {
@@ -15,6 +16,7 @@
 
     private void OnChanged()
     {
+        if (!Prefs.Advanced) return;
         var now = DateTimeOffset.UtcNow;
         if (now - _last < Every && Sensing.IsRunning == _wasRunning) return;
         _last = now;

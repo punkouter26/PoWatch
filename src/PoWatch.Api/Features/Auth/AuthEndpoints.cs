@@ -26,9 +26,7 @@ internal static class AuthEndpoints
             Name: user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name),
             // Surface the email/UPN so the navbar can show "you are signed in as …" after Microsoft OAuth.
             // Prefer `preferred_username` (OIDC standard), fall back to `email` and `upn`.
-            Email: user.FindFirstValue("preferred_username")
-                  ?? user.FindFirstValue(ClaimTypes.Email)
-                  ?? user.FindFirstValue("upn"),
+            Email: CurrentUser.Email(user),
             Roles: user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray(),
             ReturnUrl: SafeLocalUrl(returnUrl))))
         .WithName("AuthMe")

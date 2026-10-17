@@ -8,7 +8,7 @@
 
 @if (_shown is { } recap)
 {
-    var tag = DisplayText.SessionTag(recap.Session.Id);
+    var tag = SessionDto.Tag(recap.Session.Id);
     <section class="term-panel away-card" data-test="away-card" aria-labelledby="away-title">
         <header class="term-panel-head">
             <h2 id="away-title">@(recap.AwayFor is { } away ? $"While you were away · {DisplayText.Duration(away.TotalSeconds)}" : "Session recap")</h2>

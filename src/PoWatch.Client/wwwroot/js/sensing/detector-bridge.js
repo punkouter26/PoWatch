@@ -1,6 +1,11 @@
 // Page side of the L1 detector: owns the detector worker, grabs frames from the <video> on a
 // worker-driven clock (about 1 Hz), and hands normalised boxes to .NET. A frame is skipped while
 // the previous one is still being detected, so a slow device lowers the rate instead of queueing.
+//
+// The detector and the caption model live in separate workers but share one GPU. A WebGPU detector
+// therefore sits out the ticks while a caption is being generated (powatchGpu, set by
+// inference-bridge.js): a skipped second costs the tracker nothing, while two models fighting for
+// the GPU made both of them several times slower.
 (function () {
   'use strict';
 
@@ -11,10 +16,20 @@
   const call = window.powatchWorkerRpc(WORKER_URL);
   let _clock = null;
   let _busy = false;
+  let _device = null;
+  let _yielded = 0;
 
-  /** Loads the detector; resolves to { modelId, device, loadMs }. `device` forces 'webgpu' or 'wasm'. */
-  function load(device) {
-    return call({ type: 'LOAD', device });
+  /** Loads the detector; resolves to { modelId, device, dtype, loadMs }. `device` forces 'webgpu' or 'wasm'. */
+  async function load(device) {
+    let info = await call({ type: 'LOAD', device });
+    // ONNX Runtime aborted on one precision and took the worker with it: carry on in a fresh worker
+    // from the next candidate (detector-worker.js). Each round skips at least one, so this ends.
+    while (info?.type === 'POISONED') {
+      call.restart();
+      info = await call({ type: 'LOAD', device, from: info.next, rejected: info.rejected });
+    }
+    _device = info?.device ?? null;
+    return info;
   }
 
   /** Detects on the current frame; resolves to { latencyMs, detections: [{ label, score, x0, y0, x1, y1 }] }. */
@@ -30,6 +45,7 @@
     _clock = new Worker(CLOCK_URL, { type: 'module' });
     _clock.onmessage = async () => {
       if (_busy) return;
+      if (_device === 'webgpu' && window.powatchGpu?.captioning) { _yielded++; return; }
       _busy = true;
       try {
         const result = await detect(video, threshold ?? 0.5);
@@ -54,5 +70,8 @@
     _busy = false;
   }
 
-  window.powatchDetector = { load, detect, start, stop };
+  /** How many detector ticks gave the GPU to the caption model. */
+  const yielded = () => _yielded;
+
+  window.powatchDetector = { load, detect, start, stop, yielded };
 })();

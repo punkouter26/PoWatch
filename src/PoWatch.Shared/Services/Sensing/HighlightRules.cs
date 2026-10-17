@@ -22,8 +22,16 @@ public sealed class HighlightRules(TimeProvider time, int maxPerHour = 20)
     /// <summary>A caption sharing at most this share of content words with each recent one is novel.</summary>
     public const double NoveltyMaxSimilarity = 0.15;
 
+    /// <summary>
+    /// With sentence embeddings (MiniLM, unit length), a caption at most this close in meaning to each
+    /// recent one is novel. Words alone call "a man on a sofa" and "a person sitting on a couch" new;
+    /// meaning does not. From SCRIPTS/caption-eval (40 COCO indoor frames): two captions of one scene
+    /// sit at a median cosine of 0.63, captions of different scenes at 0.19 (90th percentile 0.44).
+    /// </summary>
+    public const double NoveltyMaxCosine = 0.45;
+
     private readonly HashSet<string> _seen = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Queue<HashSet<string>> _recentCaptions = new();
+    private readonly Queue<(HashSet<string> Words, float[]? Embedding)> _recentCaptions = new();
     private readonly Queue<DateTimeOffset> _kept = new();
     private DateTimeOffset? _lastSpikeUtc;
 
@@ -47,17 +55,21 @@ public sealed class HighlightRules(TimeProvider time, int maxPerHour = 20)
         return highlight;
     }
 
-    public Highlight? OnCaption(ParsedCaption caption)
+    /// <param name="embedding">The caption's sentence embedding, when the browser could compute one.</param>
+    public Highlight? OnCaption(ParsedCaption caption, float[]? embedding = null)
     {
         ArgumentNullException.ThrowIfNull(caption);
         if (caption.Notable) return Keep(new Highlight(caption.Text, 0.9));
 
         // Small models answer in plain sentences and never flag anything, so novelty stands in: a
-        // full window of recent captions, and this one shares almost no content words with any of them.
+        // full window of recent captions, and this one is unlike every one of them — in meaning where
+        // both have embeddings, else in content words.
         var words = ContentWords(caption.Text);
         var novel = words.Count > 0 && _recentCaptions.Count == NoveltyWindow
-            && _recentCaptions.All(recent => Jaccard(words, recent) <= NoveltyMaxSimilarity);
-        _recentCaptions.Enqueue(words);
+            && _recentCaptions.All(recent => embedding is not null && recent.Embedding is not null
+                ? Cosine(embedding, recent.Embedding) <= NoveltyMaxCosine
+                : Jaccard(words, recent.Words) <= NoveltyMaxSimilarity);
+        _recentCaptions.Enqueue((words, embedding));
         if (_recentCaptions.Count > NoveltyWindow) _recentCaptions.Dequeue();
 
         return novel ? Keep(new Highlight(caption.Text, 0.7)) : null;
@@ -72,6 +84,15 @@ public sealed class HighlightRules(TimeProvider time, int maxPerHour = 20)
     {
         var shared = a.Count(b.Contains);
         return (double)shared / (a.Count + b.Count - shared);
+    }
+
+    // Unit vectors, so the dot product is the cosine; a length mismatch (another model) is "unrelated".
+    private static double Cosine(float[] a, float[] b)
+    {
+        if (a.Length != b.Length) return 0;
+        double dot = 0;
+        for (var i = 0; i < a.Length; i++) dot += a[i] * b[i];
+        return dot;
     }
 
     private Highlight? Keep(Highlight highlight)

@@ -6,6 +6,20 @@ public static class SpatialGrid
     public const int Columns = 16;
     public const int Rows = 9;
     public const int Cells = Columns * Rows;
+
+    /// <summary>
+    /// Writes a grid as bytes relative to its busiest cell (255), so a quiet minute and a busy one
+    /// both show where in the frame things happened. An empty or all-zero grid writes zeros.
+    /// </summary>
+    public static void Quantize(ReadOnlySpan<float> values, Span<byte> into)
+    {
+        into.Clear();
+        var max = 0f;
+        foreach (var v in values) if (v > max) max = v;
+        if (max <= 0) return;
+        for (var i = 0; i < Math.Min(values.Length, into.Length); i++)
+            into[i] = (byte)Math.Round(Math.Clamp(values[i] / max, 0f, 1f) * 255f);
+    }
 }
 
 /// <summary>Per-class detector counts folded over one tick: the peak and the average seen.</summary>

@@ -120,8 +120,8 @@ void main() {
         gl.uniform2f(u.grid, state.cols, state.rows);
         gl.uniform2f(u.size, canvas.clientWidth, canvas.clientHeight);
         gl.uniform1f(u.time, reduced.matches ? 0 : performance.now() / 1000);
-        gl.uniform3fv(u.hot, rgb(canvas, '--term-amber', '#f5a524'));
-        gl.uniform3fv(u.cold, rgb(canvas, '--term-bg', '#0d1014'));
+        gl.uniform3fv(u.hot, rgb(canvas, '--term-accent', '#8fdcff'));
+        gl.uniform3fv(u.cold, rgb(canvas, '--term-bg', '#030a12'));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 

@@ -12,7 +12,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     public async Task The_terminal_shell_renders_header_and_keys()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await Assertions.Expect(page.GetByTestId("term-header")).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("app-navbar")).ToBeVisibleAsync();
@@ -34,7 +34,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
         })
         {
             if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+            await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
             await page.GoToAsync(route, heading);
             await page.AssertNoBlazorErrorAsync();
@@ -42,10 +42,35 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
+    public async Task The_app_starts_simple_and_Advanced_in_Settings_adds_the_extras()
+    {
+        if (PlaywrightFixture.BaseUrl is null) return;
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+
+        await Assertions.Expect(page.GetByTestId("stats-toolbar")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("stats-ask")).ToHaveCountAsync(0);
+        await Assertions.Expect(page.GetByTestId("stats-json")).ToHaveCountAsync(0);
+
+        await page.OpenSettingsAsync();
+        await Assertions.Expect(page.GetByTestId("watch-rules")).ToHaveCountAsync(0);
+        await page.GetByTestId("advanced-toggle").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("advanced-toggle")).ToHaveAttributeAsync("aria-checked", "true");
+        await Assertions.Expect(page.GetByTestId("watch-rules")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("stats-ask")).ToBeAttachedAsync();
+        await Assertions.Expect(page.GetByTestId("stats-json")).ToBeAttachedAsync();
+
+        // Reset puts every browser choice back, Advanced included.
+        await page.GetByTestId("settings-reset").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("advanced-toggle")).ToHaveAttributeAsync("aria-checked", "false");
+        await Assertions.Expect(page.GetByTestId("stats-ask")).ToHaveCountAsync(0);
+        await page.AssertNoBlazorErrorAsync();
+    }
+
+    [Fact]
     public async Task The_key_bar_navigates()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await page.GetByTestId("nav-history").ClickAsync();
         await page.ExpectSectionAsync("HISTORY");
@@ -61,7 +86,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     public async Task An_unknown_route_offers_a_way_back_instead_of_dead_ending()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await page.GotoAsync($"{PlaywrightFixture.BaseUrl}/no-such-page");
 
@@ -75,7 +100,7 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     public async Task The_theme_toggle_switches_and_persists_across_a_reload()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         var before = await page.GetAttributeAsync("html", "data-theme");
         await page.OpenSettingsAsync();
@@ -94,8 +119,13 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     public async Task The_skip_link_is_the_first_thing_a_keyboard_user_reaches()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
+        // Blazor's FocusOnNavigate moves focus into <main> once the page renders; on a slow host that lands
+        // after the navbar shows, and the Tab then starts from inside main. Let it settle, then start where a
+        // keyboard user arriving on the page does: the top of the document.
+        await page.WaitForFunctionAsync("() => document.activeElement?.tagName === 'MAIN'", null, new() { Timeout = 10_000 });
+        await page.EvaluateAsync("() => { document.body.tabIndex = -1; document.body.focus(); document.body.removeAttribute('tabindex'); }");
         await page.Keyboard.PressAsync("Tab");
         var focused = await page.EvaluateAsync<string>("() => document.activeElement?.textContent ?? ''");
 

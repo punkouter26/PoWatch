@@ -68,6 +68,15 @@
     }
   }
 
+  /** A day's frames, oldest first, as { at (ms since epoch), blob }; empty when none or storage is blocked. */
+  async function frames(day) {
+    try {
+      return (await run('readonly', (store) => store.index('day').getAll(day))).sort((a, b) => a.at - b.at);
+    } catch {
+      return [];
+    }
+  }
+
   /**
    * Plays a day's frames onto `canvas` at `fps`, stamping each with its time, and records the
    * playback. Resolves with an object URL for the WebM (null when nothing to play, already
@@ -75,12 +84,12 @@
    */
   async function play(canvas, day, fps) {
     if (_playing || !canvas) return null;
-    const frames = (await run('readonly', (store) => store.index('day').getAll(day))).sort((a, b) => a.at - b.at);
-    if (frames.length === 0) return null;
+    const shots = await frames(day);
+    if (shots.length === 0) return null;
     _playing = true;
 
     try {
-      const first = await createImageBitmap(frames[0].blob);
+      const first = await createImageBitmap(shots[0].blob);
       canvas.width = first.width;
       canvas.height = first.height;
       first.close();
@@ -95,7 +104,7 @@
       }
 
       const stampSize = Math.max(12, Math.round(canvas.height / 18));
-      for (const frame of frames) {
+      for (const frame of shots) {
         const image = await createImageBitmap(frame.blob);
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         image.close();
@@ -118,5 +127,6 @@
     }
   }
 
-  window.powatchTimelapse = { capture, count, play, keepDays: KEEP_DAYS };
+  // frames() is for replay.js; .NET calls capture, count and play.
+  window.powatchTimelapse = { capture, count, frames, play };
 })();

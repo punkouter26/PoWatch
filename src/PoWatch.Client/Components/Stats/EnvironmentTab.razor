@@ -20,13 +20,13 @@ else
                 <RadzenChart aria-label="Brightness over the range">
                     <RadzenAreaSeries Data="@_light" CategoryProperty="@nameof(LightPoint.At)" ValueProperty="@nameof(LightPoint.Luminance)" Title="Brightness" />
                     <RadzenValueAxis Min="0" Max="1" FormatString="{0:0.00}" />
-                    <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("dd MMM HH:mm", System.Globalization.CultureInfo.CurrentCulture) : string.Empty)" />
+                    <RadzenCategoryAxis Formatter="@AxisLabel" />
                     <RadzenLegend Visible="false" />
                 </RadzenChart>
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Title="Colour &amp; captions">
+        <TerminalPanel Title="Colour &amp; captions" Class="dash-wide">
             <Aside>@Data.CaptionCount CAPTIONS</Aside>
             <ChildContent>
                 @if (Data.Palette.Count > 0)
@@ -65,13 +65,20 @@ else
     public sealed record LightPoint(DateTime At, double Luminance);
 
     private List<LightPoint> _light = [];
+    private bool _days;
     private int _maxWord = 1;
 
     protected override async Task<EnvironmentStatsDto?> LoadAsync(StatsQuery query)
     {
         var data = await Api.GetEnvironmentAsync(query);
         _light = data?.LightCurve.Select(p => new LightPoint(p.AtUtc.LocalDateTime, p.Luminance)).ToList() ?? [];
+        // A day reads by the clock, longer ranges by the date: "16 Oct 06:54" on every tick ran together.
+        _days = _light.Count > 1 && (_light[^1].At - _light[0].At).TotalHours > 26;
         _maxWord = Math.Max(1, data?.Words.Select(w => w.Count).DefaultIfEmpty(1).Max() ?? 1);
         return data;
     }
+
+    private string AxisLabel(object value) => value is DateTime t
+        ? t.ToString(_days ? "d MMM" : "HH:mm", System.Globalization.CultureInfo.CurrentCulture)
+        : string.Empty;
 }

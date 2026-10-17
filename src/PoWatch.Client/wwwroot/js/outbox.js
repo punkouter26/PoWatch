@@ -1,12 +1,14 @@
-// Durable outbox: ingest batches the server has not acknowledged yet, kept in IndexedDB so a
-// reload, a crash or a browser restart does not lose them. SensingSession owns the retry logic;
-// this file only stores. Batches travel as JSON text so .NET parses them with its
-// source-generated context (trim-safe).
+// The outbox: every ingest batch, from every session, waits here until the server answers for it.
+// It is the only send queue (SensingSession posts from it, oldest first), and it is durable: kept in
+// IndexedDB, so a reload, a crash or a browser restart loses nothing. Where IndexedDB is blocked
+// (private windows, locked-down storage) it falls back to memory for the life of the page. Batches
+// travel as JSON text so .NET parses them with its source-generated context (trim-safe).
 (function () {
   'use strict';
 
-  const MAX = 360; // an hour of ten-second batches, the same cap as TickBatcher
+  const MAX = 360; // an hour of ten-second batches; past it the oldest go and their ticks count as lost
   let _db = null;
+  let _memory = null; // Map key -> record, once IndexedDB has failed
 
   function open() {
     return _db ??= new Promise((resolve, reject) => {
@@ -28,40 +30,45 @@
     });
   }
 
-  /** Stores a batch; past the cap the oldest go, as in the in-memory queue. */
+  /** Uses IndexedDB until it fails once, then memory: a batch is never dropped because storage is blocked. */
+  async function store(idb, memory) {
+    if (!_memory) {
+      try { return await idb(); } catch { _memory = new Map(); }
+    }
+    return memory(_memory);
+  }
+
+  const all = () => store(() => run('readonly', (s) => s.getAll()), (m) => [...m.values()]);
+  const add = (record) => store(() => run('readwrite', (s) => s.put(record)), (m) => { m.set(record.key, record); });
+  const remove = (key) => store(() => run('readwrite', (s) => s.delete(key)), (m) => { m.delete(key); });
+
+  const ticksIn = (json) => { try { return JSON.parse(json).ticks?.length ?? 0; } catch { return 0; } };
+
+  /** Stores a batch; past the cap the oldest go. Resolves with how many ticks were dropped. */
   async function put(key, sessionId, json) {
-    await run('readwrite', (store) => store.put({ key, sessionId, json, at: Date.now() }));
-    const extra = (await run('readonly', (store) => store.count())) - MAX;
-    if (extra <= 0) return;
-    await run('readwrite', (store) => {
-      let left = extra;
-      store.index('at').openCursor().onsuccess = (e) => {
-        const cursor = e.target.result;
-        if (cursor && left-- > 0) { cursor.delete(); cursor.continue(); }
-      };
-    });
+    await add({ key, sessionId, json, at: Date.now() });
+    const records = await all();
+    if (records.length <= MAX) return 0;
+    let lost = 0;
+    for (const old of records.sort((a, b) => a.at - b.at).slice(0, records.length - MAX)) {
+      lost += ticksIn(old.json);
+      await remove(old.key);
+    }
+    return lost;
   }
 
-  const remove = (key) => run('readwrite', (store) => store.delete(key));
-
-  /** Session ids that still have batches waiting. */
-  async function sessions() {
-    const all = await run('readonly', (store) => store.getAll());
-    return [...new Set(all.map((b) => b.sessionId))];
-  }
-
-  /** One session's waiting batches as JSON text, oldest first. */
-  async function batches(sessionId) {
-    const all = await run('readonly', (store) => store.getAll());
-    return all.filter((b) => b.sessionId === sessionId).sort((a, b) => a.at - b.at).map((b) => b.json);
+  /** Every waiting batch, oldest first, as JSON text: [{ key, sessionId, json }]. */
+  async function waiting() {
+    const records = await all();
+    return JSON.stringify(records.sort((a, b) => a.at - b.at).map((r) => ({ key: r.key, sessionId: r.sessionId, json: r.json })));
   }
 
   // A tab closed or reloaded mid-session never reaches Stop, and the server would list that session as
-  // running forever. End it on the way out; its unsent batches still replay from this outbox later.
+  // running forever. End it on the way out; its unsent batches still go out from this outbox later.
   let running = null;
   addEventListener('pagehide', () => { if (running) navigator.sendBeacon(`api/sessions/${running}/stop`); });
   const guard = (sessionId) => { running = sessionId; };
   const unguard = () => { running = null; };
 
-  window.powatchOutbox = { put, remove, sessions, batches, guard, unguard };
+  window.powatchOutbox = { put, remove, waiting, guard, unguard };
 })();

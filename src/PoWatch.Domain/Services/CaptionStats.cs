@@ -12,6 +12,14 @@ public static class CaptionStats
         "there", "their", "they", "them", "he", "she", "his", "her", "who", "which", "while", "some",
         "image", "picture", "photo", "shows", "appears", "seems", "can", "seen", "visible"
     };
+    private static readonly HashSet<string> NonCaptions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "yes", "no", "ok", "yeah", "yep", "nope", "none", "true", "false", "maybe", "unanswerable", "unknown"
+    };
+
+    /// <summary>Whether a stored model reply is a refusal or non-description rather than a caption.</summary>
+    public static bool IsUninformative(string caption) =>
+        NonCaptions.Contains(caption.Trim().Trim('.', '!', '?', '"', '\''));
 
     /// <summary>The most common content words across captions; ties break alphabetically.</summary>
     public static IReadOnlyList<WordCount> WordFrequencies(IEnumerable<string> captions, int top)

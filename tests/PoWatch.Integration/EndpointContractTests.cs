@@ -19,7 +19,7 @@ public sealed class EndpointContractTests(AzuriteWebApplicationFactory factory)
     [Fact]
     public async Task Read_endpoints_answer_successfully()
     {
-        foreach (string route in new string[] { "/api/sessions", "/api/regulars", "/api/stats/presence?range=today", "/api/diagnostics/status", "/auth/me", "/auth/config", "/health", "/diag", "/diag/boot" })
+        foreach (string route in new string[] { "/api/sessions", "/api/regulars", "/api/stats/presence?range=today", "/api/diagnostics/status", "/auth/me", "/auth/config", "/health", "/diag/boot" })
         {
             var response = await _client.GetAsync(route);
 

@@ -1,0 +1,90 @@
+@* Under History's replay: the day's highlight snapshots, best first, then the time-lapse this browser
+   kept of it (one frame a minute while a camera session runs, for 7 days, never uploaded). *@
+@using System.Globalization
+@inject PoWatchApiClient Api
+@inject IJSRuntime JS
+
+<h3 class="history-sub">Moments · @_moments.Count</h3>
+<div data-test="history-moments">
+    @if (_moments.Count == 0)
+    {
+        <p class="term-empty">No highlights kept on this day.</p>
+    }
+    else
+    {
+        <ol class="away-moments">
+            @foreach (var moment in _moments.Take(9))
+            {
+                <li>
+                    @if (moment.ImageUrl is { } url)
+                    {
+                        <img src="@url" alt="Snapshot: @moment.Text" loading="lazy" />
+                    }
+                    <span class="num">@moment.AtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)</span>
+                    <span>@moment.Text</span>
+                </li>
+            }
+        </ol>
+    }
+</div>
+
+<h3 class="history-sub">Time-lapse</h3>
+<div data-test="history-timelapse">
+    <p class="term-stat-hint">@_frames FRAMES · THIS DEVICE</p>
+    @if (_frames == 0)
+    {
+        <p class="term-empty">No time-lapse for this day on this device. While a camera session runs, one frame a minute is saved in this browser only, for 7 days.</p>
+    }
+    else
+    {
+        <canvas @ref="_timelapse" class="timelapse-canvas" aria-label="Time-lapse of the day"></canvas>
+        <div class="timelapse-actions">
+            <button class="term-button" @onclick="PlayAsync" disabled="@_playing" data-test="timelapse-play">@(_playing ? "Playing…" : "▶ Play")</button>
+            @if (_videoUrl is { } url)
+            {
+                <a class="term-button" href="@url" download="powatch-@(DayKey).webm" data-test="timelapse-save">Save video</a>
+            }
+            <span class="term-stat-hint">@DisplayText.Duration((double)_frames / Fps) at @Fps fps</span>
+        </div>
+    }
+</div>
+
+@code {
+    private const int Fps = 24;
+
+    [Parameter, EditorRequired] public DateOnly Day { get; set; }
+
+    /// <summary>The day's sessions; a new list (the day finished loading) reloads the moments.</summary>
+    [Parameter] public IReadOnlyList<SessionDto> Sessions { get; set; } = [];
+
+    private IReadOnlyList<SessionDto>? _loadedFor;
+    private List<MomentDto> _moments = [];
+    private ElementReference _timelapse;
+    private int _frames;
+    private bool _playing;
+    private string? _videoUrl;
+
+    private string DayKey => Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ReferenceEquals(Sessions, _loadedFor)) return;
+        (_loadedFor, _moments, _videoUrl) = (Sessions, [], null);
+        var day = Day;
+        _frames = await JS.TryInvokeAsync<int>("powatchTimelapse.count", DayKey);
+        var moments = await Task.WhenAll(Sessions.Select(s => Api.GetMomentsAsync(s.Id)));
+        if (day != Day) return; // A newer day owns the list now.
+        _moments = moments.SelectMany(m => m)
+            .Where(m => DateOnly.FromDateTime(m.AtUtc.LocalDateTime) == day)
+            .OrderByDescending(m => m.Score)
+            .ToList();
+    }
+
+    /// <summary>Plays the day's frames (stored only in this browser) and offers the recording as a download.</summary>
+    private async Task PlayAsync()
+    {
+        _playing = true;
+        _videoUrl = await JS.TryInvokeAsync<string>("powatchTimelapse.play", _timelapse, DayKey, Fps);
+        _playing = false;
+    }
+}

@@ -14,9 +14,6 @@ namespace PoWatch.Infrastructure.Persistence;
 public sealed class AzureStorageClients
 {
     private readonly string? _connectionString;
-    // Lazy ensures CORS setup runs at most once per singleton lifetime (thread-safe by default).
-    // Deferred from the constructor to avoid synchronous blocking HTTP on the DI construction thread.
-    private readonly Lazy<bool> _devCorsConfigured;
 
     public TableServiceClient TableService { get; }
     public BlobServiceClient BlobService { get; }
@@ -41,59 +38,32 @@ public sealed class AzureStorageClients
             TableService = new TableServiceClient(_connectionString);
             BlobService = new BlobServiceClient(_connectionString);
         }
+    }
 
-        var allowedOrigins = options.Value.DevCorsAllowedOrigins;
-        _devCorsConfigured = new Lazy<bool>(() =>
+    /// <summary>
+    /// Azurite only: lets the browser PUT and GET snapshots straight to blob storage from the allowed
+    /// origins. Run once at startup by <see cref="AzureStorageInitializer"/>.
+    /// </summary>
+    public async Task ConfigureDevelopmentCorsAsync(string[] allowedOrigins, CancellationToken cancellationToken)
+    {
+        if (allowedOrigins.Length == 0
+            || !string.Equals(_connectionString, "UseDevelopmentStorage=true", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var properties = (await BlobService.GetPropertiesAsync(cancellationToken)).Value;
+        var hasMatchingRule = properties.Cors.Any(rule =>
+            allowedOrigins.All(origin => rule.AllowedOrigins?.Contains(origin, StringComparison.OrdinalIgnoreCase) == true)
+            && string.Equals(rule.AllowedMethods, "GET,PUT,HEAD,OPTIONS", StringComparison.OrdinalIgnoreCase));
+        if (hasMatchingRule) return;
+
+        properties.Cors.Add(new BlobCorsRule
         {
-            ConfigureDevelopmentCorsIfNeeded(_connectionString, BlobService, allowedOrigins);
-            return true;
+            AllowedOrigins = string.Join(",", allowedOrigins),
+            AllowedMethods = "GET,PUT,HEAD,OPTIONS",
+            AllowedHeaders = "*",
+            ExposedHeaders = "*",
+            MaxAgeInSeconds = 3600
         });
-    }
-
-    public void EnsureDevelopmentBlobCorsConfigured()
-    {
-        // Thread-safe; ConfigureDevelopmentCorsIfNeeded runs exactly once per lifetime.
-        _ = _devCorsConfigured.Value;
-    }
-
-    private static void ConfigureDevelopmentCorsIfNeeded(string? connectionString, BlobServiceClient blobService, string[] allowedOrigins)
-    {
-        if (!string.Equals(connectionString, "UseDevelopmentStorage=true", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        if (allowedOrigins.Length == 0)
-        {
-            return;
-        }
-
-        try
-        {
-            var properties = blobService.GetProperties().Value;
-            var hasMatchingRule = properties.Cors.Any(rule =>
-                allowedOrigins.All(origin => rule.AllowedOrigins?.Contains(origin, StringComparison.OrdinalIgnoreCase) == true)
-                && string.Equals(rule.AllowedMethods, "GET,PUT,HEAD,OPTIONS", StringComparison.OrdinalIgnoreCase));
-
-            if (hasMatchingRule)
-            {
-                return;
-            }
-
-            properties.Cors.Add(new BlobCorsRule
-            {
-                AllowedOrigins = string.Join(",", allowedOrigins),
-                AllowedMethods = "GET,PUT,HEAD,OPTIONS",
-                AllowedHeaders = "*",
-                ExposedHeaders = "*",
-                MaxAgeInSeconds = 3600
-            });
-
-            blobService.SetProperties(properties);
-        }
-        catch
-        {
-            // Keep local development running even when Azurite is not available.
-        }
+        await BlobService.SetPropertiesAsync(properties, cancellationToken);
     }
 }

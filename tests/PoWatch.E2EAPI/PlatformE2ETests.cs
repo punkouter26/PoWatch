@@ -12,7 +12,7 @@ public sealed class PlatformE2ETests(ApiE2EFactory factory) : IClassFixture<ApiE
     [Fact]
     public async Task An_anonymous_caller_cannot_read_sessions()
     {
-        // The API host is default-deny; only /health, /diag and /auth opt out.
+        // The API host is default-deny; only /health, /diag/boot and /auth opt out.
         using var anonymous = factory.CreateClient();
         anonymous.DefaultRequestHeaders.Remove("X-Fake-User");
 
@@ -26,8 +26,6 @@ public sealed class PlatformE2ETests(ApiE2EFactory factory) : IClassFixture<ApiE
     [Fact]
     public async Task Operations_endpoints_report_health_boot_and_storage()
     {
-        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/diag")).StatusCode);
-
         var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Accept.ParseAdd("application/json");
         var health = await _client.SendAsync(request);

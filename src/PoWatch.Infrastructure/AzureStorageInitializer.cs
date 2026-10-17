@@ -23,20 +23,24 @@ public sealed class AzureStorageInitializer(
 
         try
         {
-            var tableService = clients.TableService;
+            // Independent of each other, so created together rather than one round trip at a time.
+            // The Data Protection keyring's container is here because the blob provider creates the key
+            // blob on demand but never the container.
+            var tables = options.Value.AllTables()
+                .Select(table => (Task)clients.TableService.GetTableClient(table).CreateIfNotExistsAsync(cancellationToken));
+            var containers = new[] { options.Value.SnapshotsContainer, options.Value.DataProtectionKeysContainer }
+                .Select(container => (Task)clients.BlobService.GetBlobContainerClient(container).CreateIfNotExistsAsync(cancellationToken: cancellationToken));
+            await Task.WhenAll(tables.Concat(containers));
 
-            foreach (var table in new[] { options.Value.SessionsTable, options.Value.TicksTable, options.Value.SceneEventsTable, options.Value.IngestLedgerTable, options.Value.RollupsTable, options.Value.RegularsTable })
-                await tableService.GetTableClient(table).CreateIfNotExistsAsync(cancellationToken);
-
-            await clients.BlobService
-                .GetBlobContainerClient(options.Value.SnapshotsContainer)
-                .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
-
-            // Container for the persisted Data Protection keyring (BFF cookie encryption keys). The blob
-            // provider creates the key blob on demand but never the container, so ensure it exists here.
-            await clients.BlobService
-                .GetBlobContainerClient(options.Value.DataProtectionKeysContainer)
-                .CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+            try
+            {
+                await clients.ConfigureDevelopmentCorsAsync(options.Value.DevCorsAllowedOrigins, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                // A development convenience only: never let it fail startup.
+                logger.LogWarning(ex, "Could not set the Azurite blob CORS rule; browser snapshot uploads may fail.");
+            }
 
             logger.LogInformation("Azure Storage initialization complete.");
             readiness.MarkStorageReady("Azure Storage reachable; tables and containers ready.");
@@ -55,7 +59,7 @@ public sealed class AzureStorageInitializer(
 
             // In Development, fail fast and loud so a local misconfiguration (Azurite not running) is
             // impossible to miss. In hosted environments, DO NOT abort host construction: a throw here
-            // surfaces on App Service as an opaque HTTP 500.30 that also takes /health, /diag and the log
+            // surfaces on App Service as an opaque HTTP 500.30 that also takes /health, /diag/boot and the log
             // endpoints offline. Instead let the app boot and report NOT-READY (see /health + /diag/boot),
             // so operators get an actionable signal and can fix RBAC without a black-box crash loop.
             if (environment.IsDevelopment())

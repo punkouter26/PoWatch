@@ -24,6 +24,20 @@ public static class DisplayText
             : $"{span.Seconds}s";
     }
 
-    /// <inheritdoc cref="PoWatch.Shared.Models.SessionDto.Tag"/>
-    public static string SessionTag(Guid id) => PoWatch.Shared.Models.SessionDto.Tag(id);
+    /// <summary>"49.1%", or "—" before the number has loaded.</summary>
+    public static string Percent(double? value) => value is { } v ? v.ToString("0.0%", CultureInfo.InvariantCulture) : "—";
+
+    /// <summary>The value in <paramref name="format"/>, or "—" before it has loaded.</summary>
+    public static string Number(double? value, string format) => value is { } v ? v.ToString(format, CultureInfo.InvariantCulture) : "—";
+
+    /// <summary>"Rain · 7°–19°C · 7.2 mm · SUN 06:58–18:10": a day's weather on one line.</summary>
+    public static string Weather(PoWatch.Shared.Models.WeatherDayDto day)
+    {
+        ArgumentNullException.ThrowIfNull(day);
+        var line = string.Create(CultureInfo.CurrentCulture, $"{day.Summary} · {day.TempMinC:0}°–{day.TempMaxC:0}°C");
+        if (day.PrecipitationMm >= 0.1) line += string.Create(CultureInfo.CurrentCulture, $" · {day.PrecipitationMm:0.#} mm");
+        if (day.SunriseUtc is { } rise && day.SunsetUtc is { } set)
+            line += $" · SUN {rise.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)}–{set.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)}";
+        return line;
+    }
 }

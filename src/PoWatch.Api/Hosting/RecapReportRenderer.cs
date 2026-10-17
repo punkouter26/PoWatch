@@ -7,7 +7,8 @@ using QuestPDF.Infrastructure;
 namespace PoWatch.Api.Hosting;
 
 /// <summary>
-/// Renders a <see cref="RecapDto"/> to a one-to-two page PDF with QuestPDF (Community licence).
+/// Renders a <see cref="RecapDto"/> with QuestPDF (Community licence): a one-to-two page PDF, or the
+/// 1200×630 image card a shared recap shows when its link is pasted somewhere.
 /// </summary>
 public static class RecapReportRenderer
 {
@@ -20,9 +21,21 @@ public static class RecapReportRenderer
     public static byte[] Render(RecapDto recap, TimeZoneInfo zone)
     {
         ArgumentNullException.ThrowIfNull(recap);
+        return Guarded(() => RenderCore(recap, zone));
+    }
+
+    /// <summary>The share card: title, the opening of the paragraph and four headline numbers, as a PNG.</summary>
+    public static byte[] RenderCard(RecapDto recap)
+    {
+        ArgumentNullException.ThrowIfNull(recap);
+        return Guarded(() => RenderCardCore(recap));
+    }
+
+    private static byte[] Guarded(Func<byte[]> render)
+    {
         try
         {
-            return RenderCore(recap, zone);
+            return render();
         }
         catch (Exception ex) when (ex is DllNotFoundException or TypeInitializationException or BadImageFormatException)
         {
@@ -31,6 +44,39 @@ public static class RecapReportRenderer
                 + $"{System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}. The recap itself is fine — read it in the app.",
                 ex);
         }
+    }
+
+    private static byte[] RenderCardCore(RecapDto recap)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+        const string Amber = "#f5a524", Ink = "#e6e9ee", Muted = "#9aa4b2";
+        var summary = recap.Summary.Length <= 240 ? recap.Summary : recap.Summary[..recap.Summary.LastIndexOf(' ', 237)] + "…";
+
+        return Document.Create(container => container.Page(page =>
+        {
+            page.Size(1200, 630, Unit.Point);
+            page.Margin(56);
+            page.PageColor("#0d1014");
+            page.DefaultTextStyle(ts => ts.FontFamily("Arial").FontColor(Ink));
+            page.Content().Column(col =>
+            {
+                col.Item().Text("POWATCH · DAY RECAP").FontSize(20).Bold().FontColor(Amber).LetterSpacing(0.08f);
+                col.Item().PaddingTop(10).Text(recap.Title).FontSize(48).Bold();
+                col.Item().PaddingTop(18).Height(200).Text(summary).FontSize(26).LineHeight(1.35f).FontColor("#c9ced6");
+                col.Item().PaddingTop(20).LineHorizontal(2).LineColor(Amber);
+                col.Item().PaddingTop(20).Row(row =>
+                {
+                    foreach (var number in recap.Numbers.Take(4))
+                    {
+                        row.RelativeItem().Column(cell =>
+                        {
+                            cell.Item().Text(number.Label.ToUpperInvariant()).FontSize(16).FontColor(Muted).LetterSpacing(0.06f);
+                            cell.Item().Text(number.Value).FontSize(38).Bold().FontColor(Amber);
+                        });
+                    }
+                });
+            });
+        })).GenerateImages(new ImageGenerationSettings { ImageFormat = ImageFormat.Png, RasterDpi = 72 }).First();
     }
 
     private static byte[] RenderCore(RecapDto recap, TimeZoneInfo zone)

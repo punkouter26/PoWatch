@@ -1,13 +1,18 @@
-@* The one place the app tells you things: sensing problems, watch-rule alerts and "name this
-   newcomer" prompts, behind a bell with a count. It opens by itself only for a problem or an alert;
-   a naming prompt just raises the count. Watch rules are edited on Settings. *@
+@* The one place the app tells you things: sensing problems, watch-rule alerts, "name this
+   newcomer" prompts and, once a week, the week in review, behind a bell with a count. They open in a
+   side drawer, by themselves only for a problem or an alert; the rest just raise the count. Watch rules
+   are edited in Settings. *@
+@using System.Globalization
 @implements IDisposable
 @inject SensingSession Sensing
 @inject StatsFeed Feed
 @inject TimeProvider Time
+@inject PoWatchApiClient Api
+@inject IJSRuntime JS
+@inject DrawerState Drawers
 
 <div class="term-tray" data-test="tray" data-hub="@(Feed.IsConnected ? "up" : "down")">
-    <button class="term-icon-button @(_open ? "term-icon-button--on" : null)" @onclick="Toggle" aria-expanded="@(_open ? "true" : "false")"
+    <button class="term-icon-button @(Open ? "term-icon-button--on" : null)" @onclick="Toggle" aria-expanded="@(Open ? "true" : "false")"
             aria-label="@($"Notifications, {Count} waiting")" title="Notifications" data-test="tray-toggle">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" /></svg>
         @if (Count > 0)
@@ -19,9 +24,9 @@
     @* Announced politely even while the panel is closed. *@
     <span class="visually-hidden" role="status">@_announce</span>
 
-    @if (_open)
-    {
-        <div class="term-tray-panel" data-test="tray-panel">
+    <Drawer Title="Notifications" Open="@Open" OnClose="Drawers.Close" TakeFocus="@_takeFocus" Test="tray-panel">
+        <Aside>@Count WAITING</Aside>
+        <ChildContent>
             @if (Sensing.IsRunning && Sensing.Live.LastError is { } error)
             {
                 <p class="tray-item tray-item--bad" role="alert" data-test="tray-error">@error</p>
@@ -55,18 +60,26 @@
                 </section>
             }
 
+            @if (_week is { } week)
+            {
+                <a class="tray-item tray-item--week" href="@($"history/{_weekEnd:yyyy-MM-dd}")" @onclick="DismissWeekAsync" data-test="tray-week">
+                    <span class="tray-kicker">● THE WEEK IN REVIEW · OPEN HISTORY →</span>
+                    <b>@week.Summary</b>
+                </a>
+            }
+
             @if (Count == 0)
             {
                 <p class="term-empty">Nothing new.</p>
             }
-            else if (_alerts.Count > 0)
+            else if (_alerts.Count > 0 || _week is not null)
             {
-                <button class="term-menu-item" @onclick="Clear" data-test="tray-clear"><span>Clear</span><b>@_alerts.Count</b></button>
+                <button class="term-menu-item" @onclick="Clear" data-test="tray-clear"><span>Clear</span><b>@(_alerts.Count + (_week is null ? 0 : 1))</b></button>
             }
 
-            <a class="term-menu-item" href="settings" @onclick="Toggle" data-test="tray-rules-link"><span>Watch rules</span><b>SETTINGS →</b></a>
-        </div>
-    }
+            <button type="button" class="term-menu-item" @onclick="() => Drawers.Show(DrawerState.Settings)" data-test="tray-rules-link"><span>Watch rules</span><b>SETTINGS →</b></button>
+        </ChildContent>
+    </Drawer>
 </div>
 
 @code {
@@ -74,17 +87,24 @@
     private readonly List<AlertDto> _alerts = [];
     private readonly Dictionary<string, string?> _names = new(StringComparer.Ordinal);
     private Timer? _expiry;
-    private bool _open;
+    private bool _takeFocus = true;
     private int _prompts;
     private string? _lastError;
     private string? _announce;
 
-    private int Count => _alerts.Count + Sensing.Live.Prompts.Count + (Sensing.IsRunning && Sensing.Live.LastError is not null ? 1 : 0);
+    private const string WeekSeenKey = "powatch:week-seen";
+    private WeekDigestDto? _week;
+    private DateOnly _weekEnd;
+
+    private bool Open => Drawers.IsOpen(DrawerState.Tray);
+
+    private int Count => _alerts.Count + Sensing.Live.Prompts.Count + (_week is null ? 0 : 1) + (Sensing.IsRunning && Sensing.Live.LastError is not null ? 1 : 0);
 
     protected override async Task OnInitializedAsync()
     {
         Sensing.Changed += OnSensingChanged;
         Feed.Alerted += OnAlerted;
+        Drawers.Changed += OnDrawersChanged;
         // Ignored naming prompts fade after a minute even when no detections arrive to expire them.
         _expiry = new Timer(_ => InvokeAsync(() =>
         {
@@ -93,14 +113,50 @@
 
         await Feed.EnsureConnectedAsync();
         StateHasChanged();
+        await OfferLastWeekAsync();
     }
 
-    private void Toggle() => _open = !_open;
+    /// <summary>Once per browser per week: last week's review, if anything was observed in it.</summary>
+    private async Task OfferLastWeekAsync()
+    {
+        var today = DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+        var lastWeek = today.AddDays(-(((int)today.DayOfWeek + 6) % 7) - 7);
+        if (await JS.TryInvokeAsync<string>("localStorage.getItem", WeekSeenKey) == Key(lastWeek)) return;
+        if (await Api.GetWeekDigestAsync(lastWeek) is not { ThisWeek.SecondsObserved: > 0 } digest) return;
+        (_week, _weekEnd) = (digest, lastWeek.AddDays(6));
+        StateHasChanged();
+    }
 
-    private void Clear()
+    private async Task DismissWeekAsync()
+    {
+        if (_week is null) return;
+        await JS.TryInvokeVoidAsync("localStorage.setItem", WeekSeenKey, Key(_weekEnd.AddDays(-6)));
+        _week = null;
+        Drawers.Close();
+    }
+
+    private static string Key(DateOnly weekStart) => weekStart.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private void Toggle()
+    {
+        _takeFocus = true;
+        Drawers.Toggle(DrawerState.Tray);
+    }
+
+    /// <summary>A problem or an alert opens the drawer by itself, without taking focus from what you were doing.</summary>
+    private void OpenByItself()
+    {
+        _takeFocus = false;
+        Drawers.Show(DrawerState.Tray);
+    }
+
+    private void OnDrawersChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task Clear()
     {
         _alerts.Clear();
-        _open = false;
+        await DismissWeekAsync();
+        Drawers.Close();
     }
 
     private void OnAlerted(AlertDto alert) => InvokeAsync(() =>
@@ -108,7 +164,7 @@
         _alerts.Add(alert);
         if (_alerts.Count > Kept) _alerts.RemoveAt(0);
         _announce = $"Watch rule: {alert.Text}";
-        _open = true;
+        OpenByItself();
         StateHasChanged();
     });
 
@@ -127,7 +183,7 @@
             foreach (var prompt in Sensing.Live.Prompts) _names.TryAdd(prompt.Regular.Id, null);
             if (announce is not null) _announce = announce;
             // A problem opens the tray; a newcomer only raises the count.
-            if (newError) _open = true;
+            if (newError) OpenByItself();
             StateHasChanged();
         });
     }
@@ -136,6 +192,7 @@
     {
         Sensing.Changed -= OnSensingChanged;
         Feed.Alerted -= OnAlerted;
+        Drawers.Changed -= OnDrawersChanged;
         _expiry?.Dispose();
     }
 }

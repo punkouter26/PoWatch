@@ -1,15 +1,19 @@
 @implements IDisposable
 @using System.Globalization
 @inject SensingSession Sensing
+@inject DrawerState Drawers
+@inject NavigationManager Navigation
 
-@* One row (two on a phone, where the keys drop below): brand, section keys, one status chip, Start/Stop, the bell, and a link to Settings.
-   The active key names the section, so there is no separate page title. *@
+@* Brand, section keys, AI selectors, status, Start/Stop, bell and Settings.
+   The selectors wrap on narrow screens; section keys become the phone's bottom tab bar. *@
 <header class="term-header" data-test="term-header">
     <a class="term-brand" href="" aria-label="PoWatch home">
         PoWatch <span class="term-brand-mark">TERM</span>
     </a>
 
     <NavBar />
+
+    <AiSelectors />
 
     @* Only the state word is a live region: the uptime ticks every second and would otherwise be
        read out every second. *@
@@ -33,9 +37,15 @@
 
     <Tray />
 
-    <NavLink class="term-icon-button" ActiveClass="term-icon-button--on" href="settings" aria-label="Settings" title="Settings: theme, sound, captions, watch rules, your data, sign out" data-test="settings-menu">
+    <button type="button" class="term-icon-button @(SettingsOpen ? "term-icon-button--on" : null)" @onclick="ToggleSettings"
+            aria-label="Settings" aria-expanded="@(SettingsOpen ? "true" : "false")" title="Settings: theme, sound, captions, watch rules, your data, sign out" data-test="settings-menu">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
-    </NavLink>
+    </button>
+
+    @* Inside the header so it hangs from its bottom edge (terminal.css), like the bell's drawer. *@
+    <Drawer Title="Settings" Open="@Drawers.IsOpen(DrawerState.Settings)" OnClose="Drawers.Close" Test="settings-drawer">
+        <SettingsPanel />
+    </Drawer>
 </header>
 
 @code {
@@ -44,22 +54,38 @@
     /// <summary>False on Live, where the camera panel has its own start controls.</summary>
     [Parameter] public bool ShowStart { get; set; } = true;
 
+    /// <summary>On the Settings page itself the gear just shows where you are.</summary>
+    private bool OnSettingsPage => Navigation.ToBaseRelativePath(Navigation.Uri).StartsWith("settings", StringComparison.OrdinalIgnoreCase);
+
+    private bool SettingsOpen => OnSettingsPage || Drawers.IsOpen(DrawerState.Settings);
+
+    private void ToggleSettings()
+    {
+        if (!OnSettingsPage) Drawers.Toggle(DrawerState.Settings);
+    }
+
     private string Uptime => Sensing.Live.StartedUtc is { } started
         ? (DateTimeOffset.UtcNow - started).ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture)
         : "--:--:--";
 
     protected override void OnInitialized()
     {
-        Sensing.Changed += OnSensingChanged;
+        Sensing.Changed += OnChanged;
+        Drawers.Changed += OnChanged;
+        Navigation.LocationChanged += OnNavigated;
         // Only the uptime ticks, so only a running session needs a per-second render.
         _clock = new Timer(_ => { if (Sensing.IsRunning) InvokeAsync(StateHasChanged); }, null, 1000, 1000);
     }
 
-    private void OnSensingChanged() => InvokeAsync(StateHasChanged);
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnNavigated(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => OnChanged();
 
     public void Dispose()
     {
-        Sensing.Changed -= OnSensingChanged;
+        Sensing.Changed -= OnChanged;
+        Drawers.Changed -= OnChanged;
+        Navigation.LocationChanged -= OnNavigated;
         _clock?.Dispose();
     }
 }

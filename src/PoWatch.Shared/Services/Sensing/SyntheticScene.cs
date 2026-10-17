@@ -6,9 +6,9 @@ namespace PoWatch.Shared.Services.Sensing;
 public sealed record SyntheticFrame(PixelSample Pixels, IReadOnlyList<Detection> Detections, string? Caption);
 
 /// <summary>
-/// A small scripted room for demo mode and tests, so the whole pipeline runs with no camera, GPU or
-/// model: a person crosses the frame every 20 s, a cat naps on the sofa for 30 s in every 90, a mug
-/// sits on the table and the light drifts slowly. Seeded, so every run tells the same story.
+/// A scripted room for demo mode and tests, so the whole pipeline runs with no camera, GPU or
+/// model: a recurring person crosses the frame, a dog occasionally trots through, a cat naps on the
+/// sofa, a mug sits on the table and the light drifts slowly. Seeded, so every run tells the same story.
 /// </summary>
 public sealed class SyntheticScene(int seed = 7)
 {
@@ -18,11 +18,14 @@ public sealed class SyntheticScene(int seed = 7)
     private const double WalkSeconds = 12;
     private const double CatPeriodSeconds = 90;
     private const double CatSeconds = 30;
+    private const double DogPeriodSeconds = 60;
+    private const double DogSeconds = 18;
 
     private static readonly string[] Captions =
     [
         "A person walks across the room.",
         "Someone carries a mug past the window.",
+        "A dog trots through the room.",
         "A cat naps on the sofa.",
         "The room is quiet and empty.",
         "A person glances at the camera while walking by.",
@@ -31,6 +34,7 @@ public sealed class SyntheticScene(int seed = 7)
     // Fixed looks, so the walker who crosses every 20 s comes back as the same regular.
     private static readonly float[] WalkerLook = Look(52, 56, 21);
     private static readonly float[] CatLook = Look(21, 42, 42);
+    private static readonly float[] DogLook = Look(18, 36, 46);
     private static readonly float[] MugLook = Look(63, 63, 42);
 
     private readonly Random _random = new(seed);
@@ -52,6 +56,13 @@ public sealed class SyntheticScene(int seed = 7)
 
         var catHere = t % CatPeriodSeconds < CatSeconds;
         if (catHere) detections.Add(new Detection("cat", Jitter(0.85), 0.56, 0.62, 0.70, 0.84, CatLook));
+        var dogPhase = t % DogPeriodSeconds;
+        var dogHere = dogPhase < DogSeconds;
+        if (dogHere)
+        {
+            var x0 = 0.9 - (dogPhase / DogSeconds * 0.75);
+            detections.Add(new Detection("dog", Jitter(0.86), x0, 0.55, Math.Min(1, x0 + 0.18), 0.82, DogLook));
+        }
         detections.Add(new Detection("cup", Jitter(0.8), 0.72, 0.52, 0.76, 0.58, MugLook));
 
         var grid = new float[Columns * Rows];
@@ -64,7 +75,7 @@ public sealed class SyntheticScene(int seed = 7)
         int[] palette = walking ? [0x3A4A5C, 0xC8A27A, 0xB03A2E, 0x7F8C8D] : [0x3A4A5C, 0xC8A27A, 0x7F8C8D];
 
         var caption = withCaption
-            ? walking ? Captions[_random.Next(0, 2)] : catHere ? Captions[2] : Captions[3]
+            ? walking ? Captions[_random.Next(0, 2)] : dogHere ? Captions[2] : catHere ? Captions[3] : Captions[4]
             : null;
 
         return new SyntheticFrame(new PixelSample(atUtc, motion, luminance, grid, palette), detections, caption);

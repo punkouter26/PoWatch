@@ -11,9 +11,7 @@ public sealed class LiveSensingState
     private static readonly TimeSpan RateWindow = TimeSpan.FromSeconds(10);
 
     private readonly Queue<DateTimeOffset> _pixelTimes = new();
-    private readonly Queue<DateTimeOffset> _detectorTimes = new();
     private readonly List<double> _motion = [];
-    private readonly List<double> _luminance = [];
     private readonly float[] _heat = new float[144];
 
     public SessionDto? Session { get; set; }
@@ -21,13 +19,10 @@ public sealed class LiveSensingState
     public DateTimeOffset? StartedUtc { get; init; }
 
     public long PixelSamples { get; private set; }
-    public long DetectorFrames { get; private set; }
     public double PixelHz { get; private set; }
-    public double DetectorHz { get; private set; }
     public double DetectorLatencyMs { get; set; }
     public string? DetectorModel { get; set; }
     public string? DetectorDevice { get; set; }
-    public string? VlmStatus { get; set; }
 
     public int PeopleNow { get; private set; }
     public int AnimalsNow { get; private set; }
@@ -39,18 +34,13 @@ public sealed class LiveSensingState
     private readonly Dictionary<string, int> _classesSeen = new(StringComparer.OrdinalIgnoreCase);
 
     public double Motion { get; private set; }
-    public double Luminance { get; private set; }
-    public IReadOnlyList<int> Palette { get; private set; } = [];
     public IReadOnlyList<double> MotionHistory => _motion;
-    public IReadOnlyList<double> LuminanceHistory => _luminance;
 
     /// <summary>Exponentially smoothed motion per grid cell, for the overlay.</summary>
     public IReadOnlyList<float> Heat => _heat;
 
     public string? LastCaption { get; private set; }
-    public IReadOnlyList<string> LastActivities { get; private set; } = [];
     public DateTimeOffset? LastCaptionUtc { get; private set; }
-    public int Captions { get; private set; }
 
     public long BatchesSent { get; set; }
     public long RejectedBatches { get; set; }
@@ -63,10 +53,7 @@ public sealed class LiveSensingState
         PixelSamples++;
         PixelHz = Rate(_pixelTimes, nowUtc);
         Motion = sample.Motion;
-        Luminance = sample.Luminance;
-        Palette = sample.Palette;
         Push(_motion, sample.Motion);
-        Push(_luminance, sample.Luminance);
         if (sample.Grid.Count == _heat.Length)
         {
             for (var i = 0; i < _heat.Length; i++) _heat[i] = (0.85f * _heat[i]) + (0.15f * sample.Grid[i]);
@@ -75,8 +62,6 @@ public sealed class LiveSensingState
 
     public void RecordDetections(TrackerFrame frame, DateTimeOffset nowUtc)
     {
-        DetectorFrames++;
-        DetectorHz = Rate(_detectorTimes, nowUtc);
         ClassesNow = frame.CountsByLabel;
         Tracks = frame.Active;
         PeopleNow = frame.CountsByLabel.GetValueOrDefault("person");
@@ -121,20 +106,9 @@ public sealed class LiveSensingState
         _prompts.RemoveAll(p => p.Regular.Id == regular.Id);
     }
 
-    public int Moments { get; private set; }
-    public int Snapshots { get; private set; }
-
-    public void RecordMoment(Highlight highlight, DateTimeOffset atUtc, bool withSnapshot)
-    {
-        Moments++;
-        if (withSnapshot) Snapshots++;
-    }
-
     public void RecordCaption(ParsedCaption caption, DateTimeOffset atUtc)
     {
-        Captions++;
         LastCaption = caption.Text;
-        LastActivities = caption.Activities;
         LastCaptionUtc = atUtc;
     }
 
@@ -151,3 +125,18 @@ public sealed class LiveSensingState
         return times.Count / RateWindow.TotalSeconds;
     }
 }
+
+/// <summary>
+/// "New person spotted — name them?" A passive offer: it waits for <see cref="Lifetime"/> and then
+/// quietly goes away, leaving the regular unnamed. The snapshot is a local data URL shown only here.
+/// </summary>
+public sealed record NamingPrompt(RegularDto Regular, string? SnapshotDataUrl, DateTimeOffset SeenUtc)
+{
+    public static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(60);
+}
+
+/// <summary>
+/// What the recap card shows: the session, how long the tab was away (null when the session just
+/// stopped), and the long-exposure PNG data URL (null when nobody moved).
+/// </summary>
+public sealed record SessionRecap(SessionDto Session, TimeSpan? AwayFor, string? Exposure);

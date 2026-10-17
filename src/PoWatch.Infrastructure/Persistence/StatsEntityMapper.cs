@@ -109,20 +109,26 @@ internal static class StatsEntityMapper
         {
             ["UserId"] = session.UserId,
             ["StartedUtc"] = session.StartedUtc,
+            ["LastActivityUtc"] = session.LastActivityUtc,
             ["TimeZoneId"] = session.TimeZoneId
         };
         if (session.EndedUtc is { } ended) entity["EndedUtc"] = ended;
         return entity;
     }
 
-    public static Session ToSession(TableEntity e) => new()
+    public static Session ToSession(TableEntity e)
     {
-        Id = Guid.ParseExact(e.RowKey, "N"),
-        UserId = e.GetString("UserId"),
-        StartedUtc = e.GetDateTimeOffset("StartedUtc")!.Value,
-        EndedUtc = e.GetDateTimeOffset("EndedUtc"),
-        TimeZoneId = e.GetString("TimeZoneId")
-    };
+        var startedUtc = e.GetDateTimeOffset("StartedUtc")!.Value;
+        return new Session
+        {
+            Id = Guid.ParseExact(e.RowKey, "N"),
+            UserId = e.GetString("UserId"),
+            StartedUtc = startedUtc,
+            EndedUtc = e.GetDateTimeOffset("EndedUtc"),
+            TimeZoneId = e.GetString("TimeZoneId"),
+            LastActivityUtc = e.GetDateTimeOffset("LastActivityUtc") ?? startedUtc
+        };
+    }
 
     public static byte[] Pack(ReadOnlySpan<float> values) => MemoryMarshal.AsBytes(values).ToArray();
 

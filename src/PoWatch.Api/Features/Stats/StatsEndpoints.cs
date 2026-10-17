@@ -12,8 +12,23 @@ internal static class StatsEndpoints
         LocalCacheExpiration = TimeSpan.FromMinutes(5)
     };
 
-    /// <summary>Every cached stats entry for a user carries this tag; ingest evicts it.</summary>
+    /// <summary>Every cached stats entry for a user carries this tag; ingest and <see cref="InvalidatesStats"/> evict it.</summary>
     internal static string CacheTag(string userId) => $"stats:{userId}";
+
+    /// <summary>For writes that change what the stat families show: evicts the caller's cached stats once the endpoint succeeds.</summary>
+    internal static RouteHandlerBuilder InvalidatesStats(this RouteHandlerBuilder builder) =>
+        builder.AddEndpointFilter(async (context, next) =>
+        {
+            var result = await next(context);
+            if (result is IStatusCodeHttpResult { StatusCode: >= 200 and < 300 }
+                && CurrentUser.Id(context.HttpContext.User) is { } userId)
+            {
+                // The write has already landed, so a client that disconnects now must not cancel the eviction.
+                var cache = context.HttpContext.RequestServices.GetRequiredService<HybridCache>();
+                await cache.RemoveByTagAsync(CacheTag(userId), CancellationToken.None);
+            }
+            return result;
+        });
 
     internal static IEndpointRouteBuilder MapStatsFeature(this IEndpointRouteBuilder app)
     {
@@ -49,6 +64,17 @@ internal static class StatsEndpoints
             })
             .WithName("StatsAll")
             .WithSummary("Every stat family for a range in one JSON document.");
+
+        // One day minute by minute, for History's replay. Not cached: a day is read once per visit.
+        group.MapGet("/replay", async (string? date, string? tz, HttpContext http, StatsQueryService s, CancellationToken ct) =>
+            {
+                if (CurrentUser.Id(http.User) is not { } u) return Results.Unauthorized();
+                if (!ApiParsing.TryDay(date, out var day)) return Results.BadRequest(new { message = "date must be yyyy-MM-dd." });
+                var w = await s.ResolveAsync(u, StatsRange.Day, tz, null, ct, day);
+                return w is null ? Results.NotFound() : Results.Ok(await s.ReplayAsync(u, w, ct));
+            })
+            .WithName("StatsReplay")
+            .WithSummary("A day's observed minutes with their motion grids, plus its captions, moments, entrances and exits.");
 
         return app;
     }

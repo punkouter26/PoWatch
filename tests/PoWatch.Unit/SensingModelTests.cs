@@ -1,4 +1,5 @@
 using PoWatch.Domain.Models;
+using PoWatch.Shared.Services.Sensing;
 
 namespace PoWatch.Unit;
 
@@ -85,5 +86,24 @@ public sealed class SensingModelTests
         Assert.Equal(TimeSpan.FromHours(2), stopped.Duration(Now.AddHours(5)));
         Assert.Equal(TimeSpan.FromHours(1), session.Duration(Now.AddHours(1)));
         Assert.Throws<InvalidOperationException>(() => stopped.Stop(Now.AddHours(3)));
+    }
+
+    [Fact]
+    public void Synthetic_scene_repeats_a_walker_and_varies_which_animals_are_present()
+    {
+        var scene = new SyntheticScene();
+
+        var start = scene.Next(Now);
+        var later = scene.Next(Now.AddSeconds(20));
+        var afterCatLeaves = scene.Next(Now.AddSeconds(35));
+
+        Assert.Contains(start.Detections, detection => detection.Label == "person");
+        Assert.Contains(start.Detections, detection => detection.Label == "dog");
+        Assert.Contains(start.Detections, detection => detection.Label == "cat");
+        Assert.Contains(later.Detections, detection => detection.Label == "person");
+        Assert.DoesNotContain(later.Detections, detection => detection.Label == "dog");
+        Assert.Contains(later.Detections, detection => detection.Label == "cat");
+        Assert.DoesNotContain(afterCatLeaves.Detections, detection => detection.Label == "cat");
+        Assert.Contains(afterCatLeaves.Detections, detection => detection.Label == "cup");
     }
 }

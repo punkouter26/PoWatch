@@ -35,6 +35,66 @@ public sealed class AzureSessionRepository(AzureStorageClients clients, IOptions
 
         return sessions.OrderByDescending(s => s.StartedUtc).Take(take).ToList();
     }
+
+    public async Task TouchAsync(string userId, Guid sessionId, DateTimeOffset atUtc, CancellationToken cancellationToken)
+    {
+        var partitionKey = StatsEntityMapper.UserKey(userId);
+        var rowKey = sessionId.ToString("N");
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var response = await _table.GetEntityIfExistsAsync<TableEntity>(partitionKey, rowKey, cancellationToken: cancellationToken);
+            if (!response.HasValue || response.Value!.GetDateTimeOffset("EndedUtc") is not null) return;
+
+            var update = new TableEntity(partitionKey, rowKey)
+            {
+                ["LastActivityUtc"] = atUtc > (response.Value.GetDateTimeOffset("LastActivityUtc")
+                    ?? response.Value.GetDateTimeOffset("StartedUtc")!.Value)
+                    ? atUtc
+                    : response.Value.GetDateTimeOffset("LastActivityUtc") ?? response.Value.GetDateTimeOffset("StartedUtc")!.Value
+            };
+            try
+            {
+                await _table.UpdateEntityAsync(update, response.Value.ETag, TableUpdateMode.Merge, cancellationToken);
+                return;
+            }
+            catch (RequestFailedException ex) when (ex.Status == 412 && attempt < 2)
+            {
+            }
+        }
+    }
+
+    public async Task<bool> StopIfStaleAsync(string userId, Guid sessionId, DateTimeOffset cutoffUtc, CancellationToken cancellationToken)
+    {
+        var partitionKey = StatsEntityMapper.UserKey(userId);
+        var rowKey = sessionId.ToString("N");
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var response = await _table.GetEntityIfExistsAsync<TableEntity>(partitionKey, rowKey, cancellationToken: cancellationToken);
+            if (!response.HasValue || response.Value!.GetDateTimeOffset("EndedUtc") is not null) return false;
+
+            var entity = response.Value;
+            var startedUtc = entity.GetDateTimeOffset("StartedUtc")!.Value;
+            var lastActivityUtc = entity.GetDateTimeOffset("LastActivityUtc") ?? startedUtc;
+            if (lastActivityUtc >= cutoffUtc) return false;
+
+            var update = new TableEntity(partitionKey, rowKey)
+            {
+                ["EndedUtc"] = lastActivityUtc < startedUtc ? startedUtc : lastActivityUtc
+            };
+            try
+            {
+                await _table.UpdateEntityAsync(update, entity.ETag, TableUpdateMode.Merge, cancellationToken);
+                return true;
+            }
+            catch (RequestFailedException ex) when (ex.Status == 412 && attempt < 2)
+            {
+            }
+        }
+
+        return false;
+    }
 }
 
 /// <summary>Raw ticks and scene events, partitioned by user and local day.</summary>
@@ -74,6 +134,13 @@ public sealed class AzureSensingLog(AzureStorageClients clients, IOptions<AzureS
         return events.OrderBy(e => e.AtUtc).ToList();
     }
 
+    public async Task<int> PruneBeforeAsync(string userId, DateOnly firstKeptDay, CancellationToken cancellationToken)
+    {
+        var filter = TableDeletes.DaysBefore(userId, firstKeptDay);
+        return await TableDeletes.DeleteWhereAsync(_ticks, filter, cancellationToken)
+            + await TableDeletes.DeleteWhereAsync(_events, filter, cancellationToken);
+    }
+
     private static async Task UpsertAllAsync(TableClient table, IEnumerable<TableEntity> entities, CancellationToken cancellationToken)
     {
         // Duplicate keys inside one transaction are rejected, so keep the last write per row.
@@ -105,4 +172,9 @@ public sealed class AzureIngestLedger(AzureStorageClients clients, IOptions<Azur
             return false;
         }
     }
+
+    public Task<int> PruneBeforeAsync(string userId, DateTimeOffset beforeUtc, CancellationToken cancellationToken) =>
+        TableDeletes.DeleteWhereAsync(_table,
+            TableClient.CreateQueryFilter($"PartitionKey eq {StatsEntityMapper.UserKey(userId)} and ClaimedAtUtc lt {beforeUtc}"),
+            cancellationToken);
 }
