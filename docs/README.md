@@ -126,7 +126,10 @@ the model's version when it arrives; where the server has no model, a browser wi
 client with one tool, `get_stats(range)`, so the numbers in an answer come from the rollups.
 QuestPDF renders the PDF; a host without its native engine answers an explained 503.
 
-**Captions.** One on-device model, SmolVLM2 500M (WebGPU fp16 → fp32 → WASM q8). The prompt carries what the detector sees (`Visible: person x2, cat.`), an unchanged
+**Captions.** The worker first asks a local Ollama server (`localhost:11434`) for the model picked in
+Settings: `minicpm-v` by default, or `qwen3-vl:8b-instruct` / `qwen2.5vl:7b`. When nothing listens there
+it falls back to the in-browser SmolVLM2 500M (WebGPU fp16 → fp32 → WASM q8). Ollama allows `http://localhost`
+origins by default; another origin needs `OLLAMA_ORIGINS`. The prompt carries what the detector sees (`Visible: person x2, cat.`), an unchanged
 scene is re-captioned at most every 2 minutes, SmolVLM runs without image splitting, and frames reach
 the worker as transferred `ImageBitmap`s. A caption unlike the last 10 becomes a Notable moment. COOP
 `same-origin` + COEP `credentialless` make the page cross-origin isolated, so the WASM backend runs

@@ -54,6 +54,8 @@
         await JS.TryInvokeVoidAsync("powatchMenus.setup");
         // Remembered per browser: whether camera sessions also run the caption model.
         if (await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionsKey) == "off") Sensing.Captions = false;
+        if (await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionModelKey) is { } model
+            && SensingSession.CaptionModels.Any(m => m.Tag == model)) Sensing.CaptionModel = model;
         await Sensing.ResendLeftoversAsync();
     }
 
@@ -64,6 +66,7 @@
     }
 
     public const string CaptionsKey = "powatch:captions";
+    public const string CaptionModelKey = "powatch:caption-model";
 
     private static bool IsLive(string uri) => Section(uri).Length == 0;
 

@@ -24,6 +24,9 @@
                 <button class="term-menu-item" role="switch" aria-checked="@(Sensing.Captions ? "true" : "false")" @onclick="ToggleCaptionsAsync" data-test="captions-toggle">
                     <span>Captions <i>an on-device vision model describes the scene</i></span><b>@(Sensing.Captions ? "ON" : "OFF")</b>
                 </button>
+                <button class="term-menu-item" @onclick="CycleCaptionModelAsync" data-test="caption-model">
+                    <span>Caption model <i>@SensingSession.CaptionModels.First(m => m.Tag == Sensing.CaptionModel).Note · via Ollama; built-in model when it is off</i></span><b>@Sensing.CaptionModel.ToUpperInvariant()</b>
+                </button>
                 <button class="term-menu-item" onclick="powatchMenus.openPalette()" data-test="open-palette">
                     <span>Commands and shortcuts</span><b>CTRL K</b>
                 </button>
@@ -131,6 +134,14 @@
     {
         Sensing.Captions = !Sensing.Captions;
         await JS.TryInvokeVoidAsync("localStorage.setItem", PoWatch.Client.Layout.MainLayout.CaptionsKey, Sensing.Captions ? "on" : "off");
+    }
+
+    private async Task CycleCaptionModelAsync()
+    {
+        var models = SensingSession.CaptionModels;
+        var next = models[(models.ToList().FindIndex(m => m.Tag == Sensing.CaptionModel) + 1) % models.Count].Tag;
+        Sensing.CaptionModel = next;
+        await JS.TryInvokeVoidAsync("localStorage.setItem", PoWatch.Client.Layout.MainLayout.CaptionModelKey, next);
     }
 
     private async Task AddRuleAsync()

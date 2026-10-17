@@ -259,7 +259,7 @@ a.term-button { display: inline-flex; align-items: center; text-decoration: none
 }
 
 .term-menu-item:hover { background: var(--term-panel-2); }
-.term-menu-item b { font-weight: 600; color: var(--term-muted); }
+.term-menu-item b { font-weight: 600; color: var(--term-muted); white-space: nowrap; }
 .term-menu-item[aria-checked="true"] b { color: var(--term-accent); }
 
 /* ── Key bar (inside the header row) ───────────────────────────────────── */

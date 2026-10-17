@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: caption model picker (2026-10-17)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .box { position: absolute; border: 2px solid; border-radius: 4px; pointer-events: none; }
+  .box.old { border-color: var(--old); box-shadow: 0 0 12px 2px rgba(248, 113, 113, 0.5); }
+  .box.new { border-color: var(--new); box-shadow: 0 0 12px 2px rgba(74, 222, 128, 0.5); }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: pick the caption model on Settings</h1>
+<p class="lead">Captured 17 October 2026 from the running Development app (guest), 1476×812.
+Captions now come from a local Ollama vision model when one is running. The default is MiniCPM-V, the best value of
+the models benchmarked on this laptop; SmolVLM in the browser still steps in when Ollama is off.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, before image, before marks, after image, after marks]. A mark is [x %, y %, note, box?]; box is [left %, top %, width %, height %].
+  const pairs = [
+    ['Settings: Preferences', 'before.jpg', [
+        [50, 20.8, '<b>No model choice.</b> Captions were always SmolVLM2 500M in the browser, with nothing to pick.', [1, 17.6, 48.5, 6.4]],
+      ], 'after.jpg', [
+        [2, 20.6, '<b>Caption model</b> row: what the picked model is good at, and that it runs through Ollama with the built-in model as the fallback.', [1, 20.6, 48.5, 4.6]],
+        [43.5, 22.8, '<b>Click to cycle</b> MINICPM-V (default) → QWEN3-VL:8B-INSTRUCT → QWEN2.5VL:7B. Remembered in this browser.'],
+      ]],
+  ];
+
+  const root = document.getElementById('pairs');
+  for (const [title, beforeImg, beforeMarks, afterImg, afterMarks] of pairs) {
+    const h = document.createElement('h2'); h.textContent = title; root.append(h);
+    const pair = document.createElement('div'); pair.className = 'pair'; root.append(pair);
+    for (const [kind, label, img, marks] of [['old', 'BEFORE', beforeImg, beforeMarks], ['new', 'AFTER', afterImg, afterMarks]]) {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<figcaption class="${kind}">${label}</figcaption><div class="shot"><img src="${img}" alt="${title}, ${label.toLowerCase()}"></div><ol class="notes"></ol>`;
+      const shot = fig.querySelector('.shot'), notes = fig.querySelector('.notes');
+      marks.forEach(([x, y, note, box], i) => {
+        if (box) { const b = document.createElement('div'); b.className = `box ${kind}`; Object.assign(b.style, { left: box[0] + '%', top: box[1] + '%', width: box[2] + '%', height: box[3] + '%' }); shot.append(b); }
+        const m = document.createElement('span'); m.className = `mark ${kind}`; m.textContent = i + 1; m.style.left = x + '%'; m.style.top = y + '%'; shot.append(m);
+        const li = document.createElement('li'); li.innerHTML = note; notes.append(li);
+      });
+      pair.append(fig);
+    }
+  }
+</script>
+</body>
+</html>

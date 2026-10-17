@@ -10,13 +10,20 @@ const _TRANSFORMERS_VERSION = '3.8.1';
 const _TRANSFORMERS_BASE = new URL(`../lib/transformers-${_TRANSFORMERS_VERSION}/`, import.meta.url);
 const _TRANSFORMERS_URL = new URL('transformers.min.js', _TRANSFORMERS_BASE).href;
 
-// The one caption model. Weights come from the HF hub; the dtype fields drive the fallback chain.
+// The in-browser caption model, used when no local Ollama server answers. Weights come from the HF
+// hub; the dtype fields drive the fallback chain.
 const _MODEL = {
   id: 'HuggingFaceTB/SmolVLM2-500M-Video-Instruct',
   webgpuDtype: 'fp16',
   webgpuDtypeFallback: 'fp32',
   wasmDtype: 'q8',
 };
+
+// The model picked in Settings runs on this machine's own Ollama server (its GPU, far better captions).
+// Ollama allows http://localhost origins out of the box; any other origin needs OLLAMA_ORIGINS.
+const _OLLAMA_CHAT_URL = 'http://localhost:11434/api/chat';
+// The first call loads the model into VRAM, which took up to ~30 s on a laptop GPU.
+const _OLLAMA_TIMEOUT_MS = 120_000;
 
 // Transient-network retry. On some networks connections to the HF hub are reset mid-request, and a
 // single load issues many fetches (the largest ~190 MB) that transformers.js does not retry, so ONE
@@ -77,6 +84,7 @@ let _inferenceCount = 0;
 let _lastInferenceMs = null;
 let _lastInferenceTimestamp = null;
 let _lastInferenceOutput = null;
+let _ollamaModel = null; // the Ollama model that answered last; null while SmolVLM is in use
 let _inferLock = Promise.resolve();
 
 async function hasWebGpu() {
@@ -153,14 +161,67 @@ function describeError(err) {
 // here), the same hand-off the detector worker uses.
 let _frameCanvas = null;
 
-function toRawImage(bitmap) {
+function drawFrame(bitmap) {
   if (!_frameCanvas || _frameCanvas.width !== bitmap.width || _frameCanvas.height !== bitmap.height) {
     _frameCanvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   }
   const ctx = _frameCanvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(bitmap, 0, 0);
-  const pixels = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  return ctx;
+}
+
+function toRawImage(bitmap) {
+  const pixels = drawFrame(bitmap).getImageData(0, 0, bitmap.width, bitmap.height);
   return new _RawImage(pixels.data, bitmap.width, bitmap.height, 4).rgb();
+}
+
+// Ollama takes images as base64 JPEG.
+async function toJpegBase64(bitmap) {
+  drawFrame(bitmap);
+  const bytes = new Uint8Array(await (await _frameCanvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })).arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+function recordInference(output, started) {
+  _lastInferenceMs = Math.round(performance.now() - started);
+  _lastInferenceTimestamp = new Date().toISOString();
+  _inferenceCount++;
+  _lastInferenceOutput = output;
+}
+
+// Returns { output } from the local Ollama server, or null when nothing listens there (the caller then
+// uses SmolVLM). A server that answers with an error throws: the picked model is the one to fix.
+async function ollamaGenerate(model, bitmap, prompt, maxNewTokens) {
+  const image = await toJpegBase64(bitmap);
+  const started = performance.now();
+  let response;
+  try {
+    response = await fetch(_OLLAMA_CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(_OLLAMA_TIMEOUT_MS),
+      body: JSON.stringify({
+        model,
+        stream: false,
+        keep_alive: '30m',
+        messages: [{ role: 'user', content: prompt, images: [image] }],
+        options: { temperature: 0, num_predict: maxNewTokens },
+      }),
+    });
+  } catch (err) {
+    if (err?.name === 'TimeoutError') throw new Error(`${model} took longer than ${_OLLAMA_TIMEOUT_MS / 1000} s to answer`);
+    return null;
+  }
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null))?.error ?? `HTTP ${response.status}`;
+    throw new Error(response.status === 404 ? `${model} is not installed in Ollama (ollama pull ${model})` : `Ollama: ${detail}`);
+  }
+  const output = ((await response.json()).message?.content ?? '').trim();
+  _ollamaModel = model;
+  recordInference(output, started);
+  return { output, status: 'Model returned an empty response' };
 }
 
 async function prepareInputs(image, prompt) {
@@ -215,26 +276,24 @@ function hasRepetition(text) {
   return /(.{3,})\1{3,}/i.test(text);
 }
 
-async function runInference(bitmap, prompt, maxNewTokens = 32) {
-  if (!bitmap) return unavailable('No frame captured');
-
+// SmolVLM in this worker. Returns { output, status }: status says why when output is empty.
+async function smolGenerate(bitmap, prompt, maxNewTokens) {
   try {
     await ensureModelLoaded();
   } catch (err) {
     // "Failed to fetch" reads as an app bug rather than what it is — the weights could not be downloaded.
     const detail = describeError(err);
-    return unavailable(/failed to fetch|networkerror|network error|load failed/i.test(detail)
-      ? `Model unavailable: could not download model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
-      : `Model unavailable: ${detail}`);
+    return {
+      output: '',
+      status: /failed to fetch|networkerror|network error|load failed/i.test(detail)
+        ? `Model unavailable: could not download model weights after ${_FETCH_RETRIES + 1} attempts — check the network connection to the model host`
+        : `Model unavailable: ${detail}`,
+    };
   }
 
+  _ollamaModel = null;
   const inferStart = performance.now();
-  const safeMaxNewTokens = Number.isFinite(maxNewTokens)
-    ? Math.min(96, Math.max(16, Math.trunc(maxNewTokens)))
-    : 32;
-
   const image = toRawImage(bitmap);
-  bitmap.close?.();
   // Rebuild tensors after every backend switch: reusing WebGPU inputs on wasm is how generate()
   // started throwing a bare ONNX code with no .message.
   let inputs = await prepareInputs(image, prompt);
@@ -247,7 +306,7 @@ async function runInference(bitmap, prompt, maxNewTokens = 32) {
     try {
       generatedIds = await _model.generate({
         ...inputs,
-        max_new_tokens: safeMaxNewTokens,
+        max_new_tokens: maxNewTokens,
         do_sample: false,
         // Greedy decoding on a small model loops ("the the the…"); forbidding a repeated trigram
         // stops that at the source instead of rejecting the caption afterwards.
@@ -276,17 +335,36 @@ async function runInference(bitmap, prompt, maxNewTokens = 32) {
     }
   }
 
-  _lastInferenceMs = Math.round(performance.now() - inferStart);
-  _lastInferenceTimestamp = new Date().toISOString();
-  _inferenceCount++;
-  _lastInferenceOutput = output;
+  recordInference(output, inferStart);
+  return {
+    output,
+    status: generateError
+      ? `Inference error: ${generateError}`
+      : (_runtimeFallbackStage > 0 ? `Model returned an empty response (retried on ${_device}/${_dtype})` : 'Model returned an empty response'),
+  };
+}
+
+// `model` is an Ollama tag from Settings; SmolVLM answers when it is absent or no Ollama server runs.
+async function runInference(bitmap, prompt, maxNewTokens = 32, model = null) {
+  if (!bitmap) return unavailable('No frame captured');
+
+  const safeMaxNewTokens = Number.isFinite(maxNewTokens)
+    ? Math.min(96, Math.max(16, Math.trunc(maxNewTokens)))
+    : 32;
+
+  let reply;
+  try {
+    reply = (model ? await ollamaGenerate(model, bitmap, prompt, safeMaxNewTokens) : null)
+      ?? await smolGenerate(bitmap, prompt, safeMaxNewTokens);
+  } catch (err) {
+    return unavailable(`Model unavailable: ${describeError(err)}`);
+  } finally {
+    bitmap.close?.();
+  }
 
   // Distinguish "the model said nothing" from "the model said something we rejected".
-  if (output.length === 0) {
-    return unavailable(generateError
-      ? `Inference error: ${generateError}`
-      : (_runtimeFallbackStage > 0 ? `Model returned an empty response (retried on ${_device}/${_dtype})` : 'Model returned an empty response'));
-  }
+  const output = reply.output;
+  if (output.length === 0) return unavailable(reply.status);
 
   // The prompt asks for one plain sentence; the C# caption parser keeps the first one. Here only the
   // replies that are clearly not a description are dropped.
@@ -320,7 +398,7 @@ self.onmessage = async (e) => {
 
   switch (type) {
     case 'RUN_INFERENCE': {
-      const run = _inferLock.then(() => runInference(payload.frame, payload.prompt, payload.maxNewTokens));
+      const run = _inferLock.then(() => runInference(payload.frame, payload.prompt, payload.maxNewTokens, payload.model));
       _inferLock = run.then(() => undefined, () => undefined);
       let result;
       try {
@@ -336,13 +414,9 @@ self.onmessage = async (e) => {
       self.postMessage({
         id,
         result: {
-          modelId: _MODEL.id,
-          loadState: _loadState,
-          loadError: _loadError,
-          device: _device,
-          dtype: _dtype,
-          fp16FallbackUsed: _fp16FallbackUsed,
-          loadDurationMs: _loadDurationMs,
+          ...(_ollamaModel
+            ? { modelId: _ollamaModel, loadState: 'ready', loadError: null, device: 'ollama', dtype: 'local GPU', fp16FallbackUsed: false, loadDurationMs: null }
+            : { modelId: _MODEL.id, loadState: _loadState, loadError: _loadError, device: _device, dtype: _dtype, fp16FallbackUsed: _fp16FallbackUsed, loadDurationMs: _loadDurationMs }),
           inferenceCount: _inferenceCount,
           lastInferenceMs: _lastInferenceMs,
           lastInferenceTimestamp: _lastInferenceTimestamp,

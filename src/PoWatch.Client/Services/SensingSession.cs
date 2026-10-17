@@ -53,6 +53,21 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     /// <summary>Whether a camera session also runs the vision model for captions.</summary>
     public bool Captions { get; set; } = true;
 
+    /// <summary>
+    /// The local Ollama vision models offered in Settings, best value first. Picked by captioning the same
+    /// frames on an RTX 5070 Ti laptop (2026-10-17); models that made things up, stalled, came back empty
+    /// or filled the GPU were left out. Without an Ollama server the worker falls back to SmolVLM.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Tag, string Note)> CaptionModels =
+    [
+        ("minicpm-v", "fast and accurate, ~0.7 s"),
+        ("qwen3-vl:8b-instruct", "most detailed, ~2 s"),
+        ("qwen2.5vl:7b", "solid, ~1.2 s"),
+    ];
+
+    /// <summary>The Ollama tag captions are asked of (one of <see cref="CaptionModels"/>).</summary>
+    public string CaptionModel { get; set; } = CaptionModels[0].Tag;
+
     /// <summary>Watch rules checked against everything that enters the frame (see <see cref="WatchRules"/>).</summary>
     public List<WatchRule> Rules { get; set; } = [];
 
@@ -366,7 +381,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         try
         {
             _vlm.MarkRun(scene);
-            var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", prompt, _video, CaptionParser.MaxNewTokens);
+            var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", prompt, _video, CaptionParser.MaxNewTokens, CaptionModel);
             if (result is { IsAvailable: true })
                 AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.Caption) ? result.Activity : result.Caption);
             else if (result is not null)

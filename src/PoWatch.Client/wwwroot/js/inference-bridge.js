@@ -1,7 +1,7 @@
 // Page side of the L2 caption model: owns the webcam stream and the preview element, captures frames
 // on the main thread (the worker cannot touch the DOM) and hands them to inference-worker.js.
 (() => {
-  const call = window.powatchWorkerRpc('/js/inference-worker.js?v=20260925-one-model');
+  const call = window.powatchWorkerRpc('/js/inference-worker.js?v=20261017-ollama');
 
   let activeStream = null;
   let activePreviewElement = null;
@@ -95,7 +95,7 @@
       return status;
     },
 
-    async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96) {
+    async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96, model = null) {
       const status = await ensureWebcamAccess();
       if (status !== 'OK') return unavailable(status);
       await attachStreamToElement(videoElement);
@@ -105,7 +105,7 @@
       if (computeFrameDiff(videoElement) < 0.015) return unavailable('Frame unchanged: skipped');
 
       const frame = await captureFrame(videoElement);
-      const res = await call({ type: 'RUN_INFERENCE', payload: { frame, prompt, maxNewTokens: maxInferenceTokens } }, [frame]);
+      const res = await call({ type: 'RUN_INFERENCE', payload: { frame, prompt, maxNewTokens: maxInferenceTokens, model } }, [frame]);
       return res.result;
     },
 
