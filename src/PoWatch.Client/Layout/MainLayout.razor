@@ -3,6 +3,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject SensingSession Sensing
+@inject DrawerState Drawers
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
@@ -36,6 +37,8 @@
 <FxBridge />
 @* Host for chart hover tooltips; without it RadzenChart never shows one. *@
 <RadzenChartTooltip />
+@* Host for DialogService confirmations (deleting data, keeping less of it). *@
+<RadzenDialog />
 
 @code {
     private bool _live = true;
@@ -54,12 +57,15 @@
         await JS.TryInvokeVoidAsync("powatchMenus.setup");
         // Remembered per browser: whether camera sessions also run the caption model.
         if (await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionsKey) == "off") Sensing.Captions = false;
+        Sensing.CaptionModel = CaptionModels.Normalize(await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionModels.Key));
         await Sensing.SendOutboxAsync();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         _live = IsLive(e.Location);
+        // A drawer belongs to the page it was opened over.
+        Drawers.Close();
         InvokeAsync(StateHasChanged);
     }
 

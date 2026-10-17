@@ -4,7 +4,7 @@
 {
     @if (Loading)
     {
-        <Skeleton Heights="@([220, 220, 220])" />
+        <Skeleton Heights="@([220, 220])" />
     }
     else
     {
@@ -13,38 +13,15 @@
 }
 else
 {
+    @* "Today vs usual" by the number (σ, rhythm, trend) is in Live's key metrics; these are its shapes. *@
     <div class="term-grid" data-test="stats-patterns">
-        <TerminalPanel Title="Today vs your usual" Flush="true">
-            <Aside>RHYTHM @(Data.RhythmScore is { } r ? Number(r, "0.00") : "n/a")</Aside>
-            <ChildContent>
-                @if (Data.Anomalies.Count == 0)
-                {
-                    <p class="term-empty">Nothing observed today yet.</p>
-                }
-                else
-                {
-                    <table class="term-table">
-                        <thead><tr><th>Metric</th><th class="r">Today</th><th class="r">Usual</th><th class="r">Z</th></tr></thead>
-                        <tbody>
-                            @foreach (var a in Data.Anomalies)
-                            {
-                                <tr data-test="anomaly-row"><td>@a.Metric</td><td class="r">@Number(a.Today, "0.###")</td><td class="r">@Number(a.Mean, "0.###")</td><td class="r"><ZChip Z="@a.Z" /></td></tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-                <p class="term-stat-hint">
-                    Occupancy trend @Number(Data.OccupancyTrendPerDay * 100, "+0.00;-0.00")pp/day ·
-                    next busy hour @(Data.NextBusyHour is { } h ? $"{h:00}:00" : "—")
-                </p>
-            </ChildContent>
-        </TerminalPanel>
-
         <TerminalPanel Title="Today's curve vs usual">
             <RadzenChart aria-label="Occupancy by hour, today against the usual day">
                 <RadzenLineSeries Data="@_curve" CategoryProperty="@nameof(Hour.Label)" ValueProperty="@nameof(Hour.Usual)" Title="Usual" LineType="LineType.Dashed" />
                 <RadzenColumnSeries Data="@_curve" CategoryProperty="@nameof(Hour.Label)" ValueProperty="@nameof(Hour.Today)" Title="Today" />
-                <RadzenValueAxis Min="0" Max="1" FormatString="{0:P0}" />
+                @* Every sixth hour is labelled: 24 two-digit labels ran into one another. *@
+                <RadzenCategoryAxis Formatter="@(v => v is string hour && int.Parse(hour, System.Globalization.CultureInfo.InvariantCulture) % 6 == 0 ? hour + ":00" : string.Empty)" />
+                <RadzenValueAxis Min="0" Max="1" FormatString="{0:0%}" />
                 <RadzenLegend Position="LegendPosition.Top" />
             </RadzenChart>
         </TerminalPanel>
@@ -52,7 +29,7 @@ else
         <TerminalPanel Title="Hour × weekday (28 days)">
             <HeatGrid Values="@Data.HourByWeekday.SelectMany(d => d).ToList()" Columns="24" Rows="7"
                       Label="Occupancy by weekday and hour" CellTitle="@((i, v) => $"{Days[i / 24]} {i % 24:00}:00 · {v:P0}")" />
-            <div class="stats-axis"><span>rows: Sun → Sat</span><span>columns: 00:00 → 23:00</span></div>
+            <div class="stats-axis"><span>ROWS SUN → SAT</span><span>COLUMNS 00:00 → 23:00</span></div>
         </TerminalPanel>
     </div>
 }

@@ -183,6 +183,24 @@ public sealed class FeatureEndpointTests(AzuriteWebApplicationFactory factory) :
     }
 
     [Fact]
+    public async Task Without_an_AI_model_the_assistant_endpoints_check_input_then_say_there_is_no_model()
+    {
+        using var client = ClientFor($"assist-{Guid.NewGuid():N}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/ask/rule", new RuleDraftRequestDto { Text = " " })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/api/ask/rule", new RuleDraftRequestDto { Text = new string('a', RuleDraftRequestDto.MaxLength + 1) })).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.PostAsJsonAsync("/api/ask/rule", new RuleDraftRequestDto { Text = "a dog at night" })).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.PostAsJsonAsync("/api/ask", new AskRequestDto { Question = "When is it busiest?" })).StatusCode);
+
+        // The digest still answers, from the template alone.
+        await ObserveAsync(client);
+        var week = await client.GetFromJsonAsync<WeekDigestDto>("/api/digest/week?tz=UTC");
+        Assert.False(string.IsNullOrEmpty(week!.Summary));
+        Assert.Null(week.Headline);
+    }
+
+    [Fact]
     public async Task Weather_comes_from_the_chosen_place_and_the_weekly_email_goes_once()
     {
         var user = $"weekly-{Guid.NewGuid():N}";

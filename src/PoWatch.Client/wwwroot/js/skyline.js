@@ -161,7 +161,7 @@ void main() {
         const view = create(canvas);
         if (!view) return false;
 
-        const amber = hex(canvas, '--term-amber', '#f5a524'), cyan = hex(canvas, '--term-cyan', '#38bdf8');
+        const amber = hex(canvas, '--term-accent', '#8fdcff'), cyan = hex(canvas, '--term-cyan', '#5b9cff');
         const line = hex(canvas, '--term-line', '#262d38'), bg = hex(canvas, '--term-bg', '#0d1014');
         const towers = [];
         const data = [];

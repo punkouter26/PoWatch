@@ -10,9 +10,10 @@ namespace PoWatch.Application.Services;
 
 /// <summary>
 /// The week in review: a Monday-to-Sunday week against the one before, read from the day rollups,
-/// with the regulars first seen in it. History shows it in-app; a background job can mail it.
+/// with the regulars first seen in it. History shows it in-app; a background job can mail it. With a
+/// chat client, a model adds a one-line headline (checked against the summary's numbers).
 /// </summary>
-public sealed class DigestService(IRollupStore rollups, IRegularStore regulars)
+public sealed class DigestService(IRollupStore rollups, IRegularStore regulars, AssistService? assist = null)
 {
     /// <summary>The week that holds <paramref name="anyDay"/>, against the week before it.</summary>
     public async Task<WeekDigestDto> WeekAsync(string userId, DateOnly anyDay, TimeZoneInfo zone, CancellationToken cancellationToken)
@@ -36,7 +37,10 @@ public sealed class DigestService(IRollupStore rollups, IRegularStore regulars)
             .Select(r => r.DisplayName)
             .ToList();
 
-        return new WeekDigestDto { ThisWeek = thisWeek, LastWeek = lastWeek, NewRegulars = newcomers, Summary = Summary(thisWeek, lastWeek, newcomers) };
+        var summary = Summary(thisWeek, lastWeek, newcomers);
+        // The chat client's cache answers a week already titled, so reopening History costs nothing.
+        var headline = assist is not null && thisWeek.SecondsObserved > 0 ? await assist.HeadlineAsync(summary, cancellationToken) : null;
+        return new WeekDigestDto { ThisWeek = thisWeek, LastWeek = lastWeek, NewRegulars = newcomers, Summary = summary, Headline = headline };
     }
 
     private static WeekNumbersDto Numbers(DateOnly weekStart, IEnumerable<Rollup> days, TimeZoneInfo zone)
@@ -97,7 +101,7 @@ public sealed class DigestService(IRollupStore rollups, IRegularStore regulars)
         ArgumentNullException.ThrowIfNull(digest);
         var week = digest.ThisWeek;
         var heading = $"Your week of {week.WeekStart.ToString("d MMMM", CultureInfo.InvariantCulture)}";
-        var subject = $"PoWatch · {heading}";
+        var subject = $"PoWatch · {digest.Headline ?? heading}";
         var html = HtmlEncoder.Default;
         var link = appUrl is null ? null : new Uri(appUrl, "history");
 

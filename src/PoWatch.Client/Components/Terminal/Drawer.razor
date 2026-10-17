@@ -1,0 +1,43 @@
+@* A side drawer under the header: the bell's notifications and Settings open here instead of in a
+   popup, so forms have room and the page stays usable beside them (it is not modal). Escape or ✕
+   closes it (menus.js clicks the [data-drawer-close] button); focus moves in when it opens. *@
+@if (Open)
+{
+    <aside class="term-drawer" role="dialog" aria-modal="false" aria-labelledby="@_headingId" tabindex="-1" data-test="@Test" @ref="_root">
+        <header class="term-drawer-head">
+            <h2 id="@_headingId">@Title</h2>
+            @if (Aside is not null)
+            {
+                <span class="term-panel-meta">@Aside</span>
+            }
+            <button type="button" class="term-icon-button" data-drawer-close aria-label="@($"Close {Title}")" title="Close (Esc)" @onclick="OnClose">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+        </header>
+        <div class="term-drawer-body">
+            @ChildContent
+        </div>
+    </aside>
+}
+
+@code {
+    private readonly string _headingId = $"drawer-{Guid.NewGuid():N}";
+    private ElementReference _root;
+    private bool _wasOpen;
+
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? Aside { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Test { get; set; }
+
+    /// <summary>False when the drawer opened by itself (an alert): it must not pull focus from what you were doing.</summary>
+    [Parameter] public bool TakeFocus { get; set; } = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open && !_wasOpen && TakeFocus) await _root.FocusAsync();
+        _wasOpen = Open;
+    }
+}

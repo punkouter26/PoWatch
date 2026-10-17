@@ -60,6 +60,10 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         (await ReadAsync(ct => httpClient.PostAsJsonAsync("api/ask",
             new AskRequestDto { Question = question, TimeZoneId = TimeZoneInfo.Local.Id }, Json.AskRequestDto, ct), Json.AskAnswerDto, cancellationToken))?.Answer;
 
+    /// <summary>A watch rule drafted from a sentence, or null when there is no model or the sentence is not a rule.</summary>
+    public async Task<RuleDraftDto?> DraftRuleAsync(string text, CancellationToken cancellationToken = default) =>
+        await ReadAsync(ct => httpClient.PostAsJsonAsync("api/ask/rule", new RuleDraftRequestDto { Text = text }, Json.RuleDraftRequestDto, ct), Json.RuleDraftDto, cancellationToken);
+
     /// <summary>Relays a fired watch rule to every open tab; best effort (offline, the sensing tab already showed it).</summary>
     public Task RaiseAlertAsync(string text, CancellationToken cancellationToken = default) =>
         SendAsync(ct => httpClient.PostAsJsonAsync("api/alerts", new AlertDto { Text = text }, Json.AlertDto, ct), cancellationToken);

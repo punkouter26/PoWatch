@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI consolidation (2026-10-16)</title>
+<style>
+  :root { color-scheme: dark; --bg: #030a12; --panel: #0a1724; --line: #213746; --text: #e9f6ff; --muted: #a4c8de; --old: #f87171; --new: #ff3b8d; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 95ch; }
+  table.nums { border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  table.nums th, table.nums td { border: 1px solid var(--line); padding: 4px 10px; text-align: right; }
+  table.nums th:first-child, table.nums td:first-child { text-align: left; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  .pair.phones { grid-template-columns: repeat(auto-fit, minmax(240px, 300px)); }
+  figure.phone { max-width: 300px; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .box { position: absolute; border: 3px solid var(--old); border-radius: 6px; box-sizing: border-box; pointer-events: none; }
+  .box b { position: absolute; left: -3px; top: -3px; transform: translate(-40%, -40%); min-width: 24px; height: 24px; border-radius: 12px;
+           background: var(--old); color: #1a0505; font: 700 13px/24px system-ui, sans-serif; text-align: center; }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI consolidation: all ten options</h1>
+<p class="lead">Captured 16 October 2026 from the running Development app (guest account, 60 seeded days), at 1366×768 (laptop) and 390×844 (phone).
+Numbers on the marks are the option numbers below.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what replaced it</span></p>
+
+<ol class="notes" style="padding-left: 22px; max-width: 110ch">
+  <li><b>Live duplicates merged.</b> Presence, Object census and Today vs your usual folded into Key metrics and In frame: 13 panels became 10.</li>
+  <li><b>One command bar.</b> Range, Ask and JSON download on one row; History's three spread-out buttons became a joined JSON | PDF group plus Share.</li>
+  <li><b>Regulars as cards.</b> Responsive cards with sort keys; the merge bar floats up only while something is ticked.</li>
+  <li><b>Popups became drawers.</b> The bell opens a side drawer; deleting data and keeping less confirm in a Radzen dialog.</li>
+  <li><b>Settings in a drawer.</b> The gear opens Settings over any page (Escape or ✕ closes it); /settings still works as a page.</li>
+  <li><b>Live fits the screen.</b> 4×4 desktop grid with two-row Key metrics and In frame and a two-cell Colour &amp; captions; on a phone the stat panels are one swipeable strip.</li>
+  <li><b>Readable charts.</b> Hour labels every six hours, short date formats.</li>
+  <li><b>One palette and type scale.</b> Deep-blue glass on every page (and a matching light theme), five font sizes, Radzen variables on the same tokens.</li>
+  <li><b>History rebalanced.</b> The week sits inside The day; sessions have their own panel on the left; a date picker joins ◀ ▶; each column scrolls on its own.</li>
+  <li><b>Shell polish.</b> No more boot-time layout shift; phone section keys moved to a bottom tab bar; every control at least 24 px.</li>
+</ol>
+
+<table class="nums">
+  <tr><th>Measured (Playwright)</th><th>Before</th><th>After</th></tr>
+  <tr><td>Layout shift on load, laptop / phone (CLS)</td><td>0.11 / 0.20 on every page</td><td>0.00–0.01 / ≤ 0.04</td></tr>
+  <tr><td>Live page height on a phone</td><td>3,085 px</td><td>1,440 px</td></tr>
+  <tr><td>Live panels clipping their content at 1366×768</td><td>6</td><td>1 (In frame: a 12-class list scrolls)</td></tr>
+  <tr><td>History at 1366×768</td><td>page scrolls 365 px</td><td>fits; the sessions list scrolls in its panel</td></tr>
+  <tr><td>Controls under 24 px (History)</td><td>12</td><td>0</td></tr>
+  <tr><td>Font sizes on History</td><td>14 (10–27 px, word cloud included)</td><td>5 outside the word cloud: 11, 12, 14, 16, 22 px</td></tr>
+</table>
+
+<h2>Live, laptop</h2>
+<div class="pair">
+  <figure>
+    <div class="shot"><img src="before/laptop_live.png" alt="Live before" />
+      <div class="box" style="left:0.7%;top:7.3%;width:98.6%;height:4.3%"><b>2</b></div>
+      <div class="box" style="left:75.2%;top:12.8%;width:24.1%;height:20.6%"><b>6</b></div>
+      <div class="box" style="left:75.2%;top:34.8%;width:24.1%;height:20.3%"><b>1</b></div>
+      <div class="box" style="left:50.3%;top:56.6%;width:24.1%;height:20.3%"><b>1</b></div>
+      <div class="box" style="left:75.2%;top:56.6%;width:24.1%;height:20.3%"><b>1</b></div>
+      <div class="box" style="left:0.7%;top:78.2%;width:24.1%;height:20.6%"><b>7</b></div>
+      <div class="box" style="left:50.3%;top:78.2%;width:24.1%;height:20.6%"><b>7</b></div>
+      <div class="box" style="left:75.2%;top:78.2%;width:24.1%;height:20.6%"><b>6</b></div>
+    </div>
+    <figcaption class="old">Before</figcaption>
+    <ol class="notes">
+      <li>Presence repeats Key metrics' occupancy and visits; Object census repeats In frame; Today vs your usual repeats the σ chips.</li>
+      <li>The window label pushes the bar wide; "All data ↓" sits apart.</li>
+      <li>In frame and Colour &amp; captions clip their content; Key metrics hides its 4th row.</li>
+      <li>Hour labels run together ("000102…23"), and Light's axis reads "16 Oct 00:0016 Oct 06:54".</li>
+    </ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/laptop_live.png" alt="Live after" /></div>
+    <figcaption class="new">After</figcaption>
+    <ol class="notes">
+      <li>Key metrics now follows the range and adds Usual, σ, peak, longest empty, rhythm, trend and the next busy hour; In frame carries every class with Now/Peak/Share and the rarest.</li>
+      <li>One bar: range · question · JSON ↓, the window label on the right.</li>
+      <li>Both two-row panels and the two-cell Colour &amp; captions show everything at 1366×768.</li>
+      <li>Hours every six; times or dates, not both.</li>
+    </ol>
+  </figure>
+</div>
+
+<h2>Live, phone</h2>
+<div class="pair phones">
+  <figure>
+    <div class="shot"><img src="before/phone_live.png" alt="Live on a phone before" />
+      <div class="box" style="left:0.5%;top:0.3%;width:99%;height:9%"><b>10</b></div>
+      <div class="box" style="left:0.5%;top:10.2%;width:99%;height:18.5%"><b>2</b></div>
+    </div>
+    <figcaption class="old">Before: 3,085 px tall</figcaption>
+    <ol class="notes"><li>Header on two rows; the bar on four (range, ask, label, All data).</li><li>Thirteen panels stacked below.</li></ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/phone_live.png" alt="Live on a phone after" /></div>
+    <figcaption class="new">After: 1,440 px tall</figcaption>
+    <ol class="notes"><li>One-row header; the section keys are a bottom tab bar.</li><li>The bar fits on two rows.</li></ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/phone_live-strip.png" alt="The swipeable strip" /></div>
+    <figcaption class="new">After: the strip</figcaption>
+    <ol class="notes"><li>Seven panels in one swipeable, snapping strip; the keys jump to each.</li></ol>
+  </figure>
+</div>
+
+<h2>History, laptop</h2>
+<div class="pair">
+  <figure>
+    <div class="shot"><img src="before/laptop_history.png" alt="History before" />
+      <div class="box" style="left:0.7%;top:56.9%;width:44.5%;height:23.7%"><b>9</b></div>
+      <div class="box" style="left:0.7%;top:81%;width:44.5%;height:18.5%"><b>9</b></div>
+      <div class="box" style="left:61.3%;top:47.3%;width:36%;height:4.7%"><b>2</b></div>
+      <div class="box" style="left:47.9%;top:87.5%;width:49.5%;height:12%"><b>9</b></div>
+    </div>
+    <figcaption class="old">Before</figcaption>
+    <ol class="notes">
+      <li>The week is a third panel; empty space under the left column while the right one pushes the page 365 px down.</li>
+      <li>Day data, Recap PDF and Share link spread across the width.</li>
+      <li>Sessions buried under the motion chart in the Recap tab.</li>
+    </ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/laptop_history.png" alt="History after" /></div>
+    <figcaption class="new">After</figcaption>
+    <ol class="notes">
+      <li>The week is a row inside The day; Sessions fill the rest of the left column (and scroll there).</li>
+      <li>JSON | PDF as one group, Share beside it.</li>
+      <li>A calendar button between ◀ ▶ jumps to any day.</li>
+    </ol>
+  </figure>
+</div>
+
+<h2>Regulars</h2>
+<div class="pair">
+  <figure>
+    <div class="shot"><img src="before/laptop_regulars.png" alt="Regulars before" />
+      <div class="box" style="left:54.5%;top:21.5%;width:7%;height:10.5%"><b>3</b></div>
+      <div class="box" style="left:0.7%;top:33%;width:98.6%;height:66%"><b>3</b></div>
+    </div>
+    <figcaption class="old">Before</figcaption>
+    <ol class="notes"><li>A full-width grid for two rows: the Today cells cut off ("14 · 1m …"), the name column takes almost half the width.</li></ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/laptop_regulars-merge.png" alt="Regulars after, two ticked" /></div>
+    <figcaption class="new">After (two ticked)</figcaption>
+    <ol class="notes"><li>Cards with kind, name, visits, time in frame, today and last seen; sort keys beside the filter.</li><li>Ticking raises a floating merge bar (here explaining why a cat and a person cannot merge).</li></ol>
+  </figure>
+  <figure class="phone">
+    <div class="shot"><img src="after/phone_regulars.png" alt="Regulars on a phone after" /></div>
+    <figcaption class="new">After, phone</figcaption>
+  </figure>
+</div>
+
+<h2>Settings and the bell</h2>
+<div class="pair">
+  <figure>
+    <div class="shot"><img src="before/laptop_settings.png" alt="Settings before" />
+      <div class="box" style="left:50.3%;top:7.3%;width:49%;height:23.5%"><b>5</b></div>
+      <div class="box" style="left:50.3%;top:32.2%;width:49%;height:26.6%"><b>5</b></div>
+      <div class="box" style="left:0.7%;top:64%;width:47.5%;height:7%"><b>4</b></div>
+    </div>
+    <figcaption class="old">Before: its own page</figcaption>
+    <ol class="notes"><li>Watch rules and Shared recaps are mostly empty panels.</li><li>"Delete everything…" swapped itself for an inline confirm row.</li></ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/laptop_settings-drawer.png" alt="Settings drawer" /></div>
+    <figcaption class="new">After: a drawer over Live</figcaption>
+    <ol class="notes"><li>One compact column; Live stays in view beside it.</li><li>Account and data is a list; deleting and keeping less ask in a dialog.</li></ol>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/laptop_tray-drawer.png" alt="Notification drawer" /></div>
+    <figcaption class="new">After: the bell's drawer</figcaption>
+    <ol class="notes"><li>Notifications and "name this newcomer" forms get the full height instead of a dropdown.</li></ol>
+  </figure>
+</div>
+
+<h2>One palette, both themes</h2>
+<div class="pair">
+  <figure>
+    <div class="shot"><img src="after/laptop_history.png" alt="Dark theme, History" /></div>
+    <figcaption class="new">Dark: History now wears Live's glass (it was flat amber)</figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><img src="after/laptop_live-light.png" alt="Light theme, Live" /></div>
+    <figcaption class="new">Light: Live now follows the theme (it was dark in either)</figcaption>
+  </figure>
+</div>
+</body>
+</html>

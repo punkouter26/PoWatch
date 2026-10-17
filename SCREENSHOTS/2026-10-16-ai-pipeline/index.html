@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PoWatch UI: AI pipeline (2026-10-17)</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d1014; --panel: #151a21; --line: #262d38; --text: #e6e9ee; --muted: #9aa4b2; --old: #f87171; --new: #4ade80; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 36px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  figcaption { padding: 8px 12px; font-weight: 600; letter-spacing: 0.04em; }
+  figcaption.old { border-top: 3px solid var(--old); }
+  figcaption.new { border-top: 3px solid var(--new); }
+  .shot { position: relative; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .mark { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px system-ui, sans-serif; color: #0d1014; }
+  .mark.old { background: var(--old); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(248, 113, 113, 0.6); }
+  .mark.new { background: var(--new); box-shadow: 0 0 0 3px rgba(13, 16, 20, 0.7), 0 0 14px 4px rgba(74, 222, 128, 0.6); }
+  ol.notes { margin: 0; padding: 10px 12px 12px 34px; color: var(--muted); }
+  ol.notes li { margin: 2px 0; }
+  ol.notes b { color: var(--text); }
+  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin: 0 4px 0 12px; }
+</style>
+</head>
+<body>
+<h1>PoWatch UI: the AI pipeline work</h1>
+<p class="lead">Captured 17 October 2026 from the running Development app (guest, seeded history, a few fake-camera sessions so today has captions), 1440×900, with Azure OpenAI <code>gpt-5.4-nano</code> answering.
+Numbered markers on each screenshot match the notes under it.
+<span class="legend"><span style="background: var(--old)"></span>what was there<span style="background: var(--new)"></span>what changed</span></p>
+
+<div id="pairs"></div>
+
+<script>
+  // [title, before image or null, before marks, after image, after marks]. A mark is [x %, y %, note].
+  const pairs = [
+    ['Live: explain today', 'before/live.png', [
+        [59, 37.5, '<b>σ chips and the rhythm line</b> say today is unusual, but not what stands out; you had to think up a question for Ask.'],
+      ], 'after/live.png', [
+        [55.9, 48.8, '<b>✦ Explain today</b>, shown when a σ chip is flagged: one click asks the model what stands out.'],
+        [30, 13, '<b>The answer</b> uses the numbers from the tools (get_patterns, get_stats), never guessed ones.'],
+      ]],
+    ['Command palette: search captions by meaning', 'before/palette.png', [
+        [50, 17, '<b>Commands only</b>: no way to find a moment by what the camera saw.'],
+      ], 'after/palette.png', [
+        [60, 21.9, 'Typing three letters or more adds <b>Search captions</b>, by meaning (MiniLM embeddings kept in this browser).'],
+      ]],
+    ['Caption search results, and where one leads', null, [], 'after/palette-results.png', [
+        [44, 21.9, '<b>Closest in meaning first</b>: "green screen" finds "a green background with a triangle", which shares no word with it in the right order.'],
+        [64, 21.9, '<b>When</b> each was written; the same sentence written often shows once with ×N.'],
+      ]],
+    ['…a result opens the replay on its minute', 'before/history-replay.png', [
+        [79, 20, 'The replay always opened on the <b>first observed minute</b>.'],
+      ], 'after/replay-from-search.png', [
+        [71.5, 16.4, '<b>Opened at 11:54</b>, the result\'s minute (<code>/history/{day}?tab=replay&amp;at=…</code>).'],
+        [82, 27, 'The <b>caption of that moment</b>, the one that was found.'],
+      ]],
+    ['History: the week gets a headline', null, [], 'after/history-week.png', [
+        [1.6, 53.5, '<b>✦ Headline</b> written by the model from the summary under it, kept only when it uses no number the summary lacks (the email subject uses it too).'],
+      ]],
+    ['Settings: caption model and watch rules in plain words', 'before/settings.png', [
+        [83, 23.6, '<b>Captions on/off only</b>: one model for every device.'],
+        [82.6, 38.4, '<b>Rules by dropdown and two hour boxes</b>; only person, cat, dog or anything.'],
+      ], 'after/settings.png', [
+        [83, 28.3, '<b>Caption model</b>: Florence-2 (default, best on the caption eval), SmolVLM 500M (reads the detector), SmolVLM 256M. Per browser.'],
+        [70, 47, '<b>Say it</b>: a sentence becomes a rule; any of the 80 detector classes.'],
+        [77, 51.9, '<b>The draft waits</b> for Keep or ✕; nothing is saved until you confirm.'],
+      ]],
+  ];
+
+  const figure = (label, kind, image, marks) => image === null ? '' : `
+    <figure>
+      <figcaption class="${kind}">${label}</figcaption>
+      <div class="shot"><img src="${image}" alt="${label}" />
+        ${marks.map(([x, y], i) => `<span class="mark ${kind}" style="left:${x}%;top:${y}%">${i + 1}</span>`).join('')}
+      </div>
+      <ol class="notes">${marks.map(([, , note]) => `<li>${note}</li>`).join('')}</ol>
+    </figure>`;
+
+  document.getElementById('pairs').innerHTML = pairs.map(([title, before, beforeMarks, after, afterMarks]) => `
+    <h2>${title}</h2>
+    <div class="pair">${figure('BEFORE', 'old', before, beforeMarks)}${figure('AFTER', 'new', after, afterMarks)}</div>`).join('');
+</script>
+</body>
+</html>

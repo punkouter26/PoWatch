@@ -76,6 +76,9 @@
 
     [Parameter, EditorRequired] public DateOnly Day { get; set; }
 
+    /// <summary>The minute to open on (Unix ms), e.g. from a caption search; null opens on the first observed minute.</summary>
+    [Parameter] public long? StartAt { get; set; }
+
     private string DayKey => Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     protected override async Task OnParametersSetAsync()
@@ -93,7 +96,7 @@
     {
         if (_mounted || _data is not { Minutes.Count: > 0 }) return;
         _mounted = true;
-        await JS.TryInvokeVoidAsync("powatchReplay.mount", _root, JsonSerializer.Serialize(_data, Json.ReplayDayDto), DayKey);
+        await JS.TryInvokeVoidAsync("powatchReplay.mount", _root, JsonSerializer.Serialize(_data, Json.ReplayDayDto), DayKey, StartAt);
     }
 
     public async ValueTask DisposeAsync() => await JS.TryInvokeVoidAsync("powatchReplay.unmount", _root);

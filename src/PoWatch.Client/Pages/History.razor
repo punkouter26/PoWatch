@@ -8,9 +8,11 @@
 
 <PageTitle>PoWatch | History</PageTitle>
 
-@* Master-detail in one viewport: the year and the chosen day's numbers on the left, everything about
-   that day on the right: the recap with its motion, sessions and captions, then moments and the time-lapse. The day is in the address (/history/2026-10-03), so it survives a
-   reload and Back/Forward walk the days you looked at. ◀ ▶ and the arrow keys step a day (menus.js). *@
+@* Master-detail in one viewport: on the left the year, the chosen day's numbers beside its week, and
+   its sessions; on the right the recap with its motion and captions, then the replay, moments and the
+   time-lapse. On a desktop each column scrolls on its own, never the page. The day is in the address
+   (/history/2026-10-03), so it survives a reload and Back/Forward walk the days you looked at. ◀ ▶ and
+   the arrow keys step a day (menus.js); the calendar button jumps to any day. *@
 <div class="history-grid">
     <div class="history-col">
         <TerminalPanel Title="The year" Test="history-calendar">
@@ -44,6 +46,8 @@
                 <span class="history-nav" data-test="history-toolbar">
                     <button class="term-button" @onclick="() => Move(-1)" aria-label="Previous day" title="Previous day (←)" data-test="history-prev">◀</button>
                     <span class="history-day" data-test="history-day">@_day.ToString("ddd d MMM yyyy", CultureInfo.CurrentCulture)</span>
+                    <RadzenDatePicker TValue="DateOnly" Value="@_day" ValueChanged="@((DateOnly d) => Go(d))" ShowInput="false"
+                                      Max="@Today.ToDateTime(TimeOnly.MinValue)" class="history-pick" aria-label="Pick a day" title="Pick a day" />
                     <button class="term-button" @onclick="() => Move(1)" disabled="@(_day >= Today)" aria-label="Next day" title="Next day (→)" data-test="history-next">▶</button>
                     <button class="term-button" @onclick="() => Go(Today)" disabled="@(_day == Today)" aria-label="Go to today">Today</button>
                 </span>
@@ -51,7 +55,7 @@
             <ChildContent>
                 @if (!_loaded)
                 {
-                    <Skeleton Heights="@([96])" />
+                    <Skeleton Heights="@([0])" Span="term-span-4 history-skel-day" />
                 }
                 else if (_presence is null || _presence.SecondsObserved == 0)
                 {
@@ -75,26 +79,59 @@
                 {
                     <p class="history-weather" data-test="history-weather" title="Weather at @_weather!.Place?.Name">@DisplayText.Weather(weather)</p>
                 }
+
+                @* The day's week against the week before: one row of numbers and the sentence. *@
+                <div class="history-week" data-test="history-week">
+                    <h3 class="history-sub">
+                        The week · @WeekStart(_day).ToString("d MMM", CultureInfo.CurrentCulture) – @WeekStart(_day).AddDays(6).ToString("d MMM", CultureInfo.CurrentCulture) vs the week before
+                    </h3>
+                    @if (_week is null)
+                    {
+                        <Skeleton Heights="@([0])" Span="term-span-4 history-skel-week" />
+                    }
+                    else
+                    {
+                        <div class="term-stats history-week-stats">
+                            <StatCell Label="Occupancy" Value="@_week.ThisWeek.Occupancy.ToString("0%", CultureInfo.InvariantCulture)" Hint="@Change(_week.ThisWeek.Occupancy, _week.LastWeek.Occupancy)" Test="week-occupancy" />
+                            <StatCell Label="Observed" Value="@DisplayText.Duration(_week.ThisWeek.SecondsObserved)" Hint="@($"was {DisplayText.Duration(_week.LastWeek.SecondsObserved)}")" />
+                            <StatCell Label="Visits" Value="@_week.ThisWeek.Visits.ToString(CultureInfo.InvariantCulture)" Hint="@($"was {_week.LastWeek.Visits}")" />
+                            <StatCell Label="Busiest day" Value="@(_week.ThisWeek.BusiestDay?.ToString("ddd", CultureInfo.CurrentCulture) ?? "—")"
+                                      Hint="@(_week.ThisWeek.BusiestDay is null ? null : _week.ThisWeek.BusiestOccupancy.ToString("0% occupied", CultureInfo.InvariantCulture))" />
+                        </div>
+                        @if (_week.Headline is { } headline)
+                        {
+                            <p class="history-week-headline" data-test="week-headline" title="Written by the server's AI model from the numbers below">✦ @headline</p>
+                        }
+                        <p class="history-week-summary" data-test="week-summary">@_week.Summary</p>
+                    }
+                </div>
             </ChildContent>
         </TerminalPanel>
 
-        <TerminalPanel Title="The week" Test="history-week">
-            <Aside>@WeekStart(_day).ToString("d MMM", CultureInfo.CurrentCulture) – @WeekStart(_day).AddDays(6).ToString("d MMM", CultureInfo.CurrentCulture) · VS THE WEEK BEFORE</Aside>
+        <TerminalPanel Title="Sessions" Class="history-sessions" Test="history-sessions" Flush="true">
+            <Aside>@_sessions.Count ON THIS DAY</Aside>
             <ChildContent>
-                @if (_week is null)
+                @if (_sessions.Count == 0)
                 {
-                    <Skeleton Heights="@([64])" />
+                    <p class="term-empty">@(_loaded ? "No sessions on this day." : "Loading…")</p>
                 }
                 else
                 {
-                    <div class="term-stats history-week-stats">
-                        <StatCell Label="Occupancy" Value="@_week.ThisWeek.Occupancy.ToString("0%", CultureInfo.InvariantCulture)" Hint="@Change(_week.ThisWeek.Occupancy, _week.LastWeek.Occupancy)" Test="week-occupancy" />
-                        <StatCell Label="Observed" Value="@DisplayText.Duration(_week.ThisWeek.SecondsObserved)" Hint="@($"was {DisplayText.Duration(_week.LastWeek.SecondsObserved)}")" />
-                        <StatCell Label="Visits" Value="@_week.ThisWeek.Visits.ToString(CultureInfo.InvariantCulture)" Hint="@($"was {_week.LastWeek.Visits}")" />
-                        <StatCell Label="Busiest day" Value="@(_week.ThisWeek.BusiestDay?.ToString("ddd", CultureInfo.CurrentCulture) ?? "—")"
-                                  Hint="@(_week.ThisWeek.BusiestDay is null ? null : _week.ThisWeek.BusiestOccupancy.ToString("0% occupied", CultureInfo.InvariantCulture))" />
-                    </div>
-                    <p class="history-week-summary" data-test="week-summary">@_week.Summary</p>
+                    <table class="term-table">
+                        <thead><tr><th>Session</th><th>From</th><th>To</th><th class="r">Length</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var s in _sessions)
+                            {
+                                <tr>
+                                    <td>@DisplayText.SessionTag(s.Id)</td>
+                                    <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
+                                    <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
+                                    <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
+                                    <td class="r"><a class="term-link" href="?session=@s.Id" title="Open this session's stats on Live">stats →</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 }
             </ChildContent>
         </TerminalPanel>
@@ -121,15 +158,17 @@
                                 }
                             </ul>
                         }
-                        <p class="history-recap-foot">
+                        <div class="history-recap-foot">
                             <span class="term-stat-hint">WRITTEN BY @_recap.Source.ToUpperInvariant()@(_rewriting ? " · A MODEL IS REWORDING IT…" : string.Empty)</span>
-                            <a class="term-button" href="@PoWatchApiClient.AllStatsUrl(StatsQuery.ForDay(_day))" download="PoWatch-@(DayKey).json" title="Every tick, event and stat stored for this day" data-test="history-day-json">Day data ↓</a>
-                            <a class="term-button" href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" data-test="history-recap-pdf">Recap PDF ↓</a>
+                            <span class="term-btn-group" role="group" aria-label="Download this day">
+                                <a class="term-button" href="@PoWatchApiClient.AllStatsUrl(StatsQuery.ForDay(_day))" download="PoWatch-@(DayKey).json" title="Every tick, event and stat stored for this day" data-test="history-day-json">JSON ↓</a>
+                                <a class="term-button" href="@PoWatchApiClient.DayRecapPdfUrl(_day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" title="This recap as a PDF" data-test="history-recap-pdf">PDF ↓</a>
+                            </span>
                             @if (_share is null)
                             {
-                                <button class="term-button" @onclick="ShareAsync" disabled="@_sharing" title="A read-only page of this recap that works without signing in, for 7 days" data-test="history-share">@(_sharing ? "Sharing…" : "Share link ↗")</button>
+                                <button class="term-button" @onclick="ShareAsync" disabled="@_sharing" title="A read-only page of this recap that works without signing in, for 7 days" data-test="history-share">@(_sharing ? "Sharing…" : "Share ↗")</button>
                             }
-                        </p>
+                        </div>
                         @if (_share is { } share)
                         {
                             <div class="history-share" data-test="history-share-link">
@@ -149,36 +188,14 @@
 
                 @if (_motion.Count > 0)
                 {
-                <h3 class="history-sub">Motion</h3>
-                <RadzenChart class="history-chart" aria-label="Motion across the day">
-                    <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
-                    <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
-                    <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
-                    <RadzenLegend Visible="false" />
-                </RadzenChart>
+                    <h3 class="history-sub">Motion</h3>
+                    <RadzenChart class="history-chart" aria-label="Motion across the day">
+                        <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
+                        <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
+                        <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
+                        <RadzenLegend Visible="false" />
+                    </RadzenChart>
                 }
-
-                <div data-test="history-sessions">
-                    @if (_sessions.Count > 0)
-                    {
-                        <h3 class="history-sub">Sessions · @_sessions.Count</h3>
-                        <table class="term-table">
-                            <thead><tr><th>Session</th><th>From</th><th>To</th><th class="r">Length</th><th></th></tr></thead>
-                            <tbody>
-                                @foreach (var s in _sessions)
-                                {
-                                    <tr>
-                                        <td>@DisplayText.SessionTag(s.Id)</td>
-                                        <td>@s.StartedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)</td>
-                                        <td>@(s.EndedUtc?.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) ?? "running")</td>
-                                        <td class="r">@DisplayText.Duration(s.DurationSeconds)</td>
-                                        <td class="r"><a href="?session=@s.Id" title="Open this session's stats on Live">stats</a></td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
 
                 @if (_environment is { Words.Count: > 0 })
                 {
@@ -197,7 +214,7 @@
             </RadzenTabsItem>
 
             <RadzenTabsItem Text="Replay">
-                <DayReplay Day="@_day" />
+                <DayReplay Day="@_day" StartAt="@_replayAt" />
             </RadzenTabsItem>
 
             <RadzenTabsItem Text="@($"Moments · {_moments.Count}")">
@@ -296,6 +313,13 @@
     /// <summary>The day in the address, yyyy-MM-dd; today when absent, unreadable or in the future.</summary>
     [Parameter] public string? Day { get; set; }
 
+    /// <summary>?tab=replay&amp;at={unix ms}: a caption search result, opened on its minute in the replay.</summary>
+    [SupplyParameterFromQuery(Name = "tab")] public string? Tab { get; set; }
+    [SupplyParameterFromQuery(Name = "at")] public long? At { get; set; }
+
+    private long? _replayAt;
+    private (string?, long?) _appliedQuery;
+
     private string DayKey => _day.ToString(DayFormat, CultureInfo.InvariantCulture);
 
     protected override async Task OnInitializedAsync()
@@ -342,6 +366,8 @@
     protected override async Task OnParametersSetAsync()
     {
         _day = DateOnly.TryParseExact(Day, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) && day <= Today ? day : Today;
+        // Once per distinct link, so choosing another tab afterwards is not undone by a re-render.
+        if (Tab == "replay" && (Tab, At) != _appliedQuery) (_tab, _replayAt, _appliedQuery) = (1, At, (Tab, At));
         if (_day == _shown) return;
         _shown = _day;
         await LoadDayAsync();

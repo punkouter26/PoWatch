@@ -1,7 +1,7 @@
 // Page side of the L2 caption model: owns the webcam stream and the preview element, captures frames
 // on the main thread (the worker cannot touch the DOM) and hands them to inference-worker.js.
 (() => {
-  const call = window.powatchWorkerRpc('/js/inference-worker.js?v=20261016-shared-env');
+  const call = window.powatchWorkerRpc('/js/inference-worker.js?v=20261017-ai');
 
   let activeStream = null;
   let activePreviewElement = null;
@@ -86,6 +86,9 @@
     });
   }
 
+  // Shared with detector-bridge.js: how many caption generations are in flight.
+  const gpu = (window.powatchGpu ??= { captioning: 0 });
+
   const unavailable = (status) => ({ isAvailable: false, status, activity: 'Unavailable', caption: '' });
 
   window.powatchInference = {
@@ -95,7 +98,8 @@
       return status;
     },
 
-    async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96) {
+    /** `model` is a key of caption-models.js (Settings' caption model); unknown or null means the default. */
+    async captureAndInfer(prompt, videoElement, maxInferenceTokens = 96, model = null) {
       const status = await ensureWebcamAccess();
       if (status !== 'OK') return unavailable(status);
       await attachStreamToElement(videoElement);
@@ -105,8 +109,16 @@
       if (computeFrameDiff(videoElement) < 0.015) return unavailable('Frame unchanged: skipped');
 
       const frame = await captureFrame(videoElement);
-      const res = await call({ type: 'RUN_INFERENCE', payload: { frame, prompt, maxNewTokens: maxInferenceTokens } }, [frame]);
-      return res.result;
+      // The detector yields the GPU while this runs (detector-bridge.js).
+      gpu.captioning++;
+      try {
+        const res = await call({ type: 'RUN_INFERENCE', payload: { frame, prompt, maxNewTokens: maxInferenceTokens, model } }, [frame]);
+        // Searchable by meaning from the command palette (caption-index.js); the vector stays on this device.
+        if (res.result?.isAvailable && res.result.embedding) window.powatchCaptionIndex?.put(Date.now(), res.result.activity, res.result.embedding);
+        return res.result;
+      } finally {
+        gpu.captioning--;
+      }
     },
 
     async getInferenceDiagnostics() {

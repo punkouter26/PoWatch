@@ -37,6 +37,24 @@ internal static class AskEndpoints
             .WithName("Ask")
             .WithSummary("Answer a plain-language question from the caller's own statistics.");
 
+        app.MapPost("/api/ask/rule", async (RuleDraftRequestDto request, HttpContext http, AssistService assist, CancellationToken ct) =>
+            {
+                if (CurrentUser.Id(http.User) is null) return Results.Unauthorized();
+                var text = request.Text?.Trim();
+                if (string.IsNullOrEmpty(text) || text.Length > RuleDraftRequestDto.MaxLength)
+                    return Results.BadRequest(new { message = $"text is required, at most {RuleDraftRequestDto.MaxLength} characters." });
+                if (!assist.IsAvailable)
+                    return Results.Problem("No AI provider is configured on this server.", statusCode: StatusCodes.Status503ServiceUnavailable);
+
+                return await assist.DraftRuleAsync(text, ct) is { } draft
+                    ? Results.Ok(draft)
+                    : Results.UnprocessableEntity(new { message = "That did not read as a watch rule. Try: \"a person between 22 and 6\"." });
+            })
+            .WithTags("Ask")
+            .RequireAuthorization()
+            .WithName("DraftWatchRule")
+            .WithSummary("Draft a watch rule from a sentence; the caller confirms it before keeping it.");
+
         app.MapPost("/api/alerts", async (AlertDto alert, HttpContext http, IHubContext<StatsHub> hub, TimeProvider time, CancellationToken ct) =>
             {
                 if (CurrentUser.Id(http.User) is not { } userId) return Results.Unauthorized();

@@ -29,7 +29,8 @@
         return -1;
     }
 
-    function mount(root, json, day) {
+    /** `startAt` (Unix ms, optional) opens the replay on that minute — a caption search result. */
+    function mount(root, json, day, startAt) {
         unmount(root);
         if (!root) return;
         const data = JSON.parse(json);
@@ -49,7 +50,7 @@
         const maxMotion = Math.max(0.0001, ...minutes.map((m) => m.motion));
         const empty = new Array(GRID).fill(0);
 
-        const state = { at: minutes.length ? minutes[0].at : from, timer: 0, frames: [], frameUrl: null, colors: null, observer: null, detach: null };
+        const state = { at: startAt >= from && startAt < to ? startAt : minutes.length ? minutes[0].at : from, timer: 0, frames: [], frameUrl: null, colors: null, observer: null, detach: null };
         mounted.set(root, state);
 
         scrub.min = '0';
@@ -58,8 +59,8 @@
 
         const readColors = () => {
             state.colors = {
-                amber: color(track, '--term-amber', '#f5a524'),
-                cyan: color(track, '--term-cyan', '#38bdf8'),
+                amber: color(track, '--term-accent', '#8fdcff'),
+                cyan: color(track, '--term-cyan', '#5b9cff'),
                 line: color(track, '--term-line', '#262d38'),
                 text: color(track, '--term-text', '#e6e9ee'),
                 bg: color(track, '--term-bg', '#0d1014'),
@@ -187,6 +188,9 @@
         state.observer = new ResizeObserver(() => drawTrack());
         state.observer.observe(track);
         seek(state.at, false);
+
+        // The day's captions become searchable by meaning from the palette (in the background, once).
+        window.powatchCaptionIndex?.addMany(captions.map((c) => ({ at: c.at, text: c.text })));
 
         // This device's time-lapse for the day, if it kept one; the replay works without it.
         window.powatchTimelapse?.frames(day).then((frames) => {

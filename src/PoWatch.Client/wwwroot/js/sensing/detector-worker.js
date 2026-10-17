@@ -4,20 +4,38 @@
 // Both architectures ship in the vendored transformers.js 3.8.1, loaded from our own origin like
 // the VLM worker. WebGPU is tried first, then the WASM backend. Boxes come back normalised to
 // [0, 1] so the page and the tracker never care about the capture resolution.
+//
+// Each backend gets the precision it is fast at — fp16 on WebGPU (half the weights and bandwidth),
+// int8 on WASM (SIMD integer kernels) — with fp32 behind it: a GPU whose fp16 maths is broken fails
+// the calibration frame and the loader steps down to fp32 before trying the next backend.
+//
+// Some GPUs (seen on Adreno) do worse than fail: ONNX Runtime aborts inside its WASM core and throws a
+// bare number, and every later session in this worker fails the same way. Such an attempt is reported
+// as POISONED with where to resume; detector-bridge.js then starts a fresh worker that skips it.
 
 import { bitmapToRawImage, loadTransformers } from '../transformers-env.js';
 
 const MODELS = [
-  { id: 'onnx-community/rfdetr_nano-ONNX', dtype: 'fp32' },
-  { id: 'onnx-community/rtdetr_v2_r18vd-ONNX', dtype: 'fp32' },
+  { id: 'onnx-community/rfdetr_nano-ONNX', dtypes: { webgpu: ['fp16', 'fp32'], wasm: ['q8', 'fp32'] } },
+  { id: 'onnx-community/rtdetr_v2_r18vd-ONNX', dtypes: { webgpu: ['fp32'], wasm: ['fp32'] } },
 ];
 
 let detector = null;
 let RawImage = null;
-let loaded = null;       // { modelId, device, loadMs }
+let loaded = null;       // { modelId, device, dtype, loadMs }
 let loading = null;
 
-async function load(forceDevice) {
+/** Thrown when ONNX Runtime aborted: this worker is unusable, a fresh one resumes at `next`. */
+class Poisoned extends Error {
+  constructor(next, rejected) {
+    super('ONNX Runtime aborted; restart the worker');
+    this.next = next;
+    this.rejected = rejected;
+  }
+}
+
+/** `from` and `prior` continue a load a poisoned worker gave up: the candidate to start at, and what was rejected. */
+async function load(forceDevice, from = 0, prior = []) {
   if (loaded) return loaded;
   if (loading) return loading;
 
@@ -28,37 +46,39 @@ async function load(forceDevice) {
 
     const devices = forceDevice ? [forceDevice]
       : typeof navigator !== 'undefined' && navigator.gpu ? ['webgpu', 'wasm'] : ['wasm'];
-    const errors = [];
+    const candidates = MODELS.flatMap((model) => devices.flatMap((device) => model.dtypes[device].map((dtype) => ({ model, device, dtype }))));
+    const errors = [...prior];
     // A backend whose calibration run itself failed is not known to be broken, only unchecked: it is
     // held back while the others get their turn, and used only if none of them passes.
     let unchecked = null;
-    const use = (candidate, model, device) => {
+    const use = (candidate, model, device, dtype) => {
       detector = candidate;
-      loaded = { modelId: model.id, device, loadMs: Math.round(performance.now() - started), rejected: errors };
+      loaded = { modelId: model.id, device, dtype, loadMs: Math.round(performance.now() - started), rejected: errors };
       return loaded;
     };
-    for (const model of MODELS) {
-      for (const device of devices) {
-        try {
-          const candidate = await transformers.pipeline('object-detection', model.id, { device, dtype: model.dtype });
-          const verdict = await calibrate(candidate);
-          if (verdict === 'sane') {
-            if (unchecked) await unchecked.candidate.dispose?.();
-            return use(candidate, model, device);
-          }
-          if (verdict === 'unchecked' && !unchecked) {
-            errors.push(`${model.id}@${device}: calibration run failed; kept as a fallback`);
-            unchecked = { candidate, model, device };
-            continue;
-          }
-          errors.push(`${model.id}@${device}: ${verdict === 'insane' ? 'calibration frame produced out-of-frame boxes' : 'calibration run failed'}`);
-          await candidate.dispose?.();
-        } catch (err) {
-          errors.push(`${model.id}@${device}: ${err?.message ?? err}`);
+    for (let i = from; i < candidates.length; i++) {
+      const { model, device, dtype } = candidates[i];
+      const name = `${model.id}@${device}/${dtype}`;
+      try {
+        const candidate = await transformers.pipeline('object-detection', model.id, { device, dtype });
+        const verdict = await calibrate(candidate);
+        if (verdict === 'sane') {
+          if (unchecked) await unchecked.candidate.dispose?.();
+          return use(candidate, model, device, dtype);
         }
+        if (verdict === 'unchecked' && !unchecked) {
+          errors.push(`${name}: calibration run failed; kept as a fallback`);
+          unchecked = { candidate, model, device, dtype };
+          continue;
+        }
+        errors.push(`${name}: ${verdict === 'insane' ? 'calibration frame produced out-of-frame boxes' : 'calibration run failed'}`);
+        await candidate.dispose?.();
+      } catch (err) {
+        if (typeof err === 'number') throw new Poisoned(i + 1, [...errors, `${name}: ONNX Runtime aborted (${err})`]);
+        errors.push(`${name}: ${err?.message ?? err}`);
       }
     }
-    if (unchecked) return use(unchecked.candidate, unchecked.model, unchecked.device);
+    if (unchecked) return use(unchecked.candidate, unchecked.model, unchecked.device, unchecked.dtype);
     throw new Error(`No detector could be loaded. ${errors.join(' | ')}`);
   })();
 
@@ -135,11 +155,12 @@ self.onmessage = async (event) => {
   const { id, type } = event.data ?? {};
   try {
     if (type === 'LOAD') {
-      self.postMessage({ id, type: 'LOADED', ...(await load(event.data.device)) });
+      self.postMessage({ id, type: 'LOADED', ...(await load(event.data.device, event.data.from, event.data.rejected)) });
     } else if (type === 'DETECT') {
       self.postMessage({ id, type: 'DETECTED', ...(await detect(event.data.bitmap, event.data.threshold ?? 0.5)) });
     }
   } catch (err) {
-    self.postMessage({ id, type: 'ERROR', message: String(err?.message ?? err) });
+    if (err instanceof Poisoned) self.postMessage({ id, type: 'POISONED', next: err.next, rejected: err.rejected });
+    else self.postMessage({ id, type: 'ERROR', message: String(err?.message ?? err) });
   }
 };

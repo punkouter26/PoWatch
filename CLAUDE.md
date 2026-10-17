@@ -16,6 +16,7 @@ dotnet run --project src/PoWatch.Api --launch-profile http   # http://localhost 
 dotnet format PoWatch.slnx --verify-no-changes         # the CI formatting gate
 ./SCRIPTS/check-hygiene.ps1                            # layout, naming, package versions, vocabulary
 ./SCRIPTS/check-test-caps.ps1                          # after a build: 100 unit / 50 integration / 25 API E2E / 25 UI E2E
+./SCRIPTS/caption-eval.ps1 -Count 10                   # score the caption models (Node; first run downloads ~1 GB)
 ```
 
 Tests, narrowest first (integration and E2E start Azurite through Testcontainers, so Docker must be up):
@@ -32,7 +33,8 @@ $env:E2E_LOCAL = '1'; dotnet test tests/PoWatch.E2EUI -c Release   # needs Playw
 Sensing runs in the browser; the server only ingests 10-second ticks and serves rollups.
 
 - **Browser sensing:** `PoWatch.Client/wwwroot/js/sensing/` (pixel layer, RF-DETR detector worker) and
-  `js/inference-worker.js` (SmolVLM captions), driven from `Client/Services/SensingSession.cs`. The
+  `js/inference-worker.js` (captions: models in `js/caption-models.js`, keep/reject rules in
+  `js/caption-quality.js`, MiniLM embeddings in `js/embedder.js`), driven from `Client/Services/SensingSession.cs`. The
   browser-safe C# parts (`CentroidTracker`, `TickBatcher`, `VlmScheduler`, `AdaptiveCadence`,
   `HighlightRules`) sit in `PoWatch.Shared/Services` so unit tests can cover them. Unsent batches wait
   in the IndexedDB outbox (`js/outbox.js`).
@@ -50,7 +52,9 @@ Sensing runs in the browser; the server only ingests 10-second ticks and serves 
 - **Background jobs:** `Api/Hosting/BackgroundJobs.cs` runs retention (`RetentionService`) and the weekly
   email (`DigestMailer`) on timers; both are off in the `Test` environment, so tests call the services directly.
 - **Recaps:** `TemplateRecap` always writes the numbers; an optional `IChatClient` (`AiProvider:Provider`
-  = `AzureOpenAi`) may only reword them, and `RecapPrompt.KeepsToFacts` rejects any invented number.
+  = `AzureOpenAi`, `Gemini` or `Ollama`, built in `Infrastructure/Runtime/RecapAi.cs`) may only reword them, and
+  `RecapPrompt.KeepsToFacts` rejects any invented number, digits or words. The same client serves Ask
+  (`AskService`, four tools) and `AssistService` (watch-rule drafts, the digest headline).
 
 ## Things that are easy to get wrong
 

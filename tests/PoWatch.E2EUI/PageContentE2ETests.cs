@@ -62,8 +62,8 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await Assertions.Expect(page.GetByTestId("stats-occupancy")).Not.ToContainTextAsync("0.0%", new() { Timeout = 30_000 });
         await Assertions.Expect(page.Locator("[data-test=stats-presence] .rz-chart svg").First).ToBeVisibleAsync();
 
-        // Every family is on the Live grid; pipeline counters are on System.
-        foreach (var content in new[] { "stats-space", "stats-objects", "stats-patterns", "stats-environment" })
+        // Every family is on the Live grid (classes in "In frame"); pipeline counters are on System.
+        foreach (var content in new[] { "stats-space", "live-census", "stats-patterns", "stats-environment" })
         {
             await Assertions.Expect(page.GetByTestId(content)).ToBeVisibleAsync(new() { Timeout = 30_000 });
         }

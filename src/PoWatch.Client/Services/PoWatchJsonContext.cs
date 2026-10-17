@@ -44,6 +44,8 @@ namespace PoWatch.Client.Services;
 [JsonSerializable(typeof(List<double>))]
 [JsonSerializable(typeof(AskRequestDto))]
 [JsonSerializable(typeof(AskAnswerDto))]
+[JsonSerializable(typeof(RuleDraftRequestDto))]
+[JsonSerializable(typeof(RuleDraftDto))]
 [JsonSerializable(typeof(AlertDto))]
 [JsonSerializable(typeof(List<WatchRule>))]
 [JsonSerializable(typeof(ProfileDto))]

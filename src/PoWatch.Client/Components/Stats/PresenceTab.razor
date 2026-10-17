@@ -4,7 +4,7 @@
 {
     @if (Loading)
     {
-        <Skeleton Heights="@([220, 220])" />
+        <Skeleton Heights="@([220])" />
     }
     else
     {
@@ -13,16 +13,8 @@
 }
 else
 {
+    @* The headline numbers are Live's key metrics; this family adds the shape of the range. *@
     <div class="term-grid" data-test="stats-presence">
-        <TerminalPanel Title="Presence">
-            <div class="term-stats">
-                <StatCell Label="Occupancy" Value="@Percent(Data.Occupancy)" Hint="share of observed time with someone in frame" Test="stats-occupancy" />
-                <StatCell Label="Visits" Value="@Data.Visits.ToString()" Hint="@($"{Number(Data.VisitsPerHour, "0.0")} per hour")" />
-                <StatCell Label="Peak at once" Value="@Data.PeakConcurrency.ToString()" Hint="people + animals" />
-                <StatCell Label="Longest empty" Value="@Duration(Data.LongestEmptySeconds)" />
-            </div>
-        </TerminalPanel>
-
         <TerminalPanel Title="Motion energy">
             <Aside>@Data.Window.Grain.ToUpperInvariant() BUCKETS</Aside>
             <ChildContent>

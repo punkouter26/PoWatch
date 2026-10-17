@@ -53,5 +53,13 @@ public sealed class HighlightRulesTests
         // More of the same is not a moment; something the room has not shown lately is.
         Assert.Null(rules.OnCaption(Plain("A person sitting on the couch reading.")));
         Assert.Equal("Two cats wrestle across the kitchen floor.", rules.OnCaption(Plain("Two cats wrestle across the kitchen floor."))!.Reason);
+
+        // With embeddings, meaning decides: a paraphrase sharing no words is not new, a new scene is.
+        var byMeaning = new HighlightRules(new FakeTimeProvider(T0));
+        float[] couch = [1, 0, 0], paraphrase = [0.8f, 0.6f, 0], cats = [0, 0, 1];
+        for (var i = 0; i < HighlightRules.NoveltyWindow; i++)
+            byMeaning.OnCaption(Plain("A person sitting on the couch watching television."), couch);
+        Assert.Null(byMeaning.OnCaption(Plain("Someone lounges, eyes on a screen."), paraphrase));
+        Assert.NotNull(byMeaning.OnCaption(Plain("Two cats wrestle across the kitchen floor."), cats));
     }
 }

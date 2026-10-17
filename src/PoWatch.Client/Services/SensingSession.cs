@@ -53,6 +53,9 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     /// <summary>Whether a camera session also runs the vision model for captions.</summary>
     public bool Captions { get; set; } = true;
 
+    /// <summary>Which caption model runs (a <see cref="CaptionModels"/> key); read on every caption, so a change applies at once.</summary>
+    public string CaptionModel { get; set; } = CaptionModels.Default;
+
     /// <summary>Watch rules checked against everything that enters the frame (see <see cref="WatchRules"/>).</summary>
     public List<WatchRule> Rules { get; set; } = [];
 
@@ -212,12 +215,12 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         Notify();
     }
 
-    private void AddCaption(DateTimeOffset atUtc, string raw)
+    private void AddCaption(DateTimeOffset atUtc, string raw, float[]? embedding = null)
     {
         if (CaptionParser.Parse(raw) is not { } caption) return;
         _batcher.AddCaption(atUtc, caption.Text, caption.Notable ? 1 : null);
         Live.RecordCaption(caption, atUtc);
-        Consider(_highlights.OnCaption(caption), atUtc);
+        Consider(_highlights.OnCaption(caption, embedding), atUtc);
         Notify();
     }
 
@@ -354,9 +357,9 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         try
         {
             _vlm.MarkRun(scene);
-            var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", prompt, _video, CaptionParser.MaxNewTokens);
+            var result = await js.TryInvokeAsync<VlmResultPayload>("powatchInference.captureAndInfer", prompt, _video, CaptionParser.MaxNewTokens, CaptionModel);
             if (result is { IsAvailable: true })
-                AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.Caption) ? result.Activity : result.Caption);
+                AddCaption(time.GetUtcNow(), string.IsNullOrWhiteSpace(result.Caption) ? result.Activity : result.Caption, result.Embedding);
         }
         finally
         {
@@ -376,7 +379,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         }
 
         Live.DetectorModel = info.ModelId;
-        Live.DetectorDevice = info.Device;
+        Live.DetectorDevice = info.Dtype is null ? info.Device : $"{info.Device} · {info.Dtype}";
         await js.TryInvokeVoidAsync("powatchDetector.start", video, _self, 1000, 0.5);
         Notify();
     }

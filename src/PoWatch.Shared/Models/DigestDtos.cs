@@ -22,4 +22,7 @@ public sealed class WeekDigestDto
     /// <summary>Regulars first seen this week, by their display names.</summary>
     public List<string> NewRegulars { get; init; } = [];
     public string Summary { get; init; } = string.Empty;
+
+    /// <summary>A model's one-line title for the week, kept only when it uses no number the summary lacks; else null.</summary>
+    public string? Headline { get; init; }
 }
