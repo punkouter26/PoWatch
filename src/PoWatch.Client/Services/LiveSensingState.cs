@@ -125,3 +125,18 @@ public sealed class LiveSensingState
         return times.Count / RateWindow.TotalSeconds;
     }
 }
+
+/// <summary>
+/// "New person spotted — name them?" A passive offer: it waits for <see cref="Lifetime"/> and then
+/// quietly goes away, leaving the regular unnamed. The snapshot is a local data URL shown only here.
+/// </summary>
+public sealed record NamingPrompt(RegularDto Regular, string? SnapshotDataUrl, DateTimeOffset SeenUtc)
+{
+    public static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(60);
+}
+
+/// <summary>
+/// What the recap card shows: the session, how long the tab was away (null when the session just
+/// stopped), and the long-exposure PNG data URL (null when nobody moved).
+/// </summary>
+public sealed record SessionRecap(SessionDto Session, TimeSpan? AwayFor, string? Exposure);

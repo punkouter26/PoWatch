@@ -6,12 +6,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI;
 using PoWatch.Application.Options;
+using PoWatch.Application.Contracts;
+using PoWatch.Shared.Models;
 
 namespace PoWatch.Infrastructure.Runtime;
 
 /// <summary>
-/// Registers the one optional <see cref="IChatClient"/> recaps may use, chosen by
-/// <c>AiProvider:Provider</c>. Template (the default) registers nothing, so recaps stay fully
+/// Registers the configured <see cref="IChatClient"/> pipelines, defaulting to
+/// <c>AiProvider:Provider</c>. Template (the default) uses no client, so recaps stay fully
 /// deterministic and offline. Every provider is reached through an OpenAI-compatible endpoint, so one
 /// SDK serves them all: Azure OpenAI's v1 endpoint, with an API key or, when none is set, the app's
 /// Entra identity (managed identity in App Service, the az CLI login locally); Gemini's with an AI
@@ -23,21 +25,51 @@ public static class RecapAi
     public static IServiceCollection AddPoWatchRecapAi(this IServiceCollection services, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        var ai = configuration.GetSection("AiProvider").Get<AiProviderOptions>() ?? new AiProviderOptions();
-        if (Client(ai.Provider, configuration) is not { } client) return services;
-
-        // Function calls run outside the cache: each model turn is cached by its full prompt, tool
-        // results included, so a question is answered again as soon as the statistics behind it change.
-        // The cache is the host's IDistributedCache (Program.cs registers the in-memory one). A question
-        // gets a few tool rounds at most, so a model that keeps calling tools cannot run up the bill.
-        services.AddChatClient(client)
-            .UseFunctionInvocation(configure: f => f.MaximumIterationsPerRequest = MaxToolRounds)
-            .UseDistributedCache();
+        services.AddSingleton<IAiModelRegistry>(sp => new ModelRegistry(configuration, sp));
         return services;
     }
 
     /// <summary>How many model turns one request may spend calling tools.</summary>
     public const int MaxToolRounds = 4;
+
+    private sealed class ModelRegistry : IAiModelRegistry, IDisposable
+    {
+        private readonly Dictionary<string, IChatClient> _clients = new(StringComparer.Ordinal);
+
+        public ModelRegistry(IConfiguration configuration, IServiceProvider services)
+        {
+            var models = new List<AiModelDto> { new("Template", "Template", "No server AI") };
+            foreach (var provider in new[] { AiProviderType.AzureOpenAi, AiProviderType.Gemini, AiProviderType.Ollama })
+            {
+                if (Client(provider, configuration) is not { } client) continue;
+                var id = provider.ToString();
+                var model = provider switch
+                {
+                    AiProviderType.AzureOpenAi => configuration["AzureOpenAi:DeploymentName"] ?? new AzureOpenAiOptions().DeploymentName,
+                    AiProviderType.Gemini => configuration["Gemini:Model"] ?? new GeminiOptions().Model,
+                    _ => configuration["Ollama:Model"] ?? new OllamaOptions().Model
+                };
+                _clients.Add(id, new ChatClientBuilder(client)
+                    .UseFunctionInvocation(configure: f => f.MaximumIterationsPerRequest = MaxToolRounds)
+                    .UseDistributedCache(configure: cache => cache.CacheKeyAdditionalValues = [id, model])
+                    .Build(services));
+                models.Add(new AiModelDto(id, provider == AiProviderType.AzureOpenAi ? "Azure OpenAI" : id, model));
+            }
+            Models = models.AsReadOnly();
+            var preferred = configuration.GetSection("AiProvider").Get<AiProviderOptions>()?.Provider.ToString() ?? "Template";
+            DefaultId = Models.Any(m => m.Id == preferred) ? preferred : "Template";
+        }
+
+        public IReadOnlyList<AiModelDto> Models { get; }
+        public string DefaultId { get; }
+
+        public IChatClient? GetClient(string id) => id == "Template" ? null : _clients[id];
+
+        public void Dispose()
+        {
+            foreach (var client in _clients.Values) client.Dispose();
+        }
+    }
 
     private static IChatClient? Client(AiProviderType provider, IConfiguration configuration)
     {

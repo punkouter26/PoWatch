@@ -111,7 +111,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var user = $"history-{Guid.NewGuid():N}";
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user);
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user, advanced: true);
 
         // Real ingest (not the seed), so today has the minute rollups a day view reads. Ingest refuses
         // ticks outside their session (no backdating), so only today has a recorded session.
@@ -144,11 +144,9 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await page.GetByTestId("year-2d").ClickAsync();
         await Assertions.Expect(page.GetByTestId("year-skyline")).Not.ToBeVisibleAsync();
         await Assertions.Expect(page.GetByTestId("history-occupancy")).ToContainTextAsync("%", new() { Timeout = 30_000 });
-        // The recap tab carries the day's sessions; the time-lapse opens on a click.
+        // The day's sessions sit beside the two tabs: Recap and Replay.
         await Assertions.Expect(page.GetByTestId("history-sessions")).ToContainTextAsync("#");
-        await page.GetByRole(AriaRole.Tab, new() { Name = "Time-lapse" }).ClickAsync();
-        await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
-        await page.GetByRole(AriaRole.Tab, new() { Name = "Recap" }).ClickAsync();
+        Assert.Equal(2, await page.GetByRole(AriaRole.Tab).CountAsync());
 
         // The day's recap reads as a sentence and downloads as a real PDF.
         await Assertions.Expect(page.GetByTestId("history-recap")).ToContainTextAsync("WRITTEN BY TEMPLATE");
@@ -167,6 +165,9 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         await page.GetByRole(AriaRole.Tab, new() { Name = "Replay" }).ClickAsync();
         await Assertions.Expect(page.GetByTestId("replay-scrub")).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByTestId("replay-clock")).Not.ToHaveTextAsync("--:--");
+        // Moments and the time-lapse live under the replay.
+        await Assertions.Expect(page.GetByTestId("history-moments")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("history-timelapse")).ToContainTextAsync("FRAMES · THIS DEVICE");
         await page.GetByRole(AriaRole.Tab, new() { Name = "Recap" }).ClickAsync();
 
         // A day with nothing recorded says so instead of showing zeros; arrow keys page too.

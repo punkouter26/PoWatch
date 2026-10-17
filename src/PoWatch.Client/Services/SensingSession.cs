@@ -40,7 +40,6 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     /// <summary>Labels the detector tracks right now; null until it reports, so captions then go ungrounded.</summary>
     private List<string>? _inFrame;
     private Task _sending = Task.CompletedTask;
-    private bool _vlmEnabled;
     private int _demoStep;
 
     public LiveSensingState Live { get; private set; } = new();
@@ -51,10 +50,31 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
     public bool IsRunning => _cts is not null;
 
     /// <summary>Whether a camera session also runs the vision model for captions.</summary>
-    public bool Captions { get; set; } = true;
+    public bool Captions
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            _vlm = new(time);
+            Notify();
+        }
+    } = true;
 
     /// <summary>Which caption model runs (a <see cref="CaptionModels"/> key); read on every caption, so a change applies at once.</summary>
-    public string CaptionModel { get; set; } = CaptionModels.Default;
+    public string CaptionModel
+    {
+        get;
+        set
+        {
+            var model = CaptionModels.Normalize(value);
+            if (field == model) return;
+            field = model;
+            _vlm = new(time);
+            Notify();
+        }
+    } = CaptionModels.Default;
 
     /// <summary>Watch rules checked against everything that enters the frame (see <see cref="WatchRules"/>).</summary>
     public List<WatchRule> Rules { get; set; } = [];
@@ -90,7 +110,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         if (session is null) return "The server could not be reached, so no session was started.";
 
         _video = video;
-        _vlmEnabled = enableVlm && !demo;
+        Captions = enableVlm;
         _batcher = new TickBatcher(time);
         _vlm = new VlmScheduler(time);
         _highlights = new HighlightRules(time);
@@ -352,7 +372,7 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
         // The grounded prompt doubles as the scene key: same objects, same counts, same prompt.
         var prompt = CaptionParser.Prompt(_inFrame ?? []);
         var scene = _inFrame is null ? null : prompt;
-        if (!_vlmEnabled || _vlmBusy || !_vlm.IsDueFor(scene) || _video is null) return;
+        if (!Captions || _vlmBusy || !_vlm.IsDueFor(scene) || _video is null) return;
         _vlmBusy = true;
         try
         {

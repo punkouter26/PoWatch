@@ -4,6 +4,7 @@
 @inject IJSRuntime JS
 @inject SensingSession Sensing
 @inject DrawerState Drawers
+@inject UiPrefs Prefs
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
@@ -55,6 +56,7 @@
         if (!firstRender) return;
         Sensing.Feed = _feed;
         await JS.TryInvokeVoidAsync("powatchMenus.setup");
+        await Prefs.LoadAsync(JS);
         // Remembered per browser: whether camera sessions also run the caption model.
         if (await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionsKey) == "off") Sensing.Captions = false;
         Sensing.CaptionModel = CaptionModels.Normalize(await JS.TryInvokeAsync<string>("localStorage.getItem", CaptionModels.Key));

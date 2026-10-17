@@ -1,0 +1,156 @@
+@implements IAsyncDisposable
+@inject SensingSession Sensing
+@inject PoWatchApiClient Api
+@inject IJSRuntime JS
+
+<div class="header-ai" data-test="header-ai" aria-label="AI models">
+    <div class="header-ai-control">
+        <label for="header-caption-model">CAMERA AI</label>
+        <select id="header-caption-model" @key="_captionRevision" value="@(Sensing.Captions ? Sensing.CaptionModel : "off")"
+                @onchange="SelectCaptionAsync" data-test="header-caption-model" aria-describedby="header-caption-status">
+            <option value="off">Captions off</option>
+            @foreach (var model in CaptionModels.All)
+            {
+                <option value="@model.Key">@model.Label</option>
+            }
+        </select>
+        <a id="header-caption-status" class="header-ai-status" href="system" title="@CaptionHint" data-test="header-caption-status"><span role="status">@CaptionStatus</span></a>
+    </div>
+    <div class="header-ai-control">
+        <label for="header-chat-model">ASK / RECAP AI</label>
+        <select id="header-chat-model" @key="_chatRevision" value="@_models?.SelectedId" @onchange="SelectChatAsync"
+                disabled="@(_models is null || _saving)" data-test="header-chat-model" aria-describedby="header-chat-status">
+            @if (_models is null)
+            {
+                <option>@(_loadFailed ? "Unavailable" : "Loading models...")</option>
+            }
+            else
+            {
+                @foreach (var model in _models.Models)
+                {
+                    <option value="@model.Id">@model.Provider - @model.Model</option>
+                }
+            }
+        </select>
+        <span id="header-chat-status" class="header-ai-status" role="status" title="Configured server model; availability is checked when you use it. Changes apply to new requests in this browser.">
+            @(_saving ? "SAVING..." : _models?.SelectedId switch { "Template" => "TEMPLATE / BROWSER FALLBACK", "Ollama" => "SERVER · OLLAMA", null => "SERVER", _ => "SERVER · CLOUD" })
+        </span>
+    </div>
+    @if (_error is not null)
+    {
+        <span class="header-ai-error" role="alert">@_error</span>
+    }
+    @if (_loadFailed)
+    {
+        <button class="term-button" @onclick="LoadModelsAsync">Retry AI</button>
+    }
+</div>
+
+@code {
+    private AiModelsDto? _models;
+    private InferenceStatusPayload? _inference;
+    private bool _saving;
+    private bool _loadFailed;
+    private int _captionRevision;
+    private int _chatRevision;
+    private string? _error;
+    private readonly CancellationTokenSource _stop = new();
+    private Task _poll = Task.CompletedTask;
+
+    private string CaptionStatus => !Sensing.Captions ? "OFF"
+        : !Sensing.IsRunning ? "ON DEVICE · IDLE"
+        : Sensing.Live.Demo ? "DEMO · AI IDLE"
+        : _inference is null ? "WAITING FOR WORKER"
+        : _inference.ModelKey != Sensing.CaptionModel ? "SWITCH PENDING"
+        : _inference.LoadState switch
+        {
+            "ready" => _inference.Device switch
+            {
+                "webgpu" => "ON DEVICE · WEBGPU",
+                "wasm" => "ON DEVICE · WASM CPU",
+                _ => "BACKEND UNKNOWN"
+            },
+            "loading" => "LOADING MODEL...",
+            "error" => "MODEL FAILED",
+            _ => "WAITING FOR CAPTION"
+        };
+
+    private string CaptionHint => _inference?.LoadError is { Length: > 0 } error ? error
+        : "Camera captions stay on this device. A switch applies after the current caption finishes. Open System for details.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Sensing.Changed += OnChanged;
+        await LoadModelsAsync();
+        _poll = PollAsync(_stop.Token);
+    }
+
+    private async Task LoadModelsAsync()
+    {
+        _models = await Api.GetAiModelsAsync(_stop.Token);
+        _loadFailed = _models is null;
+        _error = _loadFailed ? "Could not load server AI models." : null;
+    }
+
+    private async Task SelectCaptionAsync(ChangeEventArgs args)
+    {
+        var model = args.Value?.ToString();
+        if (model is null || (model != "off" && !CaptionModels.All.Any(m => m.Key == model)))
+        {
+            _error = "Choose one of the offered camera models.";
+            return;
+        }
+        try
+        {
+            if (model != "off")
+                await JS.InvokeVoidAsync("localStorage.setItem", CaptionModels.Key, model);
+            await JS.InvokeVoidAsync("localStorage.setItem", MainLayout.CaptionsKey, model == "off" ? "off" : "on");
+            if (model != "off") Sensing.CaptionModel = model;
+            Sensing.Captions = model != "off";
+            _error = null;
+        }
+        catch (JSException)
+        {
+            _captionRevision++;
+            _error = "Could not save the camera AI choice in this browser.";
+        }
+    }
+
+    private async Task SelectChatAsync(ChangeEventArgs args)
+    {
+        if (_saving || args.Value?.ToString() is not { } id) return;
+        _saving = true;
+        var saved = await Api.SelectAiModelAsync(id, _stop.Token);
+        if (saved is not null) _models = saved;
+        if (saved is null) _chatRevision++;
+        _error = saved is null ? "Could not switch server AI. Your previous model is still selected." : null;
+        _saving = false;
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        try
+        {
+            do
+            {
+                if (Sensing.IsRunning && !Sensing.Live.Demo && Sensing.Captions)
+                {
+                    _inference = await JS.TryInvokeAsync<InferenceStatusPayload>("powatchInference.getInferenceDiagnostics");
+                    await InvokeAsync(StateHasChanged);
+                }
+            } while (await timer.WaitForNextTickAsync(ct));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public async ValueTask DisposeAsync()
+    {
+        Sensing.Changed -= OnChanged;
+        await _stop.CancelAsync();
+        await _poll;
+        _stop.Dispose();
+    }
+}

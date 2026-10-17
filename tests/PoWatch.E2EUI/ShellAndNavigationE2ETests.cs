@@ -42,6 +42,31 @@ public sealed class ShellAndNavigationE2ETests(PlaywrightFixture fixture)
     }
 
     [Fact]
+    public async Task The_app_starts_simple_and_Advanced_in_Settings_adds_the_extras()
+    {
+        if (PlaywrightFixture.BaseUrl is null) return;
+        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+
+        await Assertions.Expect(page.GetByTestId("stats-toolbar")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("stats-ask")).ToHaveCountAsync(0);
+        await Assertions.Expect(page.GetByTestId("stats-json")).ToHaveCountAsync(0);
+
+        await page.OpenSettingsAsync();
+        await Assertions.Expect(page.GetByTestId("watch-rules")).ToHaveCountAsync(0);
+        await page.GetByTestId("advanced-toggle").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("advanced-toggle")).ToHaveAttributeAsync("aria-checked", "true");
+        await Assertions.Expect(page.GetByTestId("watch-rules")).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByTestId("stats-ask")).ToBeAttachedAsync();
+        await Assertions.Expect(page.GetByTestId("stats-json")).ToBeAttachedAsync();
+
+        // Reset puts every browser choice back, Advanced included.
+        await page.GetByTestId("settings-reset").ClickAsync();
+        await Assertions.Expect(page.GetByTestId("advanced-toggle")).ToHaveAttributeAsync("aria-checked", "false");
+        await Assertions.Expect(page.GetByTestId("stats-ask")).ToHaveCountAsync(0);
+        await page.AssertNoBlazorErrorAsync();
+    }
+
+    [Fact]
     public async Task The_key_bar_navigates()
     {
         if (PlaywrightFixture.BaseUrl is null) return;

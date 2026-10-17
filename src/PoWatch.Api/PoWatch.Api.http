@@ -50,7 +50,7 @@ Accept: application/json
 
 ### ─── OpenAPI / Scalar ───────────────────────────────────────────────────────
 
-# OpenAPI spec JSON
+# OpenAPI spec JSON (Development only)
 GET {{PoWatch.Api_HostAddress}}/openapi/v1.json
 Accept: application/json
 

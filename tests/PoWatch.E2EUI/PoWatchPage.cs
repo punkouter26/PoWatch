@@ -17,13 +17,15 @@ internal static class PoWatchPage
     private const int BootTimeoutMs = 60_000;
 
     /// <param name="user">A distinct guest identity, for tests that need a user with no history (e.g. the first-run demo button).</param>
-    public static async Task<IPage> SignedInAsync(IBrowser browser, string route = "/", string? user = null)
+    /// <param name="advanced">Start with Settings' Advanced switch on (it is off for a new browser).</param>
+    public static async Task<IPage> SignedInAsync(IBrowser browser, string route = "/", string? user = null, bool advanced = false)
     {
         var page = await browser.NewPageAsync(new()
         {
             IgnoreHTTPSErrors = true,
             ViewportSize = new() { Width = 1600, Height = 1000 }
         });
+        if (advanced) await page.AddInitScriptAsync("localStorage.setItem('powatch:advanced', 'on')");
 
         // BFF auth: anonymous visits redirect to /login. Sign in as the dev guest first — this sets
         // the session cookie server-side and redirects to returnUrl.

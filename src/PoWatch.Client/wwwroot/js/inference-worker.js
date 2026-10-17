@@ -224,6 +224,7 @@ self.onmessage = async (e) => {
         id,
         result: {
           modelId: (_spec ?? captionSpec(DEFAULT_CAPTION_MODEL)).id,
+          modelKey: _modelKey,
           loadState: _loadState,
           loadError: _loadError,
           device: _device,

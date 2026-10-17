@@ -43,14 +43,14 @@ camera ──► browser (all sensing on-device)                        server
 
 ## Pages
 
-`/` Live, one screen under one bar (range picker, an "Ask" box, "JSON ↓" for every number behind the
-grid): a 4×4 grid of the camera (2×2, one Start button; the demo scene is offered until a first session
+`/` Live, one screen under one bar (range picker; with Advanced on, an "Ask" box and "JSON ↓" for
+every number behind the grid): a 4×4 grid of the camera (2×2, one Start button; the demo scene is offered until a first session
 exists), key metrics for the range beside your usual day (σ, rhythm, trend, next busy hour), who is in
 frame with every class seen in the range, then the live motion grid and six stat panels. On a phone the
 panels after "In frame" are one swipeable strip · `/history/{yyyy-MM-dd}` on the left the year (with the
 weather's effect, once a place is set), the day's numbers, weather and its week against the week
-before, and the day's sessions; on the right four tabs (recap with motion and captions, JSON/PDF and a
-share link; replay; moments; time-lapse); on a desktop each column scrolls on its own · `/regulars` a
+before, and the day's sessions; on the right two tabs (recap with motion and captions, plus JSON/PDF and a
+share link with Advanced on; replay, with the day's moments and time-lapse under it); on a desktop each column scrolls on its own · `/regulars` a
 card per regular, filterable and sortable: rename in place, tick several to merge (a bar floats up) ·
 `/settings` the Settings drawer as a page, for links. Range, session and day live in the URL, so
 reloads, links and Back/Forward keep their place. Every page needs a sign-in.
@@ -66,6 +66,26 @@ count. Escape or ✕ closes a drawer, and so does going to another page. Watch r
 22:00 and 06:00") are kept in the browser, checked as things enter the frame, and relayed to every open
 tab over the hub (plus a desktop notification where allowed).
 
+**Simple by default, Advanced in Settings.** A new browser gets the simple app. Settings' Advanced
+switch (`Services/UiPrefs.cs`, remembered per browser) adds the extras: the Ask box, "Explain today"
+and JSON on Live; JSON/PDF downloads, share links and the 3D year on History; the caption model,
+command palette row, watch rules, weather place, weekly email and shared links in Settings; and the
+visual effects (CRT tube switch, comet trails, WebGL2 motion grid). Anything already switched on stays
+visible without Advanced (a kept rule, a weather place, a live link). "Reset to defaults" puts this
+browser's choices back (dark, low sound, captions on, Florence-2, Advanced off); rules and the
+account's server settings stay.
+
+**AI selectors.** The middle of the header has two dropdowns on every signed-in page. Camera AI
+chooses Florence-2, either SmolVLM, or captions off; its status reports the worker's actual
+WebGPU/WASM backend, loading/failure, or a pending switch. Changes are saved per browser, also update
+Settings, and apply after the current caption finishes, even in a still scene. Ask / Recap AI lists
+the server-configured Azure OpenAI, Gemini and Ollama models plus Template. Its choice is kept in an
+HTTP-only browser cookie for a year and applies to new Ask, recap, PDF and assist requests, not
+other browsers or background digests. Already displayed answers are not regenerated. Labels expose
+neither credentials nor endpoints; a configured model can still be unavailable when called.
+Template keeps the existing browser recap fallback. On narrow screens the selectors occupy a second
+header row.
+
 **Look.** One palette on every page (deep-blue glass in the dark theme, plain panels in the light one),
 five type sizes (`--fs-xs` to `--fs-xl`), and Radzen's `--rz-*` variables pointed at the same tokens.
 
@@ -76,19 +96,19 @@ day, Ctrl+K opens a command palette (also: the demo scene, System, full screen) 
 entering — panned to the side it entered from — a new regular, an alert, an error). Level
 off/low/mid/high is on Settings and remembered per browser.
 
-**Motion grid.** On Live the 16×9 grid is a WebGL2 shader (`wwwroot/js/heat-gl.js`); without WebGL2
-it is the plain grid. Animations use spring easings and all stop under `prefers-reduced-motion`.
+**Motion grid.** On Live the 16×9 grid is, with Advanced on, a WebGL2 shader (`wwwroot/js/heat-gl.js`); without WebGL2
+or with Advanced off it is the plain grid. Animations use spring easings and all stop under `prefers-reduced-motion`.
 
 **Offline.** The published app registers a service worker that caches the app shell (not the ~20 MB
 vision runtime), so PoWatch opens without a network; batches wait in the outbox as before. Offline,
 the shell stays open for whoever was last signed in on that browser; the server still decides what
 the cookie may read.
 
-**Tube switch** (`wwwroot/js/crt.js`). Start and Stop play a short CRT power-on and power-off over the
+**Tube switch** (`wwwroot/js/crt.js`, Advanced). Start and Stop play a short CRT power-on and power-off over the
 camera panel (a transparent WebGL2 overlay, so camera and demo alike), timed with the start and stop
 cues; Stop keeps the picture docked until the tube is dark. Nothing plays under reduced motion.
 
-**The year in 3D** (History, `wwwroot/js/skyline.js`). The year panel switches between the 2D
+**The year in 3D** (History, `wwwroot/js/skyline.js`, Advanced). The year panel switches between the 2D
 calendar and a skyline of instanced WebGL2 towers (height = occupancy, blue = a wet day): drag or
 arrow keys to turn, scroll or + − to zoom, hover for the day, click to open it. "Fly over" glides
 along the year and plays each week as a note (minor pentatonic, higher when busier). It draws only on
@@ -100,7 +120,7 @@ range slider (drag, ← →, Home/End); the playhead drives the motion grid shad
 caption of the moment and, where this browser kept a time-lapse, the nearest camera frame. Play walks
 the observed minutes only.
 
-**Comet trails** (`wwwroot/js/fx.js`, fed by `Layout/FxBridge.razor`) follow people and animals over
+**Comet trails** (`wwwroot/js/fx.js`, fed by `Components/FxBridge.razor`, Advanced) follow people and animals over
 the camera and add up to a long-exposure PNG on the session recap; they respect
 `prefers-reduced-motion`.
 
@@ -114,6 +134,7 @@ the camera and add up to a long-exposure PNG on the session recap; they respect
 | `GET /api/stats/all?range=` | every family in one JSON document, plus the raw ticks and events for session, today or one day (Live's "All data ↓", History's "Day data ↓") |
 | `GET /api/recaps/session/{id}[.pdf]`, `GET /api/recaps/day/{date}[.pdf]?tz=[&ai=false]` | recaps and PDFs; `ai=false` answers from the template at once |
 | `POST /api/ask` | a plain-language question answered from the caller's own statistics (503 without an AI provider) |
+| `GET /api/ai/models`, `PUT /api/ai/models` | configured server model labels and the browser's selected model; unknown selections return 400 |
 | `POST /api/ask/rule` | a watch rule drafted from a sentence, for the caller to confirm (422 when it is not a rule, 503 without an AI provider) |
 | `POST /api/alerts` | relay a fired watch rule to the user's open tabs |
 | `GET /api/export.csv`, `DELETE /api/data` | one row per observed day; delete everything stored for the caller |
@@ -125,7 +146,7 @@ the camera and add up to a long-exposure PNG on the session recap; they respect
 | `POST`/`GET /api/shares`, `DELETE /api/shares/{token}` | make, list and take down shared recap links (1, 7 or 30 days) |
 | `/s/{token}`, `/s/{token}/card.png` (public) | a shared recap as plain HTML (no scripts, `noindex`, strict CSP, `no-store`) and its 1200×630 preview card |
 | `/hubs/stats` | SignalR: `statsChanged`, `alert` |
-| `/health`, `/health/live`, `/diag/boot` (public), `/diag`, `/api/diagnostics/status` (signed in) | operations |
+| `/health`, `/health/live`, `/diag/boot` (public), `/api/diagnostics/status` (signed in) | operations |
 
 Unknown `/api/*` routes return 404. Everything except the SPA shell, `/health`, `/diag/boot`, shared
 recap pages (`/s/…`) and sign-in requires the BFF cookie (Entra ID, or guest sign-in in Dev/Test).

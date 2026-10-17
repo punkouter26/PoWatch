@@ -6,6 +6,7 @@
   let activeStream = null;
   let activePreviewElement = null;
   let _lastFramePixels = null;
+  let _lastCaptionModel = null;
 
   async function ensureWebcamAccess() {
     if (!navigator?.mediaDevices?.getUserMedia) {
@@ -105,14 +106,16 @@
       await attachStreamToElement(videoElement);
 
       if (!videoElement || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) return unavailable('No frame captured');
-      // Skip the model when the scene has not changed enough since the last caption.
-      if (computeFrameDiff(videoElement) < 0.015) return unavailable('Frame unchanged: skipped');
+      // A model switch must run even when the camera frame has not changed.
+      const diff = computeFrameDiff(videoElement);
+      if (model === _lastCaptionModel && diff < 0.015) return unavailable('Frame unchanged: skipped');
 
       const frame = await captureFrame(videoElement);
       // The detector yields the GPU while this runs (detector-bridge.js).
       gpu.captioning++;
       try {
         const res = await call({ type: 'RUN_INFERENCE', payload: { frame, prompt, maxNewTokens: maxInferenceTokens, model } }, [frame]);
+        _lastCaptionModel = model;
         // Searchable by meaning from the command palette (caption-index.js); the vector stays on this device.
         if (res.result?.isAvailable && res.result.embedding) window.powatchCaptionIndex?.put(Date.now(), res.result.activity, res.result.embedding);
         return res.result;

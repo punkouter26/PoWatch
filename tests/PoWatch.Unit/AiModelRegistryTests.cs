@@ -1,0 +1,38 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using PoWatch.Application.Contracts;
+using PoWatch.Infrastructure.Runtime;
+
+namespace PoWatch.Unit;
+
+public sealed class AiModelRegistryTests
+{
+    [Fact]
+    public void Configured_models_have_distinct_clients_and_safe_labels_without_network_calls()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AiProvider:Provider"] = "AzureOpenAi",
+            ["AzureOpenAi:Endpoint"] = "https://example.openai.azure.com/",
+            ["AzureOpenAi:ApiKey"] = "not-a-real-key",
+            ["AzureOpenAi:DeploymentName"] = "test-deployment",
+            ["Gemini:ApiKey"] = "not-a-real-google-key",
+            ["Gemini:Model"] = "test-gemini",
+            ["Ollama:Model"] = "test-local"
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddDistributedMemoryCache();
+        services.AddPoWatchRecapAi(configuration);
+        using var provider = services.BuildServiceProvider();
+        var models = provider.GetRequiredService<IAiModelRegistry>();
+
+        Assert.Equal("AzureOpenAi", models.DefaultId);
+        Assert.Equal(["Template", "AzureOpenAi", "Gemini", "Ollama"], models.Models.Select(m => m.Id));
+        Assert.Equal("test-deployment", models.Models.Single(m => m.Id == "AzureOpenAi").Model);
+        Assert.Null(models.GetClient("Template"));
+        Assert.Same(models.GetClient("Ollama"), models.GetClient("Ollama"));
+        Assert.NotSame(models.GetClient("AzureOpenAi"), models.GetClient("Ollama"));
+        Assert.DoesNotContain(models.Models, m => m.ToString().Contains("not-a-real", StringComparison.Ordinal));
+        Assert.Throws<KeyNotFoundException>(() => models.GetClient("unknown"));
+    }
+}

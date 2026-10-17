@@ -1,0 +1,66 @@
+@* Who is tracked right now, then every class seen in the range (what is in frame first). *@
+@inject SensingSession Sensing
+
+@{ var census = CensusRows(); }
+<TerminalPanel Title="In frame" Class="live-tall" Test="live-tracks" Flush="true">
+    <Aside>@L.Tracks.Count NOW · @census.Count CLASSES</Aside>
+    <ChildContent>
+        @if (L.Tracks.Count > 0)
+        {
+            <ul class="live-who" aria-label="Tracked right now">
+                @foreach (var track in L.Tracks.Take(8))
+                {
+                    <li>#@track.TrackId <b>@(L.RegularFor(track.TrackId)?.DisplayName ?? track.Label)</b> @DisplayText.Duration((DateTimeOffset.UtcNow - track.FirstSeenUtc).TotalSeconds)</li>
+                }
+            </ul>
+        }
+        @if (census.Count == 0)
+        {
+            <p class="term-empty">Nothing seen yet.</p>
+        }
+        else
+        {
+            <table class="term-table" data-test="live-census">
+                <thead><tr><th>Class</th><th class="r">Now</th><th class="r">Peak</th><th class="r">Share</th></tr></thead>
+                <tbody>
+                    @foreach (var row in census)
+                    {
+                        <tr><td>@row.Name</td><td class="r">@L.ClassesNow.GetValueOrDefault(row.Name)</td><td class="r">@row.Peak</td><td class="r">@DisplayText.Percent(row.Share)</td></tr>
+                    }
+                </tbody>
+            </table>
+            @if (Objects?.Rarest is { } rare)
+            {
+                <p class="term-stat-hint">RAREST @rare.ToUpperInvariant()</p>
+            }
+        }
+    </ChildContent>
+</TerminalPanel>
+
+@code {
+    /// <summary>Classes seen in the range; kept until the next answer, so a failed refresh keeps the table.</summary>
+    [Parameter] public ObjectStatsDto? Objects { get; set; }
+
+    private ObjectStatsDto? _indexed;
+    private Dictionary<string, ClassStatDto> _knownClasses = new(StringComparer.OrdinalIgnoreCase);
+
+    private LiveSensingState L => Sensing.Live;
+
+    protected override void OnParametersSet()
+    {
+        // Live renders four times a second; re-index only when a new answer arrives.
+        if (Objects is null || ReferenceEquals(Objects, _indexed)) return;
+        _indexed = Objects;
+        _knownClasses = Objects.Classes.GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Built once per render: what is in frame now first, then history.</summary>
+    private List<ClassStatDto> CensusRows() =>
+        L.ClassesSeen.Keys.Concat(_knownClasses.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(name => _knownClasses.GetValueOrDefault(name) ?? new ClassStatDto { Name = name, Peak = L.ClassesNow.GetValueOrDefault(name) })
+            .OrderByDescending(c => L.ClassesNow.GetValueOrDefault(c.Name))
+            .ThenByDescending(c => c.TicksPresent)
+            .ToList();
+}

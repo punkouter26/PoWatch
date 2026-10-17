@@ -6,9 +6,12 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject DialogService Dialogs
+@inject UiPrefs Prefs
+@implements IDisposable
 
 @* Every optional choice in one place, so the pages you work on carry none. Each starts on the value
-   that suits most rooms (dark, quiet cues, captions on, no rules) and is remembered in this browser.
+   that suits most rooms (dark, quiet cues, captions on, Advanced off) and is remembered in this browser.
+   Advanced shows the extras here and across the app; anything already switched on stays visible without it.
    One column: it opens in the gear's drawer, and as the /settings page. *@
 <div class="settings-stack" data-test="settings-page">
     <TerminalPanel Title="Preferences" Test="settings-preferences" Flush="true">
@@ -24,68 +27,80 @@
                 <button class="term-menu-item" role="switch" aria-checked="@(Sensing.Captions ? "true" : "false")" @onclick="ToggleCaptionsAsync" data-test="captions-toggle">
                     <span>Captions <i>an on-device vision model describes the scene</i></span><b>@(Sensing.Captions ? "ON" : "OFF")</b>
                 </button>
-                <button class="term-menu-item" @onclick="CycleCaptionModelAsync" disabled="@(!Sensing.Captions)" data-test="caption-model">
-                    <span>Caption model <i>smaller is faster on a slow GPU; applies from the next caption</i></span><b>@CaptionModels.Label(Sensing.CaptionModel)</b>
+                <button class="term-menu-item" role="switch" aria-checked="@(Prefs.Advanced ? "true" : "false")" @onclick="ToggleAdvancedAsync" data-test="advanced-toggle">
+                    <span>Advanced <i>Ask, downloads, sharing, watch rules, weather, visual effects</i></span><b>@(Prefs.Advanced ? "ON" : "OFF")</b>
                 </button>
-                <button class="term-menu-item" onclick="powatchMenus.openPalette()" data-test="open-palette">
-                    <span>Commands and shortcuts</span><b>CTRL K</b>
+                @if (Prefs.Advanced)
+                {
+                    <button class="term-menu-item" @onclick="CycleCaptionModelAsync" disabled="@(!Sensing.Captions)" data-test="caption-model">
+                        <span>Caption model <i>smaller is faster on a slow GPU; applies from the next caption</i></span><b>@CaptionModels.Label(Sensing.CaptionModel)</b>
+                    </button>
+                    <button class="term-menu-item" onclick="powatchMenus.openPalette()" data-test="open-palette">
+                        <span>Commands and shortcuts</span><b>CTRL K</b>
+                    </button>
+                }
+                <button class="term-menu-item" @onclick="ResetAsync" data-test="settings-reset">
+                    <span>Reset to defaults <i>dark, low sound, captions on, Advanced off; rules and server settings stay</i></span><b>↺</b>
                 </button>
             </div>
         </ChildContent>
     </TerminalPanel>
 
-    <TerminalPanel Title="Watch rules" Test="watch-rules">
-        <Aside>@_rules.Count OF @WatchRules.Max</Aside>
-        <ChildContent>
-            @foreach (var rule in _rules)
-            {
-                <div class="rule-row">
-                    <span>@rule</span>
-                    <button class="term-icon-button" @onclick="() => RemoveRuleAsync(rule)" aria-label="@($"Remove rule: {rule}")">✕</button>
-                </div>
-            }
-            @if (_rules.Count < WatchRules.Max)
-            {
-                <form class="rule-form" @onsubmit="AddRuleAsync">
-                    <label class="visually-hidden" for="rule-class">Alert me when this appears</label>
-                    <select id="rule-class" @bind="_ruleClass">
-                        <option value="person">person</option>
-                        <option value="cat">cat</option>
-                        <option value="dog">dog</option>
-                        <option value="@WatchRules.Any">anything</option>
-                    </select>
-                    <label class="visually-hidden" for="rule-from">From hour</label>
-                    <input id="rule-from" type="number" min="0" max="23" @bind="_ruleFrom" />
-                    <span aria-hidden="true">→</span>
-                    <label class="visually-hidden" for="rule-to">Until hour</label>
-                    <input id="rule-to" type="number" min="0" max="23" @bind="_ruleTo" />
-                    <button type="submit" class="term-button" data-test="rule-add">Add</button>
-                </form>
-                @* Or in plain words: the server's model drafts the rule, which shows here to confirm before it is kept. *@
-                <form class="rule-form rule-form--words" @onsubmit="DraftRuleAsync" data-test="rule-words">
-                    <label class="visually-hidden" for="rule-words">Describe a rule in your own words</label>
-                    <input id="rule-words" @bind="_ruleWords" @bind:event="oninput" maxlength="@RuleDraftRequestDto.MaxLength" autocomplete="off"
-                           placeholder="Or say it: tell me if a dog shows up at night" disabled="@_drafting" />
-                    <button type="submit" class="term-button" disabled="@(_drafting || string.IsNullOrWhiteSpace(_ruleWords))">@(_drafting ? "…" : "Draft")</button>
-                </form>
-                @if (_draft is { } draft)
+    @if (Prefs.Advanced || _rules.Count > 0)
+    {
+        <TerminalPanel Title="Watch rules" Test="watch-rules">
+            <Aside>@_rules.Count OF @WatchRules.Max</Aside>
+            <ChildContent>
+                @foreach (var rule in _rules)
                 {
-                    <div class="rule-row rule-row--draft" data-test="rule-draft">
-                        <span>@draft</span>
-                        <span>
-                            <button class="term-button" @onclick="KeepDraftAsync" data-test="rule-draft-keep">Keep</button>
-                            <button class="term-icon-button" @onclick="() => _draft = null" aria-label="Discard the drafted rule">✕</button>
-                        </span>
+                    <div class="rule-row">
+                        <span>@rule</span>
+                        <button class="term-icon-button" @onclick="() => RemoveRuleAsync(rule)" aria-label="@($"Remove rule: {rule}")">✕</button>
                     </div>
                 }
-                else if (_draftError is not null)
+                @if (_rules.Count < WatchRules.Max)
                 {
-                    <p class="term-stat-hint" role="status">@_draftError</p>
+                    <form class="rule-form" @onsubmit="AddRuleAsync">
+                        <label class="visually-hidden" for="rule-class">Alert me when this appears</label>
+                        <select id="rule-class" @bind="_ruleClass">
+                            <option value="person">person</option>
+                            <option value="cat">cat</option>
+                            <option value="dog">dog</option>
+                            <option value="@WatchRules.Any">anything</option>
+                        </select>
+                        <label class="visually-hidden" for="rule-from">From hour</label>
+                        <input id="rule-from" type="number" min="0" max="23" @bind="_ruleFrom" />
+                        <span aria-hidden="true">→</span>
+                        <label class="visually-hidden" for="rule-to">Until hour</label>
+                        <input id="rule-to" type="number" min="0" max="23" @bind="_ruleTo" />
+                        <button type="submit" class="term-button" data-test="rule-add">Add</button>
+                    </form>
+                    @* Or in plain words: the server's model drafts the rule, which shows here to confirm before it is kept. *@
+                    <form class="rule-form rule-form--words" @onsubmit="DraftRuleAsync" data-test="rule-words">
+                        <label class="visually-hidden" for="rule-words">Describe a rule in your own words</label>
+                        <input id="rule-words" @bind="_ruleWords" @bind:event="oninput" maxlength="@RuleDraftRequestDto.MaxLength" autocomplete="off"
+                               placeholder="Or say it: tell me if a dog shows up at night" disabled="@_drafting" />
+                        <button type="submit" class="term-button" disabled="@(_drafting || string.IsNullOrWhiteSpace(_ruleWords))">@(_drafting ? "…" : "Draft")</button>
+                    </form>
+                    @if (_draft is { } draft)
+                    {
+                        <div class="rule-row rule-row--draft" data-test="rule-draft">
+                            <span>@draft</span>
+                            <span>
+                                <button class="term-button" @onclick="KeepDraftAsync" data-test="rule-draft-keep">Keep</button>
+                                <button class="term-icon-button" @onclick="() => _draft = null" aria-label="Discard the drafted rule">✕</button>
+                            </span>
+                        </div>
+                    }
+                    else if (_draftError is not null)
+                    {
+                        <p class="term-stat-hint" role="status">@_draftError</p>
+                    }
                 }
-            }
-            <p class="term-stat-hint">Alerts land in the bell. Hours are local; the same hour twice means any time. @(_notifications ?? "They also show as desktop notifications if you allow them.")</p>
-        </ChildContent>
-    </TerminalPanel>
+                <p class="term-stat-hint">Alerts land in the bell. Hours are local; the same hour twice means any time. @(_notifications ?? "They also show as desktop notifications if you allow them.")</p>
+            </ChildContent>
+        </TerminalPanel>
+    }
 
     <TerminalPanel Title="Kept on the server" Test="settings-server" Flush="true">
         <Aside>FOR YOUR ACCOUNT</Aside>
@@ -101,42 +116,48 @@
                         <span>Raw detail kept <i>replays, captions, moments; charts and totals stay forever</i></span><b>@RetentionLabel(_profile.RetentionDays)</b>
                     </button>
 
-                    <div class="settings-place" data-test="weather-place">
-                        <span>Weather from <i>daily weather beside each day on History</i></span>
-                        @if (_profile.Place is { } place)
-                        {
-                            <b>@place.Name.ToUpperInvariant()</b>
-                            <button class="term-icon-button" @onclick="ClearPlaceAsync" disabled="@_saving" aria-label="Stop showing weather" title="Stop showing weather">✕</button>
-                        }
-                        else
-                        {
-                            <b>OFF</b>
-                        }
-                    </div>
-                    <form class="settings-search" @onsubmit="SearchPlacesAsync">
-                        <label class="visually-hidden" for="place-search">Find a town or city</label>
-                        <input id="place-search" @bind="_placeQuery" placeholder="Find a town or city…" autocomplete="off" maxlength="80" data-test="place-search" />
-                        <button type="submit" class="term-button" disabled="@_searching" data-test="place-search-go">@(_searching ? "…" : "Find")</button>
-                    </form>
-                    @if (_places is { } places)
+                    @if (Prefs.Advanced || _profile.Place is not null)
                     {
-                        @if (places.Count == 0)
-                        {
-                            <p class="term-stat-hint">NO PLACE BY THAT NAME</p>
-                        }
-                        <ul class="settings-results" data-test="place-results">
-                            @foreach (var found in places)
+                        <div class="settings-place" data-test="weather-place">
+                            <span>Weather from <i>daily weather beside each day on History</i></span>
+                            @if (_profile.Place is { } place)
                             {
-                                <li><button class="term-menu-item" @onclick="() => SavePlaceAsync(found)" disabled="@_saving"><span>@found.Name <i>@found.Detail</i></span><b>USE</b></button></li>
+                                <b>@place.Name.ToUpperInvariant()</b>
+                                <button class="term-icon-button" @onclick="ClearPlaceAsync" disabled="@_saving" aria-label="Stop showing weather" title="Stop showing weather">✕</button>
                             }
-                        </ul>
+                            else
+                            {
+                                <b>OFF</b>
+                            }
+                        </div>
+                        <form class="settings-search" @onsubmit="SearchPlacesAsync">
+                            <label class="visually-hidden" for="place-search">Find a town or city</label>
+                            <input id="place-search" @bind="_placeQuery" placeholder="Find a town or city…" autocomplete="off" maxlength="80" data-test="place-search" />
+                            <button type="submit" class="term-button" disabled="@_searching" data-test="place-search-go">@(_searching ? "…" : "Find")</button>
+                        </form>
+                        @if (_places is { } places)
+                        {
+                            @if (places.Count == 0)
+                            {
+                                <p class="term-stat-hint">NO PLACE BY THAT NAME</p>
+                            }
+                            <ul class="settings-results" data-test="place-results">
+                                @foreach (var found in places)
+                                {
+                                    <li><button class="term-menu-item" @onclick="() => SavePlaceAsync(found)" disabled="@_saving"><span>@found.Name <i>@found.Detail</i></span><b>USE</b></button></li>
+                                }
+                            </ul>
+                        }
                     }
 
-                    <button class="term-menu-item" role="switch" aria-checked="@(_profile.DigestEmail ? "true" : "false")" @onclick="ToggleDigestEmailAsync"
-                            disabled="@(_saving || !_profile.DigestEmailAvailable)" data-test="digest-toggle">
-                        <span>Weekly email <i>@(_profile.DigestEmailAvailable ? (_profile.DigestEmail ? $"Mondays, to {_profile.Email}" : "the week in review, Monday mornings") : "this server cannot send email; the week is on History")</i></span>
-                        <b>@(_profile.DigestEmail ? "ON" : "OFF")</b>
-                    </button>
+                    @if (Prefs.Advanced || _profile.DigestEmail)
+                    {
+                        <button class="term-menu-item" role="switch" aria-checked="@(_profile.DigestEmail ? "true" : "false")" @onclick="ToggleDigestEmailAsync"
+                                disabled="@(_saving || !_profile.DigestEmailAvailable)" data-test="digest-toggle">
+                            <span>Weekly email <i>@(_profile.DigestEmailAvailable ? (_profile.DigestEmail ? $"Mondays, to {_profile.Email}" : "the week in review, Monday mornings") : "this server cannot send email; the week is on History")</i></span>
+                            <b>@(_profile.DigestEmail ? "ON" : "OFF")</b>
+                        </button>
+                    }
                 </div>
                 @if (_profileMessage is not null)
                 {
@@ -146,29 +167,32 @@
         </ChildContent>
     </TerminalPanel>
 
-    <TerminalPanel Title="Shared recaps" Test="settings-shares">
-        <Aside>@(_shares?.Count ?? 0) LIVE</Aside>
-        <ChildContent>
-            @if (_shares is null)
-            {
-                <p class="term-empty">Could not load your links.</p>
-            }
-            else if (_shares.Count == 0)
-            {
-                <p class="term-empty">No shared recaps. Share a day from its recap on History; the link works without signing in until it expires.</p>
-            }
-            else
-            {
-                @foreach (var share in _shares)
+    @if (Prefs.Advanced || _shares is { Count: > 0 })
+    {
+        <TerminalPanel Title="Shared recaps" Test="settings-shares">
+            <Aside>@(_shares?.Count ?? 0) LIVE</Aside>
+            <ChildContent>
+                @if (_shares is null)
                 {
-                    <div class="rule-row" data-test="share-row">
-                        <span><a class="term-link" href="@share.Path" target="_blank" rel="noopener">@share.Day.ToString("ddd d MMM", CultureInfo.CurrentCulture)</a> <i class="term-stat-hint">UNTIL @share.ExpiresUtc.ToLocalTime().ToString("d MMM HH:mm", CultureInfo.CurrentCulture)</i></span>
-                        <button class="term-icon-button" @onclick="() => RevokeAsync(share)" aria-label="@($"Take down the link to {share.Day:d MMM}")" title="Take the link down" data-test="share-revoke">✕</button>
-                    </div>
+                    <p class="term-empty">Could not load your links.</p>
                 }
-            }
-        </ChildContent>
-    </TerminalPanel>
+                else if (_shares.Count == 0)
+                {
+                    <p class="term-empty">No shared recaps. Share a day from its recap on History; the link works without signing in until it expires.</p>
+                }
+                else
+                {
+                    @foreach (var share in _shares)
+                    {
+                        <div class="rule-row" data-test="share-row">
+                            <span><a class="term-link" href="@share.Path" target="_blank" rel="noopener">@share.Day.ToString("ddd d MMM", CultureInfo.CurrentCulture)</a> <i class="term-stat-hint">UNTIL @share.ExpiresUtc.ToLocalTime().ToString("d MMM HH:mm", CultureInfo.CurrentCulture)</i></span>
+                            <button class="term-icon-button" @onclick="() => RevokeAsync(share)" aria-label="@($"Take down the link to {share.Day:d MMM}")" title="Take the link down" data-test="share-revoke">✕</button>
+                        </div>
+                    }
+                }
+            </ChildContent>
+        </TerminalPanel>
+    }
 
     <TerminalPanel Title="Account and data" Test="your-data" Flush="true">
         <Aside>@_email</Aside>
@@ -215,6 +239,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Prefs.Changed += OnPrefsChanged;
+        Sensing.Changed += OnPrefsChanged;
         if (AuthState is not null)
         {
             var user = (await AuthState).User;
@@ -304,6 +330,31 @@
     {
         var next = await JS.TryInvokeAsync<string>("powatchTheme.toggle");
         _theme = string.IsNullOrEmpty(next) ? (_theme == "dark" ? "light" : "dark") : next;
+    }
+
+    private void OnPrefsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Prefs.Changed -= OnPrefsChanged;
+        Sensing.Changed -= OnPrefsChanged;
+    }
+
+    private Task ToggleAdvancedAsync() => Prefs.SetAdvancedAsync(JS, !Prefs.Advanced);
+
+    /// <summary>Back to the starting values for this browser's choices; watch rules and the account's settings are data, not choices, and stay.</summary>
+    private async Task ResetAsync()
+    {
+        if (_theme != "dark") await ToggleThemeAsync();
+        for (var i = 0; i < 4 && _sound != "low"; i++) await CycleSoundAsync();
+        if (!Sensing.Captions) await ToggleCaptionsAsync();
+        if (Sensing.CaptionModel != CaptionModels.Default)
+        {
+            Sensing.CaptionModel = CaptionModels.Default;
+            await JS.TryInvokeVoidAsync("localStorage.setItem", CaptionModels.Key, Sensing.CaptionModel);
+        }
+
+        await Prefs.SetAdvancedAsync(JS, false);
     }
 
     private async Task CycleSoundAsync() => _sound = await JS.TryInvokeAsync<string>("powatchCues.cycle") ?? _sound;

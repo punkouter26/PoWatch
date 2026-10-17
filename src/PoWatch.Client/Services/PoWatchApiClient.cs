@@ -60,6 +60,12 @@ public sealed class PoWatchApiClient(HttpClient httpClient)
         (await ReadAsync(ct => httpClient.PostAsJsonAsync("api/ask",
             new AskRequestDto { Question = question, TimeZoneId = TimeZoneInfo.Local.Id }, Json.AskRequestDto, ct), Json.AskAnswerDto, cancellationToken))?.Answer;
 
+    public Task<AiModelsDto?> GetAiModelsAsync(CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => httpClient.GetAsync("api/ai/models", ct), Json.AiModelsDto, cancellationToken);
+
+    public Task<AiModelsDto?> SelectAiModelAsync(string modelId, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => httpClient.PutAsJsonAsync("api/ai/models", new SelectAiModelDto(modelId), Json.SelectAiModelDto, ct), Json.AiModelsDto, cancellationToken);
+
     /// <summary>A watch rule drafted from a sentence, or null when there is no model or the sentence is not a rule.</summary>
     public async Task<RuleDraftDto?> DraftRuleAsync(string text, CancellationToken cancellationToken = default) =>
         await ReadAsync(ct => httpClient.PostAsJsonAsync("api/ask/rule", new RuleDraftRequestDto { Text = text }, Json.RuleDraftRequestDto, ct), Json.RuleDraftDto, cancellationToken);

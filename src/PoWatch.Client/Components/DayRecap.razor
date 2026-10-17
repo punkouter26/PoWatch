@@ -1,0 +1,137 @@
+@* History's Recap tab: the day in a paragraph (the template first, a model's rewording when one arrives),
+   with Advanced on its downloads and a share link, then the motion across the day and the caption words. *@
+@using System.Globalization
+@inject PoWatchApiClient Api
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject UiPrefs Prefs
+@implements IDisposable
+
+@if (Recap is null || Presence is not { SecondsObserved: > 0 })
+{
+    <p class="term-empty">@(Loaded ? "No recap: nothing was observed on this day." : "Loading…")</p>
+}
+else
+{
+    <div class="history-recap" data-test="history-recap">
+        @* Keyed on who wrote it: when a model's version replaces the template's, it eases in. *@
+        <p class="recap-summary fx-rise" @key="Recap.Source">@Recap.Summary</p>
+        @if (Recap.Highlights.Count > 0)
+        {
+            <ul class="recap-highlights">
+                @foreach (var highlight in Recap.Highlights)
+                {
+                    <li>@highlight</li>
+                }
+            </ul>
+        }
+        <div class="history-recap-foot">
+            <span class="term-stat-hint">WRITTEN BY @Recap.Source.ToUpperInvariant()@(Rewriting ? " · A MODEL IS REWORDING IT…" : string.Empty)</span>
+            @if (Prefs.Advanced)
+            {
+                <span class="term-btn-group" role="group" aria-label="Download this day">
+                    <a class="term-button" href="@PoWatchApiClient.AllStatsUrl(StatsQuery.ForDay(Day))" download="PoWatch-@(DayKey).json" title="Every tick, event and stat stored for this day" data-test="history-day-json">JSON ↓</a>
+                    <a class="term-button" href="@PoWatchApiClient.DayRecapPdfUrl(Day, TimeZoneInfo.Local.Id)" download="PoWatch-@(DayKey).pdf" title="This recap as a PDF" data-test="history-recap-pdf">PDF ↓</a>
+                </span>
+                @if (_share is null)
+                {
+                    <button class="term-button" @onclick="ShareAsync" disabled="@_sharing" title="A read-only page of this recap that works without signing in, for 7 days" data-test="history-share">@(_sharing ? "Sharing…" : "Share ↗")</button>
+                }
+            }
+        </div>
+        @if (_share is { } share)
+        {
+            <div class="history-share" data-test="history-share-link">
+                <label class="visually-hidden" for="share-url">Link to this recap</label>
+                <input id="share-url" readonly value="@ShareUrl(share)" onfocus="this.select()" />
+                <button class="term-button" @onclick="() => CopyAsync(share)">@(_copied ? "Copied" : "Copy")</button>
+                <button class="term-button term-button--danger" @onclick="() => TakeDownAsync(share)" title="The link stops working at once">Take down</button>
+                <span class="term-stat-hint">WORKS WITHOUT SIGNING IN UNTIL @share.ExpiresUtc.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture).ToUpperInvariant() · NO CAMERA IMAGES</span>
+            </div>
+        }
+        @if (_shareError is not null)
+        {
+            <p class="live-error" role="alert">@_shareError</p>
+        }
+    </div>
+}
+
+@if (_motion.Count > 0)
+{
+    <h3 class="history-sub">Motion</h3>
+    <RadzenChart class="history-chart" aria-label="Motion across the day">
+        <RadzenAreaSeries Data="@_motion" CategoryProperty="@nameof(Point.At)" ValueProperty="@nameof(Point.Value)" Title="Motion" />
+        <RadzenCategoryAxis Formatter="@(v => v is DateTime t ? t.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty)" />
+        <RadzenValueAxis Min="0" FormatString="{0:0.00}" />
+        <RadzenLegend Visible="false" />
+    </RadzenChart>
+}
+
+@if (Captions is { Words.Count: > 0 })
+{
+    <h3 class="history-sub">Captions · @Captions.CaptionCount</h3>
+    <div class="stats-cloud">
+        @foreach (var word in Captions.Words.Take(30))
+        {
+            <span style="font-size: @((11 + (16.0 * word.Count / Captions.Words[0].Count)).ToString("0", CultureInfo.InvariantCulture))px">@word.Word</span>
+        }
+    </div>
+    @if (Captions.WeirdestCaption is { } weird)
+    {
+        <p class="stats-weird"><b>WEIRDEST</b> “@weird”</p>
+    }
+}
+
+@code {
+    public sealed record Point(DateTime At, double Value);
+
+    [Parameter, EditorRequired] public DateOnly Day { get; set; }
+    [Parameter] public RecapDto? Recap { get; set; }
+    [Parameter] public PresenceStatsDto? Presence { get; set; }
+    [Parameter] public EnvironmentStatsDto? Captions { get; set; }
+    [Parameter] public bool Loaded { get; set; }
+    [Parameter] public bool Rewriting { get; set; }
+
+    private DateOnly? _shareDay;
+    private PresenceStatsDto? _charted;
+    private List<Point> _motion = [];
+    private ShareDto? _share;
+    private bool _sharing;
+    private bool _copied;
+    private string? _shareError;
+
+    private string DayKey => Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    protected override void OnInitialized() => Prefs.Changed += OnPrefsChanged;
+
+    protected override void OnParametersSet()
+    {
+        // A link belongs to the day it was made for.
+        if (Day != _shareDay) (_share, _shareError, _copied, _shareDay) = (null, null, false, Day);
+        if (ReferenceEquals(Presence, _charted)) return;
+        _charted = Presence;
+        _motion = Presence?.Series.Select(p => new Point(p.AtUtc.LocalDateTime, p.Motion)).ToList() ?? [];
+    }
+
+    private void OnPrefsChanged() => InvokeAsync(StateHasChanged);
+
+    private string ShareUrl(ShareDto share) => Navigation.BaseUri + share.Path;
+
+    private async Task ShareAsync()
+    {
+        (_sharing, _shareError) = (true, null);
+        _share = await Api.CreateShareAsync(Day, days: 7);
+        if (_share is null) _shareError = "Could not make a link — nothing was observed that day, or the server did not answer.";
+        _sharing = false;
+    }
+
+    private async Task CopyAsync(ShareDto share) => _copied = await JS.TryInvokeVoidAsync("navigator.clipboard.writeText", ShareUrl(share));
+
+    private async Task TakeDownAsync(ShareDto share)
+    {
+        if (await Api.RevokeShareAsync(share.Token)) (_share, _copied) = (null, false);
+        else _shareError = "Could not take the link down — try again, or from Settings.";
+    }
+
+    public void Dispose() => Prefs.Changed -= OnPrefsChanged;
+}

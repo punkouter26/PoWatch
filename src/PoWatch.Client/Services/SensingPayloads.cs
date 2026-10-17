@@ -52,6 +52,9 @@ public sealed class VlmResultPayload
     public float[]? Embedding { get; init; }
 }
 
+/// <summary>The caption worker's actual model and backend, separate from the pending selection.</summary>
+public sealed record InferenceStatusPayload(string? ModelKey, string LoadState, string? Device, string? LoadError);
+
 /// <summary>What the comet trails (wwwroot/js/fx.js) need from a live session, a few times a second.</summary>
 public sealed class FxFramePayload
 {

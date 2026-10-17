@@ -1,38 +1,20 @@
-using PoWatch.Api.Platform;
 using System.Globalization;
-using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
-using PoWatch.Api.Features.Diagnostics;
-using PoWatch.Api.Features.Sessions;
+using PoWatch.Api.Features;
 using PoWatch.Api.Features.Ingest;
-using PoWatch.Api.Features.Snapshots;
-using PoWatch.Api.Features.Regulars;
-using PoWatch.Api.Features.Recaps;
-using PoWatch.Infrastructure.Runtime;
 using PoWatch.Api.Features.Stats;
-using PoWatch.Api.Features.Dev;
-using PoWatch.Api.Features.Auth;
-using PoWatch.Api.Features.Ask;
-using PoWatch.Api.Features.Data;
-using PoWatch.Api.Features.Digest;
-using PoWatch.Api.Features.Profile;
-using PoWatch.Api.Features.Shares;
-using PoWatch.Api.Features.Weather;
 using PoWatch.Api.HealthChecks;
 using PoWatch.Api.Hosting;
 using PoWatch.Api.Middleware;
 using PoWatch.Api.Observability;
+using PoWatch.Api.Platform;
+using PoWatch.Api.Features.Ask;
 using PoWatch.Api.Security;
 using PoWatch.Application;
 using PoWatch.Application.Options;
 using PoWatch.Infrastructure;
+using PoWatch.Infrastructure.Runtime;
 using Scalar.AspNetCore;
 using Serilog;
-using Serilog.Context;
 
 // Initialise Serilog early so startup errors are captured before host construction.
 // Use a regular logger here so repeated WebApplicationFactory host creation in integration tests
@@ -86,41 +68,16 @@ builder.Services.AddHybridCache();
 // OpenTelemetry tracing (passes config so Azure Monitor exporter can be gated on connection string)
 builder.Services.AddPoWatchTelemetry(builder.Configuration);
 
-// Health checks — Azure Storage ping + Key Vault ping (when enabled) + JSON endpoint at /health
-var hcBuilder = builder.Services.AddHealthChecks()
-    .AddCheck<AzureStorageHealthCheck>("azure-storage");
-if (featureFlags.EnableKeyVault)
-    hcBuilder.AddCheck<KeyVaultHealthCheck>("azure-key-vault");
-
-// Rate limiting on the API, sign-in and hub routes: 300 requests a minute per signed-in user (per IP
-// when anonymous). A running session posts a batch every 10 s and polls stats, so 60 would trip.
-// Static assets are exempt (a cold load is ~200 files); the Test host is exempt (suites share one guest).
-builder.Services.AddRateLimiter(rl =>
-{
-    rl.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    rl.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-    {
-        var path = http.Request.Path;
-        // "/s" is the public shared-recap page: anonymous, so it is limited per IP like sign-in is.
-        var limited = path.StartsWithSegments("/api") || path.StartsWithSegments("/auth") || path.StartsWithSegments("/hubs") || path.StartsWithSegments("/s");
-        if (!limited || builder.Environment.IsEnvironment("Test"))
-            return RateLimitPartition.GetNoLimiter(string.Empty);
-
-        var key = CurrentUser.Id(http.User) ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
-        {
-            PermitLimit = 300,
-            Window = TimeSpan.FromMinutes(1),
-            SegmentsPerWindow = 6
-        });
-    });
-});
+// Health checks: Azure Storage, plus Key Vault when it is enabled (served at /health).
+builder.Services.AddPoWatchHealthChecks(featureFlags);
+builder.Services.AddPoWatchRateLimiting(builder.Environment);
 
 builder.Services.AddPoWatchApplication();
 builder.Services.AddPoWatchInfrastructure();
 // ponytail: in-memory recap response cache (200 MB cap), lost on restart; swap in Redis/SQL if that matters.
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddPoWatchRecapAi(builder.Configuration);
+builder.Services.AddBrowserAiSelection();
 builder.Services.AddPoWatchDigestEmail(builder.Configuration);
 // Retention and the weekly digest run on a timer; the Test host leaves them off so suites stay deterministic.
 if (!builder.Environment.IsEnvironment("Test"))
@@ -140,44 +97,14 @@ builder.AddPoWatchAuthentication(featureFlags);
 
 var app = builder.Build();
 
-// OpenAPI + Scalar API reference UI
-app.MapOpenApi("/openapi/v1.json");
-app.MapScalarApiReference("/scalar/v1");
-
-// Global exception handler — exposes detail only when ExposeDebugDetailsInUi is true
-app.UseExceptionHandler(errorApp =>
+// The API reference is a development aid: /openapi/v1.json and the Scalar UI at /scalar/v1.
+if (app.Environment.IsDevelopment())
 {
-    errorApp.Run(async context =>
-    {
-        var logger = context.RequestServices
-            .GetRequiredService<ILoggerFactory>()
-            .CreateLogger("GlobalException");
+    app.MapOpenApi("/openapi/v1.json");
+    app.MapScalarApiReference("/scalar/v1");
+}
 
-        var flags = context.RequestServices.GetRequiredService<IOptions<FeatureFlagsOptions>>();
-        var exceptionFeature = context.Features.Get<IExceptionHandlerPathFeature>();
-        var exception = exceptionFeature?.Error;
-
-        logger.LogError(
-            exception,
-            "Unhandled exception. Path={Path} TraceId={TraceId}",
-            context.Request.Path,
-            context.TraceIdentifier);
-
-        var details = new ProblemDetails
-        {
-            Title = "An error occurred while processing the request.",
-            Status = StatusCodes.Status500InternalServerError,
-            Detail = flags.Value.ExposeDebugDetailsInUi
-                ? exception?.ToString()
-                : "An internal error occurred. See server logs for details.",
-            Instance = context.Request.Path
-        };
-        details.Extensions["traceId"] = context.TraceIdentifier;
-
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await context.Response.WriteAsJsonAsync(details);
-    });
-});
+app.UsePoWatchExceptionHandler();
 
 // Only enforce HTTPS redirect in non-development environments.
 // In dev the API binds only to HTTP; the middleware cannot resolve the HTTPS port and
@@ -191,124 +118,18 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 // Auth middleware — always active (BFF cookie session + OIDC/guest schemes)
 app.UseAuthentication();
 
-// Only now is the user known: every later log line, Serilog or ILogger scope, carries their partition id.
-app.Use(async (ctx, next) =>
-{
-    var userId = CurrentUser.Id(ctx.User) ?? "anonymous";
-    using (LogContext.PushProperty("UserId", userId))
-    using (app.Logger.BeginScope(new Dictionary<string, object> { ["UserId"] = userId }))
-    {
-        await next(ctx);
-    }
-});
-
+app.UsePoWatchUserLogScope();
 app.UseAuthorization();
 // After authentication: the limiter partitions by the signed-in user.
 app.UseRateLimiter();
 
-// JSON health endpoint — returns status of each registered check
-app.MapHealthChecks("/health", new HealthCheckOptions
-{
-    ResponseWriter = async (context, report) =>
-    {
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(new
-        {
-            status = report.Status.ToString(),
-            durationMs = report.TotalDuration.TotalMilliseconds,
-            checks = report.Entries.Select(e => new
-            {
-                name = e.Key,
-                status = e.Value.Status.ToString(),
-                description = e.Value.Description,
-                durationMs = e.Value.Duration.TotalMilliseconds
-            })
-        });
-    }
-}).AllowAnonymous();
+app.MapPoWatchHealth();
 
-// UI-less diagnostics: masked environment keys + integration statuses, for signed-in callers.
-app.MapGet("/diag", (PoWatch.Application.Contracts.IDiagnosticsProvider provider) =>
-        Results.Ok(provider.CaptureSnapshot()))
-    .WithName("Diag")
-    .WithSummary("Masked environment keys and integration statuses.")
-    .RequireAuthorization();
-
-// Boot readiness: the fastest answer to "why did the app not come ready?". Reports per-dependency
-// readiness WITHOUT secrets. Anonymous and dependency-light
-// so it stays reachable even when a downstream dependency is degraded.
-app.MapGet("/diag/boot", (
-        PoWatch.Infrastructure.StartupReadiness readiness,
-        IOptions<FeatureFlagsOptions> flags,
-        IConfiguration config,
-        IWebHostEnvironment env) =>
-    {
-        var storageConfigured = !string.IsNullOrWhiteSpace(config["AzureStorage:ConnectionString"])
-                             || !string.IsNullOrWhiteSpace(config["AzureStorage:ServiceUri"]);
-        var ready = readiness.StorageReady;
-        var payload = new
-        {
-            environment = env.EnvironmentName,
-            ready,
-            storage = new
-            {
-                configured = storageConfigured,
-                ready = readiness.StorageReady,
-                detail = readiness.StorageDetail
-            },
-            keyVault = new
-            {
-                enabled = flags.Value.EnableKeyVault,
-                uriConfigured = !string.IsNullOrWhiteSpace(config["KeyVault:Uri"])
-            }
-        };
-        // 200 when ready, 503 when a dependency is not ready — so orchestrators/probes can act on it.
-        return ready ? Results.Ok(payload) : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
-    })
-    .WithName("DiagBoot")
-    .WithSummary("Per-dependency readiness (no secrets).")
-    .AllowAnonymous();
-
-// Serve hosted Blazor WASM from same origin — no CORS needed
-// .NET 10: MapStaticAssets() replaces both UseBlazorFrameworkFiles() and UseStaticFiles().
-// It uses the staticwebassets.endpoints.json manifest to resolve fingerprinted file names.
-// App wwwroot/js files are NOT fingerprinted by the framework, so force revalidation on
-// every request to prevent stale-cache errors after deployments.
-app.Use(async (context, next) =>
-{
-    // Cross-origin isolation unlocks SharedArrayBuffer, so the vision model's WASM backend runs
-    // multi-threaded on machines without WebGPU. "credentialless" (not require-corp) keeps the
-    // Hugging Face weights and SAS snapshot images loading without CORP headers on their side.
-    context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
-    context.Response.Headers["Cross-Origin-Embedder-Policy"] = "credentialless";
-
-    if (context.Request.Path.StartsWithSegments("/js") ||
-        context.Request.Path.StartsWithSegments("/css"))
-    {
-        context.Response.Headers["Cache-Control"] = "no-cache, must-revalidate";
-    }
-    await next();
-});
+app.UsePoWatchResponseHeaders();
 // Static assets (WASM framework files, JS, CSS) must stay anonymous so the client can load and reach /login.
 app.MapStaticAssets().AllowAnonymous();
 
-// --- API routes ---
-app.MapAuthEndpoints();
-app.MapDiagnosticsFeature();
-app.MapSessionsFeature();
-app.MapIngestFeature();
-app.MapSnapshotsFeature();
-app.MapRegularsFeature();
-app.MapRecapsFeature();
-app.MapStatsFeature();
-app.MapAskFeature();
-app.MapDataFeature();
-app.MapProfileFeature();
-app.MapWeatherFeature();
-app.MapDigestFeature();
-app.MapSharesFeature();
-app.MapHub<StatsHub>(StatsHub.Path).RequireAuthorization();
-app.MapDevSeedFeature(app.Environment);
+app.MapPoWatchFeatures();
 // Uniform cross-app liveness probe (see PoPlatform). Same shape in every Po app, which
 // is what lets the portfolio dashboard poll them all and render one uptime grid.
 app.MapPoLiveness();

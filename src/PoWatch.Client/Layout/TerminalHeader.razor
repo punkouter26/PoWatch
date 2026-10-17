@@ -4,14 +4,16 @@
 @inject DrawerState Drawers
 @inject NavigationManager Navigation
 
-@* One row: brand, section keys (a bottom tab bar on a phone), one status chip, Start/Stop, the bell, and
-   the gear that opens Settings in a drawer. The active key names the section, so there is no page title. *@
+@* Brand, section keys, AI selectors, status, Start/Stop, bell and Settings.
+   The selectors wrap on narrow screens; section keys become the phone's bottom tab bar. *@
 <header class="term-header" data-test="term-header">
     <a class="term-brand" href="" aria-label="PoWatch home">
         PoWatch <span class="term-brand-mark">TERM</span>
     </a>
 
     <NavBar />
+
+    <AiSelectors />
 
     @* Only the state word is a live region: the uptime ticks every second and would otherwise be
        read out every second. *@
