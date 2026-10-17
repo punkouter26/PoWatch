@@ -13,7 +13,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task The_live_page_shows_every_panel_and_one_way_to_start()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         foreach (var panel in new[] { "live-camera", "live-metrics", "live-tracks", "live-motion-grid" })
             await Assertions.Expect(page.GetByTestId(panel)).ToBeVisibleAsync();
@@ -25,8 +25,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task A_demo_session_fills_the_counters_and_stops_cleanly()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        // A fresh user: the demo button is offered only until a first session exists.
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"demo-{Guid.NewGuid():N}");
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"demo-{Guid.NewGuid():N}");
 
         await page.GetByTestId("start-demo").ClickAsync();
         await Assertions.Expect(page.GetByTestId("session-status")).ToContainTextAsync("OBSERVING");
@@ -53,7 +52,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
         if (PlaywrightFixture.BaseUrl is null) return;
         // Its own user: the seed runs once per user, so on the shared guest it would land on whatever earlier tests left.
         var user = $"month-{Guid.NewGuid():N}";
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user);
         // APIRequest does not carry the page's sign-in cookie; the header names the same user.
         var seed = await page.APIRequest.PostAsync($"{PlaywrightFixture.BaseUrl}/api/dev/seed?days=40&tz=UTC", new() { Headers = PoWatchPage.As(user) });
         Assert.True(seed.Ok, $"seed returned {seed.Status}");
@@ -78,7 +77,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         // A fresh user: storage persists (Azurite), so a reused guest already knows the walker and the cat.
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"names-{Guid.NewGuid():N}");
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"names-{Guid.NewGuid():N}");
 
         await page.GetByTestId("start-demo").ClickAsync();
 
@@ -111,7 +110,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     {
         if (PlaywrightFixture.BaseUrl is null) return;
         var user = $"history-{Guid.NewGuid():N}";
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user, advanced: true);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: user, advanced: true);
 
         // Real ingest (not the seed), so today has the minute rollups a day view reads. Ingest refuses
         // ticks outside their session (no backdating), so only today has a recorded session.
@@ -189,7 +188,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task The_system_page_reports_runtime_and_inference_state()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
         await page.GoToSystemAsync();
 
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Inference engine" }))
@@ -200,7 +199,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task The_system_page_lists_every_connection_with_a_verdict()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
         await page.GoToSystemAsync();
 
         await Assertions.Expect(page.GetByTestId("health-overall")).ToBeVisibleAsync(new() { Timeout = 30000 });
@@ -214,7 +213,7 @@ public sealed class PageContentE2ETests(PlaywrightFixture fixture)
     public async Task Signing_out_returns_the_operator_to_the_login_page()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser);
 
         await page.OpenSettingsAsync();
         await page.GetByTestId("sign-out").ClickAsync();

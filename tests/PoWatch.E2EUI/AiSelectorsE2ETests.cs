@@ -9,7 +9,7 @@ public sealed class AiSelectorsE2ETests(PlaywrightFixture fixture)
     public async Task Header_models_persist_switch_during_a_session_and_fit_on_a_phone()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"ai-selectors-{Guid.NewGuid():N}");
+        await using var page = await PoWatchPage.SignedInAsync(fixture.Browser, user: $"ai-selectors-{Guid.NewGuid():N}");
         var captions = page.GetByTestId("header-caption-model");
         var chat = page.GetByTestId("header-chat-model");
         await Assertions.Expect(chat).ToBeEnabledAsync();

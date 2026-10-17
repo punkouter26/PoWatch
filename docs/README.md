@@ -251,6 +251,9 @@ multi-threaded.
 - `SCRIPTS/check-hygiene.ps1`: layout, naming, central package versions, shell assets, and no
   caregiver-era vocabulary.
 - CI runs all four suites; UI E2E installs Playwright's Chromium and runs with `E2E_LOCAL=1`.
+  Each UI test disposes its page (and isolated browser context), including each viewport-loop
+  iteration. Failed sign-in/startup reports browser exceptions, console errors and failed resource
+  requests alongside the original assertion, rather than only a missing navigation bar.
 - `SCRIPTS/caption-eval.ps1` (by hand, not CI): runs every caption model over 40 COCO indoor frames
   with human captions (or your own `-Frames` folder) through the app's own prompt and rejection
   rules, and reports load time, latency, how many captions were kept and their similarity to the

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Playwright;
 
 namespace PoWatch.E2EUI;
@@ -16,7 +17,8 @@ internal static class PoWatchPage
     /// <summary>Generous enough for a cold WASM boot on a slow host.</summary>
     private const int BootTimeoutMs = 60_000;
 
-    /// <param name="user">A distinct guest identity, for tests that need a user with no history (e.g. the first-run demo button).</param>
+    /// <remarks>The caller must dispose the returned page to close its isolated browser context.</remarks>
+    /// <param name="user">A distinct guest identity, for tests that need a user with no history.</param>
     /// <param name="advanced">Start with Settings' Advanced switch on (it is off for a new browser).</param>
     public static async Task<IPage> SignedInAsync(IBrowser browser, string route = "/", string? user = null, bool advanced = false)
     {
@@ -25,18 +27,39 @@ internal static class PoWatchPage
             IgnoreHTTPSErrors = true,
             ViewportSize = new() { Width = 1600, Height = 1000 }
         });
-        if (advanced) await page.AddInitScriptAsync("localStorage.setItem('powatch:advanced', 'on')");
+        var errors = new ConcurrentQueue<string>();
+        page.PageError += (_, error) => errors.Enqueue($"Page error: {error}");
+        page.Console += (_, message) =>
+        {
+            if (message.Type == "error") errors.Enqueue($"Console: {message.Text}");
+        };
+        page.RequestFailed += (_, request) => errors.Enqueue($"Request failed: {request.Url}: {request.Failure}");
+        page.Response += (_, response) =>
+        {
+            if (response.Status >= 400) errors.Enqueue($"HTTP {response.Status}: {response.Url}");
+        };
 
-        // BFF auth: anonymous visits redirect to /login. Sign in as the dev guest first — this sets
-        // the session cookie server-side and redirects to returnUrl.
-        await page.GotoAsync(
-            $"{PlaywrightFixture.BaseUrl}/auth/login/fake?returnUrl={Uri.EscapeDataString(route)}"
-            + (user is null ? string.Empty : $"&user={Uri.EscapeDataString(user)}"));
+        try
+        {
+            if (advanced) await page.AddInitScriptAsync("localStorage.setItem('powatch:advanced', 'on')");
 
-        await Assertions.Expect(page.GetByTestId("app-navbar"))
-            .ToBeVisibleAsync(new() { Timeout = BootTimeoutMs });
+            // BFF auth: sign in first to set the session cookie before returning to the app.
+            await page.GotoAsync(
+                $"{PlaywrightFixture.BaseUrl}/auth/login/fake?returnUrl={Uri.EscapeDataString(route)}"
+                + (user is null ? string.Empty : $"&user={Uri.EscapeDataString(user)}"));
 
-        return page;
+            await Assertions.Expect(page.GetByTestId("app-navbar"))
+                .ToBeVisibleAsync(new() { Timeout = BootTimeoutMs });
+
+            return page;
+        }
+        catch (PlaywrightException ex)
+        {
+            var diagnostics = string.Join(Environment.NewLine, errors.TakeLast(30));
+            var url = page.Url;
+            await page.CloseAsync();
+            throw new InvalidOperationException($"Blazor startup failed at {url}.{Environment.NewLine}{diagnostics}", ex);
+        }
     }
 
     /// <summary>

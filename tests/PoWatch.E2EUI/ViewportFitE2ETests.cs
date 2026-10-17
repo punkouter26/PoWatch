@@ -38,7 +38,7 @@ public sealed class ViewportFitE2ETests
             int width = (int)scenario[0];
             int height = (int)scenario[1];
             if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
+            await using var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
             await page.SetViewportSizeAsync(width, height);
             await page.WaitForTimeoutAsync(1000);
 
@@ -56,7 +56,7 @@ public sealed class ViewportFitE2ETests
             int width = (int)scenario[0];
             int height = (int)scenario[1];
             if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await using var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
             await page.GoToAsync("/history", "HISTORY");
             await page.WaitForTimeoutAsync(500);
@@ -75,7 +75,7 @@ public sealed class ViewportFitE2ETests
             int width = (int)scenario[0];
             int height = (int)scenario[1];
             if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await using var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
             await page.GoToAsync("/regulars", "REGULARS");
             await page.WaitForTimeoutAsync(500);
@@ -94,7 +94,7 @@ public sealed class ViewportFitE2ETests
             int width = (int)scenario[0];
             int height = (int)scenario[1];
             if (PlaywrightFixture.BaseUrl is null) return;
-            var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+            await using var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
             await page.SetViewportSizeAsync(width, height);
             await page.GoToSystemAsync();
             await page.WaitForTimeoutAsync(500);
@@ -109,7 +109,7 @@ public sealed class ViewportFitE2ETests
     public async Task On_a_phone_every_section_key_is_visible_without_widening_the_page()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
+        await using var page = await PoWatchPage.SignedInAsync(_fixture.Browser, "/");
         await page.SetViewportSizeAsync(360, 640);
         await page.WaitForTimeoutAsync(500);
 
@@ -127,7 +127,7 @@ public sealed class ViewportFitE2ETests
     public async Task A_camera_session_samples_the_fake_camera_and_survives_navigation()
     {
         if (PlaywrightFixture.BaseUrl is null) return;
-        var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
+        await using var page = await PoWatchPage.SignedInAsync(_fixture.Browser);
         await page.SetViewportSizeAsync(1440, 900);
 
         // Chromium's fake camera (see PlaywrightFixture); captions off so no vision model downloads.
