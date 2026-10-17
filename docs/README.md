@@ -44,8 +44,8 @@ camera ──► browser (all sensing on-device)                        server
 ## Pages
 
 `/` Live, one screen under one bar (range picker; with Advanced on, an "Ask" box and "JSON ↓" for
-every number behind the grid): a 4×4 grid of the camera (2×2, one Start button; the demo scene is offered until a first session
-exists), key metrics for the range beside your usual day (σ, rhythm, trend, next busy hour), who is in
+every number behind the grid): a 4×4 grid of the camera (2×2, one Start button; a synthetic demo is
+available whenever stopped), key metrics for the range beside your usual day (σ, rhythm, trend, next busy hour), who is in
 frame with every class seen in the range, then the live motion grid and six stat panels. On a phone the
 panels after "In frame" are one swipeable strip · `/history/{yyyy-MM-dd}` on the left the year (with the
 weather's effect, once a place is set), the day's numbers, weather and its week against the week
@@ -103,6 +103,15 @@ or with Advanced off it is the plain grid. Animations use spring easings and all
 vision runtime), so PoWatch opens without a network; batches wait in the outbox as before. Offline,
 the shell stays open for whoever was last signed in on that browser; the server still decides what
 the cookie may read.
+
+**Session recovery.** Accepted ingest batches refresh each running session's last-activity time.
+When a user next lists or reads sessions, sessions without activity for ten minutes are closed at
+their last observed time. This recovers abandoned sessions; offline batches older than the allowed
+session clock skew may no longer be accepted after that timeout.
+
+**Synthetic demo.** The demo is one deterministic smoke-test room, not an AI accuracy test: a
+recurring walker, a passing dog, a napping cat, a stationary cup and slowly changing light exercise
+the sensing pipeline without a camera or model.
 
 **Tube switch** (`wwwroot/js/crt.js`, Advanced). Start and Stop play a short CRT power-on and power-off over the
 camera panel (a transparent WebGL2 overlay, so camera and demo alike), timed with the start and stop

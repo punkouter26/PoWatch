@@ -44,7 +44,7 @@ public sealed record StatsWindow(StatsRange Range, DateTimeOffset FromUtc, DateT
 /// Reads rollups for a window and runs the domain stat calculators over them. Everything here is
 /// composition; the maths lives in <c>PoWatch.Domain.Services</c> and is unit-tested there.
 /// </summary>
-public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, ISessionRepository sessions, IRegularStore regulars, TimeProvider time)
+public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingLog, SessionService sessions, IRegularStore regulars, TimeProvider time)
 {
     /// <summary>
     /// The raw record behind a short window (session, today or one day): every 10 s tick and every scene
@@ -316,7 +316,7 @@ public sealed class StatsQueryService(IRollupStore rollups, ISensingLog sensingL
         // Captions are raw events, so only a short window reads them.
         List<(DateTimeOffset AtUtc, string Text)> captions = window.IsShort
             ? [.. (await EventsAsync(userId, window, cancellationToken))
-                .Where(e => e.Kind == SceneEventKind.Caption && e.Text is not null)
+                .Where(e => e.Kind == SceneEventKind.Caption && e.Text is not null && !CaptionStats.IsUninformative(e.Text))
                 .Select(e => (e.AtUtc, e.Text!))]
             : [];
 

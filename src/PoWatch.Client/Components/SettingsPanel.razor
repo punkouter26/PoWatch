@@ -426,8 +426,17 @@
         if (sure != true) return;
 
         _deleting = true;
-        _dataMessage = await Api.DeleteMyDataAsync() ? "Everything was deleted." : "Could not delete — nothing was changed. Try again.";
-        _deleting = false;
+        try
+        {
+            if (Sensing.IsRunning) await Sensing.StopAsync();
+            _dataMessage = await Api.DeleteMyDataAsync()
+                ? "Everything was deleted."
+                : "Sensing stopped, but the server could not delete your data. Try again.";
+        }
+        finally
+        {
+            _deleting = false;
+        }
     }
 
     private async Task SignOutAsync()

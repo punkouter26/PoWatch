@@ -106,8 +106,20 @@ public sealed class SensingSession(PoWatchApiClient api, IJSRuntime js, TimeProv
             if (preview != "OK") return preview ?? "The camera could not be started.";
         }
 
-        var session = await api.StartSessionAsync(new StartSessionRequestDto { SessionId = Guid.NewGuid(), TimeZoneId = timeZoneId });
-        if (session is null) return "The server could not be reached, so no session was started.";
+        SessionDto? session = null;
+        try
+        {
+            session = await api.StartSessionAsync(new StartSessionRequestDto { SessionId = Guid.NewGuid(), TimeZoneId = timeZoneId });
+        }
+        finally
+        {
+            if (session is null && !demo) await js.TryInvokeVoidAsync("powatchInference.stopMonitor");
+        }
+
+        if (session is null)
+        {
+            return "The server could not be reached, so no session was started.";
+        }
 
         _video = video;
         Captions = enableVlm;

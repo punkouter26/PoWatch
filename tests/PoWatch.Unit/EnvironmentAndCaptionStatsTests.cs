@@ -80,5 +80,8 @@ public sealed class EnvironmentAndCaptionStatsTests
         Assert.Null(CaptionStats.Weirdest(captions.Take(2).ToList()));
         Assert.Equal(1.0, CaptionStats.Jaccard("The cat", "cat the"));
         Assert.Equal(0.0, CaptionStats.Jaccard("dog", "cat"));
+        Assert.True(CaptionStats.IsUninformative("unanswerable."));
+        Assert.True(CaptionStats.IsUninformative("UNKNOWN"));
+        Assert.False(CaptionStats.IsUninformative("A cat naps on the sofa."));
     }
 }

@@ -11,6 +11,7 @@ public sealed record Session
     public required DateTimeOffset StartedUtc { get; init; }
     public DateTimeOffset? EndedUtc { get; init; }
     public required string TimeZoneId { get; init; }
+    public DateTimeOffset LastActivityUtc { get; init; }
 
     public bool IsRunning => EndedUtc is null;
 
@@ -22,7 +23,14 @@ public sealed record Session
         if (!TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out _))
             throw new ArgumentException($"Unknown time zone '{timeZoneId}'.", nameof(timeZoneId));
 
-        return new Session { Id = id, UserId = userId, StartedUtc = startedUtc, TimeZoneId = timeZoneId };
+        return new Session
+        {
+            Id = id,
+            UserId = userId,
+            StartedUtc = startedUtc,
+            TimeZoneId = timeZoneId,
+            LastActivityUtc = startedUtc
+        };
     }
 
     public Session Stop(DateTimeOffset endedUtc)

@@ -35,6 +35,13 @@ public sealed class IngestService(
             return new IngestOutcome(false, false, false, []);
 
         var now = time.GetUtcNow();
+        if (session.IsRunning && session.LastActivityUtc < now - SessionService.StaleAfter)
+        {
+            await sessions.StopIfStaleAsync(userId, sessionId, now - SessionService.StaleAfter, cancellationToken);
+            session = await sessions.GetAsync(userId, sessionId, cancellationToken);
+            if (session is null) return new IngestOutcome(false, false, false, []);
+        }
+
         // Without this a client could backdate ticks into any past day and rewrite its stats.
         bool OutsideSession(DateTimeOffset at) => at < session.StartedUtc - Tick.MaxClockSkew
             || (session.EndedUtc is { } ended && at > ended + Tick.MaxClockSkew);
@@ -49,6 +56,7 @@ public sealed class IngestService(
         if (errors.Count > 0)
             return new IngestOutcome(true, false, false, errors);
 
+        await sessions.TouchAsync(userId, sessionId, now, cancellationToken);
         var zone = session.TimeZone;
 
         // Raw rows first: they are idempotent, and they are what a rollup rebuild would read.

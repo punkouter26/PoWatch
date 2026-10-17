@@ -81,11 +81,7 @@
                                 <p>Point a camera at anything, press Start, walk away.</p>
                                 <div class="live-actions">
                                     <button class="term-button term-button--primary" @onclick="() => StartAsync(demo: false)" disabled="@_starting" data-test="start-camera">Start camera</button>
-                                    @* Only until the first session exists; the command palette offers the demo after that. *@
-                                    @if (_firstRun)
-                                    {
-                                        <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">No camera? Try the demo</button>
-                                    }
+                                    <button class="term-button" @onclick="() => StartAsync(demo: true)" disabled="@_starting" data-test="start-demo">No camera? Try the demo</button>
                                 </div>
                                 @if (_error is not null)
                                 {

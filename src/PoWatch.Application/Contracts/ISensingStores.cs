@@ -12,6 +12,12 @@ public interface ISessionRepository
 
     /// <summary>The user's most recent sessions, newest first.</summary>
     Task<IReadOnlyList<Session>> ListAsync(string userId, int take, CancellationToken cancellationToken);
+
+    /// <summary>Refreshes activity for a running session without changing its end state.</summary>
+    Task TouchAsync(string userId, Guid sessionId, DateTimeOffset atUtc, CancellationToken cancellationToken);
+
+    /// <summary>Stops a session only when its last activity is older than the cutoff.</summary>
+    Task<bool> StopIfStaleAsync(string userId, Guid sessionId, DateTimeOffset cutoffUtc, CancellationToken cancellationToken);
 }
 
 /// <summary>

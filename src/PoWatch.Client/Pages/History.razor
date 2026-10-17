@@ -225,7 +225,19 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        _day = DateOnly.TryParseExact(Day, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) && day <= Today ? day : Today;
+        if (Day is null)
+        {
+            _day = Today;
+        }
+        else if (!DateOnly.TryParseExact(Day, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) || day > Today)
+        {
+            Navigation.NavigateTo("history", replace: true);
+            return;
+        }
+        else
+        {
+            _day = day;
+        }
         // Once per distinct link, so choosing another tab afterwards is not undone by a re-render.
         if (Tab == "replay" && (Tab, At) != _appliedQuery) (_tab, _replayAt, _appliedQuery) = (1, At, (Tab, At));
         if (_day == _shown) return;
